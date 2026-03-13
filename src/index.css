@@ -433,6 +433,60 @@ button:disabled {
   display: none;
 }
 
+.toast-stack {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #171717;
+  border-left-width: 6px;
+  background: #fffdf8;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+.toast strong {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.toast p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.toast button {
+  align-self: flex-end;
+  border: 1px solid currentColor;
+  background: transparent;
+  padding: 0.2rem 0.46rem;
+  font-size: 0.76rem;
+}
+
+.toast-error {
+  border-left-color: #b1362c;
+  background: linear-gradient(180deg, #fff7f5 0%, #ffe9e4 100%);
+}
+
+.toast-error strong,
+.toast-error button {
+  color: #7e1f17;
+}
+
 @media (max-width: 1180px) {
   .workspace-shell {
     grid-template-columns: 100px minmax(0, 1fr);
@@ -472,5 +526,13 @@ button:disabled {
 
   .inspector-panel {
     grid-column: auto;
+  }
+
+  .toast-stack {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
   }
 }

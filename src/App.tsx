@@ -39,6 +39,13 @@ const DEFAULT_VIEWPORT: Viewport = {
   zoom: 1,
 };
 
+interface ToastMessage {
+  id: number;
+  message: string;
+}
+
+const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
+
 function downloadTextFile(content: string, fileName: string) {
   const blob = new Blob([content], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -95,6 +102,7 @@ export default function App() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
+  const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,6 +120,38 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, [statusMessage]);
+
+  function dismissToast(toastId: number) {
+    setErrorToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }
+
+  function showErrorToast(message: string) {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setErrorToasts((current) => [...current, { id, message }]);
+    window.setTimeout(() => {
+      dismissToast(id);
+    }, 4200);
+  }
+
+  function isErrorMessage(message: string): boolean {
+    return ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  }
+
+  function setStatus(message: string) {
+    setStatusMessage(message);
+  }
+
+  function setStatusError(message: string) {
+    setStatusMessage(message);
+    showErrorToast(message);
+  }
+
+  function handleCanvasStatusMessage(message: string) {
+    setStatusMessage(message);
+    if (message && isErrorMessage(message)) {
+      showErrorToast(message);
+    }
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -160,12 +200,12 @@ export default function App() {
         if (nextTool) {
           event.preventDefault();
           if (mode === "view" && nextTool !== "select" && nextTool !== "move") {
-            setStatusMessage("Strumento non disponibile in modalita visualizzazione.");
+            setStatusError("Strumento non disponibile in modalita visualizzazione.");
             return;
           }
 
           setTool(nextTool);
-          setStatusMessage(`Strumento attivo: ${TOOL_LABEL_BY_KIND[nextTool]}.`);
+          setStatus(`Strumento attivo: ${TOOL_LABEL_BY_KIND[nextTool]}.`);
           return;
         }
       }
@@ -178,7 +218,7 @@ export default function App() {
 
       if (event.key === "Escape") {
         setSelection({ nodeIds: [], edgeIds: [] });
-        setStatusMessage("");
+        setStatus("");
       }
     }
 
@@ -194,7 +234,7 @@ export default function App() {
     setMode(nextMode);
     if (nextMode === "view") {
       setTool("select");
-      setStatusMessage("");
+      setStatus("");
     }
   }
 
@@ -202,7 +242,7 @@ export default function App() {
     history.commit(createEmptyDiagram("Nuovo diagramma"), history.present);
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
-    setStatusMessage("Nuovo diagramma creato.");
+    setStatus("Nuovo diagramma creato.");
   }
 
   function handleLoadExample() {
@@ -210,7 +250,7 @@ export default function App() {
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
     setTool("select");
-    setStatusMessage("Esempio Chen caricato.");
+    setStatus("Esempio Chen caricato.");
   }
 
   function handleCreateNode(
@@ -224,7 +264,7 @@ export default function App() {
     };
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [nextNode.id], edgeIds: [] });
-    setStatusMessage(`${nextNode.label} aggiunto.`);
+    setStatus(`${nextNode.label} aggiunto.`);
     return nextNode.id;
   }
 
@@ -286,7 +326,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, selection);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatusMessage("Selezione eliminata.");
+    setStatus("Selezione eliminata.");
   }
 
   function handleDuplicateSelection() {
@@ -301,7 +341,7 @@ export default function App() {
 
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
-    setStatusMessage("Selezione duplicata.");
+    setStatus("Selezione duplicata.");
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
@@ -315,7 +355,7 @@ export default function App() {
     }
 
     commitDiagram(nextDiagram);
-    setStatusMessage("Allineamento applicato.");
+    setStatus("Allineamento applicato.");
   }
 
   function handleSaveJson() {
@@ -323,7 +363,7 @@ export default function App() {
       serializeDiagram(history.present),
       `${history.present.meta.name.toLowerCase().replace(/\s+/g, "-") || "diagramma-er"}.json`,
     );
-    setStatusMessage("Diagramma salvato in JSON.");
+    setStatus("Diagramma salvato in JSON.");
   }
 
   function handleLoadRequest() {
@@ -342,10 +382,10 @@ export default function App() {
       history.commit(parsed, history.present);
       setSelection({ nodeIds: [], edgeIds: [] });
       setViewport(DEFAULT_VIEWPORT);
-      setStatusMessage("Diagramma caricato.");
+      setStatus("Diagramma caricato.");
     } catch (error) {
       console.error(error);
-      setStatusMessage("JSON non valido.");
+      setStatusError("JSON non valido.");
     } finally {
       event.target.value = "";
     }
@@ -358,10 +398,10 @@ export default function App() {
 
     try {
       await downloadPng(svgRef.current, "chen-er-diagram.png");
-      setStatusMessage("PNG esportato.");
+      setStatus("PNG esportato.");
     } catch (error) {
       console.error(error);
-      setStatusMessage("Export PNG non riuscito.");
+      setStatusError("Export PNG non riuscito.");
     }
   }
 
@@ -371,7 +411,7 @@ export default function App() {
     }
 
     downloadSvg(svgRef.current, "chen-er-diagram.svg");
-    setStatusMessage("SVG esportato.");
+    setStatus("SVG esportato.");
   }
 
   return (
@@ -411,7 +451,7 @@ export default function App() {
           onCreateEdge={handleCreateEdge}
           onRenameNode={handleRenameNode}
           onRenameEdge={handleRenameEdge}
-          onStatusMessageChange={setStatusMessage}
+          onStatusMessageChange={handleCanvasStatusMessage}
         />
 
         <InspectorPanel
@@ -434,6 +474,18 @@ export default function App() {
         accept="application/json,.json"
         onChange={handleLoadFile}
       />
+
+      <div className="toast-stack" aria-live="assertive" aria-atomic="false">
+        {errorToasts.map((toast) => (
+          <div key={toast.id} className="toast toast-error" role="alert">
+            <strong>Errore</strong>
+            <p>{toast.message}</p>
+            <button type="button" onClick={() => dismissToast(toast.id)} aria-label="Chiudi notifica errore">
+              Chiudi
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
