@@ -19,6 +19,7 @@ interface InspectorPanelProps {
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
+  onClearExternalIdentifier: (relationshipId: string) => void;
   onDeleteSelection: () => void;
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
@@ -184,6 +185,16 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 </p>
               ) : null}
             </>
+          ) : null}
+
+          {selectedNode.type === "relationship" && selectedNode.isExternalIdentifier === true ? (
+            <button
+              type="button"
+              onClick={() => props.onClearExternalIdentifier(selectedNode.id)}
+              disabled={props.mode === "view"}
+            >
+              Rimuovi identificatore esterno
+            </button>
           ) : null}
 
           </div>

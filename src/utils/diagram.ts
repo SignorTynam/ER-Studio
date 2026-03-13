@@ -304,6 +304,17 @@ function isEdgeKind(value: string): value is EdgeKind {
   return ["connector", "attribute", "inheritance"].includes(value);
 }
 
+function normalizeCardinality(value: string | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(/\s+/g, "")
+    .replace(/[()]/g, "")
+    .replace(":", ",");
+}
+
 export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
   const meta = parsed.meta ?? { name: "Diagramma importato", version: 1 };
@@ -328,6 +339,41 @@ export function parseDiagram(rawJson: string): DiagramDocument {
               ...node,
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
+            };
+          }
+
+          if (node.type === "relationship") {
+            return {
+              ...node,
+              isExternalIdentifier: node.isExternalIdentifier === true,
+              externalIdentifierMode:
+                node.externalIdentifierMode === "entity" || node.externalIdentifierMode === "composite"
+                  ? node.externalIdentifierMode
+                  : undefined,
+              externalIdentifierSourceAttributeId:
+                typeof node.externalIdentifierSourceAttributeId === "string"
+                  ? node.externalIdentifierSourceAttributeId
+                  : undefined,
+              externalIdentifierTargetEntityId:
+                typeof node.externalIdentifierTargetEntityId === "string"
+                  ? node.externalIdentifierTargetEntityId
+                  : undefined,
+              externalIdentifierTargetAttributeId:
+                typeof node.externalIdentifierTargetAttributeId === "string"
+                  ? node.externalIdentifierTargetAttributeId
+                  : undefined,
+              externalIdentifierOffset:
+                typeof node.externalIdentifierOffset === "number" && Number.isFinite(node.externalIdentifierOffset)
+                  ? node.externalIdentifierOffset
+                  : undefined,
+              externalIdentifierMarkerOffsetX:
+                typeof node.externalIdentifierMarkerOffsetX === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetX)
+                  ? node.externalIdentifierMarkerOffsetX
+                  : undefined,
+              externalIdentifierMarkerOffsetY:
+                typeof node.externalIdentifierMarkerOffsetY === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetY)
+                  ? node.externalIdentifierMarkerOffsetY
+                  : undefined,
             };
           }
 
@@ -450,6 +496,31 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           targetId: node.id,
           targetType: "node",
         });
+      }
+
+      if (node.isExternalIdentifier === true) {
+        if (connectors.length !== 2) {
+          issues.push({
+            id: `external-id-arity-${node.id}`,
+            level: "warning",
+            message: `La relazione "${node.label}" marcata come identificatore esterno deve avere esattamente due collegamenti con cardinalita coerenti.`,
+            targetId: node.id,
+            targetType: "node",
+          });
+        } else {
+          const normalized = connectors.map((edge) => normalizeCardinality(edge.cardinality));
+          const hasOneToOne = normalized.includes("1,1");
+
+          if (!hasOneToOne) {
+            issues.push({
+              id: `external-id-cardinality-${node.id}`,
+              level: "warning",
+              message: `Per l'identificatore esterno su "${node.label}" imposta (1,1) sul lato dipendente; l'altro lato puo avere qualsiasi cardinalita.`,
+              targetId: node.id,
+              targetType: "node",
+            });
+          }
+        }
       }
     }
 

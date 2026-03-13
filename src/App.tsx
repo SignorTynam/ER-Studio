@@ -113,6 +113,68 @@ function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value
   };
 }
 
+function clearExternalIdentifierFromRelationship(
+  diagram: DiagramDocument,
+  relationshipId: string,
+): DiagramDocument {
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      if (node.id !== relationshipId || node.type !== "relationship") {
+        return node;
+      }
+
+      return {
+        ...node,
+        isExternalIdentifier: false,
+        externalIdentifierMode: undefined,
+        externalIdentifierSourceAttributeId: undefined,
+        externalIdentifierTargetEntityId: undefined,
+        externalIdentifierTargetAttributeId: undefined,
+        externalIdentifierOffset: undefined,
+        externalIdentifierMarkerOffsetX: undefined,
+        externalIdentifierMarkerOffsetY: undefined,
+      };
+    }),
+  };
+}
+
+function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
+  const attributeEdge = diagram.edges.find(
+    (edge) =>
+      edge.type === "attribute" && (edge.sourceId === attributeId || edge.targetId === attributeId),
+  );
+  if (!attributeEdge) {
+    return undefined;
+  }
+
+  const hostId = attributeEdge.sourceId === attributeId ? attributeEdge.targetId : attributeEdge.sourceId;
+  const hostNode = diagram.nodes.find((node) => node.id === hostId);
+  return hostNode?.type === "entity" ? hostNode : undefined;
+}
+
+function findRelationshipBetweenEntities(
+  diagram: DiagramDocument,
+  entityAId: string,
+  entityBId: string,
+): DiagramNode | undefined {
+  for (const node of diagram.nodes) {
+    if (node.type !== "relationship") {
+      continue;
+    }
+
+    const connectedEntityIds = diagram.edges
+      .filter((edge) => edge.type === "connector" && (edge.sourceId === node.id || edge.targetId === node.id))
+      .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId));
+
+    if (connectedEntityIds.includes(entityAId) && connectedEntityIds.includes(entityBId)) {
+      return node;
+    }
+  }
+
+  return undefined;
+}
+
 export default function App() {
   const history = useHistory<DiagramDocument>(createExampleDiagram());
   const [tool, setTool] = useState<ToolKind>("select");
@@ -333,6 +395,73 @@ export default function App() {
     return { success: true, message: "Collegamento creato." };
   }
 
+  function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
+    const sourceAttribute = history.present.nodes.find((node) => node.id === sourceAttributeId);
+    if (sourceAttribute?.type !== "attribute" || sourceAttribute.isIdentifier !== true) {
+      return { success: false, message: "Errore: seleziona prima un attributo identificatore sorgente." };
+    }
+
+    const sourceEntity = findEntityHostForAttribute(history.present, sourceAttributeId);
+    if (!sourceEntity) {
+      return { success: false, message: "Errore: l'attributo sorgente deve appartenere a un'entita." };
+    }
+
+    const targetNode = history.present.nodes.find((node) => node.id === targetId);
+    if (!targetNode) {
+      return { success: false, message: "Errore: destinazione identificatore esterno non valida." };
+    }
+
+    let targetEntity: DiagramNode | undefined;
+    let targetAttributeId: string | undefined;
+    let mode: "entity" | "composite";
+
+    if (targetNode.type === "attribute") {
+      if (targetNode.isIdentifier === true) {
+        return { success: false, message: "Errore: per il composto esterno seleziona un attributo normale (non identificatore)." };
+      }
+
+      targetEntity = findEntityHostForAttribute(history.present, targetNode.id);
+      if (!targetEntity) {
+        return { success: false, message: "Errore: l'attributo destinazione deve appartenere a un'entita." };
+      }
+
+      targetAttributeId = targetNode.id;
+      mode = "composite";
+    } else if (targetNode.type === "entity") {
+      targetEntity = targetNode;
+      mode = "entity";
+    } else {
+      return { success: false, message: "Errore: seleziona un attributo o un'entita come destinazione." };
+    }
+
+    if (targetEntity.id === sourceEntity.id) {
+      return { success: false, message: "Errore: origine e destinazione devono essere entita diverse." };
+    }
+
+    const relationship = findRelationshipBetweenEntities(history.present, sourceEntity.id, targetEntity.id);
+    if (!relationship || relationship.type !== "relationship") {
+      return { success: false, message: "Errore: nessuna relazione valida tra le due entita selezionate." };
+    }
+
+    const nextDiagram = updateNodeInDiagram(history.present, relationship.id, {
+      isExternalIdentifier: true,
+      externalIdentifierMode: mode,
+      externalIdentifierSourceAttributeId: sourceAttribute.id,
+      externalIdentifierTargetEntityId: targetEntity.id,
+      externalIdentifierTargetAttributeId: targetAttributeId,
+    } as Partial<DiagramNode>);
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [relationship.id], edgeIds: [] });
+    return {
+      success: true,
+      message:
+        mode === "composite"
+          ? "Identificatore esterno composto creato. Verifica cardinalita (1,1) e (0,1)."
+          : "Identificatore esterno creato. Verifica cardinalita (1,1) e (0,1).",
+    };
+  }
+
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
     const currentNode = history.present.nodes.find((node) => node.id === nodeId);
     const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
@@ -446,10 +575,38 @@ export default function App() {
       return;
     }
 
+    if (selection.nodeIds.length === 1 && selection.edgeIds.length === 0) {
+      const selectedNode = history.present.nodes.find((node) => node.id === selection.nodeIds[0]);
+      if (selectedNode?.type === "relationship" && selectedNode.isExternalIdentifier === true) {
+        const nextDiagram = clearExternalIdentifierFromRelationship(history.present, selectedNode.id);
+        commitDiagram(nextDiagram);
+        setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
+        setStatus("Identificatore esterno rimosso.");
+        return;
+      }
+    }
+
     const nextDiagram = removeSelection(history.present, selection);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Selezione eliminata.");
+  }
+
+  function handleClearExternalIdentifier(relationshipId: string) {
+    const relationshipNode = history.present.nodes.find((node) => node.id === relationshipId);
+    if (
+      !relationshipNode ||
+      relationshipNode.type !== "relationship" ||
+      relationshipNode.isExternalIdentifier !== true
+    ) {
+      setStatusError("Nessun identificatore esterno da rimuovere sulla relazione selezionata.");
+      return;
+    }
+
+    const nextDiagram = clearExternalIdentifierFromRelationship(history.present, relationshipId);
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [relationshipId], edgeIds: [] });
+    setStatus("Identificatore esterno rimosso.");
   }
 
   function handleDuplicateSelection() {
@@ -588,6 +745,7 @@ export default function App() {
           onCommitDiagram={commitDiagram}
           onCreateNode={handleCreateNode}
           onCreateEdge={handleCreateEdge}
+          onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
           onRenameNode={handleRenameNode}
           onRenameEdge={handleRenameEdge}
           onStatusMessageChange={handleCanvasStatusMessage}
@@ -601,6 +759,7 @@ export default function App() {
           onNodeChange={handleNodeChange}
           onNodesChange={handleNodesChange}
           onEdgeChange={handleEdgeChange}
+          onClearExternalIdentifier={handleClearExternalIdentifier}
           onDeleteSelection={handleDeleteSelection}
           onDuplicateSelection={handleDuplicateSelection}
           onAlign={handleAlignSelection}

@@ -34,6 +34,14 @@ export interface EntityNode extends BaseNode {
 
 export interface RelationshipNode extends BaseNode {
   type: "relationship";
+  isExternalIdentifier?: boolean;
+  externalIdentifierMode?: "entity" | "composite";
+  externalIdentifierSourceAttributeId?: string;
+  externalIdentifierTargetEntityId?: string;
+  externalIdentifierTargetAttributeId?: string;
+  externalIdentifierOffset?: number;
+  externalIdentifierMarkerOffsetX?: number;
+  externalIdentifierMarkerOffsetY?: number;
 }
 
 export interface AttributeNode extends BaseNode {

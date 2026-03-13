@@ -11,6 +11,7 @@ import {
   clampZoom,
   clientPointFromWorld,
   getEdgeGeometry,
+  getNodeAnchor,
   getNodeCenter,
   getNodeBounds,
   getSelectionBounds,
@@ -67,6 +68,23 @@ type InteractionState =
       edgeId: string;
       startOffset: number;
       axis: "x" | "y";
+    }
+  | {
+      kind: "external-id-drag";
+      pointerId: number;
+      startClient: Point;
+      originalDiagram: DiagramDocument;
+      relationshipId: string;
+      startOffset: number;
+    }
+  | {
+      kind: "external-id-marker-drag";
+      pointerId: number;
+      startClient: Point;
+      originalDiagram: DiagramDocument;
+      relationshipId: string;
+      startOffsetX: number;
+      startOffsetY: number;
     };
 
 type InlineEditState =
@@ -93,6 +111,10 @@ interface DiagramCanvasProps {
   onCreateEdge: (
     type: EdgeKind,
     sourceId: string,
+    targetId: string,
+  ) => { success: boolean; message: string };
+  onCreateExternalIdentifier: (
+    sourceAttributeId: string,
     targetId: string,
   ) => { success: boolean; message: string };
   onRenameNode: (nodeId: string, label: string) => void;
@@ -125,6 +147,87 @@ function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "rel
   return tool === "entity" || tool === "relationship" || tool === "attribute" || tool === "text";
 }
 
+function bridgeOverlapsEntity(y: number, x1: number, x2: number, entity: DiagramNode): boolean {
+  if (entity.type !== "entity") {
+    return false;
+  }
+
+  const left = Math.min(x1, x2);
+  const right = Math.max(x1, x2);
+  const entityLeft = entity.x - 4;
+  const entityRight = entity.x + entity.width + 4;
+  const hasXOverlap = right >= entityLeft && left <= entityRight;
+  if (!hasXOverlap) {
+    return false;
+  }
+
+  return y >= entity.y - 4 && y <= entity.y + entity.height + 4;
+}
+
+function bridgeOverlapsNode(y: number, x1: number, x2: number, node: DiagramNode): boolean {
+  if (node.type === "text") {
+    return false;
+  }
+
+  const left = Math.min(x1, x2);
+  const right = Math.max(x1, x2);
+  const nodeLeft = node.x - 6;
+  const nodeRight = node.x + node.width + 6;
+  const hasXOverlap = right >= nodeLeft && left <= nodeRight;
+  if (!hasXOverlap) {
+    return false;
+  }
+
+  return y >= node.y - 6 && y <= node.y + node.height + 6;
+}
+
+function toSegments(points: Point[]): Array<[Point, Point]> {
+  const result: Array<[Point, Point]> = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    result.push([points[index], points[index + 1]]);
+  }
+  return result;
+}
+
+function orientation(a: Point, b: Point, c: Point): number {
+  return (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
+}
+
+function onSegment(a: Point, b: Point, c: Point): boolean {
+  return (
+    b.x <= Math.max(a.x, c.x) + 0.001 &&
+    b.x + 0.001 >= Math.min(a.x, c.x) &&
+    b.y <= Math.max(a.y, c.y) + 0.001 &&
+    b.y + 0.001 >= Math.min(a.y, c.y)
+  );
+}
+
+function segmentsIntersect(a1: Point, a2: Point, b1: Point, b2: Point): boolean {
+  const o1 = orientation(a1, a2, b1);
+  const o2 = orientation(a1, a2, b2);
+  const o3 = orientation(b1, b2, a1);
+  const o4 = orientation(b1, b2, a2);
+
+  if (o1 * o2 < 0 && o3 * o4 < 0) {
+    return true;
+  }
+
+  if (Math.abs(o1) < 0.001 && onSegment(a1, b1, a2)) {
+    return true;
+  }
+  if (Math.abs(o2) < 0.001 && onSegment(a1, b2, a2)) {
+    return true;
+  }
+  if (Math.abs(o3) < 0.001 && onSegment(b1, a1, b2)) {
+    return true;
+  }
+  if (Math.abs(o4) < 0.001 && onSegment(b1, a2, b2)) {
+    return true;
+  }
+
+  return false;
+}
+
 export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
@@ -141,6 +244,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     | { hostId: string; orientation: "vertical"; x: number; y1: number; y2: number; marker: Point }
     | { hostId: string; orientation: "horizontal"; y: number; x1: number; x2: number; marker: Point }
   > = [];
+  const externalIdentifierLayouts: Array<{
+    relationshipId: string;
+    marker: Point;
+    bridgeY: number;
+    strongSidePoint: Point;
+  }> = [];
+  const edgeGeometryMap = new Map<string, Point[]>();
 
   props.diagram.edges.forEach((edge) => {
     if (edge.type !== "connector") {
@@ -158,6 +268,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     edgeIds.forEach((edgeId, laneIndex) => {
       connectorLaneMap.set(edgeId, { laneIndex, laneCount });
     });
+  });
+
+  props.diagram.edges.forEach((edge) => {
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+
+    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, connectorLaneMap.get(edge.id));
+    edgeGeometryMap.set(edge.id, geometry.points);
   });
 
   props.diagram.edges.forEach((edge) => {
@@ -247,6 +368,248 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       x1: minX - 8,
       x2: markerX - 10,
       marker: { x: markerX, y },
+    });
+  });
+
+  props.diagram.nodes.forEach((node) => {
+    if (node.type !== "relationship" || node.isExternalIdentifier !== true) {
+      return;
+    }
+
+    const sourceAttribute =
+      typeof node.externalIdentifierSourceAttributeId === "string"
+        ? nodeMap.get(node.externalIdentifierSourceAttributeId)
+        : undefined;
+    const targetEntity =
+      typeof node.externalIdentifierTargetEntityId === "string"
+        ? nodeMap.get(node.externalIdentifierTargetEntityId)
+        : undefined;
+
+    if (!sourceAttribute || sourceAttribute.type !== "attribute" || !targetEntity || targetEntity.type !== "entity") {
+      return;
+    }
+
+    const sourceHostEdge = props.diagram.edges.find(
+      (edge) =>
+        edge.type === "attribute" &&
+        (edge.sourceId === sourceAttribute.id || edge.targetId === sourceAttribute.id),
+    );
+    if (!sourceHostEdge) {
+      return;
+    }
+
+    const sourceHostId =
+      sourceHostEdge.sourceId === sourceAttribute.id ? sourceHostEdge.targetId : sourceHostEdge.sourceId;
+    const sourceHost = nodeMap.get(sourceHostId);
+    if (!sourceHost || sourceHost.type !== "entity") {
+      return;
+    }
+
+    const sourceConnector = props.diagram.edges.find(
+      (edge) =>
+        edge.type === "connector" &&
+        ((edge.sourceId === node.id && edge.targetId === sourceHost.id) ||
+          (edge.targetId === node.id && edge.sourceId === sourceHost.id)),
+    );
+    if (!sourceConnector) {
+      return;
+    }
+
+    const sourceConnectorGeometry = getEdgeGeometry(
+      sourceConnector,
+      nodeMap.get(sourceConnector.sourceId) as DiagramNode,
+      nodeMap.get(sourceConnector.targetId) as DiagramNode,
+      connectorLaneMap.get(sourceConnector.id),
+    );
+    const strongSidePoint =
+      sourceConnector.sourceId === node.id
+        ? sourceConnectorGeometry.points[0]
+        : sourceConnectorGeometry.points[sourceConnectorGeometry.points.length - 1];
+
+    const relationshipCenter = getNodeCenter(node);
+    const weakEntityCenter = getNodeCenter(targetEntity);
+
+    let marker: Point;
+    if (node.externalIdentifierMode === "composite" && node.externalIdentifierTargetAttributeId) {
+      const targetAttribute = nodeMap.get(node.externalIdentifierTargetAttributeId);
+      if (!targetAttribute || targetAttribute.type !== "attribute") {
+        return;
+      }
+
+      const targetAttributeEdge = props.diagram.edges.find(
+        (edge) =>
+          edge.type === "attribute" &&
+          ((edge.sourceId === targetAttribute.id && edge.targetId === targetEntity.id) ||
+            (edge.targetId === targetAttribute.id && edge.sourceId === targetEntity.id)),
+      );
+      if (!targetAttributeEdge) {
+        return;
+      }
+
+      const attributeEdgeGeometry = getEdgeGeometry(
+        targetAttributeEdge,
+        nodeMap.get(targetAttributeEdge.sourceId) as DiagramNode,
+        nodeMap.get(targetAttributeEdge.targetId) as DiagramNode,
+        connectorLaneMap.get(targetAttributeEdge.id),
+      );
+
+      // Start from entity-side anchor and move toward the attribute so the marker stays near it.
+      const entityAnchor =
+        targetAttributeEdge.sourceId === targetEntity.id
+          ? attributeEdgeGeometry.points[0]
+          : attributeEdgeGeometry.points[attributeEdgeGeometry.points.length - 1];
+      const targetAttributeCenter = getNodeCenter(targetAttribute);
+      const towardAttribute = {
+        x: targetAttributeCenter.x - entityAnchor.x,
+        y: targetAttributeCenter.y - entityAnchor.y,
+      };
+      const towardLength = Math.hypot(towardAttribute.x, towardAttribute.y) || 1;
+      const markerOffset = Math.min(18, towardLength * 0.65);
+
+      marker = {
+        x: entityAnchor.x + (towardAttribute.x / towardLength) * markerOffset,
+        y: entityAnchor.y + (towardAttribute.y / towardLength) * markerOffset,
+      };
+    } else {
+      const oppositeToward = {
+        x: weakEntityCenter.x * 2 - relationshipCenter.x,
+        y: weakEntityCenter.y * 2 - relationshipCenter.y,
+      };
+      const weakOuterAnchor = getNodeAnchor(targetEntity, oppositeToward, "connector", "source");
+
+      const direction = {
+        x: weakEntityCenter.x - relationshipCenter.x,
+        y: weakEntityCenter.y - relationshipCenter.y,
+      };
+      const length = Math.hypot(direction.x, direction.y) || 1;
+      marker = {
+        x: weakOuterAnchor.x + (direction.x / length) * 22,
+        y: weakOuterAnchor.y + (direction.y / length) * 22,
+      };
+    }
+
+    const comparisonY = strongSidePoint.y;
+    const preferTop = marker.y <= comparisonY;
+    const topBase = Math.min(marker.y, comparisonY) - 28;
+    const bottomBase = Math.max(marker.y, comparisonY) + 28;
+
+    const targetAttributeEdgeId =
+      node.externalIdentifierMode === "composite" && node.externalIdentifierTargetAttributeId
+        ? props.diagram.edges.find(
+            (edge) =>
+              edge.type === "attribute" &&
+              ((edge.sourceId === node.externalIdentifierTargetAttributeId && edge.targetId === targetEntity.id) ||
+                (edge.targetId === node.externalIdentifierTargetAttributeId && edge.sourceId === targetEntity.id)),
+          )?.id
+        : undefined;
+
+    const excludedEdgeIds = new Set<string>([sourceConnector.id, sourceHostEdge.id]);
+    if (targetAttributeEdgeId) {
+      excludedEdgeIds.add(targetAttributeEdgeId);
+    }
+
+    const excludedNodeIds = new Set<string>([node.id, sourceHost.id, targetEntity.id, sourceAttribute.id]);
+    if (node.externalIdentifierTargetAttributeId) {
+      excludedNodeIds.add(node.externalIdentifierTargetAttributeId);
+    }
+    const obstacleNodes = props.diagram.nodes.filter((candidate) => !excludedNodeIds.has(candidate.id));
+
+    function collisionScore(bridgeY: number): number {
+      let score = 0;
+
+      if (bridgeOverlapsEntity(bridgeY, marker.x, strongSidePoint.x, sourceHost)) {
+        score += 1000;
+      }
+      if (bridgeOverlapsEntity(bridgeY, marker.x, strongSidePoint.x, targetEntity)) {
+        score += 1000;
+      }
+
+      obstacleNodes.forEach((candidate) => {
+        if (bridgeOverlapsNode(bridgeY, marker.x, strongSidePoint.x, candidate)) {
+          score += 40;
+        }
+      });
+
+      const pathSegments: Array<[Point, Point]> = [
+        [marker, { x: marker.x, y: bridgeY }],
+        [{ x: marker.x, y: bridgeY }, { x: strongSidePoint.x, y: bridgeY }],
+        [{ x: strongSidePoint.x, y: bridgeY }, strongSidePoint],
+      ];
+
+      edgeGeometryMap.forEach((points, edgeId) => {
+        if (excludedEdgeIds.has(edgeId)) {
+          return;
+        }
+
+        const segments = toSegments(points);
+        for (const [p1, p2] of pathSegments) {
+          for (const [q1, q2] of segments) {
+            if (segmentsIntersect(p1, p2, q1, q2)) {
+              score += 5;
+            }
+          }
+        }
+      });
+
+      const preferredBase = preferTop ? topBase : bottomBase;
+      score += Math.abs(bridgeY - preferredBase) * 0.02;
+
+      return score;
+    }
+
+    const candidates = [
+      ...(preferTop
+        ? [topBase, topBase - 20, topBase - 40, topBase - 60, topBase - 80]
+        : [bottomBase, bottomBase + 20, bottomBase + 40, bottomBase + 60, bottomBase + 80]),
+      ...(preferTop
+        ? [bottomBase, bottomBase + 20, bottomBase + 40, bottomBase + 60, bottomBase + 80]
+        : [topBase, topBase - 20, topBase - 40, topBase - 60, topBase - 80]),
+    ];
+
+    // Add obstacle-driven levels to route around unrelated elements near the bridge span.
+    obstacleNodes.forEach((candidate) => {
+      if (candidate.type === "text") {
+        return;
+      }
+
+      const spanLeft = Math.min(marker.x, strongSidePoint.x);
+      const spanRight = Math.max(marker.x, strongSidePoint.x);
+      const intersectsSpan = !(candidate.x + candidate.width < spanLeft || candidate.x > spanRight);
+      if (!intersectsSpan) {
+        return;
+      }
+
+      candidates.push(candidate.y - 16);
+      candidates.push(candidate.y + candidate.height + 16);
+    });
+
+    let bridgeY = candidates[0];
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const candidate of candidates) {
+      const score = collisionScore(candidate);
+      if (score < bestScore) {
+        bestScore = score;
+        bridgeY = candidate;
+      }
+      if (score === 0) {
+        break;
+      }
+    }
+
+    const manualOffset = typeof node.externalIdentifierOffset === "number" ? node.externalIdentifierOffset : 0;
+    const markerOffsetX =
+      typeof node.externalIdentifierMarkerOffsetX === "number" ? node.externalIdentifierMarkerOffsetX : 0;
+    const markerOffsetY =
+      typeof node.externalIdentifierMarkerOffsetY === "number" ? node.externalIdentifierMarkerOffsetY : 0;
+
+    externalIdentifierLayouts.push({
+      relationshipId: node.id,
+      marker: {
+        x: marker.x + markerOffsetX,
+        y: marker.y + markerOffsetY,
+      },
+      bridgeY: bridgeY + manualOffset,
+      strongSidePoint,
     });
   });
 
@@ -417,6 +780,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (props.mode === "edit" && props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0) {
+      const sourceNode = nodeMap.get(props.selection.nodeIds[0]);
+      const canStartExternalIdentifier =
+        sourceNode?.type === "attribute" && sourceNode.isIdentifier === true && sourceNode.id !== node.id;
+
+      const validTarget = node.type === "entity" || (node.type === "attribute" && node.isIdentifier !== true);
+      if (canStartExternalIdentifier && validTarget) {
+        const result = props.onCreateExternalIdentifier(sourceNode.id, node.id);
+        props.onStatusMessageChange(result.message);
+        return;
+      }
+    }
+
     if (props.mode === "view") {
       props.onSelectionChange({ nodeIds: [node.id], edgeIds: [] });
       return;
@@ -501,6 +877,59 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   }
 
+  function handleExternalIdentifierPointerDown(
+    event: ReactPointerEvent<SVGGElement>,
+    relationshipId: string,
+  ) {
+    event.stopPropagation();
+
+    if (props.mode !== "edit" || props.tool !== "select") {
+      return;
+    }
+
+    const relationshipNode = nodeMap.get(relationshipId);
+    if (!relationshipNode || relationshipNode.type !== "relationship") {
+      return;
+    }
+
+    props.onSelectionChange({ nodeIds: [relationshipId], edgeIds: [] });
+    setInteraction({
+      kind: "external-id-drag",
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalDiagram: props.diagram,
+      relationshipId,
+      startOffset: relationshipNode.externalIdentifierOffset ?? 0,
+    });
+  }
+
+  function handleExternalIdentifierMarkerPointerDown(
+    event: ReactPointerEvent<SVGCircleElement>,
+    relationshipId: string,
+  ) {
+    event.stopPropagation();
+
+    if (props.mode !== "edit" || props.tool !== "select") {
+      return;
+    }
+
+    const relationshipNode = nodeMap.get(relationshipId);
+    if (!relationshipNode || relationshipNode.type !== "relationship") {
+      return;
+    }
+
+    props.onSelectionChange({ nodeIds: [relationshipId], edgeIds: [] });
+    setInteraction({
+      kind: "external-id-marker-drag",
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalDiagram: props.diagram,
+      relationshipId,
+      startOffsetX: relationshipNode.externalIdentifierMarkerOffsetX ?? 0,
+      startOffsetY: relationshipNode.externalIdentifierMarkerOffsetY ?? 0,
+    });
+  }
+
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (interaction.kind === "idle") {
       return;
@@ -558,6 +987,53 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (interaction.kind === "external-id-drag") {
+      const pointerDelta = event.clientY - interaction.startClient.y;
+      const nextOffset = Math.round((interaction.startOffset + pointerDelta / props.viewport.zoom) / 2) * 2;
+
+      const nextNodes = interaction.originalDiagram.nodes.map((node) => {
+        if (node.id !== interaction.relationshipId || node.type !== "relationship") {
+          return node;
+        }
+
+        return {
+          ...node,
+          externalIdentifierOffset: nextOffset,
+        };
+      });
+
+      props.onPreviewDiagram({
+        ...interaction.originalDiagram,
+        nodes: nextNodes,
+      });
+      return;
+    }
+
+    if (interaction.kind === "external-id-marker-drag") {
+      const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
+      const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
+      const nextOffsetX = Math.round((interaction.startOffsetX + deltaX) / 2) * 2;
+      const nextOffsetY = Math.round((interaction.startOffsetY + deltaY) / 2) * 2;
+
+      const nextNodes = interaction.originalDiagram.nodes.map((node) => {
+        if (node.id !== interaction.relationshipId || node.type !== "relationship") {
+          return node;
+        }
+
+        return {
+          ...node,
+          externalIdentifierMarkerOffsetX: nextOffsetX,
+          externalIdentifierMarkerOffsetY: nextOffsetY,
+        };
+      });
+
+      props.onPreviewDiagram({
+        ...interaction.originalDiagram,
+        nodes: nextNodes,
+      });
+      return;
+    }
+
     const worldPoint = getWorldPointFromEvent(event);
     if (!worldPoint) {
       return;
@@ -581,6 +1057,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "edge-drag") {
+      props.onCommitDiagram(props.diagram, interaction.originalDiagram);
+      setInteraction({ kind: "idle" });
+      return;
+    }
+
+    if (interaction.kind === "external-id-drag") {
+      props.onCommitDiagram(props.diagram, interaction.originalDiagram);
+      setInteraction({ kind: "idle" });
+      return;
+    }
+
+    if (interaction.kind === "external-id-marker-drag") {
       props.onCommitDiagram(props.diagram, interaction.originalDiagram);
       setInteraction({ kind: "idle" });
       return;
@@ -839,6 +1327,53 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 <line x1={layout.x1} y1={layout.y} x2={layout.x2} y2={layout.y} stroke="#111111" strokeWidth={2} />
               )}
               <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill="#111111" stroke="#111111" strokeWidth={2} />
+              <circle
+                cx={layout.marker.x}
+                cy={layout.marker.y}
+                r={12}
+                fill="transparent"
+                onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
+              />
+            </g>
+          ))}
+
+          {externalIdentifierLayouts.map((layout) => (
+            <g
+              key={`external-id-${layout.relationshipId}`}
+              className="external-identifier"
+              onPointerDown={(event) => handleExternalIdentifierPointerDown(event, layout.relationshipId)}
+            >
+              <path
+                d={`M ${layout.marker.x} ${layout.marker.y} L ${layout.marker.x} ${layout.bridgeY} L ${layout.strongSidePoint.x} ${layout.bridgeY} L ${layout.strongSidePoint.x} ${layout.strongSidePoint.y}`}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={14}
+              />
+              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill="#111111" stroke="#111111" strokeWidth={2} />
+              <line
+                x1={layout.marker.x}
+                y1={layout.marker.y}
+                x2={layout.marker.x}
+                y2={layout.bridgeY}
+                stroke="#111111"
+                strokeWidth={2}
+              />
+              <line
+                x1={layout.marker.x}
+                y1={layout.bridgeY}
+                x2={layout.strongSidePoint.x}
+                y2={layout.bridgeY}
+                stroke="#111111"
+                strokeWidth={2}
+              />
+              <line
+                x1={layout.strongSidePoint.x}
+                y1={layout.bridgeY}
+                x2={layout.strongSidePoint.x}
+                y2={layout.strongSidePoint.y}
+                stroke="#111111"
+                strokeWidth={2}
+              />
             </g>
           ))}
 

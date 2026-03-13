@@ -18,6 +18,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Cardinalita configurabile da elenco (niente input libero), con supporto opzionale anche sui collegamenti attributo.",
       "Identificatore composto interno configurabile manualmente selezionando 2+ attributi.",
       "Blocco regola: un attributo nel composto interno non puo diventare identificatore singolo.",
+      "Aggiunto identificatore esterno su associazione con controllo cardinalita obbligatorie 1:1 e 0:1.",
     ],
   },
   {
