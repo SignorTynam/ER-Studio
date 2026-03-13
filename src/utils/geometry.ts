@@ -164,13 +164,7 @@ export function buildOrthogonalPoints(
   laneOffset = 0,
 ): Point[] {
   if (edgeType === "attribute") {
-    const midX = source.x <= target.x ? target.x - 24 + laneOffset : target.x + 24 + laneOffset;
-    return dedupePoints([
-      source,
-      { x: midX, y: source.y },
-      { x: midX, y: target.y },
-      target,
-    ]);
+    return dedupePoints([source, target]);
   }
 
   const horizontalBias =
