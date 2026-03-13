@@ -149,7 +149,7 @@ button:disabled {
   top: calc(100% + 4px);
   left: 0;
   z-index: 9;
-  min-width: 188px;
+  min-width: 204px;
   display: flex;
   flex-direction: column;
   border: 1px solid #171717;
@@ -163,6 +163,7 @@ button:disabled {
   background: transparent;
   padding: 0.55rem 0.7rem;
   text-align: left;
+  white-space: nowrap;
 }
 
 .nav-menu button:last-child {

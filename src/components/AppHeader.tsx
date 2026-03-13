@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
+import type { SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
 interface AppHeaderProps {
@@ -19,6 +21,58 @@ interface AppHeaderProps {
 }
 
 export function AppHeader(props: AppHeaderProps) {
+  const navRef = useRef<HTMLElement | null>(null);
+
+  function closeAllMenus() {
+    if (!navRef.current) {
+      return;
+    }
+
+    const openGroups = navRef.current.querySelectorAll("details[open]");
+    openGroups.forEach((group) => group.removeAttribute("open"));
+  }
+
+  useEffect(() => {
+    function handleGlobalPointerDown(event: globalThis.MouseEvent) {
+      if (!navRef.current) {
+        return;
+      }
+
+      const target = event.target as Node | null;
+      if (target && !navRef.current.contains(target)) {
+        closeAllMenus();
+      }
+    }
+
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeAllMenus();
+      }
+    }
+
+    document.addEventListener("mousedown", handleGlobalPointerDown);
+    document.addEventListener("keydown", handleGlobalKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalPointerDown);
+      document.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, []);
+
+  function handleGroupToggle(event: SyntheticEvent<HTMLDetailsElement>) {
+    const currentGroup = event.currentTarget;
+    if (!currentGroup.open || !navRef.current) {
+      return;
+    }
+
+    const groups = navRef.current.querySelectorAll("details");
+    groups.forEach((group) => {
+      if (group !== currentGroup) {
+        group.removeAttribute("open");
+      }
+    });
+  }
+
   function runMenuAction(event: MouseEvent<HTMLButtonElement>, action: () => void) {
     action();
     const group = event.currentTarget.closest("details");
@@ -35,8 +89,8 @@ export function AppHeader(props: AppHeaderProps) {
         <div className="app-subtitle">{props.diagramName}</div>
       </div>
 
-      <nav className="header-nav" aria-label="Azioni principali">
-        <details className="nav-group">
+      <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
+        <details className="nav-group" onToggle={handleGroupToggle}>
           <summary>File</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
@@ -54,7 +108,7 @@ export function AppHeader(props: AppHeaderProps) {
           </div>
         </details>
 
-        <details className="nav-group">
+        <details className="nav-group" onToggle={handleGroupToggle}>
           <summary>Modifica</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onUndo)} disabled={!props.canUndo}>
@@ -66,7 +120,7 @@ export function AppHeader(props: AppHeaderProps) {
           </div>
         </details>
 
-        <details className="nav-group">
+        <details className="nav-group" onToggle={handleGroupToggle}>
           <summary>Export</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
@@ -78,7 +132,7 @@ export function AppHeader(props: AppHeaderProps) {
           </div>
         </details>
 
-        <details className="nav-group">
+        <details className="nav-group" onToggle={handleGroupToggle}>
           <summary>Aiuto</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onHelp)}>
