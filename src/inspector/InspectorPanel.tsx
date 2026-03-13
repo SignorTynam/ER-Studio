@@ -198,9 +198,17 @@ export function InspectorPanel(props: InspectorPanelProps) {
         ) : (
           <div className="validation-list">
             {props.issues.map((issue) => (
-              <div key={issue.id} className={issue.level === "error" ? "validation-item error" : "validation-item"}>
-                <strong>{issue.level === "error" ? "Errore" : "Avviso"}</strong>
-                <span>{issue.message}</span>
+              <div
+                key={issue.id}
+                className={`validation-item ${issue.level === "error" ? "error" : "warning"}`}
+              >
+                <div className="validation-head">
+                  <span className="validation-icon" aria-hidden="true">
+                    !
+                  </span>
+                  <strong className="validation-badge">{issue.level === "error" ? "Errore" : "Avviso"}</strong>
+                </div>
+                <p className="validation-message">{issue.message}</p>
               </div>
             ))}
           </div>
