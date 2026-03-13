@@ -67,7 +67,7 @@ interface DiagramCanvasProps {
   mode: EditorMode;
   viewport: Viewport;
   statusMessage: string;
-  svgRef: RefObject<SVGSVGElement | null>;
+  svgRef: RefObject<SVGSVGElement>;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onPreviewDiagram: (diagram: DiagramDocument) => void;

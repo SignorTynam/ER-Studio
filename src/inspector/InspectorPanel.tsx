@@ -104,6 +104,20 @@ export function InspectorPanel(props: InspectorPanelProps) {
             <span>Stile linea</span>
             <input value="Nero continuo" disabled />
           </label>
+
+          {selectedNode.type === "attribute" ? (
+            <label className="field checkbox-field">
+              <span>Attributo identificatore</span>
+              <input
+                type="checkbox"
+                checked={selectedNode.isIdentifier === true}
+                disabled={props.mode === "view"}
+                onChange={(event) =>
+                  props.onNodeChange(selectedNode.id, { isIdentifier: event.target.checked })
+                }
+              />
+            </label>
+          ) : null}
         </div>
       ) : null}
 

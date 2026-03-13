@@ -65,6 +65,19 @@ export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
   const x = snapValue(snappedCenter.x - size.width / 2, GRID_SIZE);
   const y = snapValue(snappedCenter.y - size.height / 2, GRID_SIZE);
 
+  if (nodeType === "attribute") {
+    return {
+      id: createId(nodeType),
+      type: nodeType,
+      label: getDefaultLabel(nodeType),
+      x,
+      y,
+      width: size.width,
+      height: size.height,
+      isIdentifier: false,
+    };
+  }
+
   return {
     id: createId(nodeType),
     type: nodeType,
@@ -271,19 +284,30 @@ export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
   const meta = parsed.meta ?? { name: "Diagramma importato", version: 1 };
   const nodes = Array.isArray(parsed.nodes)
-    ? parsed.nodes.filter(
-        (node): node is DiagramNode =>
-          typeof node === "object" &&
-          node !== null &&
-          typeof node.id === "string" &&
-          typeof node.label === "string" &&
-          typeof node.x === "number" &&
-          typeof node.y === "number" &&
-          typeof node.width === "number" &&
-          typeof node.height === "number" &&
-          typeof node.type === "string" &&
-          isNodeKind(node.type),
-      )
+    ? parsed.nodes
+        .filter(
+          (node): node is DiagramNode =>
+            typeof node === "object" &&
+            node !== null &&
+            typeof node.id === "string" &&
+            typeof node.label === "string" &&
+            typeof node.x === "number" &&
+            typeof node.y === "number" &&
+            typeof node.width === "number" &&
+            typeof node.height === "number" &&
+            typeof node.type === "string" &&
+            isNodeKind(node.type),
+        )
+        .map((node) => {
+          if (node.type !== "attribute") {
+            return node;
+          }
+
+          return {
+            ...node,
+            isIdentifier: node.isIdentifier === true,
+          };
+        })
     : [];
   const edges = Array.isArray(parsed.edges)
     ? parsed.edges.filter(

@@ -62,6 +62,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
 
   if (node.type === "attribute") {
     const cy = node.y + node.height / 2;
+    const isIdentifier = node.isIdentifier === true;
 
     return (
       <g
@@ -80,9 +81,9 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeDasharray="4 3"
           />
         ) : null}
-        <circle cx={node.x + 10} cy={cy} r={7} fill="#ffffff" stroke="#111111" strokeWidth={2} />
+        <circle cx={node.x + 10} cy={cy} r={7} fill={isIdentifier ? "#111111" : "#ffffff"} stroke="#111111" strokeWidth={2} />
         <line x1={node.x + 17} y1={cy} x2={node.x + 34} y2={cy} stroke="#111111" strokeWidth={2} />
-        <text x={node.x + 40} y={cy} className="attribute-label" dominantBaseline="middle">
+        <text x={node.x + 40} y={cy - 7} className="attribute-label" dominantBaseline="auto">
           {node.label}
         </text>
       </g>

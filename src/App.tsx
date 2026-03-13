@@ -78,7 +78,7 @@ export default function App() {
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
 
-  const svgRef = useRef<SVGSVGElement | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const issues = validateDiagram(history.present);

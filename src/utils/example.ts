@@ -41,7 +41,16 @@ export function createExampleDiagram(): DiagramDocument {
         width: 150,
         height: 84,
       },
-      { id: "name", type: "attribute", label: "NOME", x: 780, y: 80, width: 150, height: 28 },
+      {
+        id: "name",
+        type: "attribute",
+        label: "NOME",
+        x: 780,
+        y: 80,
+        width: 150,
+        height: 28,
+        isIdentifier: true,
+      },
       {
         id: "surname",
         type: "attribute",

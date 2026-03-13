@@ -296,6 +296,18 @@ button:disabled {
   gap: 10px;
 }
 
+.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.checkbox-field input {
+  width: auto;
+  min-height: auto;
+  transform: scale(1.1);
+}
+
 .empty-inspector {
   padding: 12px;
   border: 1px solid #c9c9c3;

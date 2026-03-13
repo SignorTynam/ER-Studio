@@ -98,9 +98,18 @@ export function getNodeAnchor(
   const center = getNodeCenter(node);
 
   if (edgeType === "inheritance") {
-    return role === "source"
-      ? { x: center.x, y: node.y }
-      : { x: center.x, y: node.y + node.height };
+    const deltaX = toward.x - center.x;
+    const deltaY = toward.y - center.y;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      return deltaX >= 0
+        ? { x: node.x + node.width, y: center.y }
+        : { x: node.x, y: center.y };
+    }
+
+    return deltaY >= 0
+      ? { x: center.x, y: node.y + node.height }
+      : { x: center.x, y: node.y };
   }
 
   const deltaX = toward.x - center.x;
@@ -139,16 +148,6 @@ export function buildOrthogonalPoints(
       source,
       { x: midX, y: source.y },
       { x: midX, y: target.y },
-      target,
-    ]);
-  }
-
-  if (edgeType === "inheritance") {
-    const midY = (source.y + target.y) / 2;
-    return dedupePoints([
-      source,
-      { x: source.x, y: midY },
-      { x: target.x, y: midY },
       target,
     ]);
   }
