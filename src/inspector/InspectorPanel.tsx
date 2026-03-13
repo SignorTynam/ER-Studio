@@ -40,13 +40,39 @@ export function InspectorPanel(props: InspectorPanelProps) {
     props.selection.nodeIds.length === 1
       ? props.diagram.nodes.find((node) => node.id === props.selection.nodeIds[0])
       : undefined;
+
+  function isAttributeLinkedToRelationship(attributeId: string): boolean {
+    return props.diagram.edges.some((edge) => {
+      if (edge.type !== "attribute") {
+        return false;
+      }
+
+      const isLinked = edge.sourceId === attributeId || edge.targetId === attributeId;
+      if (!isLinked) {
+        return false;
+      }
+
+      const hostId = edge.sourceId === attributeId ? edge.targetId : edge.sourceId;
+      const hostNode = props.diagram.nodes.find((node) => node.id === hostId);
+      return hostNode?.type === "relationship";
+    });
+  }
+
+  const selectedAttributeLinkedToRelationship =
+    selectedNode?.type === "attribute" ? isAttributeLinkedToRelationship(selectedNode.id) : false;
   const selectedAttributeNodes = props.diagram.nodes.filter(
     (node) => props.selection.nodeIds.includes(node.id) && node.type === "attribute",
   );
-  const canConfigureCompositeInternal = selectedAttributeNodes.length >= 2;
+  const eligibleCompositeAttributeNodes = selectedAttributeNodes.filter(
+    (node) => node.isIdentifier !== true && !isAttributeLinkedToRelationship(node.id),
+  );
+  const canConfigureCompositeInternal = eligibleCompositeAttributeNodes.length >= 2;
   const allSelectedAttributesComposite =
-    canConfigureCompositeInternal && selectedAttributeNodes.every((node) => node.isCompositeInternal === true);
+    canConfigureCompositeInternal && eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
   const hasIdentifierInSelection = selectedAttributeNodes.some((node) => node.isIdentifier === true);
+  const hasRelationshipLinkedAttributesInSelection = selectedAttributeNodes.some((node) =>
+    isAttributeLinkedToRelationship(node.id),
+  );
   const selectedEdge =
     !selectedNode && props.selection.edgeIds.length === 1
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
@@ -137,7 +163,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 <input
                   type="checkbox"
                   checked={selectedNode.isIdentifier === true}
-                  disabled={props.mode === "view" || selectedNode.isCompositeInternal === true}
+                  disabled={
+                    props.mode === "view" ||
+                    selectedNode.isCompositeInternal === true ||
+                    selectedAttributeLinkedToRelationship
+                  }
                   onChange={(event) =>
                     props.onNodeChange(selectedNode.id, { isIdentifier: event.target.checked })
                   }
@@ -146,6 +176,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
               {selectedNode.isCompositeInternal === true ? (
                 <p className="action-hint">
                   Questo attributo fa parte di un identificatore composto interno e non puo essere identificatore singolo.
+                </p>
+              ) : null}
+              {selectedAttributeLinkedToRelationship ? (
+                <p className="action-hint">
+                  Un'associazione non puo avere identificatori: scollega l'attributo dalla relazione per abilitarlo.
                 </p>
               ) : null}
             </>
@@ -166,19 +201,23 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 checked={allSelectedAttributesComposite}
                 disabled={props.mode === "view"}
                 onChange={(event) => {
-                  const targetIds = selectedAttributeNodes
-                    .filter((attributeNode) => attributeNode.isIdentifier !== true)
+                  const targetIds = eligibleCompositeAttributeNodes
                     .map((attributeNode) => attributeNode.id);
                   props.onNodesChange(targetIds, { isCompositeInternal: event.target.checked });
                 }}
               />
             </label>
             <p className="action-hint">
-              Seleziona due o piu attributi collegati allo stesso host (entita o relazione).
+              Seleziona due o piu attributi collegati alla stessa entita.
             </p>
             {hasIdentifierInSelection ? (
               <p className="action-hint">
                 Gli attributi marcati come identificatore semplice non vengono inclusi nel composto interno.
+              </p>
+            ) : null}
+            {hasRelationshipLinkedAttributesInSelection ? (
+              <p className="action-hint">
+                Gli attributi collegati a un'associazione sono esclusi: un'associazione non puo avere identificatori.
               </p>
             ) : null}
           </div>

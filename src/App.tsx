@@ -336,6 +336,33 @@ export default function App() {
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
     const currentNode = history.present.nodes.find((node) => node.id === nodeId);
     const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
+
+    const attributeLinkedToRelationship =
+      currentNode?.type === "attribute" &&
+      history.present.edges.some((edge) => {
+        if (edge.type !== "attribute") {
+          return false;
+        }
+
+        const isLinked = edge.sourceId === currentNode.id || edge.targetId === currentNode.id;
+        if (!isLinked) {
+          return false;
+        }
+
+        const hostId = edge.sourceId === currentNode.id ? edge.targetId : edge.sourceId;
+        const hostNode = history.present.nodes.find((node) => node.id === hostId);
+        return hostNode?.type === "relationship";
+      });
+
+    if (
+      currentNode?.type === "attribute" &&
+      attributeLinkedToRelationship &&
+      (attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true)
+    ) {
+      setStatusError("Un'associazione non puo avere identificatori.");
+      return;
+    }
+
     if (
       currentNode?.type === "attribute" &&
       attributePatch.isIdentifier === true &&
@@ -354,7 +381,45 @@ export default function App() {
       return;
     }
 
-    const nextDiagram = updateNodesInDiagram(history.present, nodeIds, patch);
+    const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
+    const wantsIdentifierMode = attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true;
+
+    let targetIds = nodeIds;
+    if (wantsIdentifierMode) {
+      targetIds = nodeIds.filter((nodeId) => {
+        const node = history.present.nodes.find((item) => item.id === nodeId);
+        if (node?.type !== "attribute") {
+          return true;
+        }
+
+        const linkedToRelationship = history.present.edges.some((edge) => {
+          if (edge.type !== "attribute") {
+            return false;
+          }
+
+          const isLinked = edge.sourceId === node.id || edge.targetId === node.id;
+          if (!isLinked) {
+            return false;
+          }
+
+          const hostId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+          const hostNode = history.present.nodes.find((candidate) => candidate.id === hostId);
+          return hostNode?.type === "relationship";
+        });
+
+        return !linkedToRelationship;
+      });
+
+      if (targetIds.length !== nodeIds.length) {
+        setStatusError("Alcuni attributi sono collegati a un'associazione e non possono essere identificatori.");
+      }
+    }
+
+    if (targetIds.length === 0) {
+      return;
+    }
+
+    const nextDiagram = updateNodesInDiagram(history.present, targetIds, patch);
     commitDiagram(nextDiagram);
   }
 

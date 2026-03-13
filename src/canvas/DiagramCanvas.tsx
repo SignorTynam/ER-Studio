@@ -183,7 +183,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (
       attributeNode.isIdentifier !== true &&
       attributeNode.isCompositeInternal === true &&
-      (hostNode.type === "entity" || hostNode.type === "relationship")
+      hostNode.type === "entity"
     ) {
       const group = compositeGroups.get(hostNode.id) ?? { host: hostNode, attributeCenters: [] };
       group.attributeCenters.push(attributeCenter);

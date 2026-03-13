@@ -430,6 +430,27 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           targetType: "node",
         });
       }
+
+      const relationshipIdentifierAttributes = connectedEdges
+        .filter((edge) => edge.type === "attribute")
+        .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
+        .map((attributeId) => diagram.nodes.find((candidate) => candidate.id === attributeId))
+        .filter((candidate): candidate is DiagramNode => candidate !== undefined)
+        .filter(
+          (candidate) =>
+            candidate.type === "attribute" &&
+            (candidate.isIdentifier === true || candidate.isCompositeInternal === true),
+        );
+
+      if (relationshipIdentifierAttributes.length > 0) {
+        issues.push({
+          id: `relationship-identifier-${node.id}`,
+          level: "error",
+          message: `La relazione "${node.label}" non puo avere attributi identificatori.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
     }
 
     if (node.type === "entity" || node.type === "relationship") {
