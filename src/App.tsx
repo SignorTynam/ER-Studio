@@ -270,6 +270,7 @@ export default function App() {
     };
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [nextNode.id], edgeIds: [] });
+    setTool("select");
     setStatus(`${nextNode.label} aggiunto.`);
     return nextNode.id;
   }
@@ -298,6 +299,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
+    setTool("select");
     return { success: true, message: "Collegamento creato." };
   }
 
