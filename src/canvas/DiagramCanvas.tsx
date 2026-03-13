@@ -560,11 +560,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (edge.type === "attribute") {
-      return;
-    }
-
-    const value = edge.type === "connector" ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER : edge.label;
+    const value =
+      edge.type === "connector"
+        ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
+        : edge.type === "attribute"
+          ? edge.cardinality ?? ""
+          : edge.label;
     setInlineEdit({ kind: "edge", id: edge.id, value });
   }
 
@@ -579,11 +580,19 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.onRenameNode(inlineEdit.id, trimmed || currentNode?.label || "");
     } else {
       const currentEdge = props.diagram.edges.find((edge) => edge.id === inlineEdit.id);
-      const fallbackValue =
-        currentEdge?.type === "connector"
-          ? currentEdge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
-          : currentEdge?.label || "";
-      props.onRenameEdge(inlineEdit.id, trimmed || fallbackValue);
+
+      if (!currentEdge) {
+        setInlineEdit(null);
+        return;
+      }
+
+      if (currentEdge.type === "connector") {
+        props.onRenameEdge(inlineEdit.id, inlineEdit.value || CONNECTOR_CARDINALITY_PLACEHOLDER);
+      } else if (currentEdge.type === "attribute") {
+        props.onRenameEdge(inlineEdit.id, inlineEdit.value);
+      } else {
+        props.onRenameEdge(inlineEdit.id, trimmed || currentEdge.label || "");
+      }
     }
 
     setInlineEdit(null);
@@ -644,7 +653,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const editorStyle = inlineEditorStyle();
   const inlineEdge =
     inlineEdit?.kind === "edge" ? props.diagram.edges.find((candidate) => candidate.id === inlineEdit.id) : null;
-  const editingConnectorCardinality = inlineEdge?.type === "connector";
+  const editingEdgeCardinality = inlineEdge?.type === "connector" || inlineEdge?.type === "attribute";
 
   return (
     <div
@@ -752,16 +761,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             commitInlineEdit();
           }}
         >
-          {editingConnectorCardinality ? (
+          {editingEdgeCardinality ? (
             <select
               autoFocus
-              value={inlineEdit.value || CONNECTOR_CARDINALITY_PLACEHOLDER}
+              value={inlineEdit.value || (inlineEdge?.type === "connector" ? CONNECTOR_CARDINALITY_PLACEHOLDER : "")}
               onBlur={commitInlineEdit}
               onChange={(event) =>
                 setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
               }
             >
-              <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+              {inlineEdge?.type === "attribute" ? (
+                <option value="">Nessuna cardinalita</option>
+              ) : (
+                <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+              )}
               {CONNECTOR_CARDINALITIES.map((value) => (
                 <option key={value} value={value}>
                   {value}

@@ -90,6 +90,10 @@ function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value
         return { ...edge, cardinality: value };
       }
 
+      if (edge.type === "attribute") {
+        return { ...edge, cardinality: value || undefined };
+      }
+
       return { ...edge, label: value };
     }),
   };

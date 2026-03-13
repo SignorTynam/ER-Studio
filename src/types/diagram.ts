@@ -68,6 +68,7 @@ export interface ConnectorEdge extends BaseEdge {
 
 export interface AttributeEdge extends BaseEdge {
   type: "attribute";
+  cardinality?: string;
 }
 
 export interface InheritanceEdge extends BaseEdge {

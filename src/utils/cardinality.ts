@@ -13,3 +13,7 @@ export const CONNECTOR_CARDINALITIES = [
 ] as const;
 
 export type ConnectorCardinality = (typeof CONNECTOR_CARDINALITIES)[number];
+
+export function isSupportedCardinality(value: string): value is ConnectorCardinality {
+  return (CONNECTOR_CARDINALITIES as readonly string[]).includes(value);
+}

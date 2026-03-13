@@ -161,6 +161,28 @@ export function InspectorPanel(props: InspectorPanelProps) {
             </label>
           ) : null}
 
+          {selectedEdge.type === "attribute" ? (
+            <label className="field">
+              <span>Cardinalita (opzionale)</span>
+              <select
+                value={selectedEdge.cardinality ?? ""}
+                disabled={props.mode === "view"}
+                onChange={(event) =>
+                  props.onEdgeChange(selectedEdge.id, {
+                    cardinality: event.target.value || undefined,
+                  })
+                }
+              >
+                <option value="">Nessuna cardinalita</option>
+                {CONNECTOR_CARDINALITIES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           {selectedEdge.type === "inheritance" ? (
             <label className="field">
               <span>Nome collegamento</span>

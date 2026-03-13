@@ -12,6 +12,7 @@ import { GRID_SIZE, getNodeBounds, snapPoint, snapValue } from "./geometry";
 import {
   CONNECTOR_CARDINALITIES,
   CONNECTOR_CARDINALITY_PLACEHOLDER,
+  isSupportedCardinality,
 } from "./cardinality";
 
 function createId(prefix: string): string {
@@ -345,19 +346,23 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           isEdgeKind(edge.type),
       )
         .map((edge) => {
-          if (edge.type !== "connector") {
+          if (edge.type === "inheritance") {
             return edge;
           }
 
           const parsedCardinality =
             typeof edge.cardinality === "string" ? edge.cardinality.trim() : "";
-          const hasValidCardinality = CONNECTOR_CARDINALITIES.includes(
-            parsedCardinality as (typeof CONNECTOR_CARDINALITIES)[number],
-          );
+
+          if (edge.type === "attribute") {
+            return {
+              ...edge,
+              cardinality: isSupportedCardinality(parsedCardinality) ? parsedCardinality : undefined,
+            };
+          }
 
           return {
             ...edge,
-            cardinality: hasValidCardinality
+            cardinality: isSupportedCardinality(parsedCardinality)
               ? parsedCardinality
               : CONNECTOR_CARDINALITY_PLACEHOLDER,
           };
@@ -472,9 +477,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
 
     if (edge.type === "connector") {
       const cardinality = edge.cardinality?.trim();
-      const hasValidCardinality = CONNECTOR_CARDINALITIES.includes(
-        cardinality as (typeof CONNECTOR_CARDINALITIES)[number],
-      );
+      const hasValidCardinality = isSupportedCardinality(cardinality ?? "");
 
       if (!hasValidCardinality) {
         issues.push({
