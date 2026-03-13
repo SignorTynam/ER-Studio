@@ -9,6 +9,10 @@ import type {
   ValidationIssue,
 } from "../types/diagram";
 import { GRID_SIZE, getNodeBounds, snapPoint, snapValue } from "./geometry";
+import {
+  CONNECTOR_CARDINALITIES,
+  CONNECTOR_CARDINALITY_PLACEHOLDER,
+} from "./cardinality";
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -102,7 +106,7 @@ export function createEdge(
       targetId,
       label: "",
       lineStyle: "solid",
-      cardinality: "(X,Y)",
+      cardinality: CONNECTOR_CARDINALITY_PLACEHOLDER,
     };
   }
 
@@ -347,10 +351,15 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 
           const parsedCardinality =
             typeof edge.cardinality === "string" ? edge.cardinality.trim() : "";
+          const hasValidCardinality = CONNECTOR_CARDINALITIES.includes(
+            parsedCardinality as (typeof CONNECTOR_CARDINALITIES)[number],
+          );
 
           return {
             ...edge,
-            cardinality: parsedCardinality || "(X,Y)",
+            cardinality: hasValidCardinality
+              ? parsedCardinality
+              : CONNECTOR_CARDINALITY_PLACEHOLDER,
           };
         })
     : [];
@@ -463,11 +472,15 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
 
     if (edge.type === "connector") {
       const cardinality = edge.cardinality?.trim();
-      if (!cardinality || cardinality === "(X,Y)") {
+      const hasValidCardinality = CONNECTOR_CARDINALITIES.includes(
+        cardinality as (typeof CONNECTOR_CARDINALITIES)[number],
+      );
+
+      if (!hasValidCardinality) {
         issues.push({
           id: `cardinality-${edge.id}`,
           level: "warning",
-          message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" non ha cardinalita definita (usa formato (X,Y)).`,
+          message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" non ha cardinalita definita.`,
           targetId: edge.id,
           targetType: "edge",
         });

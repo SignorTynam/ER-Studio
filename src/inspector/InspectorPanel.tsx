@@ -6,6 +6,10 @@ import type {
   SelectionState,
   ValidationIssue,
 } from "../types/diagram";
+import {
+  CONNECTOR_CARDINALITIES,
+  CONNECTOR_CARDINALITY_PLACEHOLDER,
+} from "../utils/cardinality";
 
 interface InspectorPanelProps {
   diagram: DiagramDocument;
@@ -142,12 +146,18 @@ export function InspectorPanel(props: InspectorPanelProps) {
           {selectedEdge.type === "connector" ? (
             <label className="field">
               <span>Cardinalita (X,Y)</span>
-              <input
-                value={selectedEdge.cardinality ?? "(X,Y)"}
+              <select
+                value={selectedEdge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER}
                 disabled={props.mode === "view"}
-                placeholder="(X,Y)"
                 onChange={(event) => props.onEdgeChange(selectedEdge.id, { cardinality: event.target.value })}
-              />
+              >
+                <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+                {CONNECTOR_CARDINALITIES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
             </label>
           ) : null}
 

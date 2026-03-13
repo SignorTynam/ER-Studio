@@ -30,6 +30,10 @@ import type {
   ToolKind,
   Viewport,
 } from "../types/diagram";
+import {
+  CONNECTOR_CARDINALITIES,
+  CONNECTOR_CARDINALITY_PLACEHOLDER,
+} from "../utils/cardinality";
 
 type InteractionState =
   | { kind: "idle" }
@@ -560,7 +564,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const value = edge.type === "connector" ? edge.cardinality ?? "(X,Y)" : edge.label;
+    const value = edge.type === "connector" ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER : edge.label;
     setInlineEdit({ kind: "edge", id: edge.id, value });
   }
 
@@ -576,7 +580,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     } else {
       const currentEdge = props.diagram.edges.find((edge) => edge.id === inlineEdit.id);
       const fallbackValue =
-        currentEdge?.type === "connector" ? currentEdge.cardinality ?? "(X,Y)" : currentEdge?.label || "";
+        currentEdge?.type === "connector"
+          ? currentEdge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
+          : currentEdge?.label || "";
       props.onRenameEdge(inlineEdit.id, trimmed || fallbackValue);
     }
 
@@ -636,6 +642,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       ? normalizeBounds(interaction.startWorld, interaction.currentWorld)
       : null;
   const editorStyle = inlineEditorStyle();
+  const inlineEdge =
+    inlineEdit?.kind === "edge" ? props.diagram.edges.find((candidate) => candidate.id === inlineEdit.id) : null;
+  const editingConnectorCardinality = inlineEdge?.type === "connector";
 
   return (
     <div
@@ -743,14 +752,32 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             commitInlineEdit();
           }}
         >
-          <input
-            autoFocus
-            value={inlineEdit.value}
-            onBlur={commitInlineEdit}
-            onChange={(event) =>
-              setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
-            }
-          />
+          {editingConnectorCardinality ? (
+            <select
+              autoFocus
+              value={inlineEdit.value || CONNECTOR_CARDINALITY_PLACEHOLDER}
+              onBlur={commitInlineEdit}
+              onChange={(event) =>
+                setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
+              }
+            >
+              <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+              {CONNECTOR_CARDINALITIES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              autoFocus
+              value={inlineEdit.value}
+              onBlur={commitInlineEdit}
+              onChange={(event) =>
+                setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
+              }
+            />
+          )}
         </form>
       ) : null}
 
