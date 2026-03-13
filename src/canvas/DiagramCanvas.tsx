@@ -428,8 +428,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         const origin = interaction.originPositions[node.id];
         return {
           ...node,
-          x: Math.round((origin.x + deltaX) / GRID_SIZE) * GRID_SIZE,
-          y: Math.round((origin.y + deltaY) / GRID_SIZE) * GRID_SIZE,
+          x: origin.x + deltaX,
+          y: origin.y + deltaY,
         };
       });
 
