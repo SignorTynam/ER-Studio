@@ -180,7 +180,7 @@ button:disabled {
 
 .workspace-shell {
   display: grid;
-  grid-template-columns: 116px minmax(0, 1fr) 320px;
+  grid-template-columns: 188px minmax(0, 1fr) 320px;
   min-height: 0;
 }
 
@@ -192,9 +192,10 @@ button:disabled {
 .toolbar-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 10px;
+  gap: 10px;
+  padding: 14px 12px;
   border-right: 1px solid #bdbdb7;
+  background: linear-gradient(180deg, #f8f8f4 0%, #f1f1eb 100%);
 }
 
 .panel-heading {
@@ -212,29 +213,39 @@ button:disabled {
 .toolbar-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tool-button {
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
-  padding: 12px 8px;
-  min-height: 84px;
-  font-size: 0.76rem;
-  text-align: center;
+  gap: 10px;
+  padding: 9px 10px;
+  min-height: 50px;
+  font-size: 0.94rem;
+  text-align: left;
 }
 
 .tool-shortcut {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.45rem;
-  padding: 0.1rem 0.28rem;
-  border: 1px solid currentColor;
-  font-size: 0.68rem;
+  min-width: 1.55rem;
+  height: 1.3rem;
+  padding: 0 0.35rem;
+  border: 1px solid #7e7e79;
+  background: #f8f8f5;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
   line-height: 1;
+}
+
+.tool-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tool-button.active {
@@ -242,9 +253,15 @@ button:disabled {
   color: #ffffff;
 }
 
+.tool-button.active .tool-shortcut {
+  border-color: #d3d3ce;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 .tool-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .canvas-panel {
@@ -591,7 +608,7 @@ button:disabled {
 
 @media (max-width: 1180px) {
   .workspace-shell {
-    grid-template-columns: 100px minmax(0, 1fr);
+    grid-template-columns: 176px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) 320px;
   }
 
@@ -622,12 +639,13 @@ button:disabled {
   }
 
   .toolbar-list {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .tool-button {
-    min-height: 76px;
+    min-height: 48px;
   }
 
   .inspector-panel {

@@ -90,7 +90,7 @@ export function Toolbar(props: ToolbarProps) {
               title={`${item.label} (${item.shortcut.toUpperCase()})`}
             >
               <ToolIcon tool={item.tool} />
-              <span>{item.label}</span>
+              <span className="tool-label">{item.label}</span>
               <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
             </button>
           );
