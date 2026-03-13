@@ -1,21 +1,11 @@
 import type { EditorMode, ToolKind } from "../types/diagram";
+import { TOOL_DEFINITIONS } from "../utils/toolConfig";
 
 interface ToolbarProps {
   activeTool: ToolKind;
   mode: EditorMode;
   onToolChange: (tool: ToolKind) => void;
 }
-
-const TOOL_ITEMS: Array<{ tool: ToolKind; label: string }> = [
-  { tool: "move", label: "Sposta" },
-  { tool: "select", label: "Selezione" },
-  { tool: "entity", label: "Entita" },
-  { tool: "relationship", label: "Relazione" },
-  { tool: "attribute", label: "Attributo" },
-  { tool: "connector", label: "Collegamento" },
-  { tool: "inheritance", label: "Generalizzazione" },
-  { tool: "text", label: "Testo libero" },
-];
 
 function ToolIcon({ tool }: { tool: ToolKind }) {
   if (tool === "move") {
@@ -88,7 +78,7 @@ export function Toolbar(props: ToolbarProps) {
     <aside className="toolbar-panel">
       <div className="panel-heading">Strumenti</div>
       <div className="toolbar-list">
-        {TOOL_ITEMS.map((item) => {
+        {TOOL_DEFINITIONS.map((item) => {
           const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
           return (
             <button
@@ -97,10 +87,11 @@ export function Toolbar(props: ToolbarProps) {
               className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
               onClick={() => props.onToolChange(item.tool)}
               disabled={disabled}
-              title={item.label}
+              title={`${item.label} (${item.shortcut.toUpperCase()})`}
             >
               <ToolIcon tool={item.tool} />
               <span>{item.label}</span>
+              <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
             </button>
           );
         })}

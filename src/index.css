@@ -168,6 +168,17 @@ button:disabled {
   text-align: center;
 }
 
+.tool-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.45rem;
+  padding: 0.1rem 0.28rem;
+  border: 1px solid currentColor;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
 .tool-button.active {
   background: #111111;
   color: #ffffff;

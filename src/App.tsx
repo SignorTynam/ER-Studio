@@ -31,6 +31,7 @@ import {
 } from "./utils/diagram";
 import { createExampleDiagram } from "./utils/example";
 import { downloadPng, downloadSvg } from "./utils/export";
+import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 
 const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
@@ -150,6 +151,23 @@ export default function App() {
         event.preventDefault();
         history.redo();
         return;
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+        const shortcut = event.key.toLowerCase();
+        const nextTool = TOOL_BY_SHORTCUT[shortcut];
+
+        if (nextTool) {
+          event.preventDefault();
+          if (mode === "view" && nextTool !== "select" && nextTool !== "move") {
+            setStatusMessage("Strumento non disponibile in modalita visualizzazione.");
+            return;
+          }
+
+          setTool(nextTool);
+          setStatusMessage(`Strumento attivo: ${TOOL_LABEL_BY_KIND[nextTool]}.`);
+          return;
+        }
       }
 
       if (event.key === "Delete" || event.key === "Backspace") {
