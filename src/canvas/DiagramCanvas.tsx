@@ -158,6 +158,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
   }, [props.mode, props.onStatusMessageChange, props.statusMessage, props.tool]);
 
+  function beginPanInteraction(pointerId: number, clientX: number, clientY: number) {
+    setInteraction({
+      kind: "pan",
+      pointerId,
+      startClient: { x: clientX, y: clientY },
+      startViewport: props.viewport,
+    });
+  }
+
   function getWorldPointFromEvent(event: { clientX: number; clientY: number }): Point | null {
     if (!containerRef.current) {
       return null;
@@ -216,13 +225,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (event.button === 1 || spacePressed) {
-      setInteraction({
-        kind: "pan",
-        pointerId: event.pointerId,
-        startClient: { x: event.clientX, y: event.clientY },
-        startViewport: props.viewport,
-      });
+    if (event.button === 1 || spacePressed || props.tool === "move") {
+      beginPanInteraction(event.pointerId, event.clientX, event.clientY);
       return;
     }
 
@@ -273,6 +277,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (props.tool === "move") {
+      beginPanInteraction(event.pointerId, event.clientX, event.clientY);
+      return;
+    }
+
     if (props.tool !== "select") {
       return;
     }
@@ -314,6 +323,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
+
+    if (props.tool === "move") {
+      beginPanInteraction(event.pointerId, event.clientX, event.clientY);
+      return;
+    }
 
     if (props.tool !== "select") {
       return;

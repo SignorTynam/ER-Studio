@@ -1,6 +1,7 @@
 export type NodeKind = "entity" | "relationship" | "attribute" | "text";
 export type EdgeKind = "connector" | "attribute" | "inheritance";
 export type ToolKind =
+  | "move"
   | "select"
   | "entity"
   | "relationship"

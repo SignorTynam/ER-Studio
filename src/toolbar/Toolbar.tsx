@@ -7,6 +7,7 @@ interface ToolbarProps {
 }
 
 const TOOL_ITEMS: Array<{ tool: ToolKind; label: string }> = [
+  { tool: "move", label: "Sposta" },
   { tool: "select", label: "Selezione" },
   { tool: "entity", label: "Entita" },
   { tool: "relationship", label: "Relazione" },
@@ -17,6 +18,14 @@ const TOOL_ITEMS: Array<{ tool: ToolKind; label: string }> = [
 ];
 
 function ToolIcon({ tool }: { tool: ToolKind }) {
+  if (tool === "move") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M12 3l2.6 2.6H13v3h-2v-3H9.4L12 3zm0 18l-2.6-2.6H11v-3h2v3h1.6L12 21zM3 12l2.6-2.6V11h3v2h-3v1.6L3 12zm18 0l-2.6 2.6V13h-3v-2h3V9.4L21 12z" fill="currentColor" />
+      </svg>
+    );
+  }
+
   if (tool === "entity") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -80,7 +89,7 @@ export function Toolbar(props: ToolbarProps) {
       <div className="panel-heading">Strumenti</div>
       <div className="toolbar-list">
         {TOOL_ITEMS.map((item) => {
-          const disabled = props.mode === "view" && item.tool !== "select";
+          const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
           return (
             <button
               key={item.tool}
@@ -99,6 +108,7 @@ export function Toolbar(props: ToolbarProps) {
       <div className="toolbar-help">
         <p>Doppio click per rinominare.</p>
         <p>Rotella per zoom.</p>
+        <p>Usa Sposta per trascinare la vista.</p>
         <p>Trascina con il tasto centrale per pan.</p>
       </div>
     </aside>
