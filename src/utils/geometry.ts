@@ -141,9 +141,10 @@ export function buildOrthogonalPoints(
   source: Point,
   target: Point,
   edgeType: EdgeKind,
+  laneOffset = 0,
 ): Point[] {
   if (edgeType === "attribute") {
-    const midX = source.x <= target.x ? target.x - 24 : source.x - 24;
+    const midX = source.x <= target.x ? target.x - 24 + laneOffset : target.x + 24 + laneOffset;
     return dedupePoints([
       source,
       { x: midX, y: source.y },
@@ -174,16 +175,63 @@ export function buildOrthogonalPoints(
   ]);
 }
 
+function getAttributeLaneOffset(edgeId: string): number {
+  const lanes = [-18, -12, -6, 6, 12, 18];
+  let hash = 0;
+
+  for (let index = 0; index < edgeId.length; index += 1) {
+    hash = (hash * 31 + edgeId.charCodeAt(index)) | 0;
+  }
+
+  return lanes[Math.abs(hash) % lanes.length];
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: number): Point {
+  const center = getNodeCenter(node);
+  const deltaX = toward.x - center.x;
+  const deltaY = toward.y - center.y;
+  const margin = 8;
+
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    return {
+      x: deltaX >= 0 ? node.x + node.width : node.x,
+      y: clamp(center.y + laneOffset, node.y + margin, node.y + node.height - margin),
+    };
+  }
+
+  return {
+    x: clamp(center.x + laneOffset, node.x + margin, node.x + node.width - margin),
+    y: deltaY >= 0 ? node.y + node.height : node.y,
+  };
+}
+
 export function getEdgeGeometry(
   edge: DiagramEdge,
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
 ): EdgeGeometry {
+  const laneOffset = edge.type === "attribute" ? getAttributeLaneOffset(edge.id) : 0;
   const targetCenter = getNodeCenter(targetNode);
   const sourceCenter = getNodeCenter(sourceNode);
-  const sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
-  const targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
-  const points = buildOrthogonalPoints(sourcePoint, targetPoint, edge.type);
+  let sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
+  let targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
+
+  // Attribute connectors must leave the host entity from different border points.
+  if (edge.type === "attribute") {
+    if (sourceNode.type !== "attribute") {
+      sourcePoint = getAttributeEntityAnchor(sourceNode, targetCenter, laneOffset);
+    }
+
+    if (targetNode.type !== "attribute") {
+      targetPoint = getAttributeEntityAnchor(targetNode, sourceCenter, laneOffset);
+    }
+  }
+
+  const points = buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);
   const middleIndex = Math.floor(points.length / 2);
   const start = points[Math.max(0, middleIndex - 1)];
   const end = points[middleIndex];
