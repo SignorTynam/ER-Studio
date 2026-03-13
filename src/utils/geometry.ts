@@ -215,6 +215,29 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: number): Point {
+  if (node.type === "relationship") {
+    const center = getNodeCenter(node);
+    const halfWidth = node.width / 2;
+    const halfHeight = node.height / 2;
+    const deltaX = toward.x - center.x;
+    const deltaY = toward.y - center.y;
+
+    // Intersect the ray from center->toward with the diamond boundary:
+    // |x-cx|/(w/2) + |y-cy|/(h/2) = 1
+    const scaleDenominator =
+      Math.abs(deltaX) / Math.max(1, halfWidth) + Math.abs(deltaY) / Math.max(1, halfHeight);
+
+    if (scaleDenominator <= 0) {
+      return center;
+    }
+
+    const t = 1 / scaleDenominator;
+    return {
+      x: center.x + deltaX * t,
+      y: center.y + deltaY * t,
+    };
+  }
+
   const center = getNodeCenter(node);
   const deltaX = toward.x - center.x;
   const deltaY = toward.y - center.y;
