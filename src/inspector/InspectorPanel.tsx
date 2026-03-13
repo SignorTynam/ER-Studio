@@ -139,19 +139,29 @@ export function InspectorPanel(props: InspectorPanelProps) {
         <details className="inspector-card inspector-section" open>
           <summary className="section-summary">Dettagli collegamento</summary>
           <div className="section-body inspector-stack">
-          <label className="field">
-            <span>{selectedEdge.type === "connector" ? "Cardinalita (X,Y)" : "Nome collegamento"}</span>
-            <input
-              value={selectedEdge.type === "connector" ? selectedEdge.cardinality ?? "(X,Y)" : selectedEdge.label}
-              disabled={props.mode === "view"}
-              placeholder={selectedEdge.type === "connector" ? "(X,Y)" : "Etichetta opzionale"}
-              onChange={(event) =>
-                selectedEdge.type === "connector"
-                  ? props.onEdgeChange(selectedEdge.id, { cardinality: event.target.value })
-                  : props.onEdgeChange(selectedEdge.id, { label: event.target.value })
-              }
-            />
-          </label>
+          {selectedEdge.type === "connector" ? (
+            <label className="field">
+              <span>Cardinalita (X,Y)</span>
+              <input
+                value={selectedEdge.cardinality ?? "(X,Y)"}
+                disabled={props.mode === "view"}
+                placeholder="(X,Y)"
+                onChange={(event) => props.onEdgeChange(selectedEdge.id, { cardinality: event.target.value })}
+              />
+            </label>
+          ) : null}
+
+          {selectedEdge.type === "inheritance" ? (
+            <label className="field">
+              <span>Nome collegamento</span>
+              <input
+                value={selectedEdge.label}
+                disabled={props.mode === "view"}
+                placeholder="Etichetta opzionale"
+                onChange={(event) => props.onEdgeChange(selectedEdge.id, { label: event.target.value })}
+              />
+            </label>
+          ) : null}
 
           <label className="field">
             <span>Tipo</span>

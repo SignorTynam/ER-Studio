@@ -24,7 +24,12 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const connectorCardinality =
     props.edge.type === "connector" ? props.edge.cardinality?.trim() || "(X,Y)" : "";
-  const displayLabel = props.edge.type === "connector" ? connectorCardinality : props.edge.label;
+  const displayLabel =
+    props.edge.type === "connector"
+      ? connectorCardinality
+      : props.edge.type === "inheritance"
+        ? props.edge.label
+        : "";
 
   return (
     <g

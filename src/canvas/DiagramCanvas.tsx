@@ -556,6 +556,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (edge.type === "attribute") {
+      return;
+    }
+
     const value = edge.type === "connector" ? edge.cardinality ?? "(X,Y)" : edge.label;
     setInlineEdit({ kind: "edge", id: edge.id, value });
   }
@@ -571,7 +575,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.onRenameNode(inlineEdit.id, trimmed || currentNode?.label || "");
     } else {
       const currentEdge = props.diagram.edges.find((edge) => edge.id === inlineEdit.id);
-      props.onRenameEdge(inlineEdit.id, trimmed || currentEdge?.label || "");
+      const fallbackValue =
+        currentEdge?.type === "connector" ? currentEdge.cardinality ?? "(X,Y)" : currentEdge?.label || "";
+      props.onRenameEdge(inlineEdit.id, trimmed || fallbackValue);
     }
 
     setInlineEdit(null);
