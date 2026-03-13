@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Diagram Studio";
-export const APP_VERSION = "1.0";
+export const APP_VERSION = "1.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,17 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "1.1",
+    date: "2026-03-13",
+    updates: [
+      "Attributi con linea sempre dritta e aggancio corretto al bordo di entita/associazione.",
+      "Migliorato posizionamento etichetta attributo sul lato opposto alla direzione del collegamento.",
+      "Cardinalita configurabile da elenco (niente input libero), con supporto opzionale anche sui collegamenti attributo.",
+      "Identificatore composto interno configurabile manualmente selezionando 2+ attributi.",
+      "Blocco regola: un attributo nel composto interno non puo diventare identificatore singolo.",
+    ],
+  },
   {
     version: "1.0",
     date: "2026-03-13",
