@@ -25,6 +25,8 @@ function numberValue(value: string): number {
 }
 
 export function InspectorPanel(props: InspectorPanelProps) {
+  const canAlign = props.mode !== "view" && props.selection.nodeIds.length >= 2;
+
   const selectedNode =
     props.selection.nodeIds.length === 1
       ? props.diagram.nodes.find((node) => node.id === props.selection.nodeIds[0])
@@ -176,19 +178,22 @@ export function InspectorPanel(props: InspectorPanelProps) {
           <button type="button" onClick={props.onDeleteSelection} disabled={props.mode === "view"}>
             Elimina
           </button>
-          <button type="button" onClick={() => props.onAlign("left")} disabled={props.mode === "view"}>
+          <button type="button" onClick={() => props.onAlign("left")} disabled={!canAlign}>
             Allinea sinistra
           </button>
-          <button type="button" onClick={() => props.onAlign("center")} disabled={props.mode === "view"}>
+          <button type="button" onClick={() => props.onAlign("center")} disabled={!canAlign}>
             Allinea centro
           </button>
-          <button type="button" onClick={() => props.onAlign("top")} disabled={props.mode === "view"}>
+          <button type="button" onClick={() => props.onAlign("top")} disabled={!canAlign}>
             Allinea alto
           </button>
-          <button type="button" onClick={() => props.onAlign("middle")} disabled={props.mode === "view"}>
+          <button type="button" onClick={() => props.onAlign("middle")} disabled={!canAlign}>
             Allinea mezzo
           </button>
         </div>
+        {!canAlign && props.mode !== "view" ? (
+          <p className="action-hint">Per allineare, seleziona almeno due nodi.</p>
+        ) : null}
       </div>
 
       <div className="inspector-stack">

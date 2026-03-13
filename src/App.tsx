@@ -355,8 +355,14 @@ export default function App() {
       return;
     }
 
+    if (selection.nodeIds.length < 2) {
+      setStatus("Seleziona almeno due nodi per allineare.");
+      return;
+    }
+
     const nextDiagram = alignNodes(history.present, selection.nodeIds, axis);
     if (nextDiagram === history.present) {
+      setStatus("Nodi gia allineati su questo asse.");
       return;
     }
 

@@ -390,6 +390,12 @@ button:disabled {
   gap: 8px;
 }
 
+.action-hint {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: #5c5c56;
+}
+
 .validation-ok {
   margin: 0;
   padding: 12px;
