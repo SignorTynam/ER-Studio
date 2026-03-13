@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
 interface AppHeaderProps {
@@ -17,19 +18,15 @@ interface AppHeaderProps {
   onHelp: () => void;
 }
 
-function ActionButton(props: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button className="header-button" type="button" onClick={props.onClick} disabled={props.disabled}>
-      {props.label}
-    </button>
-  );
-}
-
 export function AppHeader(props: AppHeaderProps) {
+  function runMenuAction(event: MouseEvent<HTMLButtonElement>, action: () => void) {
+    action();
+    const group = event.currentTarget.closest("details");
+    if (group) {
+      group.removeAttribute("open");
+    }
+  }
+
   return (
     <header className="app-header">
       <div className="app-title-block">
@@ -38,17 +35,58 @@ export function AppHeader(props: AppHeaderProps) {
         <div className="app-subtitle">{props.diagramName}</div>
       </div>
 
-      <div className="header-actions">
-        <ActionButton label="Nuovo diagramma" onClick={props.onNew} />
-        <ActionButton label="Undo" onClick={props.onUndo} disabled={!props.canUndo} />
-        <ActionButton label="Redo" onClick={props.onRedo} disabled={!props.canRedo} />
-        <ActionButton label="Salva JSON" onClick={props.onSave} />
-        <ActionButton label="Carica JSON" onClick={props.onLoad} />
-        <ActionButton label="Export PNG" onClick={props.onExportPng} />
-        <ActionButton label="Export SVG" onClick={props.onExportSvg} />
-        <ActionButton label="Carica esempio" onClick={props.onExample} />
-        <ActionButton label="Help" onClick={props.onHelp} />
-      </div>
+      <nav className="header-nav" aria-label="Azioni principali">
+        <details className="nav-group">
+          <summary>File</summary>
+          <div className="nav-menu">
+            <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
+              Nuovo diagramma
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onSave)}>
+              Salva JSON
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onLoad)}>
+              Carica JSON
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onExample)}>
+              Carica esempio
+            </button>
+          </div>
+        </details>
+
+        <details className="nav-group">
+          <summary>Modifica</summary>
+          <div className="nav-menu">
+            <button type="button" onClick={(event) => runMenuAction(event, props.onUndo)} disabled={!props.canUndo}>
+              Undo
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onRedo)} disabled={!props.canRedo}>
+              Redo
+            </button>
+          </div>
+        </details>
+
+        <details className="nav-group">
+          <summary>Export</summary>
+          <div className="nav-menu">
+            <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
+              Export PNG
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
+              Export SVG
+            </button>
+          </div>
+        </details>
+
+        <details className="nav-group">
+          <summary>Aiuto</summary>
+          <div className="nav-menu">
+            <button type="button" onClick={(event) => runMenuAction(event, props.onHelp)}>
+              Apri help
+            </button>
+          </div>
+        </details>
+      </nav>
 
       <div className="mode-switch" role="group" aria-label="Modalita editor">
         <button

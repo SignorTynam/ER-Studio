@@ -69,12 +69,6 @@ button:disabled {
   letter-spacing: 0.08em;
 }
 
-.header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .header-button,
 .mode-button,
 .action-grid button,
@@ -118,6 +112,69 @@ button:disabled {
 .mode-button.active {
   background: #111111;
   color: #ffffff;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-group {
+  position: relative;
+}
+
+.nav-group > summary {
+  list-style: none;
+  border: 1px solid #171717;
+  background: #ffffff;
+  color: #111111;
+  min-height: 38px;
+  padding: 0.52rem 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-group[open] > summary {
+  background: #111111;
+  color: #ffffff;
+}
+
+.nav-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9;
+  min-width: 188px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #171717;
+  background: #fffef9;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.14);
+}
+
+.nav-menu button {
+  border: 0;
+  border-bottom: 1px solid #d6d6d0;
+  background: transparent;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+}
+
+.nav-menu button:last-child {
+  border-bottom: 0;
+}
+
+.nav-menu button:hover:not(:disabled) {
+  background: #f3f3ee;
+}
+
+.nav-menu button:disabled {
+  color: #777772;
 }
 
 .workspace-shell {
@@ -541,6 +598,10 @@ button:disabled {
 @media (max-width: 880px) {
   .app-header {
     grid-template-columns: 1fr;
+  }
+
+  .header-nav {
+    flex-wrap: wrap;
   }
 
   .workspace-shell {
