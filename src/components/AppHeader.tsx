@@ -33,7 +33,7 @@ export function AppHeader(props: AppHeaderProps) {
     <header className="app-header">
       <div className="app-title-block">
         <div className="app-eyebrow">Editor Chen accademico</div>
-        <h1>Chen ER Diagram Studio</h1>
+        <h1>ER Diagram Studio</h1>
         <div className="app-subtitle">{props.diagramName}</div>
       </div>
 
