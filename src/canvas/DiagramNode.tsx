@@ -1,10 +1,49 @@
 import type { MouseEvent, PointerEvent } from "react";
-import type { DiagramNode } from "../types/diagram";
+import type { DiagramNode, Point } from "../types/diagram";
+
+interface AttributeLabelLayout {
+  x: number;
+  y: number;
+  textAnchor: "start" | "middle" | "end";
+  dominantBaseline: "middle";
+}
+
+export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): AttributeLabelLayout {
+  const cy = node.y + node.height / 2;
+
+  if (!direction) {
+    return {
+      x: node.x + 24,
+      y: cy,
+      textAnchor: "start",
+      dominantBaseline: "middle",
+    };
+  }
+
+  if (Math.abs(direction.x) >= Math.abs(direction.y)) {
+    const goesRight = direction.x >= 0;
+    return {
+      x: goesRight ? node.x - 6 : node.x + 24,
+      y: cy,
+      textAnchor: goesRight ? "end" : "start",
+      dominantBaseline: "middle",
+    };
+  }
+
+  const goesDown = direction.y >= 0;
+  return {
+    x: node.x + 10,
+    y: goesDown ? node.y - 8 : node.y + node.height + 8,
+    textAnchor: "middle",
+    dominantBaseline: "middle",
+  };
+}
 
 interface DiagramNodeProps {
   node: DiagramNode;
   selected: boolean;
   pending: boolean;
+  attributeDirection?: Point;
   onPointerDown: (event: PointerEvent<SVGGElement>, node: DiagramNode) => void;
   onDoubleClick: (event: MouseEvent<SVGGElement>, node: DiagramNode) => void;
 }
@@ -63,6 +102,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   if (node.type === "attribute") {
     const cy = node.y + node.height / 2;
     const isIdentifier = node.isIdentifier === true;
+    const labelLayout = getAttributeLabelLayout(node, props.attributeDirection);
 
     return (
       <g
@@ -82,8 +122,13 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           />
         ) : null}
         <circle cx={node.x + 10} cy={cy} r={7} fill={isIdentifier ? "#111111" : "#ffffff"} stroke="#111111" strokeWidth={2} />
-        <line x1={node.x + 17} y1={cy} x2={node.x + 34} y2={cy} stroke="#111111" strokeWidth={2} />
-        <text x={node.x + 40} y={cy - 10} className="attribute-label" dominantBaseline="alphabetic">
+        <text
+          x={labelLayout.x}
+          y={labelLayout.y}
+          className="attribute-label"
+          textAnchor={labelLayout.textAnchor}
+          dominantBaseline={labelLayout.dominantBaseline}
+        >
           {node.label}
         </text>
       </g>

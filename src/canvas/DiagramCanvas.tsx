@@ -6,7 +6,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from "react";
 import { DiagramEdgeView } from "./DiagramEdge";
-import { DiagramNodeView } from "./DiagramNode";
+import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import {
   clampZoom,
   clientPointFromWorld,
@@ -135,6 +135,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
+  const attributeDirectionMap = new Map<string, Point>();
 
   props.diagram.edges.forEach((edge) => {
     if (edge.type !== "connector") {
@@ -151,6 +152,31 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const laneCount = edgeIds.length;
     edgeIds.forEach((edgeId, laneIndex) => {
       connectorLaneMap.set(edgeId, { laneIndex, laneCount });
+    });
+  });
+
+  props.diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+
+    const attributeNode = sourceNode.type === "attribute" ? sourceNode : targetNode.type === "attribute" ? targetNode : null;
+    if (!attributeNode || attributeDirectionMap.has(attributeNode.id)) {
+      return;
+    }
+
+    const hostNode = attributeNode.id === sourceNode.id ? targetNode : sourceNode;
+    const attributeCenter = getNodeCenter(attributeNode);
+    const hostCenter = getNodeCenter(hostNode);
+    attributeDirectionMap.set(attributeNode.id, {
+      x: hostCenter.x - attributeCenter.x,
+      y: hostCenter.y - attributeCenter.y,
     });
   });
 
@@ -613,7 +639,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
       const targetPoint =
         node.type === "attribute"
-          ? { x: node.x + 38, y: node.y + node.height / 2 - 10 }
+          ? (() => {
+              const layout = getAttributeLabelLayout(node, attributeDirectionMap.get(node.id));
+              const horizontalAnchorOffset =
+                layout.textAnchor === "start" ? 12 : layout.textAnchor === "end" ? -160 : -74;
+              return {
+                x: layout.x + horizontalAnchorOffset,
+                y: layout.y - 12,
+              };
+            })()
           : { x: node.x + 10, y: node.y + node.height / 2 - 14 };
       const screenPoint = clientPointFromWorld(targetPoint, props.viewport, rect);
 
@@ -721,6 +755,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               node={node}
               selected={props.selection.nodeIds.includes(node.id)}
               pending={pendingConnectionSource === node.id}
+              attributeDirection={attributeDirectionMap.get(node.id)}
               onPointerDown={handleNodePointerDown}
               onDoubleClick={startInlineNodeEdit}
             />
