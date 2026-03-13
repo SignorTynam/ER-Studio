@@ -80,6 +80,7 @@ export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
       width: size.width,
       height: size.height,
       isIdentifier: false,
+      isCompositeInternal: false,
     };
   }
 
@@ -322,14 +323,15 @@ export function parseDiagram(rawJson: string): DiagramDocument {
             isNodeKind(node.type),
         )
         .map((node) => {
-          if (node.type !== "attribute") {
-            return node;
+          if (node.type === "attribute") {
+            return {
+              ...node,
+              isIdentifier: node.isIdentifier === true,
+              isCompositeInternal: node.isCompositeInternal === true,
+            };
           }
 
-          return {
-            ...node,
-            isIdentifier: node.isIdentifier === true,
-          };
+          return node;
         })
     : [];
   const edges = Array.isArray(parsed.edges)
@@ -424,6 +426,30 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           id: `relationship-${node.id}`,
           level: "warning",
           message: `La relazione "${node.label}" dovrebbe collegare almeno due entità compatibili.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+    }
+
+    if (node.type === "entity" || node.type === "relationship") {
+      const compositeAttributes = connectedEdges
+        .filter((edge) => edge.type === "attribute")
+        .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
+        .map((attributeId) => diagram.nodes.find((candidate) => candidate.id === attributeId))
+        .filter((candidate): candidate is DiagramNode => candidate !== undefined)
+        .filter(
+          (candidate) =>
+            candidate.type === "attribute" &&
+            candidate.isCompositeInternal === true &&
+            candidate.isIdentifier !== true,
+        );
+
+      if (compositeAttributes.length === 1) {
+        issues.push({
+          id: `composite-${node.id}`,
+          level: "warning",
+          message: `"${node.label}" ha un solo attributo nel composto interno: selezionane almeno due.`,
           targetId: node.id,
           targetType: "node",
         });

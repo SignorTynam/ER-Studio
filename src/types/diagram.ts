@@ -39,6 +39,7 @@ export interface RelationshipNode extends BaseNode {
 export interface AttributeNode extends BaseNode {
   type: "attribute";
   isIdentifier?: boolean;
+  isCompositeInternal?: boolean;
 }
 
 export interface TextNode extends BaseNode {

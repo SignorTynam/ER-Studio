@@ -136,6 +136,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
+  const compositeGroups = new Map<string, { host: DiagramNode; attributeCenters: Point[] }>();
+  const compositeIdentifierLayouts: Array<
+    | { hostId: string; orientation: "vertical"; x: number; y1: number; y2: number; marker: Point }
+    | { hostId: string; orientation: "horizontal"; y: number; x1: number; x2: number; marker: Point }
+  > = [];
 
   props.diagram.edges.forEach((edge) => {
     if (edge.type !== "connector") {
@@ -174,9 +179,74 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const hostNode = attributeNode.id === sourceNode.id ? targetNode : sourceNode;
     const attributeCenter = getNodeCenter(attributeNode);
     const hostCenter = getNodeCenter(hostNode);
+
+    if (
+      attributeNode.isIdentifier !== true &&
+      attributeNode.isCompositeInternal === true &&
+      (hostNode.type === "entity" || hostNode.type === "relationship")
+    ) {
+      const group = compositeGroups.get(hostNode.id) ?? { host: hostNode, attributeCenters: [] };
+      group.attributeCenters.push(attributeCenter);
+      compositeGroups.set(hostNode.id, group);
+    }
+
     attributeDirectionMap.set(attributeNode.id, {
       x: hostCenter.x - attributeCenter.x,
       y: hostCenter.y - attributeCenter.y,
+    });
+  });
+
+  compositeGroups.forEach((group, hostId) => {
+    if (group.attributeCenters.length < 2) {
+      return;
+    }
+
+    const host = group.host;
+    const hostCenter = getNodeCenter(host);
+    const avg = group.attributeCenters.reduce(
+      (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
+      { x: 0, y: 0 },
+    );
+    const averageCenter = {
+      x: avg.x / group.attributeCenters.length,
+      y: avg.y / group.attributeCenters.length,
+    };
+
+    const horizontalBias = Math.abs(averageCenter.x - hostCenter.x) >= Math.abs(averageCenter.y - hostCenter.y);
+
+    if (horizontalBias) {
+      const onLeft = averageCenter.x < hostCenter.x;
+      const hostSideX = onLeft ? host.x : host.x + host.width;
+      const x = onLeft ? hostSideX - 36 : hostSideX + 36;
+      const minY = Math.min(...group.attributeCenters.map((point) => point.y));
+      const maxY = Math.max(...group.attributeCenters.map((point) => point.y));
+      const markerY = maxY + 26;
+
+      compositeIdentifierLayouts.push({
+        hostId,
+        orientation: "vertical",
+        x,
+        y1: minY - 8,
+        y2: markerY - 10,
+        marker: { x, y: markerY },
+      });
+      return;
+    }
+
+    const onTop = averageCenter.y < hostCenter.y;
+    const hostSideY = onTop ? host.y : host.y + host.height;
+    const y = onTop ? hostSideY - 36 : hostSideY + 36;
+    const minX = Math.min(...group.attributeCenters.map((point) => point.x));
+    const maxX = Math.max(...group.attributeCenters.map((point) => point.x));
+    const markerX = maxX + 26;
+
+    compositeIdentifierLayouts.push({
+      hostId,
+      orientation: "horizontal",
+      y,
+      x1: minX - 8,
+      x2: markerX - 10,
+      marker: { x: markerX, y },
     });
   });
 
@@ -759,6 +829,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               onPointerDown={handleNodePointerDown}
               onDoubleClick={startInlineNodeEdit}
             />
+          ))}
+
+          {compositeIdentifierLayouts.map((layout) => (
+            <g key={`composite-id-${layout.hostId}`} className="composite-identifier" pointerEvents="none">
+              {layout.orientation === "vertical" ? (
+                <line x1={layout.x} y1={layout.y1} x2={layout.x} y2={layout.y2} stroke="#111111" strokeWidth={2} />
+              ) : (
+                <line x1={layout.x1} y1={layout.y} x2={layout.x2} y2={layout.y} stroke="#111111" strokeWidth={2} />
+              )}
+              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill="#111111" stroke="#111111" strokeWidth={2} />
+            </g>
           ))}
 
           {selectionBounds ? (

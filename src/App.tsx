@@ -68,6 +68,19 @@ function updateNodeInDiagram(
   };
 }
 
+function updateNodesInDiagram(
+  diagram: DiagramDocument,
+  nodeIds: string[],
+  patch: Partial<DiagramNode>,
+): DiagramDocument {
+  const targetIds = new Set(nodeIds);
+
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => (targetIds.has(node.id) ? { ...node, ...patch } : node)),
+  };
+}
+
 function updateEdgeInDiagram(
   diagram: DiagramDocument,
   edgeId: string,
@@ -325,6 +338,15 @@ export default function App() {
     commitDiagram(nextDiagram);
   }
 
+  function handleNodesChange(nodeIds: string[], patch: Partial<DiagramNode>) {
+    if (nodeIds.length === 0) {
+      return;
+    }
+
+    const nextDiagram = updateNodesInDiagram(history.present, nodeIds, patch);
+    commitDiagram(nextDiagram);
+  }
+
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
     const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
     commitDiagram(nextDiagram);
@@ -501,6 +523,7 @@ export default function App() {
           mode={mode}
           issues={issues}
           onNodeChange={handleNodeChange}
+          onNodesChange={handleNodesChange}
           onEdgeChange={handleEdgeChange}
           onDeleteSelection={handleDeleteSelection}
           onDuplicateSelection={handleDuplicateSelection}

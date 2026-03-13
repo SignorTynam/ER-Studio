@@ -17,6 +17,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Aggiunto il pulsante New con storico aggiornamenti.",
       "Introdotto versioning applicazione: ER Diagram Studio 1.0.",
       "Migliorata la resa attributi: cardinalita opzionale, etichetta dinamica e connessioni lineari.",
+      "Aggiunto identificatore composto interno configurabile manualmente selezionando 2+ attributi.",
     ],
   },
 ];

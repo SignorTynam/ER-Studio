@@ -17,6 +17,7 @@ interface InspectorPanelProps {
   mode: EditorMode;
   issues: ValidationIssue[];
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
+  onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
   onDeleteSelection: () => void;
   onDuplicateSelection: () => void;
@@ -39,6 +40,13 @@ export function InspectorPanel(props: InspectorPanelProps) {
     props.selection.nodeIds.length === 1
       ? props.diagram.nodes.find((node) => node.id === props.selection.nodeIds[0])
       : undefined;
+  const selectedAttributeNodes = props.diagram.nodes.filter(
+    (node) => props.selection.nodeIds.includes(node.id) && node.type === "attribute",
+  );
+  const canConfigureCompositeInternal = selectedAttributeNodes.length >= 2;
+  const allSelectedAttributesComposite =
+    canConfigureCompositeInternal && selectedAttributeNodes.every((node) => node.isCompositeInternal === true);
+  const hasIdentifierInSelection = selectedAttributeNodes.some((node) => node.isIdentifier === true);
   const selectedEdge =
     !selectedNode && props.selection.edgeIds.length === 1
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
@@ -135,6 +143,37 @@ export function InspectorPanel(props: InspectorPanelProps) {
               />
             </label>
           ) : null}
+
+          </div>
+        </details>
+      ) : null}
+
+      {!selectedNode && canConfigureCompositeInternal ? (
+        <details className="inspector-card inspector-section" open>
+          <summary className="section-summary">Identificatore composto interno</summary>
+          <div className="section-body inspector-stack">
+            <label className="field checkbox-field">
+              <span>Usa attributi selezionati nel composto interno</span>
+              <input
+                type="checkbox"
+                checked={allSelectedAttributesComposite}
+                disabled={props.mode === "view"}
+                onChange={(event) => {
+                  const targetIds = selectedAttributeNodes
+                    .filter((attributeNode) => attributeNode.isIdentifier !== true)
+                    .map((attributeNode) => attributeNode.id);
+                  props.onNodesChange(targetIds, { isCompositeInternal: event.target.checked });
+                }}
+              />
+            </label>
+            <p className="action-hint">
+              Seleziona due o piu attributi collegati allo stesso host (entita o relazione).
+            </p>
+            {hasIdentifierInSelection ? (
+              <p className="action-hint">
+                Gli attributi marcati come identificatore semplice non vengono inclusi nel composto interno.
+              </p>
+            ) : null}
           </div>
         </details>
       ) : null}
