@@ -595,6 +595,81 @@ button:disabled {
   display: none;
 }
 
+.intro-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 13;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(18, 18, 16, 0.5);
+}
+
+.intro-modal {
+  width: min(860px, 100%);
+  border: 1px solid #171717;
+  background: #fffef8;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.3);
+}
+
+.intro-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #d4d4ce;
+  background: linear-gradient(180deg, #f9f8f2 0%, #ecebe4 100%);
+}
+
+.intro-modal-head h2 {
+  margin: 0;
+  font-size: 1.22rem;
+}
+
+.intro-modal-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.intro-modal-content p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.intro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.intro-grid article {
+  border: 1px solid #d2d2cc;
+  background: #f9f9f4;
+  padding: 10px;
+}
+
+.intro-grid h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.intro-grid p {
+  font-size: 0.9rem;
+}
+
+.intro-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .help-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -637,12 +712,53 @@ button:disabled {
 
 .help-list {
   margin: 0;
-  padding: 14px 30px 18px;
+  padding: 8px 30px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   font-size: 0.94rem;
   line-height: 1.4;
+}
+
+.help-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.help-section {
+  border: 1px solid #d2d2cc;
+  background: #fcfcf8;
+}
+
+.help-section > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.52rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #dfdfd8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.help-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.help-section > summary::after {
+  content: "+";
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.help-section[open] > summary::after {
+  content: "-";
 }
 
 .toast-stack {
@@ -751,5 +867,14 @@ button:disabled {
     left: 12px;
     right: 12px;
     width: auto;
+  }
+
+  .intro-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .intro-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

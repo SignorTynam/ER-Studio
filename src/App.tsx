@@ -104,6 +104,7 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(true);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -218,6 +219,11 @@ export default function App() {
       }
 
       if (event.key === "Escape") {
+        if (introOpen) {
+          setIntroOpen(false);
+          return;
+        }
+
         if (helpOpen) {
           setHelpOpen(false);
           return;
@@ -230,7 +236,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [helpOpen, history, selection, mode]);
+  }, [helpOpen, history, introOpen, selection, mode]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -490,6 +496,63 @@ export default function App() {
         onChange={handleLoadFile}
       />
 
+      {introOpen ? (
+        <div className="intro-modal-backdrop" role="presentation" onClick={() => setIntroOpen(false)}>
+          <div
+            className="intro-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="intro-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="intro-modal-head">
+              <h2 id="intro-modal-title">Benvenuto in ER Diagram Studio</h2>
+              <button type="button" className="help-close" onClick={() => setIntroOpen(false)}>
+                Chiudi
+              </button>
+            </div>
+
+            <div className="intro-modal-content">
+              <p>
+                Questa applicazione ti aiuta a costruire diagrammi ER in stile Chen in modo rapido: crea entita,
+                relazioni e attributi, collega i nodi e valida la consistenza del modello.
+              </p>
+
+              <div className="intro-grid">
+                <article>
+                  <h3>1. Crea</h3>
+                  <p>Seleziona uno strumento, clicca sul canvas e inserisci i tuoi elementi principali.</p>
+                </article>
+                <article>
+                  <h3>2. Collega</h3>
+                  <p>Usa Collegamento o Generalizzazione per definire relazioni e cardinalita.</p>
+                </article>
+                <article>
+                  <h3>3. Rifinisci</h3>
+                  <p>Rinomina con doppio click, allinea i nodi e correggi i warning nelle validazioni.</p>
+                </article>
+              </div>
+
+              <div className="intro-actions">
+                <button
+                  type="button"
+                  className="header-button"
+                  onClick={() => {
+                    setIntroOpen(false);
+                    setHelpOpen(true);
+                  }}
+                >
+                  Apri Guida rapida
+                </button>
+                <button type="button" className="mode-button active" onClick={() => setIntroOpen(false)}>
+                  Inizia a disegnare
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {helpOpen ? (
         <div className="help-modal-backdrop" role="presentation" onClick={() => setHelpOpen(false)}>
           <div
@@ -506,12 +569,54 @@ export default function App() {
               </button>
             </div>
 
-            <ul className="help-list">
-              <li>Doppio click per rinominare.</li>
-              <li>Rotella per zoom.</li>
-              <li>Usa Sposta per trascinare la vista.</li>
-              <li>Trascina con il tasto centrale per pan.</li>
-            </ul>
+            <div className="help-sections">
+              <details className="help-section" open>
+                <summary>Strumenti e Shortcut</summary>
+                <ul className="help-list">
+                  <li>Selezione rapida strumenti: S Sposta, V Selezione, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione, T Testo.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Inserimento e Collegamenti</summary>
+                <ul className="help-list">
+                  <li>Con Entita, Relazione, Attributo o Testo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
+                  <li>Collegamenti: scegli Collegamento o Generalizzazione, clicca il nodo sorgente e poi il nodo destinazione.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Selezione e Modifica</summary>
+                <ul className="help-list">
+                  <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
+                  <li>Doppio click su nodo o collegamento per rinominare/aggiornare il testo (cardinalita inclusa).</li>
+                  <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
+                  <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Navigazione Canvas</summary>
+                <ul className="help-list">
+                  <li>Navigazione canvas: rotella per zoom, tool Sposta per pan, oppure trascina con tasto centrale.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Comandi Tastiera</summary>
+                <ul className="help-list">
+                  <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y redo.</li>
+                  <li>Delete/Backspace elimina la selezione; Esc annulla selezione corrente e chiude il modal Help.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Validazioni ed Errori</summary>
+                <ul className="help-list">
+                  <li>I messaggi di errore appaiono come toast in alto a destra.</li>
+                </ul>
+              </details>
+            </div>
           </div>
         </div>
       ) : null}
