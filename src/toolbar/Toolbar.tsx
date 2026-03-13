@@ -96,12 +96,6 @@ export function Toolbar(props: ToolbarProps) {
           );
         })}
       </div>
-      <div className="toolbar-help">
-        <p>Doppio click per rinominare.</p>
-        <p>Rotella per zoom.</p>
-        <p>Usa Sposta per trascinare la vista.</p>
-        <p>Trascina con il tasto centrale per pan.</p>
-      </div>
     </aside>
   );
 }

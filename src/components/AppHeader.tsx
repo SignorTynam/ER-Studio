@@ -14,6 +14,7 @@ interface AppHeaderProps {
   onExportPng: () => void;
   onExportSvg: () => void;
   onExample: () => void;
+  onHelp: () => void;
 }
 
 function ActionButton(props: {
@@ -46,6 +47,7 @@ export function AppHeader(props: AppHeaderProps) {
         <ActionButton label="Export PNG" onClick={props.onExportPng} />
         <ActionButton label="Export SVG" onClick={props.onExportSvg} />
         <ActionButton label="Carica esempio" onClick={props.onExample} />
+        <ActionButton label="Help" onClick={props.onHelp} />
       </div>
 
       <div className="mode-switch" role="group" aria-label="Modalita editor">

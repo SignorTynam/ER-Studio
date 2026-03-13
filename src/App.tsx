@@ -103,6 +103,7 @@ export default function App() {
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
   const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -217,6 +218,11 @@ export default function App() {
       }
 
       if (event.key === "Escape") {
+        if (helpOpen) {
+          setHelpOpen(false);
+          return;
+        }
+
         setSelection({ nodeIds: [], edgeIds: [] });
         setStatus("");
       }
@@ -224,7 +230,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history, selection, mode]);
+  }, [helpOpen, history, selection, mode]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -430,6 +436,7 @@ export default function App() {
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
         onExample={handleLoadExample}
+        onHelp={() => setHelpOpen(true)}
       />
 
       <div className="workspace-shell">
@@ -474,6 +481,32 @@ export default function App() {
         accept="application/json,.json"
         onChange={handleLoadFile}
       />
+
+      {helpOpen ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setHelpOpen(false)}>
+          <div
+            className="help-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="help-modal-title">Guida rapida</h2>
+              <button type="button" className="help-close" onClick={() => setHelpOpen(false)}>
+                Chiudi
+              </button>
+            </div>
+
+            <ul className="help-list">
+              <li>Doppio click per rinominare.</li>
+              <li>Rotella per zoom.</li>
+              <li>Usa Sposta per trascinare la vista.</li>
+              <li>Trascina con il tasto centrale per pan.</li>
+            </ul>
+          </div>
+        </div>
+      ) : null}
 
       <div className="toast-stack" aria-live="assertive" aria-atomic="false">
         {errorToasts.map((toast) => (
