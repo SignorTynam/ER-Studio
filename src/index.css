@@ -341,10 +341,11 @@ button:disabled {
 .inspector-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
   border-left: 1px solid #bdbdb7;
   overflow: auto;
+  background: linear-gradient(180deg, #f8f8f4 0%, #efefe9 100%);
 }
 
 .inspector-stack {
@@ -367,9 +368,9 @@ button:disabled {
 .field input,
 .field select {
   width: 100%;
-  padding: 0.55rem 0.65rem;
+  padding: 0.5rem 0.62rem;
   background: #ffffff;
-  min-height: 38px;
+  min-height: 36px;
 }
 
 .field-grid {
@@ -391,9 +392,9 @@ button:disabled {
 }
 
 .empty-inspector {
-  padding: 12px;
-  border: 1px solid #c9c9c3;
-  background: #f2f2ed;
+  padding: 10px;
+  border: 1px solid #d1d1cb;
+  background: #f6f6f1;
   font-size: 0.88rem;
   color: #4f4f49;
 }
@@ -416,10 +417,73 @@ button:disabled {
 
 .validation-ok {
   margin: 0;
-  padding: 12px;
+  padding: 10px;
   background: #f3f3ef;
   border: 1px solid #c9c9c3;
   color: #474742;
+}
+
+.selection-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.selection-summary span {
+  border: 1px solid #cfcfc9;
+  background: #f9f9f4;
+  padding: 0.34rem 0.5rem;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #55554f;
+}
+
+.inspector-card {
+  border: 1px solid #d1d1cb;
+  background: #fbfbf8;
+  padding: 0;
+}
+
+.inspector-section {
+  overflow: hidden;
+}
+
+.section-summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  padding: 10px;
+  border-bottom: 1px solid #d6d6d0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #44443f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #f4f4ef;
+}
+
+.section-summary::-webkit-details-marker {
+  display: none;
+}
+
+.section-summary::after {
+  content: "+";
+  float: right;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.inspector-section[open] .section-summary::after {
+  content: "-";
+}
+
+.inspector-section[open] .section-summary {
+  background: #efefe8;
+}
+
+.section-body {
+  padding: 10px;
 }
 
 .validation-list {

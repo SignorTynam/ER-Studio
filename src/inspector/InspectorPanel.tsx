@@ -26,6 +26,10 @@ function numberValue(value: string): number {
 
 export function InspectorPanel(props: InspectorPanelProps) {
   const canAlign = props.mode !== "view" && props.selection.nodeIds.length >= 2;
+  const selectedNodeCount = props.selection.nodeIds.length;
+  const selectedEdgeCount = props.selection.edgeIds.length;
+  const warningCount = props.issues.filter((issue) => issue.level === "warning").length;
+  const warningLabel = `${warningCount} avvis${warningCount === 1 ? "o" : "i"}`;
 
   const selectedNode =
     props.selection.nodeIds.length === 1
@@ -40,8 +44,20 @@ export function InspectorPanel(props: InspectorPanelProps) {
     <aside className="inspector-panel">
       <div className="panel-heading">Proprieta</div>
 
+      <details className="inspector-card inspector-section" open>
+        <summary className="section-summary">Riepilogo selezione</summary>
+        <div className="section-body">
+          <div className="selection-summary">
+            <span>{selectedNodeCount} nodi selezionati</span>
+            <span>{selectedEdgeCount} collegamenti selezionati</span>
+          </div>
+        </div>
+      </details>
+
       {selectedNode ? (
-        <div className="inspector-stack">
+        <details className="inspector-card inspector-section" open>
+          <summary className="section-summary">Dettagli elemento</summary>
+          <div className="section-body inspector-stack">
           <label className="field">
             <span>Nome elemento</span>
             <input
@@ -102,11 +118,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
             </label>
           </div>
 
-          <label className="field">
-            <span>Stile linea</span>
-            <input value="Nero continuo" disabled />
-          </label>
-
           {selectedNode.type === "attribute" ? (
             <label className="field checkbox-field">
               <span>Attributo identificatore</span>
@@ -120,11 +131,14 @@ export function InspectorPanel(props: InspectorPanelProps) {
               />
             </label>
           ) : null}
-        </div>
+          </div>
+        </details>
       ) : null}
 
       {selectedEdge ? (
-        <div className="inspector-stack">
+        <details className="inspector-card inspector-section" open>
+          <summary className="section-summary">Dettagli collegamento</summary>
+          <div className="section-body inspector-stack">
           <label className="field">
             <span>{selectedEdge.type === "connector" ? "Cardinalita (X,Y)" : "Nome collegamento"}</span>
             <input
@@ -159,18 +173,22 @@ export function InspectorPanel(props: InspectorPanelProps) {
               <option value="dashed">Tratteggiata</option>
             </select>
           </label>
-        </div>
+          </div>
+        </details>
       ) : null}
 
       {!selectedNode && !selectedEdge ? (
-        <div className="empty-inspector">
+        <details className="inspector-card inspector-section" open>
+          <summary className="section-summary">Dettagli</summary>
+          <div className="section-body empty-inspector">
           <p>Seleziona un elemento per modificarne proprieta, posizione e stile.</p>
-          <p>Il canvas usa SVG nitido, snap to grid e connessioni ortogonali.</p>
-        </div>
+          </div>
+        </details>
       ) : null}
 
-      <div className="inspector-stack inspector-actions">
-        <div className="panel-heading minor">Azioni selezione</div>
+      <details className="inspector-card inspector-section inspector-actions" open>
+        <summary className="section-summary">Azioni selezione</summary>
+        <div className="section-body inspector-stack">
         <div className="action-grid">
           <button type="button" onClick={props.onDuplicateSelection} disabled={props.mode === "view"}>
             Duplica
@@ -194,10 +212,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
         {!canAlign && props.mode !== "view" ? (
           <p className="action-hint">Per allineare, seleziona almeno due nodi.</p>
         ) : null}
-      </div>
+        </div>
+      </details>
 
-      <div className="inspector-stack">
-        <div className="panel-heading minor">Validazioni</div>
+      <details className="inspector-card inspector-section" open>
+        <summary className="section-summary">Validazioni ({warningLabel})</summary>
+        <div className="section-body inspector-stack">
         {props.issues.length === 0 ? (
           <p className="validation-ok">Nessuna anomalia rilevata.</p>
         ) : (
@@ -218,7 +238,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
             ))}
           </div>
         )}
-      </div>
+        </div>
+      </details>
     </aside>
   );
 }
