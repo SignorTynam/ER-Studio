@@ -383,7 +383,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     const sourceCenter = getNodeCenter(sourceNode);
     const targetCenter = getNodeCenter(targetNode);
-    const axis = Math.abs(sourceCenter.x - targetCenter.x) >= Math.abs(sourceCenter.y - targetCenter.y) ? "x" : "y";
+    // Drag should move connectors across parallel lanes, i.e. on the perpendicular axis.
+    const axis =
+      Math.abs(sourceCenter.x - targetCenter.x) >= Math.abs(sourceCenter.y - targetCenter.y)
+        ? "y"
+        : "x";
 
     props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
     setInteraction({

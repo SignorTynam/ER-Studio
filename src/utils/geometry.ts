@@ -177,20 +177,20 @@ export function buildOrthogonalPoints(
     Math.abs(source.x - target.x) >= Math.abs(source.y - target.y);
 
   if (horizontalBias) {
-    const midX = (source.x + target.x) / 2 + laneOffset;
+    const midY = (source.y + target.y) / 2 + laneOffset;
     return dedupePoints([
       source,
-      { x: midX, y: source.y },
-      { x: midX, y: target.y },
+      { x: source.x, y: midY },
+      { x: target.x, y: midY },
       target,
     ]);
   }
 
-  const midY = (source.y + target.y) / 2 + laneOffset;
+  const midX = (source.x + target.x) / 2 + laneOffset;
   return dedupePoints([
     source,
-    { x: source.x, y: midY },
-    { x: target.x, y: midY },
+    { x: midX, y: source.y },
+    { x: midX, y: target.y },
     target,
   ]);
 }
