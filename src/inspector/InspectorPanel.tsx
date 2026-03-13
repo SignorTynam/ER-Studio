@@ -131,17 +131,24 @@ export function InspectorPanel(props: InspectorPanelProps) {
           </div>
 
           {selectedNode.type === "attribute" ? (
-            <label className="field checkbox-field">
-              <span>Attributo identificatore</span>
-              <input
-                type="checkbox"
-                checked={selectedNode.isIdentifier === true}
-                disabled={props.mode === "view"}
-                onChange={(event) =>
-                  props.onNodeChange(selectedNode.id, { isIdentifier: event.target.checked })
-                }
-              />
-            </label>
+            <>
+              <label className="field checkbox-field">
+                <span>Attributo identificatore</span>
+                <input
+                  type="checkbox"
+                  checked={selectedNode.isIdentifier === true}
+                  disabled={props.mode === "view" || selectedNode.isCompositeInternal === true}
+                  onChange={(event) =>
+                    props.onNodeChange(selectedNode.id, { isIdentifier: event.target.checked })
+                  }
+                />
+              </label>
+              {selectedNode.isCompositeInternal === true ? (
+                <p className="action-hint">
+                  Questo attributo fa parte di un identificatore composto interno e non puo essere identificatore singolo.
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           </div>

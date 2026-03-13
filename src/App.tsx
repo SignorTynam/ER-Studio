@@ -334,6 +334,17 @@ export default function App() {
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
+    const currentNode = history.present.nodes.find((node) => node.id === nodeId);
+    const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
+    if (
+      currentNode?.type === "attribute" &&
+      attributePatch.isIdentifier === true &&
+      currentNode.isCompositeInternal === true
+    ) {
+      setStatusError("Un attributo nel composto interno non puo essere anche identificatore singolo.");
+      return;
+    }
+
     const nextDiagram = updateNodeInDiagram(history.present, nodeId, patch);
     commitDiagram(nextDiagram);
   }
