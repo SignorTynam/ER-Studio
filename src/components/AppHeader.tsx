@@ -4,6 +4,8 @@ import type { SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
 interface AppHeaderProps {
+  appTitle: string;
+  appVersion: string;
   diagramName: string;
   mode: EditorMode;
   canUndo: boolean;
@@ -17,7 +19,8 @@ interface AppHeaderProps {
   onExportPng: () => void;
   onExportSvg: () => void;
   onExample: () => void;
-  onHelp: () => void;
+  onAbout: () => void;
+  onWhatsNew: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -84,9 +87,9 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className="app-header">
       <div className="app-title-block">
-        <div className="app-eyebrow">Editor Chen accademico</div>
-        <h1>ER Diagram Studio</h1>
+        <h1>{props.appTitle}</h1>
         <div className="app-subtitle">{props.diagramName}</div>
+        <div className="app-version-pill">Versione {props.appVersion}</div>
       </div>
 
       <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
@@ -133,10 +136,13 @@ export function AppHeader(props: AppHeaderProps) {
         </details>
 
         <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>Aiuto</summary>
+          <summary>About</summary>
           <div className="nav-menu">
-            <button type="button" onClick={(event) => runMenuAction(event, props.onHelp)}>
-              Apri help
+            <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
+              About
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
+              New
             </button>
           </div>
         </details>

@@ -32,6 +32,7 @@ import {
 import { createExampleDiagram } from "./utils/example";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
+import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
 
 const DEFAULT_VIEWPORT: Viewport = {
   x: 180,
@@ -107,7 +108,8 @@ export default function App() {
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
   const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(true);
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -228,8 +230,13 @@ export default function App() {
           return;
         }
 
-        if (helpOpen) {
-          setHelpOpen(false);
+        if (aboutOpen) {
+          setAboutOpen(false);
+          return;
+        }
+
+        if (whatsNewOpen) {
+          setWhatsNewOpen(false);
           return;
         }
 
@@ -240,7 +247,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [helpOpen, history, introOpen, selection, mode]);
+  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -441,6 +448,8 @@ export default function App() {
   return (
     <div className="app-shell">
       <AppHeader
+        appTitle={APP_TITLE}
+        appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
         mode={mode}
         canUndo={history.canUndo}
@@ -454,7 +463,14 @@ export default function App() {
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
         onExample={handleLoadExample}
-        onHelp={() => setHelpOpen(true)}
+        onAbout={() => {
+          setWhatsNewOpen(false);
+          setAboutOpen(true);
+        }}
+        onWhatsNew={() => {
+          setAboutOpen(false);
+          setWhatsNewOpen(true);
+        }}
       />
 
       <div className="workspace-shell">
@@ -510,7 +526,7 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="intro-modal-head">
-              <h2 id="intro-modal-title">Benvenuto in ER Diagram Studio</h2>
+              <h2 id="intro-modal-title">Benvenuto in {APP_TITLE}</h2>
               <button type="button" className="help-close" onClick={() => setIntroOpen(false)}>
                 Chiudi
               </button>
@@ -543,10 +559,10 @@ export default function App() {
                   className="header-button"
                   onClick={() => {
                     setIntroOpen(false);
-                    setHelpOpen(true);
+                    setAboutOpen(true);
                   }}
                 >
-                  Apri Guida rapida
+                  Apri About
                 </button>
                 <button type="button" className="mode-button active" onClick={() => setIntroOpen(false)}>
                   Inizia a disegnare
@@ -557,20 +573,25 @@ export default function App() {
         </div>
       ) : null}
 
-      {helpOpen ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setHelpOpen(false)}>
+      {aboutOpen ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setAboutOpen(false)}>
           <div
             className="help-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="help-modal-title"
+            aria-labelledby="about-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="help-modal-head">
-              <h2 id="help-modal-title">Guida rapida</h2>
-              <button type="button" className="help-close" onClick={() => setHelpOpen(false)}>
+              <h2 id="about-modal-title">About</h2>
+              <button type="button" className="help-close" onClick={() => setAboutOpen(false)}>
                 Chiudi
               </button>
+            </div>
+
+            <div className="about-meta">
+              <strong>{APP_TITLE}</strong>
+              <span>Versione corrente {APP_VERSION}</span>
             </div>
 
             <div className="help-sections">
@@ -610,7 +631,7 @@ export default function App() {
                 <summary>Comandi Tastiera</summary>
                 <ul className="help-list">
                   <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y redo.</li>
-                  <li>Delete/Backspace elimina la selezione; Esc annulla selezione corrente e chiude il modal Help.</li>
+                  <li>Delete/Backspace elimina la selezione; Esc annulla selezione corrente e chiude i modal About/New.</li>
                 </ul>
               </details>
 
@@ -620,6 +641,41 @@ export default function App() {
                   <li>I messaggi di errore appaiono come toast in alto a destra.</li>
                 </ul>
               </details>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {whatsNewOpen ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => setWhatsNewOpen(false)}>
+          <div
+            className="help-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="new-modal-title">New</h2>
+              <button type="button" className="help-close" onClick={() => setWhatsNewOpen(false)}>
+                Chiudi
+              </button>
+            </div>
+
+            <div className="changelog-content">
+              {APP_CHANGELOG.map((entry) => (
+                <article key={`${entry.version}-${entry.date}`} className="changelog-entry">
+                  <header>
+                    <strong>{APP_NAME} {entry.version}</strong>
+                    <span>{entry.date}</span>
+                  </header>
+                  <ul className="help-list">
+                    {entry.updates.map((update) => (
+                      <li key={update}>{update}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
             </div>
           </div>
         </div>
