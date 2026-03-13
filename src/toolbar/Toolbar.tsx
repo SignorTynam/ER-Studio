@@ -24,6 +24,14 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
     );
   }
 
+  if (tool === "delete") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M6 7h12M9 7V5h6v2M8 9l1 10h6l1-10" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
   if (tool === "relationship") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">

@@ -117,6 +117,9 @@ interface DiagramCanvasProps {
     sourceAttributeId: string,
     targetId: string,
   ) => { success: boolean; message: string };
+  onDeleteNode: (nodeId: string) => void;
+  onDeleteEdge: (edgeId: string) => void;
+  onDeleteExternalIdentifier: (relationshipId: string) => void;
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
@@ -764,6 +767,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
 
+    if (props.tool === "delete") {
+      if (props.mode === "edit") {
+        props.onDeleteNode(node.id);
+      }
+      return;
+    }
+
     if (props.tool === "connector" || props.tool === "inheritance") {
       if (props.mode === "edit") {
         beginConnection(node);
@@ -831,6 +841,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
 
+    if (props.tool === "delete") {
+      if (props.mode === "edit") {
+        props.onDeleteEdge(edge.id);
+      }
+      return;
+    }
+
     if (props.tool === "move") {
       beginPanInteraction(event.pointerId, event.clientX, event.clientY);
       return;
@@ -883,6 +900,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   ) {
     event.stopPropagation();
 
+    if (props.tool === "delete") {
+      if (props.mode === "edit") {
+        props.onDeleteExternalIdentifier(relationshipId);
+      }
+      return;
+    }
+
     if (props.mode !== "edit" || props.tool !== "select") {
       return;
     }
@@ -908,6 +932,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     relationshipId: string,
   ) {
     event.stopPropagation();
+
+    if (props.tool === "delete") {
+      if (props.mode === "edit") {
+        props.onDeleteExternalIdentifier(relationshipId);
+      }
+      return;
+    }
 
     if (props.mode !== "edit" || props.tool !== "select") {
       return;

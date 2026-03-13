@@ -592,6 +592,28 @@ export default function App() {
     setStatus("Selezione eliminata.");
   }
 
+  function handleDeleteNodeById(nodeId: string) {
+    if (mode === "view") {
+      return;
+    }
+
+    const nextDiagram = removeSelection(history.present, { nodeIds: [nodeId], edgeIds: [] });
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [], edgeIds: [] });
+    setStatus("Elemento eliminato.");
+  }
+
+  function handleDeleteEdgeById(edgeId: string) {
+    if (mode === "view") {
+      return;
+    }
+
+    const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [edgeId] });
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [], edgeIds: [] });
+    setStatus("Collegamento eliminato.");
+  }
+
   function handleClearExternalIdentifier(relationshipId: string) {
     const relationshipNode = history.present.nodes.find((node) => node.id === relationshipId);
     if (
@@ -746,6 +768,9 @@ export default function App() {
           onCreateNode={handleCreateNode}
           onCreateEdge={handleCreateEdge}
           onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+          onDeleteNode={handleDeleteNodeById}
+          onDeleteEdge={handleDeleteEdgeById}
+          onDeleteExternalIdentifier={handleClearExternalIdentifier}
           onRenameNode={handleRenameNode}
           onRenameEdge={handleRenameEdge}
           onStatusMessageChange={handleCanvasStatusMessage}

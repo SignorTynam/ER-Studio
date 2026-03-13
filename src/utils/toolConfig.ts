@@ -9,6 +9,7 @@ export interface ToolDefinition {
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { tool: "move", label: "Sposta", shortcut: "s" },
   { tool: "select", label: "Selezione", shortcut: "v" },
+  { tool: "delete", label: "Cancella", shortcut: "x" },
   { tool: "entity", label: "Entita", shortcut: "e" },
   { tool: "relationship", label: "Relazione", shortcut: "r" },
   { tool: "attribute", label: "Attributo", shortcut: "a" },

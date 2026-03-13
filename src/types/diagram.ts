@@ -3,6 +3,7 @@ export type EdgeKind = "connector" | "attribute" | "inheritance";
 export type ToolKind =
   | "move"
   | "select"
+  | "delete"
   | "entity"
   | "relationship"
   | "attribute"
