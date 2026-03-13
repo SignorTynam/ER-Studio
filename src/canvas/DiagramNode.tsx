@@ -83,7 +83,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         ) : null}
         <circle cx={node.x + 10} cy={cy} r={7} fill={isIdentifier ? "#111111" : "#ffffff"} stroke="#111111" strokeWidth={2} />
         <line x1={node.x + 17} y1={cy} x2={node.x + 34} y2={cy} stroke="#111111" strokeWidth={2} />
-        <text x={node.x + 40} y={cy - 7} className="attribute-label" dominantBaseline="auto">
+        <text x={node.x + 40} y={cy - 10} className="attribute-label" dominantBaseline="alphabetic">
           {node.label}
         </text>
       </g>

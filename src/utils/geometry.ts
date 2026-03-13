@@ -92,7 +92,22 @@ export function getNodeAnchor(
   role: "source" | "target",
 ): Point {
   if (node.type === "attribute") {
-    return { x: node.x + 10, y: node.y + node.height / 2 };
+    const center = { x: node.x + 10, y: node.y + node.height / 2 };
+    const radius = 7;
+    const deltaX = toward.x - center.x;
+    const deltaY = toward.y - center.y;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      return {
+        x: deltaX >= 0 ? center.x + radius : center.x - radius,
+        y: center.y,
+      };
+    }
+
+    return {
+      x: center.x,
+      y: deltaY >= 0 ? center.y + radius : center.y - radius,
+    };
   }
 
   const center = getNodeCenter(node);
@@ -215,20 +230,24 @@ export function getEdgeGeometry(
   targetNode: DiagramNode,
 ): EdgeGeometry {
   const laneOffset = edge.type === "attribute" ? getAttributeLaneOffset(edge.id) : 0;
-  const targetCenter = getNodeCenter(targetNode);
-  const sourceCenter = getNodeCenter(sourceNode);
-  let sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
-  let targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
+  let sourcePoint: Point;
+  let targetPoint: Point;
 
-  // Attribute connectors must leave the host entity from different border points.
   if (edge.type === "attribute") {
-    if (sourceNode.type !== "attribute") {
-      sourcePoint = getAttributeEntityAnchor(sourceNode, targetCenter, laneOffset);
-    }
+    const sourceIsAttribute = sourceNode.type === "attribute";
+    const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
+    const hostNode = sourceIsAttribute ? targetNode : sourceNode;
+    const hostCenter = getNodeCenter(hostNode);
+    const attributeCenter = getNodeCenter(attributeNode);
 
-    if (targetNode.type !== "attribute") {
-      targetPoint = getAttributeEntityAnchor(targetNode, sourceCenter, laneOffset);
-    }
+    // Keep attribute routing stable regardless of edge source/target creation order.
+    sourcePoint = getNodeAnchor(attributeNode, hostCenter, edge.type, "source");
+    targetPoint = getAttributeEntityAnchor(hostNode, attributeCenter, laneOffset);
+  } else {
+    const targetCenter = getNodeCenter(targetNode);
+    const sourceCenter = getNodeCenter(sourceNode);
+    sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
+    targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
   }
 
   const points = buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);
