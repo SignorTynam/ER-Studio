@@ -70,6 +70,23 @@ function updateEdgeInDiagram(
   };
 }
 
+function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value: string): DiagramDocument {
+  return {
+    ...diagram,
+    edges: diagram.edges.map((edge) => {
+      if (edge.id !== edgeId) {
+        return edge;
+      }
+
+      if (edge.type === "connector") {
+        return { ...edge, cardinality: value };
+      }
+
+      return { ...edge, label: value };
+    }),
+  };
+}
+
 export default function App() {
   const history = useHistory<DiagramDocument>(createExampleDiagram());
   const [tool, setTool] = useState<ToolKind>("select");
@@ -235,7 +252,8 @@ export default function App() {
   }
 
   function handleRenameEdge(edgeId: string, label: string) {
-    handleEdgeChange(edgeId, { label });
+    const nextDiagram = updateEdgeTextInDiagram(history.present, edgeId, label);
+    commitDiagram(nextDiagram);
   }
 
   function handleDeleteSelection() {

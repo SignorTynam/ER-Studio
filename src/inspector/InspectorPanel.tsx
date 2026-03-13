@@ -124,12 +124,16 @@ export function InspectorPanel(props: InspectorPanelProps) {
       {selectedEdge ? (
         <div className="inspector-stack">
           <label className="field">
-            <span>Nome collegamento</span>
+            <span>{selectedEdge.type === "connector" ? "Cardinalita (X,Y)" : "Nome collegamento"}</span>
             <input
-              value={selectedEdge.label}
+              value={selectedEdge.type === "connector" ? selectedEdge.cardinality ?? "(X,Y)" : selectedEdge.label}
               disabled={props.mode === "view"}
-              placeholder="Etichetta opzionale"
-              onChange={(event) => props.onEdgeChange(selectedEdge.id, { label: event.target.value })}
+              placeholder={selectedEdge.type === "connector" ? "(X,Y)" : "Etichetta opzionale"}
+              onChange={(event) =>
+                selectedEdge.type === "connector"
+                  ? props.onEdgeChange(selectedEdge.id, { cardinality: event.target.value })
+                  : props.onEdgeChange(selectedEdge.id, { label: event.target.value })
+              }
             />
           </label>
 

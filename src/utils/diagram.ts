@@ -94,6 +94,18 @@ export function createEdge(
   sourceId: string,
   targetId: string,
 ): DiagramEdge {
+  if (edgeType === "connector") {
+    return {
+      id: createId(edgeType),
+      type: edgeType,
+      sourceId,
+      targetId,
+      label: "",
+      lineStyle: "solid",
+      cardinality: "(X,Y)",
+    };
+  }
+
   return {
     id: createId(edgeType),
     type: edgeType,
@@ -322,6 +334,19 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           typeof edge.lineStyle === "string" &&
           isEdgeKind(edge.type),
       )
+        .map((edge) => {
+          if (edge.type !== "connector") {
+            return edge;
+          }
+
+          const parsedCardinality =
+            typeof edge.cardinality === "string" ? edge.cardinality.trim() : "";
+
+          return {
+            ...edge,
+            cardinality: parsedCardinality || "(X,Y)",
+          };
+        })
     : [];
 
   return {
@@ -421,6 +446,19 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           id: `subclass-${edge.id}`,
           level: "warning",
           message: `La sottoclasse "${sourceNode.label}" è collegata a più superclassi.`,
+          targetId: edge.id,
+          targetType: "edge",
+        });
+      }
+    }
+
+    if (edge.type === "connector") {
+      const cardinality = edge.cardinality?.trim();
+      if (!cardinality || cardinality === "(X,Y)") {
+        issues.push({
+          id: `cardinality-${edge.id}`,
+          level: "warning",
+          message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" non ha cardinalita definita (usa formato (X,Y)).`,
           targetId: edge.id,
           targetType: "edge",
         });

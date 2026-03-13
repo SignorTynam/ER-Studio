@@ -453,7 +453,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    setInlineEdit({ kind: "edge", id: edge.id, value: edge.label });
+    const value = edge.type === "connector" ? edge.cardinality ?? "(X,Y)" : edge.label;
+    setInlineEdit({ kind: "edge", id: edge.id, value });
   }
 
   function commitInlineEdit() {

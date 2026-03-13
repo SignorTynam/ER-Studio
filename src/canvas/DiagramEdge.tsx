@@ -15,6 +15,9 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode);
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
+  const connectorCardinality =
+    props.edge.type === "connector" ? props.edge.cardinality?.trim() || "(X,Y)" : "";
+  const displayLabel = props.edge.type === "connector" ? connectorCardinality : props.edge.label;
 
   return (
     <g
@@ -31,14 +34,14 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         strokeDasharray={dashArray}
         markerEnd={props.edge.type === "inheritance" ? "url(#arrowhead)" : undefined}
       />
-      {props.edge.label ? (
+      {displayLabel ? (
         <text
           x={geometry.labelPoint.x}
           y={geometry.labelPoint.y - 6}
           textAnchor="middle"
           className="edge-label"
         >
-          {props.edge.label}
+          {displayLabel}
         </text>
       ) : null}
     </g>
