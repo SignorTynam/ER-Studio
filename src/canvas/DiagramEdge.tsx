@@ -2,17 +2,24 @@ import type { MouseEvent, PointerEvent } from "react";
 import { getEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode } from "../types/diagram";
 
+interface EdgeLaneInfo {
+  laneIndex: number;
+  laneCount: number;
+}
+
 interface DiagramEdgeProps {
   edge: DiagramEdge;
   sourceNode: DiagramNode;
   targetNode: DiagramNode;
+  laneInfo?: EdgeLaneInfo;
   selected: boolean;
   onPointerDown: (event: PointerEvent<SVGGElement>, edge: DiagramEdge) => void;
+  onLabelPointerDown: (event: PointerEvent<SVGTextElement>, edge: DiagramEdge) => void;
   onDoubleClick: (event: MouseEvent<SVGGElement>, edge: DiagramEdge) => void;
 }
 
 export function DiagramEdgeView(props: DiagramEdgeProps) {
-  const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode);
+  const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const connectorCardinality =
@@ -39,7 +46,8 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           x={geometry.labelPoint.x}
           y={geometry.labelPoint.y - 6}
           textAnchor="middle"
-          className="edge-label"
+          className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
+          onPointerDown={(event) => props.onLabelPointerDown(event, props.edge)}
         >
           {displayLabel}
         </text>

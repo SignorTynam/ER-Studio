@@ -240,6 +240,14 @@ button:disabled {
   stroke-width: 6px;
 }
 
+.connector-label {
+  cursor: grab;
+}
+
+.connector-label:active {
+  cursor: grabbing;
+}
+
 .inline-editor {
   position: absolute;
   z-index: 3;

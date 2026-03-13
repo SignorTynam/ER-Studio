@@ -58,6 +58,7 @@ export interface BaseEdge {
   targetId: string;
   label: string;
   lineStyle: LineStyle;
+  manualOffset?: number;
 }
 
 export interface ConnectorEdge extends BaseEdge {

@@ -156,6 +156,12 @@ export function edgeAlreadyExists(
   sourceId: string,
   targetId: string,
 ): boolean {
+  // In Chen notation it can be useful to model more than one connector
+  // between the same entity and relationship pair.
+  if (edgeType === "connector") {
+    return false;
+  }
+
   return diagram.edges.some((edge) => {
     if (edge.type !== edgeType) {
       return false;
@@ -390,13 +396,16 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
 
     if (node.type === "relationship") {
       const connectors = connectedEdges.filter((edge) => edge.type === "connector");
-      const compatibleCount = connectors.filter((edge) => {
-        const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-        const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
-        return otherNode?.type === "entity";
-      }).length;
+      const compatibleEntityIds = new Set(
+        connectors
+          .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
+          .filter((otherId) => {
+            const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+            return otherNode?.type === "entity";
+          }),
+      );
 
-      if (compatibleCount < 2) {
+      if (compatibleEntityIds.size < 2) {
         issues.push({
           id: `relationship-${node.id}`,
           level: "warning",

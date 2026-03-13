@@ -8,6 +8,11 @@ import type {
   Viewport,
 } from "../types/diagram";
 
+interface EdgeLaneInfo {
+  laneIndex: number;
+  laneCount: number;
+}
+
 export const GRID_SIZE = 20;
 export const MIN_ZOOM = 0.45;
 export const MAX_ZOOM = 2.4;
@@ -172,7 +177,7 @@ export function buildOrthogonalPoints(
     Math.abs(source.x - target.x) >= Math.abs(source.y - target.y);
 
   if (horizontalBias) {
-    const midX = (source.x + target.x) / 2;
+    const midX = (source.x + target.x) / 2 + laneOffset;
     return dedupePoints([
       source,
       { x: midX, y: source.y },
@@ -181,13 +186,23 @@ export function buildOrthogonalPoints(
     ]);
   }
 
-  const midY = (source.y + target.y) / 2;
+  const midY = (source.y + target.y) / 2 + laneOffset;
   return dedupePoints([
     source,
     { x: source.x, y: midY },
     { x: target.x, y: midY },
     target,
   ]);
+}
+
+function getParallelLaneOffset(laneInfo?: EdgeLaneInfo): number {
+  if (!laneInfo || laneInfo.laneCount <= 1) {
+    return 0;
+  }
+
+  const step = 16;
+  const center = (laneInfo.laneCount - 1) / 2;
+  return (laneInfo.laneIndex - center) * step;
 }
 
 function getAttributeLaneOffset(edgeId: string): number {
@@ -224,12 +239,41 @@ function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: 
   };
 }
 
+function applyLaneOffsetToAnchor(node: DiagramNode, anchor: Point, laneOffset: number): Point {
+  if (laneOffset === 0 || node.type === "attribute") {
+    return anchor;
+  }
+
+  const epsilon = 0.1;
+  const margin = 8;
+  const left = node.x;
+  const right = node.x + node.width;
+  const top = node.y;
+  const bottom = node.y + node.height;
+
+  if (Math.abs(anchor.x - left) < epsilon || Math.abs(anchor.x - right) < epsilon) {
+    return {
+      x: anchor.x,
+      y: clamp(anchor.y + laneOffset, top + margin, bottom - margin),
+    };
+  }
+
+  return {
+    x: clamp(anchor.x + laneOffset, left + margin, right - margin),
+    y: anchor.y,
+  };
+}
+
 export function getEdgeGeometry(
   edge: DiagramEdge,
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
+  laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
-  const laneOffset = edge.type === "attribute" ? getAttributeLaneOffset(edge.id) : 0;
+  const laneOffset =
+    edge.type === "attribute"
+      ? getAttributeLaneOffset(edge.id)
+      : getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
   let sourcePoint: Point;
   let targetPoint: Point;
 
@@ -248,6 +292,12 @@ export function getEdgeGeometry(
     const sourceCenter = getNodeCenter(sourceNode);
     sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
     targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
+
+    if (edge.type === "connector" && laneOffset !== 0) {
+      // Keep parallel connectors visually distinct near both endpoints.
+      sourcePoint = applyLaneOffsetToAnchor(sourceNode, sourcePoint, laneOffset);
+      targetPoint = applyLaneOffsetToAnchor(targetNode, targetPoint, laneOffset);
+    }
   }
 
   const points = buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);

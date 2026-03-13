@@ -11,6 +11,7 @@ import {
   clampZoom,
   clientPointFromWorld,
   getEdgeGeometry,
+  getNodeCenter,
   getNodeBounds,
   getSelectionBounds,
   GRID_SIZE,
@@ -53,6 +54,15 @@ type InteractionState =
       currentWorld: Point;
       additive: boolean;
       baseSelection: SelectionState;
+    }
+  | {
+      kind: "edge-drag";
+      pointerId: number;
+      startClient: Point;
+      originalDiagram: DiagramDocument;
+      edgeId: string;
+      startOffset: number;
+      axis: "x" | "y";
     };
 
 type InlineEditState =
@@ -119,6 +129,27 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [spacePressed, setSpacePressed] = useState(false);
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
+  const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
+  const connectorGroups = new Map<string, string[]>();
+
+  props.diagram.edges.forEach((edge) => {
+    if (edge.type !== "connector") {
+      return;
+    }
+
+    const groupKey = [edge.sourceId, edge.targetId].sort().join("::");
+    const group = connectorGroups.get(groupKey) ?? [];
+    group.push(edge.id);
+    connectorGroups.set(groupKey, group);
+  });
+
+  connectorGroups.forEach((edgeIds) => {
+    const laneCount = edgeIds.length;
+    edgeIds.forEach((edgeId, laneIndex) => {
+      connectorLaneMap.set(edgeId, { laneIndex, laneCount });
+    });
+  });
+
   const selectionBounds = getSelectionBounds(
     props.diagram.nodes.filter((node) => props.selection.nodeIds.includes(node.id)),
   );
@@ -336,6 +367,36 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
   }
 
+  function handleEdgeLabelPointerDown(event: ReactPointerEvent<SVGTextElement>, edge: DiagramEdge) {
+    event.stopPropagation();
+
+    if (props.mode !== "edit" || props.tool !== "select" || edge.type !== "connector") {
+      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+      return;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+
+    const sourceCenter = getNodeCenter(sourceNode);
+    const targetCenter = getNodeCenter(targetNode);
+    const axis = Math.abs(sourceCenter.x - targetCenter.x) >= Math.abs(sourceCenter.y - targetCenter.y) ? "x" : "y";
+
+    props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+    setInteraction({
+      kind: "edge-drag",
+      pointerId: event.pointerId,
+      startClient: { x: event.clientX, y: event.clientY },
+      originalDiagram: props.diagram,
+      edgeId: edge.id,
+      startOffset: edge.manualOffset ?? 0,
+      axis,
+    });
+  }
+
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     if (interaction.kind === "idle") {
       return;
@@ -375,6 +436,24 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (interaction.kind === "edge-drag") {
+      const pointerDelta =
+        interaction.axis === "x"
+          ? event.clientX - interaction.startClient.x
+          : event.clientY - interaction.startClient.y;
+      const nextOffset = Math.round((interaction.startOffset + pointerDelta / props.viewport.zoom) / 2) * 2;
+
+      const nextEdges = interaction.originalDiagram.edges.map((edge) =>
+        edge.id === interaction.edgeId ? { ...edge, manualOffset: nextOffset } : edge,
+      );
+
+      props.onPreviewDiagram({
+        ...interaction.originalDiagram,
+        edges: nextEdges,
+      });
+      return;
+    }
+
     const worldPoint = getWorldPointFromEvent(event);
     if (!worldPoint) {
       return;
@@ -392,6 +471,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (interaction.kind === "drag") {
+      props.onCommitDiagram(props.diagram, interaction.originalDiagram);
+      setInteraction({ kind: "idle" });
+      return;
+    }
+
+    if (interaction.kind === "edge-drag") {
       props.onCommitDiagram(props.diagram, interaction.originalDiagram);
       setInteraction({ kind: "idle" });
       return;
@@ -525,7 +610,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return undefined;
     }
 
-    const geometry = getEdgeGeometry(edge, sourceNode, targetNode);
+    const laneInfo = connectorLaneMap.get(edge.id);
+    const geometry = getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
     const screenPoint = clientPointFromWorld(geometry.labelPoint, props.viewport, rect);
 
     return {
@@ -592,8 +678,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 edge={edge}
                 sourceNode={sourceNode}
                 targetNode={targetNode}
+                laneInfo={connectorLaneMap.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
                 onPointerDown={handleEdgePointerDown}
+                onLabelPointerDown={handleEdgeLabelPointerDown}
                 onDoubleClick={startInlineEdgeEdit}
               />
             );
