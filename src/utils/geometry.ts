@@ -240,7 +240,8 @@ function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: 
 }
 
 function applyLaneOffsetToAnchor(node: DiagramNode, anchor: Point, laneOffset: number): Point {
-  if (laneOffset === 0 || node.type === "attribute") {
+  // Relationship nodes are diamonds, so rectangular edge offsets can visually detach lines.
+  if (laneOffset === 0 || node.type === "attribute" || node.type === "relationship") {
     return anchor;
   }
 
