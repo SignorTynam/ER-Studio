@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { LandingPage } from "./components/LandingPage";
 import { useHistory } from "./hooks/useHistory";
 import { InspectorPanel } from "./inspector/InspectorPanel";
 import { Toolbar } from "./toolbar/Toolbar";
@@ -44,6 +45,8 @@ interface ToastMessage {
   id: number;
   message: string;
 }
+
+type AppSurface = "landing" | "studio";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
 
@@ -177,6 +180,7 @@ function findRelationshipBetweenEntities(
 
 export default function App() {
   const history = useHistory<DiagramDocument>(createExampleDiagram());
+  const [surface, setSurface] = useState<AppSurface>("landing");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
@@ -185,7 +189,7 @@ export default function App() {
   const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const [introOpen, setIntroOpen] = useState(true);
+  const [introOpen, setIntroOpen] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -218,6 +222,18 @@ export default function App() {
 
   function isErrorMessage(message: string): boolean {
     return ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  }
+
+  function openStudioSurface() {
+    setSurface("studio");
+    setIntroOpen(false);
+  }
+
+  function openLandingSurface() {
+    setSurface("landing");
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
   }
 
   function setStatus(message: string) {
@@ -722,6 +738,17 @@ export default function App() {
     setStatus("SVG esportato.");
   }
 
+  if (surface === "landing") {
+    return (
+      <LandingPage
+        appTitle={APP_TITLE}
+        appVersion={APP_VERSION}
+        latestRelease={APP_CHANGELOG[0]}
+        onOpenStudio={openStudioSurface}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       <AppHeader
@@ -748,6 +775,7 @@ export default function App() {
           setAboutOpen(false);
           setWhatsNewOpen(true);
         }}
+        onHome={openLandingSurface}
       />
 
       <div className="workspace-shell">

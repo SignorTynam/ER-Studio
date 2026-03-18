@@ -21,6 +21,7 @@ interface AppHeaderProps {
   onExample: () => void;
   onAbout: () => void;
   onWhatsNew: () => void;
+  onHome?: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -93,6 +94,12 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
 
       <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
+        {props.onHome ? (
+          <button type="button" className="header-button" onClick={props.onHome}>
+            Home
+          </button>
+        ) : null}
+
         <details className="nav-group" onToggle={handleGroupToggle}>
           <summary>File</summary>
           <div className="nav-menu">
@@ -167,4 +174,3 @@ export function AppHeader(props: AppHeaderProps) {
     </header>
   );
 }
-
