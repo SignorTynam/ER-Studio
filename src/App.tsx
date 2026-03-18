@@ -909,7 +909,7 @@ export default function App() {
               <details className="help-section" open>
                 <summary>Strumenti e Shortcut</summary>
                 <ul className="help-list">
-                  <li>Selezione rapida strumenti: S Sposta, V Selezione, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione, T Testo.</li>
+                  <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione, T Testo.</li>
                 </ul>
               </details>
 
@@ -950,6 +950,14 @@ export default function App() {
                 <summary>Validazioni ed Errori</summary>
                 <ul className="help-list">
                   <li>I messaggi di errore appaiono come toast in alto a destra.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
+                <summary>Stato Notazione ER (v2.1)</summary>
+                <ul className="help-list">
+                  <li>Disponibile: entita, relazioni, attributi, cardinalita, generalizzazione, identificatori semplici/composti interni/esterni.</li>
+                  <li>In roadmap: entita deboli dedicate, attributi multivalore o derivati e vincoli ISA avanzati (disjoint/overlap, total/partial).</li>
                 </ul>
               </details>
             </div>
