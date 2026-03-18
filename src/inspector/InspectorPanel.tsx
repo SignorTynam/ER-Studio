@@ -1,4 +1,5 @@
 import type {
+  AttributeNode,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
@@ -62,7 +63,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const selectedAttributeLinkedToRelationship =
     selectedNode?.type === "attribute" ? isAttributeLinkedToRelationship(selectedNode.id) : false;
   const selectedAttributeNodes = props.diagram.nodes.filter(
-    (node) => props.selection.nodeIds.includes(node.id) && node.type === "attribute",
+    (node): node is AttributeNode =>
+      props.selection.nodeIds.includes(node.id) && node.type === "attribute",
   );
   const eligibleCompositeAttributeNodes = selectedAttributeNodes.filter(
     (node) => node.isIdentifier !== true && !isAttributeLinkedToRelationship(node.id),
@@ -381,4 +383,3 @@ export function InspectorPanel(props: InspectorPanelProps) {
     </aside>
   );
 }
-

@@ -157,6 +157,34 @@ function dedupePoints(points: Point[]): Point[] {
   });
 }
 
+function simplifyPoints(points: Point[]): Point[] {
+  const deduped = dedupePoints(points);
+
+  if (deduped.length <= 2) {
+    return deduped;
+  }
+
+  const simplified: Point[] = [deduped[0]];
+
+  for (let index = 1; index < deduped.length - 1; index += 1) {
+    const previous = simplified[simplified.length - 1];
+    const current = deduped[index];
+    const next = deduped[index + 1];
+    const cross =
+      (current.x - previous.x) * (next.y - current.y) -
+      (current.y - previous.y) * (next.x - current.x);
+
+    if (Math.abs(cross) < 0.001) {
+      continue;
+    }
+
+    simplified.push(current);
+  }
+
+  simplified.push(deduped[deduped.length - 1]);
+  return simplified;
+}
+
 export function buildOrthogonalPoints(
   source: Point,
   target: Point,
@@ -164,15 +192,37 @@ export function buildOrthogonalPoints(
   laneOffset = 0,
 ): Point[] {
   if (edgeType === "attribute") {
-    return dedupePoints([source, target]);
+    return simplifyPoints([source, target]);
   }
 
+  const deltaX = target.x - source.x;
+  const deltaY = target.y - source.y;
   const horizontalBias =
-    Math.abs(source.x - target.x) >= Math.abs(source.y - target.y);
+    Math.abs(deltaX) >= Math.abs(deltaY);
 
   if (horizontalBias) {
+    if (laneOffset === 0) {
+      const midX = (source.x + target.x) / 2;
+      return simplifyPoints([
+        source,
+        { x: midX, y: source.y },
+        { x: midX, y: target.y },
+        target,
+      ]);
+    }
+
     const midY = (source.y + target.y) / 2 + laneOffset;
-    return dedupePoints([
+    return simplifyPoints([
+      source,
+      { x: source.x, y: midY },
+      { x: target.x, y: midY },
+      target,
+    ]);
+  }
+
+  if (laneOffset === 0) {
+    const midY = (source.y + target.y) / 2;
+    return simplifyPoints([
       source,
       { x: source.x, y: midY },
       { x: target.x, y: midY },
@@ -181,7 +231,7 @@ export function buildOrthogonalPoints(
   }
 
   const midX = (source.x + target.x) / 2 + laneOffset;
-  return dedupePoints([
+  return simplifyPoints([
     source,
     { x: midX, y: source.y },
     { x: midX, y: target.y },
@@ -212,6 +262,67 @@ function getAttributeLaneOffset(edgeId: string): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function distanceBetweenPoints(start: Point, end: Point): number {
+  return Math.hypot(end.x - start.x, end.y - start.y);
+}
+
+function movePointToward(from: Point, to: Point, distance: number): Point {
+  const length = distanceBetweenPoints(from, to);
+
+  if (length <= 0.001) {
+    return from;
+  }
+
+  const ratio = distance / length;
+  return {
+    x: from.x + (to.x - from.x) * ratio,
+    y: from.y + (to.y - from.y) * ratio,
+  };
+}
+
+function getPointAlongPolyline(points: Point[], progress: number): Point {
+  if (points.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  if (points.length === 1) {
+    return points[0];
+  }
+
+  const totalLength = points.reduce((sum, point, index) => {
+    if (index === 0) {
+      return sum;
+    }
+
+    return sum + distanceBetweenPoints(points[index - 1], point);
+  }, 0);
+
+  if (totalLength <= 0.001) {
+    return points[0];
+  }
+
+  const targetLength = totalLength * clamp(progress, 0, 1);
+  let travelled = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const segmentLength = distanceBetweenPoints(start, end);
+
+    if (travelled + segmentLength >= targetLength) {
+      const segmentProgress = (targetLength - travelled) / Math.max(segmentLength, 0.001);
+      return {
+        x: start.x + (end.x - start.x) * segmentProgress,
+        y: start.y + (end.y - start.y) * segmentProgress,
+      };
+    }
+
+    travelled += segmentLength;
+  }
+
+  return points[points.length - 1];
 }
 
 function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: number): Point {
@@ -288,6 +399,7 @@ export function getEdgeGeometry(
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
+  const laneCount = laneInfo?.laneCount ?? 1;
   const laneOffset =
     edge.type === "attribute"
       ? getAttributeLaneOffset(edge.id)
@@ -318,26 +430,57 @@ export function getEdgeGeometry(
     }
   }
 
-  const points = buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);
-  const middleIndex = Math.floor(points.length / 2);
-  const start = points[Math.max(0, middleIndex - 1)];
-  const end = points[middleIndex];
+  const shouldUseStraightConnector =
+    edge.type === "connector" && laneCount === 1 && laneOffset === 0;
+  const points = shouldUseStraightConnector
+    ? [sourcePoint, targetPoint]
+    : buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);
 
   return {
     points,
-    labelPoint: {
-      x: (start.x + end.x) / 2,
-      y: (start.y + end.y) / 2,
-    },
+    labelPoint: getPointAlongPolyline(points, 0.5),
   };
 }
 
 export function pathFromPoints(points: Point[]): string {
-  return points
-    .map((point, index) =>
-      `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
-    )
-    .join(" ");
+  const simplified = simplifyPoints(points);
+
+  if (simplified.length === 0) {
+    return "";
+  }
+
+  if (simplified.length === 1) {
+    return `M ${simplified[0].x.toFixed(1)} ${simplified[0].y.toFixed(1)}`;
+  }
+
+  const commands = [`M ${simplified[0].x.toFixed(1)} ${simplified[0].y.toFixed(1)}`];
+  const maxCornerRadius = 22;
+
+  for (let index = 1; index < simplified.length - 1; index += 1) {
+    const previous = simplified[index - 1];
+    const current = simplified[index];
+    const next = simplified[index + 1];
+    const incomingLength = distanceBetweenPoints(previous, current);
+    const outgoingLength = distanceBetweenPoints(current, next);
+    const cornerRadius = Math.min(maxCornerRadius, incomingLength / 2, outgoingLength / 2);
+
+    if (cornerRadius <= 0.5) {
+      commands.push(`L ${current.x.toFixed(1)} ${current.y.toFixed(1)}`);
+      continue;
+    }
+
+    const cornerStart = movePointToward(current, previous, cornerRadius);
+    const cornerEnd = movePointToward(current, next, cornerRadius);
+
+    commands.push(`L ${cornerStart.x.toFixed(1)} ${cornerStart.y.toFixed(1)}`);
+    commands.push(
+      `Q ${current.x.toFixed(1)} ${current.y.toFixed(1)} ${cornerEnd.x.toFixed(1)} ${cornerEnd.y.toFixed(1)}`,
+    );
+  }
+
+  const last = simplified[simplified.length - 1];
+  commands.push(`L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`);
+  return commands.join(" ");
 }
 
 export function getSelectionBounds(nodes: DiagramNode[]): Bounds | null {
@@ -357,4 +500,3 @@ export function getSelectionBounds(nodes: DiagramNode[]): Bounds | null {
     height: bottom - top,
   };
 }
-

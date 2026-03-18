@@ -47,6 +47,8 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         fill="none"
         stroke="#111111"
         strokeWidth={props.selected ? 2.8 : 2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeDasharray={dashArray}
         markerEnd={props.edge.type === "inheritance" ? "url(#arrowhead)" : undefined}
       />

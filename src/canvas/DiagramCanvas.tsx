@@ -17,6 +17,7 @@ import {
   getSelectionBounds,
   GRID_SIZE,
   normalizeBounds,
+  pathFromPoints,
   WORLD_EXTENT,
   worldPointFromClient,
 } from "../utils/geometry";
@@ -250,8 +251,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const externalIdentifierLayouts: Array<{
     relationshipId: string;
     marker: Point;
-    bridgeY: number;
-    strongSidePoint: Point;
+    pathPoints: Point[];
   }> = [];
   const edgeGeometryMap = new Map<string, Point[]>();
 
@@ -407,12 +407,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (!sourceHost || sourceHost.type !== "entity") {
       return;
     }
+    const sourceHostEntity = sourceHost;
+    const targetEntityNode = targetEntity;
 
     const sourceConnector = props.diagram.edges.find(
       (edge) =>
         edge.type === "connector" &&
-        ((edge.sourceId === node.id && edge.targetId === sourceHost.id) ||
-          (edge.targetId === node.id && edge.sourceId === sourceHost.id)),
+        ((edge.sourceId === node.id && edge.targetId === sourceHostEntity.id) ||
+          (edge.targetId === node.id && edge.sourceId === sourceHostEntity.id)),
     );
     if (!sourceConnector) {
       return;
@@ -428,11 +430,38 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       sourceConnector.sourceId === node.id
         ? sourceConnectorGeometry.points[0]
         : sourceConnectorGeometry.points[sourceConnectorGeometry.points.length - 1];
+    const strongSideAdjacentPoint =
+      sourceConnector.sourceId === node.id
+        ? sourceConnectorGeometry.points[Math.min(1, sourceConnectorGeometry.points.length - 1)]
+        : sourceConnectorGeometry.points[Math.max(0, sourceConnectorGeometry.points.length - 2)];
+    const strongDelta = {
+      x: strongSideAdjacentPoint.x - strongSidePoint.x,
+      y: strongSideAdjacentPoint.y - strongSidePoint.y,
+    };
+    const strongApproachDistance = 18;
+    const strongApproachPoint =
+      Math.abs(strongDelta.x) >= Math.abs(strongDelta.y)
+        ? {
+            x:
+              strongSidePoint.x +
+              (strongDelta.x === 0 ? 0 : Math.sign(strongDelta.x) * strongApproachDistance),
+            y: strongSidePoint.y,
+          }
+        : {
+            x: strongSidePoint.x,
+            y:
+              strongSidePoint.y +
+              (strongDelta.y === 0 ? 0 : Math.sign(strongDelta.y) * strongApproachDistance),
+          };
 
     const relationshipCenter = getNodeCenter(node);
-    const weakEntityCenter = getNodeCenter(targetEntity);
+    const weakEntityCenter = getNodeCenter(targetEntityNode);
 
-    let marker: Point;
+    let markerBase: Point;
+    let sourceBasePoint: Point | undefined;
+    let sourceLineX: number | undefined;
+    let buildRoutePoints: ((bridgeY: number) => Point[]) | undefined;
+    let fixedRoutePoints: Point[] | undefined;
     if (node.externalIdentifierMode === "composite" && node.externalIdentifierTargetAttributeId) {
       const targetAttribute = nodeMap.get(node.externalIdentifierTargetAttributeId);
       if (!targetAttribute || targetAttribute.type !== "attribute") {
@@ -442,8 +471,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       const targetAttributeEdge = props.diagram.edges.find(
         (edge) =>
           edge.type === "attribute" &&
-          ((edge.sourceId === targetAttribute.id && edge.targetId === targetEntity.id) ||
-            (edge.targetId === targetAttribute.id && edge.sourceId === targetEntity.id)),
+          ((edge.sourceId === targetAttribute.id && edge.targetId === targetEntityNode.id) ||
+            (edge.targetId === targetAttribute.id && edge.sourceId === targetEntityNode.id)),
       );
       if (!targetAttributeEdge) {
         return;
@@ -456,53 +485,112 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         connectorLaneMap.get(targetAttributeEdge.id),
       );
 
-      // Start from entity-side anchor and move toward the attribute so the marker stays near it.
-      const entityAnchor =
-        targetAttributeEdge.sourceId === targetEntity.id
-          ? attributeEdgeGeometry.points[0]
-          : attributeEdgeGeometry.points[attributeEdgeGeometry.points.length - 1];
-      const targetAttributeCenter = getNodeCenter(targetAttribute);
-      const towardAttribute = {
-        x: targetAttributeCenter.x - entityAnchor.x,
-        y: targetAttributeCenter.y - entityAnchor.y,
+      // Attribute geometry is normalized from attribute -> entity.
+      const attributeAnchor = attributeEdgeGeometry.points[0];
+      const entityAnchor = attributeEdgeGeometry.points[attributeEdgeGeometry.points.length - 1];
+      const branchVector = {
+        x: attributeAnchor.x - entityAnchor.x,
+        y: attributeAnchor.y - entityAnchor.y,
       };
-      const towardLength = Math.hypot(towardAttribute.x, towardAttribute.y) || 1;
-      const markerOffset = Math.min(18, towardLength * 0.65);
+      const branchLength = Math.hypot(branchVector.x, branchVector.y) || 1;
+      const branchDirection = {
+        x: branchVector.x / branchLength,
+        y: branchVector.y / branchLength,
+      };
+      const joinDistance = Math.min(Math.max(10, branchLength * 0.18), Math.max(6, branchLength - 12));
+      const joinPoint = {
+        x: entityAnchor.x + branchDirection.x * joinDistance,
+        y: entityAnchor.y + branchDirection.y * joinDistance,
+      };
+      const normal = {
+        x: -branchDirection.y,
+        y: branchDirection.x,
+      };
+      const markerDistance = 12;
 
-      marker = {
-        x: entityAnchor.x + (towardAttribute.x / towardLength) * markerOffset,
-        y: entityAnchor.y + (towardAttribute.y / towardLength) * markerOffset,
-      };
+      sourceBasePoint = joinPoint;
+
+      if (Math.abs(branchDirection.x) >= Math.abs(branchDirection.y)) {
+        sourceLineX = joinPoint.x;
+        markerBase = joinPoint;
+        buildRoutePoints = (bridgeY) => {
+          const towardBridge = {
+            x: 0,
+            y: bridgeY - joinPoint.y,
+          };
+          const normalSign = normal.x * towardBridge.x + normal.y * towardBridge.y >= 0 ? -1 : 1;
+          const marker = {
+            x: joinPoint.x + normal.x * normalSign * markerDistance,
+            y: joinPoint.y + normal.y * normalSign * markerDistance,
+          };
+
+          return [
+            marker,
+            { x: marker.x, y: bridgeY },
+            { x: strongApproachPoint.x, y: bridgeY },
+            strongApproachPoint,
+            strongSidePoint,
+          ];
+        };
+      } else {
+        const towardApproach = {
+          x: strongApproachPoint.x - joinPoint.x,
+          y: 0,
+        };
+        const normalSign = normal.x * towardApproach.x + normal.y * towardApproach.y >= 0 ? -1 : 1;
+        const marker = {
+          x: joinPoint.x + normal.x * normalSign * markerDistance,
+          y: joinPoint.y + normal.y * normalSign * markerDistance,
+        };
+
+        markerBase = marker;
+        fixedRoutePoints = [
+          marker,
+          { x: strongApproachPoint.x, y: joinPoint.y },
+          strongApproachPoint,
+          strongSidePoint,
+        ];
+      }
     } else {
       const oppositeToward = {
         x: weakEntityCenter.x * 2 - relationshipCenter.x,
         y: weakEntityCenter.y * 2 - relationshipCenter.y,
       };
-      const weakOuterAnchor = getNodeAnchor(targetEntity, oppositeToward, "connector", "source");
+      const weakOuterAnchor = getNodeAnchor(targetEntityNode, oppositeToward, "connector", "source");
 
       const direction = {
         x: weakEntityCenter.x - relationshipCenter.x,
         y: weakEntityCenter.y - relationshipCenter.y,
       };
       const length = Math.hypot(direction.x, direction.y) || 1;
-      marker = {
+      markerBase = {
         x: weakOuterAnchor.x + (direction.x / length) * 22,
         y: weakOuterAnchor.y + (direction.y / length) * 22,
       };
+      sourceBasePoint = markerBase;
+      sourceLineX = markerBase.x;
+      buildRoutePoints = (bridgeY) => [
+        markerBase,
+        { x: markerBase.x, y: bridgeY },
+        { x: strongApproachPoint.x, y: bridgeY },
+        strongApproachPoint,
+        strongSidePoint,
+      ];
     }
 
-    const comparisonY = strongSidePoint.y;
-    const preferTop = marker.y <= comparisonY;
-    const topBase = Math.min(marker.y, comparisonY) - 28;
-    const bottomBase = Math.max(marker.y, comparisonY) + 28;
+    const comparisonY = strongApproachPoint.y;
+    const sourceRoutePoint = sourceBasePoint ?? markerBase;
+    const preferTop = sourceRoutePoint.y <= comparisonY;
+    const topBase = Math.min(sourceRoutePoint.y, comparisonY) - 28;
+    const bottomBase = Math.max(sourceRoutePoint.y, comparisonY) + 28;
 
     const targetAttributeEdgeId =
       node.externalIdentifierMode === "composite" && node.externalIdentifierTargetAttributeId
         ? props.diagram.edges.find(
             (edge) =>
               edge.type === "attribute" &&
-              ((edge.sourceId === node.externalIdentifierTargetAttributeId && edge.targetId === targetEntity.id) ||
-                (edge.targetId === node.externalIdentifierTargetAttributeId && edge.sourceId === targetEntity.id)),
+              ((edge.sourceId === node.externalIdentifierTargetAttributeId && edge.targetId === targetEntityNode.id) ||
+                (edge.targetId === node.externalIdentifierTargetAttributeId && edge.sourceId === targetEntityNode.id)),
           )?.id
         : undefined;
 
@@ -511,7 +599,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       excludedEdgeIds.add(targetAttributeEdgeId);
     }
 
-    const excludedNodeIds = new Set<string>([node.id, sourceHost.id, targetEntity.id, sourceAttribute.id]);
+    const excludedNodeIds = new Set<string>([
+      node.id,
+      sourceHostEntity.id,
+      targetEntityNode.id,
+      sourceAttribute.id,
+    ]);
     if (node.externalIdentifierTargetAttributeId) {
       excludedNodeIds.add(node.externalIdentifierTargetAttributeId);
     }
@@ -520,24 +613,24 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     function collisionScore(bridgeY: number): number {
       let score = 0;
 
-      if (bridgeOverlapsEntity(bridgeY, marker.x, strongSidePoint.x, sourceHost)) {
+      if (sourceLineX === undefined || !buildRoutePoints) {
+        return score;
+      }
+
+      if (bridgeOverlapsEntity(bridgeY, sourceLineX, strongApproachPoint.x, sourceHostEntity)) {
         score += 1000;
       }
-      if (bridgeOverlapsEntity(bridgeY, marker.x, strongSidePoint.x, targetEntity)) {
+      if (bridgeOverlapsEntity(bridgeY, sourceLineX, strongApproachPoint.x, targetEntityNode)) {
         score += 1000;
       }
 
       obstacleNodes.forEach((candidate) => {
-        if (bridgeOverlapsNode(bridgeY, marker.x, strongSidePoint.x, candidate)) {
+        if (bridgeOverlapsNode(bridgeY, sourceLineX, strongApproachPoint.x, candidate)) {
           score += 40;
         }
       });
 
-      const pathSegments: Array<[Point, Point]> = [
-        [marker, { x: marker.x, y: bridgeY }],
-        [{ x: marker.x, y: bridgeY }, { x: strongSidePoint.x, y: bridgeY }],
-        [{ x: strongSidePoint.x, y: bridgeY }, strongSidePoint],
-      ];
+      const pathSegments = toSegments(buildRoutePoints(bridgeY));
 
       edgeGeometryMap.forEach((points, edgeId) => {
         if (excludedEdgeIds.has(edgeId)) {
@@ -575,8 +668,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         return;
       }
 
-      const spanLeft = Math.min(marker.x, strongSidePoint.x);
-      const spanRight = Math.max(marker.x, strongSidePoint.x);
+      if (sourceLineX === undefined) {
+        return;
+      }
+
+      const spanLeft = Math.min(sourceLineX, strongApproachPoint.x);
+      const spanRight = Math.max(sourceLineX, strongApproachPoint.x);
       const intersectsSpan = !(candidate.x + candidate.width < spanLeft || candidate.x > spanRight);
       if (!intersectsSpan) {
         return;
@@ -586,33 +683,49 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       candidates.push(candidate.y + candidate.height + 16);
     });
 
-    let bridgeY = candidates[0];
-    let bestScore = Number.POSITIVE_INFINITY;
-    for (const candidate of candidates) {
-      const score = collisionScore(candidate);
-      if (score < bestScore) {
-        bestScore = score;
-        bridgeY = candidate;
-      }
-      if (score === 0) {
-        break;
-      }
-    }
-
     const manualOffset = typeof node.externalIdentifierOffset === "number" ? node.externalIdentifierOffset : 0;
     const markerOffsetX =
       typeof node.externalIdentifierMarkerOffsetX === "number" ? node.externalIdentifierMarkerOffsetX : 0;
     const markerOffsetY =
       typeof node.externalIdentifierMarkerOffsetY === "number" ? node.externalIdentifierMarkerOffsetY : 0;
+    let routePoints: Point[];
+
+    if (fixedRoutePoints) {
+      routePoints = fixedRoutePoints;
+    } else {
+      let bridgeY = candidates[0];
+      let bestScore = Number.POSITIVE_INFINITY;
+      for (const candidate of candidates) {
+        const score = collisionScore(candidate);
+        if (score < bestScore) {
+          bestScore = score;
+          bridgeY = candidate;
+        }
+        if (score === 0) {
+          break;
+        }
+      }
+
+      const finalBridgeY = bridgeY + manualOffset;
+      routePoints = buildRoutePoints ? buildRoutePoints(finalBridgeY) : [markerBase];
+    }
+
+    const marker = routePoints[0];
+    const markerShift = {
+      x: markerOffsetX,
+      y: markerOffsetY,
+    };
+    const shiftedRoutePoints = routePoints.map((point, index) =>
+      index === 0
+        ? { x: point.x + markerShift.x, y: point.y + markerShift.y }
+        : point,
+    );
+    const shiftedMarker = shiftedRoutePoints[0];
 
     externalIdentifierLayouts.push({
       relationshipId: node.id,
-      marker: {
-        x: marker.x + markerOffsetX,
-        y: marker.y + markerOffsetY,
-      },
-      bridgeY: bridgeY + manualOffset,
-      strongSidePoint,
+      marker: shiftedMarker,
+      pathPoints: shiftedRoutePoints,
     });
   });
 
@@ -1363,49 +1476,41 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 cy={layout.marker.y}
                 r={12}
                 fill="transparent"
-                onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
+                onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.hostId)}
               />
             </g>
           ))}
 
           {externalIdentifierLayouts.map((layout) => (
-            <g
-              key={`external-id-${layout.relationshipId}`}
-              className="external-identifier"
-              onPointerDown={(event) => handleExternalIdentifierPointerDown(event, layout.relationshipId)}
-            >
-              <path
-                d={`M ${layout.marker.x} ${layout.marker.y} L ${layout.marker.x} ${layout.bridgeY} L ${layout.strongSidePoint.x} ${layout.bridgeY} L ${layout.strongSidePoint.x} ${layout.strongSidePoint.y}`}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={14}
-              />
-              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill="#111111" stroke="#111111" strokeWidth={2} />
-              <line
-                x1={layout.marker.x}
-                y1={layout.marker.y}
-                x2={layout.marker.x}
-                y2={layout.bridgeY}
-                stroke="#111111"
-                strokeWidth={2}
-              />
-              <line
-                x1={layout.marker.x}
-                y1={layout.bridgeY}
-                x2={layout.strongSidePoint.x}
-                y2={layout.bridgeY}
-                stroke="#111111"
-                strokeWidth={2}
-              />
-              <line
-                x1={layout.strongSidePoint.x}
-                y1={layout.bridgeY}
-                x2={layout.strongSidePoint.x}
-                y2={layout.strongSidePoint.y}
-                stroke="#111111"
-                strokeWidth={2}
-              />
-            </g>
+            (() => {
+              const pathData = pathFromPoints(layout.pathPoints);
+
+              return (
+                <g
+                  key={`external-id-${layout.relationshipId}`}
+                  className="external-identifier"
+                  onPointerDown={(event) => handleExternalIdentifierPointerDown(event, layout.relationshipId)}
+                >
+                  <path d={pathData} fill="none" stroke="transparent" strokeWidth={14} />
+                  <path
+                    d={pathData}
+                    fill="none"
+                    stroke="#111111"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle
+                    cx={layout.marker.x}
+                    cy={layout.marker.y}
+                    r={8}
+                    fill="#111111"
+                    stroke="#111111"
+                    strokeWidth={2}
+                  />
+                </g>
+              );
+            })()
           ))}
 
           {selectionBounds ? (
