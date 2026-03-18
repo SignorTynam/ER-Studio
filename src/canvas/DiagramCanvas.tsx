@@ -453,8 +453,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               strongSidePoint.y +
               (strongDelta.y === 0 ? 0 : Math.sign(strongDelta.y) * strongApproachDistance),
           };
+    const connectorIsMostlyVertical = Math.abs(strongDelta.y) > Math.abs(strongDelta.x);
 
     const relationshipCenter = getNodeCenter(node);
+    const sourceEntityCenter = getNodeCenter(sourceHostEntity);
     const weakEntityCenter = getNodeCenter(targetEntityNode);
 
     let markerBase: Point;
@@ -580,7 +582,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     const comparisonY = strongApproachPoint.y;
     const sourceRoutePoint = sourceBasePoint ?? markerBase;
-    const preferTop = sourceRoutePoint.y <= comparisonY;
+    const preferTop = connectorIsMostlyVertical
+      ? relationshipCenter.y < sourceEntityCenter.y
+      : sourceRoutePoint.y <= comparisonY;
     const topBase = Math.min(sourceRoutePoint.y, comparisonY) - 28;
     const bottomBase = Math.max(sourceRoutePoint.y, comparisonY) + 28;
 
