@@ -188,7 +188,7 @@ function findRelationshipBetweenEntities(
 export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
-  const [surface, setSurface] = useState<AppSurface>("studio");
+  const [surface, setSurface] = useState<AppSurface>("landing");
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("diagram");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");

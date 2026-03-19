@@ -7,59 +7,148 @@ interface LandingPageProps {
   onOpenStudio: () => void;
 }
 
-const VALUE_PROPS = [
+const NAV_ITEMS = [
+  { label: "Pagina Principale", href: "#landing-home" },
+  { label: "About", href: "#landing-about" },
+  { label: "Documentation", href: "#landing-documentation" },
+  { label: "Tutorial", href: "#landing-tutorial" },
+  { label: "Servizi", href: "#landing-services" },
+];
+
+const ABOUT_PILLARS = [
   {
-    title: "Pensato per Chen",
-    description:
-      "Entita, relazioni, attributi e cardinalita con un lessico visivo coerente, senza adattare tool generici.",
+    title: "Introduzione leggibile",
+    text:
+      "La pagina iniziale spiega subito cosa fa l'app, per chi e stata pensata e quali percorsi usare prima di entrare nel canvas.",
   },
   {
-    title: "Identificatori avanzati",
-    description:
-      "Supporto per identificatori interni, composti ed esterni, con un workflow orientato alla didattica e alla progettazione.",
+    title: "Navigazione chiara",
+    text:
+      "Navbar, sezioni ancorate e CTA coerenti aiutano a passare da overview, documentazione e tutorial senza perdersi.",
   },
   {
-    title: "Pulito da mostrare",
-    description:
-      "Linee piu naturali, export immediato e canvas focalizzato sul modello concettuale, non sull'interfaccia.",
+    title: "Stessa identita visiva",
+    text:
+      "Il linguaggio visivo resta coerente con lo studio: superfici morbide, tipografia editoriale e contrasti netti dove servono.",
   },
 ];
 
-const STORY_POINTS = [
+const DOCUMENTATION_AREAS = [
   {
-    title: "Spiega il modello, non il software",
-    text:
-      "La home presenta il prodotto. Lo studio entra in scena solo quando vuoi progettare davvero.",
+    eyebrow: "Prodotto",
+    title: "Overview dell'app",
+    points: [
+      "Home pubblica per capire il prodotto prima di aprire l'editor.",
+      "Studio operativo separato, pensato per modellare senza distrazioni.",
+      "Release e versione sempre visibili nel percorso iniziale.",
+    ],
   },
   {
-    title: "Riduce il rumore operativo",
-    text:
-      "Inserimento rapido, modifica diretta e controlli chiari per arrivare prima a un diagramma leggibile.",
+    eyebrow: "Code",
+    title: "Documentation del codice",
+    points: [
+      "Modalita Code con sincronizzazione live tra sorgente ERS e canvas.",
+      "Errori di parsing mostrati in modo diretto durante la scrittura.",
+      "Rigenerazione del sorgente dal diagramma corrente in un click.",
+    ],
   },
   {
-    title: "Costruito per revisione e presentazione",
-    text:
-      "L'output e pensato per tesi, esami, documentazione e spiegazioni in aula o in meeting tecnici.",
+    eyebrow: "Formato",
+    title: "Sintassi ERS e modello",
+    points: [
+      "Entita, relazioni, attributi e cardinalita nel flusso base.",
+      "Supporto per identificatori interni, composti ed esterni.",
+      "Export PNG, SVG e JSON per consegna, review o presentazione.",
+    ],
   },
 ];
 
-const WORKFLOW = [
-  "Imposta entita, relazioni e attributi sul canvas.",
-  "Collega i nodi e definisci cardinalita, generalizzazioni e identificatori.",
-  "Rifinisci il layout ed esporta PNG, SVG o JSON del modello.",
+const TUTORIAL_STEPS = [
+  {
+    step: "01",
+    title: "Apri il canvas solo quando serve",
+    text:
+      "Usa la landing per orientarti, poi entra nello studio con una CTA sempre visibile e senza menu nascosti.",
+  },
+  {
+    step: "02",
+    title: "Disegna il modello base",
+    text:
+      "Aggiungi entita, relazioni e attributi; il lessico Chen e gia il centro dell'interfaccia.",
+  },
+  {
+    step: "03",
+    title: "Rifinisci con inspector e code mode",
+    text:
+      "Controlla cardinalita, identificatori e sorgente ERS con un flusso lineare, non frammentato.",
+  },
+  {
+    step: "04",
+    title: "Esporta e presenta",
+    text:
+      "Quando il modello e pronto puoi esportarlo o riaprirlo in seguito con una struttura chiara e consistente.",
+  },
+];
+
+const SERVICE_AREAS = [
+  {
+    title: "About del prodotto",
+    text:
+      "Una sezione pensata per raccontare il valore dell'app, i casi d'uso principali e la differenza tra presentazione e workspace.",
+    tag: "orientamento",
+  },
+  {
+    title: "Documentation integrata",
+    text:
+      "Spazio dedicato a flusso, formato ERS, code mode e release notes: utile sia per chi usa l'app sia per chi la studia.",
+    tag: "codice",
+  },
+  {
+    title: "Tutorial operativo",
+    text:
+      "Percorso a step per passare dalla prima visita alla modellazione, con esempi semplici e call to action coerenti.",
+    tag: "onboarding",
+  },
+  {
+    title: "Servizi di lavoro",
+    text:
+      "Canvas, export, validazione e revisione sono presentati come parti di un unico ecosistema, non come funzioni sparse.",
+    tag: "workflow",
+  },
+];
+
+const FOOTER_LINKS = [
+  { label: "Home", href: "#landing-home" },
+  { label: "About", href: "#landing-about" },
+  { label: "Documentation", href: "#landing-documentation" },
+  { label: "Tutorial", href: "#landing-tutorial" },
+  { label: "Servizi", href: "#landing-services" },
 ];
 
 export function LandingPage(props: LandingPageProps) {
   return (
     <div className="landing-shell">
-      <header className="landing-header">
-        <div className="landing-brand-block">
-          <span className="landing-kicker">Official App</span>
-          <strong>{props.appTitle}</strong>
+      <header className="landing-site-header">
+        <div className="landing-header-main">
+          <a className="landing-brand-link" href="#landing-home" aria-label={`Vai a ${props.appTitle}`}>
+            <span className="landing-kicker">Official App</span>
+            <strong>{props.appTitle}</strong>
+          </a>
+
+          <nav className="landing-site-nav" aria-label="Navigazione principale">
+            {NAV_ITEMS.map((item) => (
+              <a key={item.label} href={item.href}>
+                {item.label}
+              </a>
+            ))}
+          </nav>
         </div>
 
         <div className="landing-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
+          <a className="landing-secondary-link" href="#landing-documentation">
+            Documentation
+          </a>
           <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
             Apri Studio
           </button>
@@ -67,42 +156,42 @@ export function LandingPage(props: LandingPageProps) {
       </header>
 
       <main className="landing-main">
-        <section className="landing-hero">
+        <section className="landing-hero" id="landing-home">
           <div className="landing-hero-copy">
-            <p className="landing-hero-eyebrow">ER diagram studio for concept design</p>
-            <h1>La pagina ufficiale per capire subito cos'e ER Studio e perche usarlo.</h1>
+            <p className="landing-hero-eyebrow">Landing page + workspace operativo</p>
+            <h1>ER Diagram Studio, spiegato bene prima di aprire il canvas.</h1>
             <p className="landing-hero-lead">
-              ER Diagram Studio e un editor dedicato ai diagrammi ER in stile Chen. Serve a progettare modelli
-              concettuali con una resa leggibile, rigorosa e pronta da presentare.
+              La pagina iniziale diventa una vera introduzione dell&apos;app: racconta il prodotto, guida alla
+              documentazione, mostra il tutorial e porta nello studio solo quando l&apos;utente e pronto.
             </p>
 
             <div className="landing-cta-row">
               <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
-                Entra Nell&apos;App
+                Entra nello Studio
               </button>
-              <a className="landing-secondary-link" href="#landing-story">
+              <a className="landing-secondary-link" href="#landing-about">
                 Scopri il prodotto
               </a>
             </div>
 
             <div className="landing-stat-row">
               <div>
-                <strong>Chen-first</strong>
-                <span>nativo nel linguaggio del diagramma</span>
+                <strong>Chen-first canvas</strong>
+                <span>modellazione concettuale chiara, senza adattare editor generici.</span>
               </div>
               <div>
-                <strong>JSON + PNG + SVG</strong>
-                <span>salvataggio, revisione ed export immediati</span>
+                <strong>Code + Diagram live</strong>
+                <span>ERS sincronizzato con il canvas durante la scrittura valida.</span>
               </div>
               <div>
-                <strong>Workflow guidato</strong>
-                <span>anche per identificatori esterni e composti</span>
+                <strong>Export e review</strong>
+                <span>PNG, SVG, JSON e rilascio leggibile fin dalla home.</span>
               </div>
             </div>
           </div>
 
-          <div className="landing-hero-visual">
-            <div className="landing-preview-card">
+          <div className="landing-hero-side">
+            <article className="landing-preview-card">
               <div className="landing-preview-stage" aria-hidden="true">
                 <div className="preview-node preview-entity preview-entity-left">STUDENTE</div>
                 <div className="preview-node preview-relationship">FREQUENTA</div>
@@ -116,36 +205,139 @@ export function LandingPage(props: LandingPageProps) {
                 <span className="preview-cardinality preview-cardinality-left">(0,N)</span>
                 <span className="preview-cardinality preview-cardinality-right">(1,N)</span>
               </div>
-              <p>
-                Un canvas focalizzato sul modello concettuale, con nodi chiari, collegamenti naturali e strumenti
-                adatti alla spiegazione.
-              </p>
-            </div>
 
-            <div className="landing-release-card">
-              <span className="landing-release-label">Ultimo rilascio</span>
-              <strong>
-                {props.appTitle} {props.latestRelease.version}
-              </strong>
-              <p>{props.latestRelease.date}</p>
-              <ul>
-                {props.latestRelease.updates.slice(0, 3).map((update) => (
-                  <li key={update}>{update}</li>
-                ))}
-              </ul>
+              <div className="landing-preview-copy">
+                <span className="landing-preview-label">Preview</span>
+                <p>
+                  Un canvas focalizzato sul modello concettuale, con nodi chiari, collegamenti naturali e un percorso
+                  semplice tra introduzione, studio e documentazione.
+                </p>
+              </div>
+            </article>
+
+            <div className="landing-aside-grid">
+              <article className="landing-release-card">
+                <span className="landing-release-label">Ultimo rilascio</span>
+                <strong>
+                  {props.appTitle} {props.latestRelease.version}
+                </strong>
+                <p>{props.latestRelease.date}</p>
+                <ul>
+                  {props.latestRelease.updates.slice(0, 3).map((update) => (
+                    <li key={update}>{update}</li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="landing-route-card">
+                <span className="landing-proof-kicker">Percorso consigliato</span>
+                <ol className="landing-route-list">
+                  <li>Leggi l&apos;overview del prodotto.</li>
+                  <li>Apri Documentation e Tutorial dalla navbar.</li>
+                  <li>Entra nello studio con il contesto gia chiaro.</li>
+                </ol>
+              </article>
             </div>
           </div>
         </section>
 
-        <section className="landing-section" id="landing-story">
+        <section className="landing-section" id="landing-about">
           <div className="landing-section-heading">
-            <span>Perche esiste</span>
-            <h2>Una pagina pubblica per raccontare il prodotto, poi uno studio operativo per progettare.</h2>
+            <span>About</span>
+            <h2>La home presenta il prodotto come sito, non come semplice splash screen.</h2>
+            <p className="landing-section-lead">
+              L&apos;obiettivo e far capire subito cos&apos;e ER Diagram Studio, perche esiste e quale strada seguire:
+              informarsi, approfondire il codice, fare onboarding e poi modellare.
+            </p>
           </div>
 
-          <div className="landing-story-grid">
-            {STORY_POINTS.map((item) => (
-              <article key={item.title} className="landing-story-card">
+          <div className="landing-about-layout">
+            <article className="landing-spotlight-card">
+              <span className="landing-kicker">Perche funziona</span>
+              <h3>Un ingresso piu user friendly, coerente con il tono editoriale dell&apos;app.</h3>
+              <p>
+                La pagina usa una struttura da prodotto: hero, sezioni informative, documentazione, tutorial, servizi
+                e footer. Il visitatore capisce subito cosa aspettarsi e dove cliccare.
+              </p>
+              <p>
+                Lo studio resta il cuore operativo, ma la landing ora lo introduce nel modo corretto invece di
+                somigliare a un layout incompleto o troppo tecnico.
+              </p>
+            </article>
+
+            <div className="landing-card-grid">
+              {ABOUT_PILLARS.map((item) => (
+                <article key={item.title} className="landing-info-card">
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-section" id="landing-documentation">
+          <div className="landing-section-heading">
+            <span>Documentation</span>
+            <h2>Documentazione del prodotto e del codice, leggibile direttamente dalla home.</h2>
+            <p className="landing-section-lead">
+              Questa sezione crea un ponte tra chi vuole usare l&apos;app e chi vuole capirne meglio il comportamento,
+              il flusso ERS e la logica del workspace.
+            </p>
+          </div>
+
+          <div className="landing-docs-layout">
+            <div className="landing-doc-grid">
+              {DOCUMENTATION_AREAS.map((item) => (
+                <article key={item.title} className="landing-doc-card">
+                  <span>{item.eyebrow}</span>
+                  <h3>{item.title}</h3>
+                  <ul>
+                    {item.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+
+            <article className="landing-code-card">
+              <div className="landing-code-head">
+                <span className="landing-kicker">ERS snippet</span>
+                <strong>Documentation per il codice</strong>
+              </div>
+              <pre>{`entity Studente
+  attribute Matricola key
+  attribute Nome
+
+entity Corso
+  attribute Cfu
+
+relationship Frequenta between Studente and Corso
+  cardinality Studente (0,N)
+  cardinality Corso (1,N)`}</pre>
+              <p>
+                Il codice ERS e parte del racconto del prodotto: la landing lo introduce, il Code Mode lo rende
+                operativo, e il canvas lo traduce in diagramma.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-section" id="landing-tutorial">
+          <div className="landing-section-heading">
+            <span>Tutorial</span>
+            <h2>Un onboarding in quattro passi, senza frizioni.</h2>
+            <p className="landing-section-lead">
+              Invece di lasciare l&apos;utente da solo davanti al canvas, la pagina guida il primo approccio con step
+              concreti e progressivi.
+            </p>
+          </div>
+
+          <div className="landing-tutorial-grid">
+            {TUTORIAL_STEPS.map((item) => (
+              <article key={item.step} className="landing-step-card">
+                <span className="landing-step-number">{item.step}</span>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
               </article>
@@ -153,59 +345,72 @@ export function LandingPage(props: LandingPageProps) {
           </div>
         </section>
 
-        <section className="landing-section">
-          <div className="landing-section-heading compact">
-            <span>Cosa fa</span>
-            <h2>Le funzioni importanti sono gia nel flusso base.</h2>
+        <section className="landing-section" id="landing-services">
+          <div className="landing-section-heading">
+            <span>Servizi</span>
+            <h2>Le aree chiave dell&apos;esperienza sono esplicitate come servizi del prodotto.</h2>
+            <p className="landing-section-lead">
+              Ogni blocco della home indirizza a un bisogno diverso: capire l&apos;app, leggere il comportamento del
+              codice, seguire il tutorial o passare al lavoro operativo.
+            </p>
           </div>
 
-          <div className="landing-value-grid">
-            {VALUE_PROPS.map((item) => (
-              <article key={item.title} className="landing-value-card">
+          <div className="landing-service-grid">
+            {SERVICE_AREAS.map((item) => (
+              <article key={item.title} className="landing-service-card">
+                <span className="landing-service-tag">{item.tag}</span>
                 <h3>{item.title}</h3>
-                <p>{item.description}</p>
+                <p>{item.text}</p>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="landing-section landing-process-section">
-          <div className="landing-process-card">
-            <div className="landing-section-heading compact">
-              <span>Workflow</span>
-              <h2>Dall&apos;idea al diagramma esportabile in tre passaggi.</h2>
-            </div>
-
-            <ol className="landing-process-list">
-              {WORKFLOW.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="landing-proof-panel">
-            <span className="landing-proof-kicker">Per chi e</span>
-            <p>
-              Studenti, docenti, analisti e chiunque debba spiegare relazioni tra dati in modo piu chiaro di un
-              wireframe improvvisato.
-            </p>
-            <p>
-              La landing racconta il valore del prodotto. Lo studio resta un ambiente dedicato, senza distrazioni e
-              pronto all&apos;uso.
-            </p>
           </div>
         </section>
 
         <section className="landing-final-cta">
           <div>
             <span className="landing-kicker">Ready to model</span>
-            <h2>Apri lo studio e inizia a costruire il diagramma.</h2>
+            <h2>Apri ER Diagram Studio quando vuoi passare dall&apos;introduzione al lavoro vero.</h2>
           </div>
           <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
             Apri ER Studio
           </button>
         </section>
       </main>
+
+      <footer className="landing-footer">
+        <div className="landing-footer-grid">
+          <div className="landing-footer-brand">
+            <span className="landing-kicker">ER Diagram Studio</span>
+            <p>
+              Una landing introduttiva piu chiara, con navbar, documentazione, tutorial, servizi e accesso rapido al
+              workspace.
+            </p>
+          </div>
+
+          <div className="landing-footer-links">
+            <strong>Navigazione</strong>
+            {FOOTER_LINKS.map((item) => (
+              <a key={item.label} href={item.href}>
+                {item.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="landing-footer-links">
+            <strong>Release</strong>
+            <span>{props.latestRelease.version}</span>
+            <span>{props.latestRelease.date}</span>
+            <a href="#landing-documentation">Apri Documentation</a>
+          </div>
+
+          <div className="landing-footer-cta">
+            <span className="landing-version-chip">Versione {props.appVersion}</span>
+            <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
+              Vai allo Studio
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
