@@ -7,10 +7,10 @@ export function createExampleDiagram(): DiagramDocument {
       version: 1,
     },
     nodes: [
-      { id: "student", type: "entity", label: "STUDENTE", x: 180, y: 230, width: 160, height: 64 },
-      { id: "course", type: "entity", label: "CORSO", x: 620, y: 230, width: 140, height: 64 },
+      { id: "studente", type: "entity", label: "STUDENTE", x: 180, y: 230, width: 160, height: 64 },
+      { id: "corso", type: "entity", label: "CORSO", x: 620, y: 230, width: 140, height: 64 },
       {
-        id: "attends",
+        id: "frequenta",
         type: "relationship",
         label: "FREQUENTA",
         x: 430,
@@ -23,8 +23,8 @@ export function createExampleDiagram(): DiagramDocument {
       {
         id: "e1",
         type: "connector",
-        sourceId: "attends",
-        targetId: "student",
+        sourceId: "frequenta",
+        targetId: "studente",
         label: "",
         lineStyle: "solid",
         cardinality: "(0,N)",
@@ -32,8 +32,8 @@ export function createExampleDiagram(): DiagramDocument {
       {
         id: "e2",
         type: "connector",
-        sourceId: "attends",
-        targetId: "course",
+        sourceId: "frequenta",
+        targetId: "corso",
         label: "",
         lineStyle: "solid",
         cardinality: "(1,N)",

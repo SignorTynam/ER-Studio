@@ -8,14 +8,18 @@ interface AppHeaderProps {
   appVersion: string;
   diagramName: string;
   mode: EditorMode;
+  workspaceView: "diagram" | "split" | "code";
   canUndo: boolean;
   canRedo: boolean;
   onModeChange: (mode: EditorMode) => void;
+  onWorkspaceViewChange: (view: "diagram" | "split" | "code") => void;
   onNew: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onSave: () => void;
+  onSaveErs: () => void;
   onLoad: () => void;
+  onLoadErs: () => void;
   onExportPng: () => void;
   onExportSvg: () => void;
   onExample: () => void;
@@ -109,8 +113,14 @@ export function AppHeader(props: AppHeaderProps) {
             <button type="button" onClick={(event) => runMenuAction(event, props.onSave)}>
               Salva JSON
             </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
+              Scarica ERS
+            </button>
             <button type="button" onClick={(event) => runMenuAction(event, props.onLoad)}>
               Carica JSON
+            </button>
+            <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
+              Carica ERS
             </button>
             <button type="button" onClick={(event) => runMenuAction(event, props.onExample)}>
               Carica esempio
@@ -155,21 +165,47 @@ export function AppHeader(props: AppHeaderProps) {
         </details>
       </nav>
 
-      <div className="mode-switch" role="group" aria-label="Modalita editor">
-        <button
-          className={props.mode === "edit" ? "mode-button active" : "mode-button"}
-          type="button"
-          onClick={() => props.onModeChange("edit")}
-        >
-          Modifica
-        </button>
-        <button
-          className={props.mode === "view" ? "mode-button active" : "mode-button"}
-          type="button"
-          onClick={() => props.onModeChange("view")}
-        >
-          Solo visualizzazione
-        </button>
+      <div className="header-switches">
+        <div className="mode-switch" role="group" aria-label="Vista workspace">
+          <button
+            className={props.workspaceView === "diagram" ? "mode-button active" : "mode-button"}
+            type="button"
+            onClick={() => props.onWorkspaceViewChange("diagram")}
+          >
+            Diagramma
+          </button>
+          <button
+            className={props.workspaceView === "split" ? "mode-button active" : "mode-button"}
+            type="button"
+            onClick={() => props.onWorkspaceViewChange("split")}
+          >
+            Split
+          </button>
+          <button
+            className={props.workspaceView === "code" ? "mode-button active" : "mode-button"}
+            type="button"
+            onClick={() => props.onWorkspaceViewChange("code")}
+          >
+            Codice
+          </button>
+        </div>
+
+        <div className="mode-switch" role="group" aria-label="Modalita editor">
+          <button
+            className={props.mode === "edit" ? "mode-button active" : "mode-button"}
+            type="button"
+            onClick={() => props.onModeChange("edit")}
+          >
+            Modifica
+          </button>
+          <button
+            className={props.mode === "view" ? "mode-button active" : "mode-button"}
+            type="button"
+            onClick={() => props.onModeChange("view")}
+          >
+            Solo visualizzazione
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { CodeModePanel } from "./components/CodeModePanel";
 import { LandingPage } from "./components/LandingPage";
 import { useHistory } from "./hooks/useHistory";
 import { InspectorPanel } from "./inspector/InspectorPanel";
@@ -31,6 +32,7 @@ import {
   validateDiagram,
 } from "./utils/diagram";
 import { createExampleDiagram } from "./utils/example";
+import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
@@ -47,11 +49,16 @@ interface ToastMessage {
 }
 
 type AppSurface = "landing" | "studio";
+type WorkspaceView = "diagram" | "split" | "code";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
 
-function downloadTextFile(content: string, fileName: string) {
-  const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+function sanitizeFileNameBase(value: string): string {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "diagramma-er";
+}
+
+function downloadTextFile(content: string, fileName: string, mimeType = "text/plain;charset=utf-8") {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -179,8 +186,10 @@ function findRelationshipBetweenEntities(
 }
 
 export default function App() {
-  const history = useHistory<DiagramDocument>(createExampleDiagram());
+  const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
+  const history = useHistory<DiagramDocument>(initialDiagramRef.current);
   const [surface, setSurface] = useState<AppSurface>("landing");
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("diagram");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
@@ -190,9 +199,16 @@ export default function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
+  const [codeDraft, setCodeDraft] = useState(() => serializeDiagramToErs(initialDiagramRef.current));
+  const [codeDirty, setCodeDirty] = useState(false);
+  const [codeError, setCodeError] = useState("");
 
   const svgRef = useRef<SVGSVGElement>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
+  const ersFileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastSerializedCodeRef = useRef(codeDraft);
+  const codeDraftRef = useRef(codeDraft);
+  const codeDirtyRef = useRef(codeDirty);
 
   const issues = validateDiagram(history.present);
 
@@ -252,6 +268,44 @@ export default function App() {
     }
   }
 
+  function replaceCodeDraft(nextCode: string) {
+    codeDraftRef.current = nextCode;
+    codeDirtyRef.current = false;
+    lastSerializedCodeRef.current = nextCode;
+    setCodeDraft(nextCode);
+    setCodeDirty(false);
+  }
+
+  function syncCodeDraftWithDiagram(diagram: DiagramDocument) {
+    replaceCodeDraft(serializeDiagramToErs(diagram));
+    setCodeError("");
+  }
+
+  function updateCodeDraft(nextCode: string) {
+    codeDraftRef.current = nextCode;
+    const nextDirty = nextCode !== lastSerializedCodeRef.current;
+    codeDirtyRef.current = nextDirty;
+    setCodeDraft(nextCode);
+    setCodeDirty(nextDirty);
+    if (codeError) {
+      setCodeError("");
+    }
+  }
+
+  useEffect(() => {
+    const nextSerializedCode = serializeDiagramToErs(history.present);
+    const draftWasSynced = codeDraftRef.current === lastSerializedCodeRef.current;
+    lastSerializedCodeRef.current = nextSerializedCode;
+
+    if (!codeDirtyRef.current || draftWasSynced) {
+      codeDraftRef.current = nextSerializedCode;
+      codeDirtyRef.current = false;
+      setCodeDraft(nextSerializedCode);
+      setCodeDirty(false);
+      setCodeError("");
+    }
+  }, [history.present]);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
@@ -266,7 +320,11 @@ export default function App() {
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        handleSaveJson();
+        if (workspaceView === "code" || workspaceView === "split") {
+          handleSaveErs();
+        } else {
+          handleSaveJson();
+        }
         return;
       }
 
@@ -338,7 +396,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen]);
+  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen, workspaceView]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -352,15 +410,24 @@ export default function App() {
     }
   }
 
+  function handleWorkspaceViewChange(nextView: WorkspaceView) {
+    setWorkspaceView(nextView);
+  }
+
   function handleNewDiagram() {
-    history.commit(createEmptyDiagram("Nuovo diagramma"), history.present);
+    const nextDiagram = createEmptyDiagram("Nuovo diagramma");
+    history.commit(nextDiagram, history.present);
+    syncCodeDraftWithDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
+    setTool("select");
     setStatus("Nuovo diagramma creato.");
   }
 
   function handleLoadExample() {
-    history.commit(createExampleDiagram(), history.present);
+    const nextDiagram = createExampleDiagram();
+    history.commit(nextDiagram, history.present);
+    syncCodeDraftWithDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
     setTool("select");
@@ -685,13 +752,24 @@ export default function App() {
   function handleSaveJson() {
     downloadTextFile(
       serializeDiagram(history.present),
-      `${history.present.meta.name.toLowerCase().replace(/\s+/g, "-") || "diagramma-er"}.json`,
+      `${sanitizeFileNameBase(history.present.meta.name)}.json`,
+      "application/json;charset=utf-8",
     );
     setStatus("Diagramma salvato in JSON.");
   }
 
+  function handleSaveErs() {
+    const source = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
+    downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}.ers`);
+    setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
+  }
+
   function handleLoadRequest() {
-    fileInputRef.current?.click();
+    jsonFileInputRef.current?.click();
+  }
+
+  function handleLoadErsRequest() {
+    ersFileInputRef.current?.click();
   }
 
   async function handleLoadFile(event: ChangeEvent<HTMLInputElement>) {
@@ -704,8 +782,10 @@ export default function App() {
       const rawText = await file.text();
       const parsed = parseDiagram(rawText);
       history.commit(parsed, history.present);
+      syncCodeDraftWithDiagram(parsed);
       setSelection({ nodeIds: [], edgeIds: [] });
       setViewport(DEFAULT_VIEWPORT);
+      setTool("select");
       setStatus("Diagramma caricato.");
     } catch (error) {
       console.error(error);
@@ -715,8 +795,56 @@ export default function App() {
     }
   }
 
+  async function handleLoadErsFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const rawText = await file.text();
+      const parsed = parseErsDiagram(rawText, history.present);
+      history.commit(parsed, history.present);
+      syncCodeDraftWithDiagram(parsed);
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setViewport(DEFAULT_VIEWPORT);
+      setTool("select");
+      setWorkspaceView("code");
+      setStatus("Codice ERS caricato.");
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Codice ERS non valido.";
+      setCodeError(message);
+      setStatusError(message);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function handleApplyErsCode() {
+    try {
+      const parsed = parseErsDiagram(codeDraftRef.current, history.present);
+      history.commit(parsed, history.present);
+      syncCodeDraftWithDiagram(parsed);
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setTool("select");
+      setStatus("Codice ERS applicato al diagramma.");
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Codice ERS non valido.";
+      setCodeError(message);
+      setStatusError(message);
+    }
+  }
+
+  function handleResetCodeFromDiagram() {
+    syncCodeDraftWithDiagram(history.present);
+    setStatus("Codice ERS rigenerato dal diagramma.");
+  }
+
   async function handleExportPng() {
     if (!svgRef.current) {
+      setStatus("Apri la vista Diagramma o Split per esportare il PNG.");
       return;
     }
 
@@ -731,6 +859,7 @@ export default function App() {
 
   function handleExportSvg() {
     if (!svgRef.current) {
+      setStatus("Apri la vista Diagramma o Split per esportare l'SVG.");
       return;
     }
 
@@ -756,14 +885,18 @@ export default function App() {
         appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
         mode={mode}
+        workspaceView={workspaceView}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
         onModeChange={handleModeChange}
+        onWorkspaceViewChange={handleWorkspaceViewChange}
         onNew={handleNewDiagram}
         onUndo={history.undo}
         onRedo={history.redo}
         onSave={handleSaveJson}
+        onSaveErs={handleSaveErs}
         onLoad={handleLoadRequest}
+        onLoadErs={handleLoadErsRequest}
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
         onExample={handleLoadExample}
@@ -778,53 +911,92 @@ export default function App() {
         onHome={openLandingSurface}
       />
 
-      <div className="workspace-shell">
-        <Toolbar activeTool={tool} mode={mode} onToolChange={setTool} />
+      <div className={workspaceView === "code" ? "workspace-shell workspace-shell-code" : "workspace-shell"}>
+        {workspaceView !== "code" ? <Toolbar activeTool={tool} mode={mode} onToolChange={setTool} /> : null}
 
-        <DiagramCanvas
-          diagram={history.present}
-          selection={selection}
-          tool={tool}
-          mode={mode}
-          viewport={viewport}
-          statusMessage={statusMessage}
-          svgRef={svgRef}
-          onViewportChange={setViewport}
-          onSelectionChange={setSelection}
-          onPreviewDiagram={history.setPresent}
-          onCommitDiagram={commitDiagram}
-          onCreateNode={handleCreateNode}
-          onCreateEdge={handleCreateEdge}
-          onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
-          onDeleteNode={handleDeleteNodeById}
-          onDeleteEdge={handleDeleteEdgeById}
-          onDeleteExternalIdentifier={handleClearExternalIdentifier}
-          onRenameNode={handleRenameNode}
-          onRenameEdge={handleRenameEdge}
-          onStatusMessageChange={handleCanvasStatusMessage}
-        />
+        <div
+          className={
+            workspaceView === "split"
+              ? "workspace-main split"
+              : workspaceView === "code"
+                ? "workspace-main code-only"
+                : "workspace-main diagram-only"
+          }
+        >
+          {workspaceView !== "code" ? (
+            <DiagramCanvas
+              diagram={history.present}
+              selection={selection}
+              tool={tool}
+              mode={mode}
+              viewport={viewport}
+              statusMessage={statusMessage}
+              svgRef={svgRef}
+              onViewportChange={setViewport}
+              onSelectionChange={setSelection}
+              onPreviewDiagram={history.setPresent}
+              onCommitDiagram={commitDiagram}
+              onCreateNode={handleCreateNode}
+              onCreateEdge={handleCreateEdge}
+              onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+              onDeleteNode={handleDeleteNodeById}
+              onDeleteEdge={handleDeleteEdgeById}
+              onDeleteExternalIdentifier={handleClearExternalIdentifier}
+              onRenameNode={handleRenameNode}
+              onRenameEdge={handleRenameEdge}
+              onStatusMessageChange={handleCanvasStatusMessage}
+            />
+          ) : null}
 
-        <InspectorPanel
-          diagram={history.present}
-          selection={selection}
-          mode={mode}
-          issues={issues}
-          onNodeChange={handleNodeChange}
-          onNodesChange={handleNodesChange}
-          onEdgeChange={handleEdgeChange}
-          onClearExternalIdentifier={handleClearExternalIdentifier}
-          onDeleteSelection={handleDeleteSelection}
-          onDuplicateSelection={handleDuplicateSelection}
-          onAlign={handleAlignSelection}
-        />
+          {workspaceView !== "diagram" ? (
+            <CodeModePanel
+              code={codeDraft}
+              dirty={codeDirty}
+              parseError={codeError}
+              diagramName={history.present.meta.name}
+              nodeCount={history.present.nodes.length}
+              edgeCount={history.present.edges.length}
+              issueCount={issues.length}
+              layout={workspaceView === "split" ? "split" : "code"}
+              onCodeChange={updateCodeDraft}
+              onApply={handleApplyErsCode}
+              onReset={handleResetCodeFromDiagram}
+              onDownload={handleSaveErs}
+              onLoad={handleLoadErsRequest}
+            />
+          ) : null}
+        </div>
+
+        {workspaceView !== "code" ? (
+          <InspectorPanel
+            diagram={history.present}
+            selection={selection}
+            mode={mode}
+            issues={issues}
+            onNodeChange={handleNodeChange}
+            onNodesChange={handleNodesChange}
+            onEdgeChange={handleEdgeChange}
+            onClearExternalIdentifier={handleClearExternalIdentifier}
+            onDeleteSelection={handleDeleteSelection}
+            onDuplicateSelection={handleDuplicateSelection}
+            onAlign={handleAlignSelection}
+          />
+        ) : null}
       </div>
 
       <input
-        ref={fileInputRef}
+        ref={jsonFileInputRef}
         className="hidden-input"
         type="file"
         accept="application/json,.json"
         onChange={handleLoadFile}
+      />
+      <input
+        ref={ersFileInputRef}
+        className="hidden-input"
+        type="file"
+        accept=".ers,text/plain"
+        onChange={handleLoadErsFile}
       />
 
       {introOpen ? (
