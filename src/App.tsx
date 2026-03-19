@@ -1150,7 +1150,7 @@ export default function App() {
               </details>
 
               <details className="help-section">
-                <summary>Stato Notazione ER (v2.1)</summary>
+                <summary>Stato Notazione ER (v2.2)</summary>
                 <ul className="help-list">
                   <li>Disponibile: entita, relazioni, attributi, cardinalita, generalizzazione, identificatori semplici/composti interni/esterni.</li>
                   <li>In roadmap: entita deboli dedicate, attributi multivalore o derivati e vincoli ISA avanzati (disjoint/overlap, total/partial).</li>

@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Diagram Studio";
-export const APP_VERSION = "2.1";
+export const APP_VERSION = "2.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.2",
+    date: "2026-03-19",
+    updates: [
+      "Aggiornata la sezione About con stato notazione ER portato a v2.2 e descrizioni piu precise dei comandi principali.",
+      "Allineata la versione applicativa e le etichette versione tra header, home e modal informativi.",
+      "Migliorata la leggibilita del changelog con nuova voce di rilascio 2.2.",
+    ],
+  },
   {
     version: "2.1",
     date: "2026-03-19",
