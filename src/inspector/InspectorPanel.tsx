@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import type { SyntheticEvent } from "react";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -17,6 +19,7 @@ interface InspectorPanelProps {
   selection: SelectionState;
   mode: EditorMode;
   issues: ValidationIssue[];
+  collapsed: boolean;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
@@ -24,6 +27,7 @@ interface InspectorPanelProps {
   onDeleteSelection: () => void;
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
+  onToggleCollapse: () => void;
 }
 
 function numberValue(value: string): number {
@@ -32,6 +36,16 @@ function numberValue(value: string): number {
 }
 
 export function InspectorPanel(props: InspectorPanelProps) {
+  const [openSections, setOpenSections] = useState({
+    summary: true,
+    nodeDetails: true,
+    edgeDetails: true,
+    emptyDetails: true,
+    actions: true,
+    validations: false,
+    composite: true,
+  });
+
   const canAlign = props.mode !== "view" && props.selection.nodeIds.length >= 2;
   const selectedNodeCount = props.selection.nodeIds.length;
   const selectedEdgeCount = props.selection.edgeIds.length;
@@ -81,11 +95,110 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
       : undefined;
 
+  useEffect(() => {
+    if (selectedNode) {
+      setOpenSections((current) =>
+        current.nodeDetails ? current : { ...current, nodeDetails: true },
+      );
+    }
+  }, [selectedNode?.id]);
+
+  useEffect(() => {
+    if (selectedEdge) {
+      setOpenSections((current) =>
+        current.edgeDetails ? current : { ...current, edgeDetails: true },
+      );
+    }
+  }, [selectedEdge?.id]);
+
+  useEffect(() => {
+    if (!selectedNode && !selectedEdge) {
+      setOpenSections((current) =>
+        current.emptyDetails ? current : { ...current, emptyDetails: true },
+      );
+    }
+  }, [selectedNode?.id, selectedEdge?.id]);
+
+  useEffect(() => {
+    if (canConfigureCompositeInternal) {
+      setOpenSections((current) =>
+        current.composite ? current : { ...current, composite: true },
+      );
+    }
+  }, [canConfigureCompositeInternal]);
+
+  function handleSectionToggle(
+    key: keyof typeof openSections,
+    event: SyntheticEvent<HTMLDetailsElement>,
+  ) {
+    const nextOpen = event.currentTarget.open;
+    setOpenSections((current) =>
+      current[key] === nextOpen
+        ? current
+        : {
+            ...current,
+            [key]: nextOpen,
+          },
+    );
+  }
+
+  if (props.collapsed) {
+    return (
+      <aside className="inspector-panel collapsed">
+        <div className="panel-head-row">
+          <div className="panel-heading">Proprieta</div>
+          <button
+            type="button"
+            className="panel-toggle"
+            onClick={props.onToggleCollapse}
+            aria-label="Espandi pannello proprieta"
+            title="Espandi"
+          >
+            ←
+          </button>
+        </div>
+
+        <div className="inspector-compact-stack">
+          <div className="inspector-compact-card">
+            <strong>{selectedNodeCount}</strong>
+            <span>Nodi</span>
+          </div>
+          <div className="inspector-compact-card">
+            <strong>{selectedEdgeCount}</strong>
+            <span>Link</span>
+          </div>
+          <div className="inspector-compact-card">
+            <strong>{props.issues.length}</strong>
+            <span>Issue</span>
+          </div>
+          <div className="inspector-compact-card tone-muted">
+            <strong>{props.mode === "edit" ? "Edit" : "View"}</strong>
+            <span>Modo</span>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="inspector-panel">
-      <div className="panel-heading">Proprieta</div>
+      <div className="panel-head-row">
+        <div>
+          <div className="panel-heading">Proprieta</div>
+          <p className="panel-subheading">Dettagli, azioni e validazioni della selezione.</p>
+        </div>
+        <button
+          type="button"
+          className="panel-toggle"
+          onClick={props.onToggleCollapse}
+          aria-label="Comprimi pannello proprieta"
+          title="Comprimi"
+        >
+          →
+        </button>
+      </div>
 
-      <details className="inspector-card inspector-section" open>
+      <details className="inspector-card inspector-section" open={openSections.summary} onToggle={(event) => handleSectionToggle("summary", event)}>
         <summary className="section-summary">Riepilogo selezione</summary>
         <div className="section-body">
           <div className="selection-summary">
@@ -96,7 +209,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       </details>
 
       {selectedNode ? (
-        <details className="inspector-card inspector-section" open>
+        <details className="inspector-card inspector-section" open={openSections.nodeDetails} onToggle={(event) => handleSectionToggle("nodeDetails", event)}>
           <summary className="section-summary">Dettagli elemento</summary>
           <div className="section-body inspector-stack">
           <label className="field">
@@ -204,7 +317,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ) : null}
 
       {!selectedNode && canConfigureCompositeInternal ? (
-        <details className="inspector-card inspector-section" open>
+        <details className="inspector-card inspector-section" open={openSections.composite} onToggle={(event) => handleSectionToggle("composite", event)}>
           <summary className="section-summary">Identificatore composto interno</summary>
           <div className="section-body inspector-stack">
             <label className="field checkbox-field">
@@ -238,7 +351,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ) : null}
 
       {selectedEdge ? (
-        <details className="inspector-card inspector-section" open>
+        <details className="inspector-card inspector-section" open={openSections.edgeDetails} onToggle={(event) => handleSectionToggle("edgeDetails", event)}>
           <summary className="section-summary">Dettagli collegamento</summary>
           <div className="section-body inspector-stack">
           {selectedEdge.type === "connector" ? (
@@ -318,7 +431,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ) : null}
 
       {!selectedNode && !selectedEdge ? (
-        <details className="inspector-card inspector-section" open>
+        <details className="inspector-card inspector-section" open={openSections.emptyDetails} onToggle={(event) => handleSectionToggle("emptyDetails", event)}>
           <summary className="section-summary">Dettagli</summary>
           <div className="section-body empty-inspector">
           <p>Seleziona un elemento per modificarne proprieta, posizione e stile.</p>
@@ -326,7 +439,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
         </details>
       ) : null}
 
-      <details className="inspector-card inspector-section inspector-actions" open>
+      <details className="inspector-card inspector-section inspector-actions" open={openSections.actions} onToggle={(event) => handleSectionToggle("actions", event)}>
         <summary className="section-summary">Azioni selezione</summary>
         <div className="section-body inspector-stack">
         <div className="action-grid">
@@ -355,7 +468,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
         </div>
       </details>
 
-      <details className="inspector-card inspector-section" open>
+      <details className="inspector-card inspector-section" open={openSections.validations} onToggle={(event) => handleSectionToggle("validations", event)}>
         <summary className="section-summary">Validazioni ({warningLabel})</summary>
         <div className="section-body inspector-stack">
         {props.issues.length === 0 ? (

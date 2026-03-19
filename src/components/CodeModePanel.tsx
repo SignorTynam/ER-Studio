@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 interface CodeModePanelProps {
@@ -26,6 +27,14 @@ entity corso "CORSO" {
 relation frequenta "FREQUENTA" studente "(0,N)" corso "(1,N)"`;
 
 export function CodeModePanel(props: CodeModePanelProps) {
+  const [guideOpen, setGuideOpen] = useState(props.layout === "code");
+
+  useEffect(() => {
+    if (props.layout === "code") {
+      setGuideOpen(true);
+    }
+  }, [props.layout]);
+
   function handleEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
@@ -79,19 +88,34 @@ export function CodeModePanel(props: CodeModePanelProps) {
         </label>
 
         <aside className="code-mode-guide">
-          <div className="panel-heading minor">Sintassi</div>
-          <ul className="code-mode-guide-list">
-            <li>
-              <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
-            </li>
-            <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
-            <li>Nel blocco usa `attribute`, `identifier`, `composite`; per casi avanzati puoi usare `connect` ed `external`.</li>
-            <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
-            <li>`Ctrl/Cmd + Enter` applica subito il codice al diagramma.</li>
-          </ul>
+          <button
+            type="button"
+            className="code-mode-guide-toggle"
+            onClick={() => setGuideOpen((current) => !current)}
+            aria-expanded={guideOpen}
+          >
+            <span className="panel-heading minor">Sintassi</span>
+            <span>{guideOpen ? "Nascondi" : "Mostra"}</span>
+          </button>
 
-          <div className="panel-heading minor">Esempio</div>
-          <pre className="code-mode-sample">{ERS_SAMPLE}</pre>
+          {guideOpen ? (
+            <>
+              <ul className="code-mode-guide-list">
+                <li>
+                  <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
+                </li>
+                <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
+                <li>Nel blocco usa `attribute`, `identifier`, `composite`; per casi avanzati puoi usare `connect` ed `external`.</li>
+                <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
+                <li>`Ctrl/Cmd + Enter` applica subito il codice al diagramma.</li>
+              </ul>
+
+              <div className="panel-heading minor">Esempio</div>
+              <pre className="code-mode-sample">{ERS_SAMPLE}</pre>
+            </>
+          ) : (
+            <p className="code-mode-guide-hint">Apri la guida per vedere sintassi ed esempio del DSL.</p>
+          )}
         </aside>
       </div>
     </section>

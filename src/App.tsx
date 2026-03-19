@@ -188,7 +188,7 @@ function findRelationshipBetweenEntities(
 export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
-  const [surface, setSurface] = useState<AppSurface>("landing");
+  const [surface, setSurface] = useState<AppSurface>("studio");
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("diagram");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
@@ -202,6 +202,8 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => serializeDiagramToErs(initialDiagramRef.current));
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -412,6 +414,9 @@ export default function App() {
 
   function handleWorkspaceViewChange(nextView: WorkspaceView) {
     setWorkspaceView(nextView);
+    if (nextView === "split") {
+      setInspectorCollapsed(true);
+    }
   }
 
   function handleNewDiagram() {
@@ -911,8 +916,25 @@ export default function App() {
         onHome={openLandingSurface}
       />
 
-      <div className={workspaceView === "code" ? "workspace-shell workspace-shell-code" : "workspace-shell"}>
-        {workspaceView !== "code" ? <Toolbar activeTool={tool} mode={mode} onToolChange={setTool} /> : null}
+      <div
+        className={[
+          "workspace-shell",
+          workspaceView === "code" ? "workspace-shell-code" : "",
+          toolbarCollapsed ? "toolbar-collapsed" : "",
+          inspectorCollapsed ? "inspector-collapsed" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {workspaceView !== "code" ? (
+          <Toolbar
+            activeTool={tool}
+            mode={mode}
+            collapsed={toolbarCollapsed}
+            onToolChange={setTool}
+            onToggleCollapse={() => setToolbarCollapsed((current) => !current)}
+          />
+        ) : null}
 
         <div
           className={
@@ -973,6 +995,7 @@ export default function App() {
             selection={selection}
             mode={mode}
             issues={issues}
+            collapsed={inspectorCollapsed}
             onNodeChange={handleNodeChange}
             onNodesChange={handleNodesChange}
             onEdgeChange={handleEdgeChange}
@@ -980,6 +1003,7 @@ export default function App() {
             onDeleteSelection={handleDeleteSelection}
             onDuplicateSelection={handleDuplicateSelection}
             onAlign={handleAlignSelection}
+            onToggleCollapse={() => setInspectorCollapsed((current) => !current)}
           />
         ) : null}
       </div>

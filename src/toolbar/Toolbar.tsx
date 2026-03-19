@@ -4,7 +4,9 @@ import { TOOL_DEFINITIONS } from "../utils/toolConfig";
 interface ToolbarProps {
   activeTool: ToolKind;
   mode: EditorMode;
+  collapsed: boolean;
   onToolChange: (tool: ToolKind) => void;
+  onToggleCollapse: () => void;
 }
 
 function ToolIcon({ tool }: { tool: ToolKind }) {
@@ -83,8 +85,23 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
 
 export function Toolbar(props: ToolbarProps) {
   return (
-    <aside className="toolbar-panel">
-      <div className="panel-heading">Strumenti</div>
+    <aside className={props.collapsed ? "toolbar-panel collapsed" : "toolbar-panel"}>
+      <div className="panel-head-row">
+        <div>
+          <div className="panel-heading">Strumenti</div>
+          {!props.collapsed ? <p className="panel-subheading">Disegna, collega e modifica.</p> : null}
+        </div>
+        <button
+          type="button"
+          className="panel-toggle"
+          onClick={props.onToggleCollapse}
+          aria-label={props.collapsed ? "Espandi pannello strumenti" : "Comprimi pannello strumenti"}
+          title={props.collapsed ? "Espandi" : "Comprimi"}
+        >
+          {props.collapsed ? "→" : "←"}
+        </button>
+      </div>
+
       <div className="toolbar-list">
         {TOOL_DEFINITIONS.map((item) => {
           const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
@@ -96,6 +113,7 @@ export function Toolbar(props: ToolbarProps) {
               onClick={() => props.onToolChange(item.tool)}
               disabled={disabled}
               title={`${item.label} (${item.shortcut.toUpperCase()})`}
+              aria-label={item.label}
             >
               <ToolIcon tool={item.tool} />
               <span className="tool-label">{item.label}</span>
@@ -107,4 +125,3 @@ export function Toolbar(props: ToolbarProps) {
     </aside>
   );
 }
-
