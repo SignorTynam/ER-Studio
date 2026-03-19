@@ -579,12 +579,20 @@ button:disabled {
 .app-header {
   display: grid;
   grid-template-columns: minmax(220px, 340px) 1fr auto;
+  grid-template-areas: "title nav switches";
+  position: relative;
+  z-index: 20;
   gap: 18px;
   align-items: center;
   padding: 16px 20px;
   background: rgba(248, 245, 237, 0.84);
   border-bottom: 1px solid var(--studio-line);
   backdrop-filter: blur(18px);
+}
+
+.app-title-block {
+  grid-area: title;
+  min-width: 0;
 }
 
 .app-title-block h1 {
@@ -658,11 +666,13 @@ button:disabled {
 }
 
 .header-switches {
+  grid-area: switches;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .mode-button {
@@ -678,10 +688,31 @@ button:disabled {
 }
 
 .header-nav {
+  grid-area: nav;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+@media (max-width: 1380px) {
+  .app-header {
+    grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
+    grid-template-areas:
+      "title switches"
+      "nav nav";
+    align-items: start;
+    row-gap: 12px;
+  }
+
+  .header-nav {
+    justify-content: flex-start;
+  }
+
+  .header-switches {
+    justify-content: flex-end;
+  }
 }
 
 .nav-group {
@@ -1827,6 +1858,10 @@ button:disabled {
 
   .app-header {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "nav"
+      "switches";
     padding: 14px;
   }
 
