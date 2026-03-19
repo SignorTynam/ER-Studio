@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Diagram Studio";
-export const APP_VERSION = "2.2";
+export const APP_VERSION = "2.3";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.3",
+    date: "2026-03-19",
+    updates: [
+      "Code Mode aggiornato con sincronizzazione live: il diagramma si aggiorna automaticamente durante la scrittura del codice ERS valido.",
+      "Rimosso il pulsante Applica al diagramma e semplificato il workflow operativo del pannello codice.",
+      "About e help allineati al nuovo comportamento live sync e alla versione 2.3.",
+    ],
+  },
   {
     version: "2.2",
     date: "2026-03-19",

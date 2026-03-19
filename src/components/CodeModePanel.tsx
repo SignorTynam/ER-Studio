@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import type { KeyboardEvent } from "react";
 
 interface CodeModePanelProps {
   code: string;
@@ -11,7 +10,6 @@ interface CodeModePanelProps {
   issueCount: number;
   layout: "code" | "split";
   onCodeChange: (value: string) => void;
-  onApply: () => void;
   onReset: () => void;
   onDownload: () => void;
   onLoad: () => void;
@@ -35,20 +33,13 @@ export function CodeModePanel(props: CodeModePanelProps) {
     }
   }, [props.layout]);
 
-  function handleEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-      event.preventDefault();
-      props.onApply();
-    }
-  }
-
   return (
     <section className={props.layout === "split" ? "code-mode-panel split" : "code-mode-panel"}>
       <div className="code-mode-head">
         <div>
           <div className="panel-heading">Code Mode</div>
           <h2>{props.diagramName}.ers</h2>
-          <p>Scrivi il diagramma in linguaggio ER Studio, applica il codice e il canvas si aggiorna.</p>
+          <p>Scrivi il diagramma in linguaggio ER Studio: il canvas si sincronizza live mentre digiti.</p>
         </div>
 
         <div className="code-mode-actions">
@@ -61,9 +52,6 @@ export function CodeModePanel(props: CodeModePanelProps) {
           <button type="button" className="header-button" onClick={props.onReset}>
             Rigenera dal diagramma
           </button>
-          <button type="button" className="header-button code-mode-primary" onClick={props.onApply}>
-            Applica al diagramma
-          </button>
         </div>
       </div>
 
@@ -71,7 +59,7 @@ export function CodeModePanel(props: CodeModePanelProps) {
         <span>{props.nodeCount} nodi</span>
         <span>{props.edgeCount} collegamenti</span>
         <span>{props.issueCount} validazioni</span>
-        <span>{props.dirty ? "Bozza modificata" : "Codice sincronizzato"}</span>
+        <span>{props.parseError ? "Codice non valido" : "Sync live attivo"}</span>
       </div>
 
       {props.parseError ? <div className="code-mode-error">{props.parseError}</div> : null}
@@ -83,7 +71,6 @@ export function CodeModePanel(props: CodeModePanelProps) {
             value={props.code}
             spellCheck={false}
             onChange={(event) => props.onCodeChange(event.target.value)}
-            onKeyDown={handleEditorKeyDown}
           />
         </label>
 
@@ -107,7 +94,7 @@ export function CodeModePanel(props: CodeModePanelProps) {
                 <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
                 <li>Nel blocco usa `attribute`, `identifier`, `composite`; per casi avanzati puoi usare `connect` ed `external`.</li>
                 <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
-                <li>`Ctrl/Cmd + Enter` applica subito il codice al diagramma.</li>
+                <li>La sincronizzazione e live: quando il codice e valido il diagramma viene aggiornato automaticamente.</li>
               </ul>
 
               <div className="panel-heading minor">Esempio</div>

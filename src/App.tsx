@@ -295,6 +295,32 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!codeDirtyRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      try {
+        const parsed = parseErsDiagram(codeDraftRef.current, history.present);
+        const parsedSerialized = serializeDiagramToErs(parsed);
+
+        if (parsedSerialized !== lastSerializedCodeRef.current) {
+          history.commit(parsed, history.present);
+        }
+
+        if (codeError) {
+          setCodeError("");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Codice ERS non valido.";
+        setCodeError(message);
+      }
+    }, 180);
+
+    return () => window.clearTimeout(timeout);
+  }, [codeDraft, history, codeError]);
+
+  useEffect(() => {
     const nextSerializedCode = serializeDiagramToErs(history.present);
     const draftWasSynced = codeDraftRef.current === lastSerializedCodeRef.current;
     lastSerializedCodeRef.current = nextSerializedCode;
@@ -826,22 +852,6 @@ export default function App() {
     }
   }
 
-  function handleApplyErsCode() {
-    try {
-      const parsed = parseErsDiagram(codeDraftRef.current, history.present);
-      history.commit(parsed, history.present);
-      syncCodeDraftWithDiagram(parsed);
-      setSelection({ nodeIds: [], edgeIds: [] });
-      setTool("select");
-      setStatus("Codice ERS applicato al diagramma.");
-    } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Codice ERS non valido.";
-      setCodeError(message);
-      setStatusError(message);
-    }
-  }
-
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
     setStatus("Codice ERS rigenerato dal diagramma.");
@@ -981,7 +991,6 @@ export default function App() {
               issueCount={issues.length}
               layout={workspaceView === "split" ? "split" : "code"}
               onCodeChange={updateCodeDraft}
-              onApply={handleApplyErsCode}
               onReset={handleResetCodeFromDiagram}
               onDownload={handleSaveErs}
               onLoad={handleLoadErsRequest}
@@ -1143,6 +1152,15 @@ export default function App() {
               </details>
 
               <details className="help-section">
+                <summary>Code Mode e Sync Live</summary>
+                <ul className="help-list">
+                  <li>In vista Code o Split, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
+                  <li>Se il codice e incompleto o non valido, viene mostrato l'errore nel pannello senza alterare l'ultimo stato valido del diagramma.</li>
+                  <li>Usa Rigenera dal diagramma per riallineare rapidamente il sorgente ERS allo stato corrente del canvas.</li>
+                </ul>
+              </details>
+
+              <details className="help-section">
                 <summary>Validazioni ed Errori</summary>
                 <ul className="help-list">
                   <li>I messaggi di errore appaiono come toast in alto a destra.</li>
@@ -1150,7 +1168,7 @@ export default function App() {
               </details>
 
               <details className="help-section">
-                <summary>Stato Notazione ER (v2.2)</summary>
+                <summary>Stato Notazione ER (v2.3)</summary>
                 <ul className="help-list">
                   <li>Disponibile: entita, relazioni, attributi, cardinalita, generalizzazione, identificatori semplici/composti interni/esterni.</li>
                   <li>In roadmap: entita deboli dedicate, attributi multivalore o derivati e vincoli ISA avanzati (disjoint/overlap, total/partial).</li>
