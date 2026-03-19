@@ -578,13 +578,13 @@ button:disabled {
 
 .app-header {
   display: grid;
-  grid-template-columns: minmax(220px, 340px) 1fr auto;
+  grid-template-columns: minmax(180px, 280px) 1fr auto;
   grid-template-areas: "title nav switches";
   position: relative;
   z-index: 20;
-  gap: 18px;
+  gap: 12px;
   align-items: center;
-  padding: 16px 20px;
+  padding: 10px 16px;
   background: rgba(248, 245, 237, 0.84);
   border-bottom: 1px solid var(--studio-line);
   backdrop-filter: blur(18px);
@@ -592,34 +592,39 @@ button:disabled {
 
 .app-title-block {
   grid-area: title;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .app-title-block h1 {
-  margin: 0 0 6px;
-  font-size: 1.7rem;
+  margin: 0;
+  font-size: 1.15rem;
   font-weight: 650;
+  line-height: 1.15;
   letter-spacing: -0.02em;
 }
 
 .app-eyebrow,
 .app-subtitle {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   color: #595953;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
 }
 
 .app-version-pill {
-  margin-top: 6px;
+  margin-top: 1px;
   display: inline-flex;
   align-items: center;
-  padding: 0.26rem 0.62rem;
+  width: fit-content;
+  padding: 0.16rem 0.48rem;
   border: 1px solid var(--studio-line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
@@ -642,8 +647,9 @@ button:disabled {
 .panel-toggle,
 .action-grid button,
 .code-mode-guide-toggle {
-  padding: 0.55rem 0.85rem;
-  min-height: 40px;
+  padding: 0.38rem 0.66rem;
+  min-height: 34px;
+  font-size: 0.88rem;
 }
 
 .header-button:hover:not(:disabled),
@@ -658,9 +664,9 @@ button:disabled {
 
 .mode-switch {
   display: inline-flex;
-  padding: 4px;
+  padding: 3px;
   border: 1px solid var(--studio-line);
-  border-radius: 16px;
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.62);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
@@ -670,7 +676,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -678,7 +684,7 @@ button:disabled {
 .mode-button {
   border: 0;
   background: transparent;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .mode-button.active {
@@ -691,19 +697,19 @@ button:disabled {
   grid-area: nav;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   min-width: 0;
 }
 
 @media (max-width: 1380px) {
   .app-header {
-    grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
     grid-template-areas:
       "title switches"
       "nav nav";
     align-items: start;
-    row-gap: 12px;
+    row-gap: 8px;
   }
 
   .header-nav {
@@ -725,8 +731,9 @@ button:disabled {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--studio-ink);
-  min-height: 40px;
-  padding: 0.58rem 0.95rem;
+  min-height: 34px;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.88rem;
   cursor: pointer;
   user-select: none;
 }
@@ -1862,7 +1869,8 @@ button:disabled {
       "title"
       "nav"
       "switches";
-    padding: 14px;
+    gap: 8px;
+    padding: 10px;
   }
 
   .header-nav {
