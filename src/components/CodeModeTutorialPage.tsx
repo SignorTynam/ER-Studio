@@ -32,12 +32,12 @@ const WORKSPACE_MODES = [
     text: "Usa la vista Diagramma quando vuoi capire struttura e collisioni visive senza leggere il file ERS.",
   },
   {
-    title: "Split per la fase di controllo",
-    text: "Apri Split quando stai scrivendo e vuoi vedere subito come il parser traduce le righe nel canvas.",
+    title: "Vista affiancata per il controllo",
+    text: "Apri la vista affiancata quando stai scrivendo e vuoi vedere subito come il parser traduce le righe nel canvas.",
   },
   {
-    title: "Code per la scrittura continua",
-    text: "Passa a Code quando il modello e abbastanza stabile e vuoi lavorare piu velocemente da tastiera.",
+    title: "Modalita codice per la scrittura continua",
+    text: "Passa alla modalita codice quando il modello e abbastanza stabile e vuoi lavorare piu velocemente da tastiera.",
   },
 ];
 
@@ -50,7 +50,7 @@ const FLOW_STEPS = [
   {
     step: "02",
     title: "Aggiungi attributi dentro il blocco giusto",
-    text: "Gli attributi semplici, identifier e composite si leggono meglio quando restano vicino all'host nel blocco.",
+    text: "Gli attributi semplici, identifier e composite si leggono meglio quando restano vicini al loro contenitore nel blocco.",
   },
   {
     step: "03",
@@ -78,7 +78,7 @@ const SYNTAX_PATTERNS = [
   {
     title: "Attributo composto con figli",
     code: `multivalued indirizzo "INDIRIZZO"\nattribute via "Via"\nattribute-link via -> indirizzo`,
-    text: "Nel DSL il keyword resta multivalued, ma nel canvas rappresenta l'attributo composto principale.",
+    text: "Nel DSL la parola chiave resta multivalued, ma nel canvas rappresenta l'attributo composto principale.",
   },
   {
     title: "Vincoli ISA avanzati",
@@ -89,12 +89,12 @@ const SYNTAX_PATTERNS = [
 
 const COMMON_TRAPS = [
   {
-    title: "Keyword UI vs keyword DSL",
-    text: "Nell'interfaccia vedi 'Attributo composto', ma nel file la forma compatibile da scrivere e ancora multivalued.",
+    title: "Etichetta dell'interfaccia e parola chiave del DSL",
+    text: "Nell'interfaccia vedi 'Attributo composto', ma nel file la forma compatibile da scrivere resta multivalued.",
   },
   {
     title: "Direzione di attribute-link",
-    text: "Il figlio punta al padre: `attribute-link via -> indirizzo`. Invertire la freccia cambia il significato del host.",
+    text: "Il figlio punta al padre: `attribute-link via -> indirizzo`. Invertire la freccia cambia il significato del contenitore.",
   },
   {
     title: "Attributi incompatibili",
@@ -102,14 +102,14 @@ const COMMON_TRAPS = [
   },
   {
     title: "Errore temporaneo durante la digitazione",
-    text: "Se stai scrivendo a meta una riga, non aspettarti un sync parziale: il diagramma resta all'ultimo stato valido finche la sintassi non torna corretta.",
+    text: "Se stai scrivendo a meta una riga, non aspettarti una sincronizzazione parziale: il diagramma resta all'ultimo stato valido finche la sintassi non torna corretta.",
   },
 ];
 
 const REVIEW_CHECKLIST = [
-  "Apri Split quando stai verificando una relazione o un inheritance set perche vedi subito cardinalita, etichette e vincoli ISA.",
-  "Usa Rigenera dal diagramma solo quando il canvas e piu affidabile della bozza corrente: e un reset di allineamento, non un merge.",
-  "Scarica il file .ers quando vuoi revisionare o versionare il modello testualmente fuori dal canvas.",
+  "Apri la vista affiancata quando stai verificando una relazione o un set ISA perche vedi subito cardinalita, etichette e vincoli.",
+  "Usa Rigenera dal diagramma solo quando il canvas e piu affidabile della bozza corrente: e un riallineamento completo, non una fusione.",
+  "Scarica il file .ers quando vuoi revisionare o versionare il modello testuale fuori dal canvas.",
 ];
 
 export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
@@ -118,13 +118,13 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
       <header className="tutorial-header">
         <div className="tutorial-header-main">
           <button type="button" className="tutorial-brand" onClick={props.onBackHome}>
-            <span className="landing-kicker">Code Mode Guide</span>
+            <span className="landing-kicker">Guida alla modalita codice</span>
             <strong>{props.appTitle}</strong>
           </button>
 
           <nav className="tutorial-nav" aria-label="Sezioni tutorial">
-            <a href="#tutorial-overview">Overview</a>
-            <a href="#tutorial-workflow">Workflow</a>
+            <a href="#tutorial-overview">Panoramica</a>
+            <a href="#tutorial-workflow">Flusso di lavoro</a>
             <a href="#tutorial-syntax">Sintassi</a>
             <a href="#tutorial-troubleshooting">Errori comuni</a>
           </nav>
@@ -133,10 +133,10 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <div className="tutorial-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
           <button type="button" className="landing-secondary-link" onClick={props.onBackHome}>
-            Torna Home
+            Torna alla pagina iniziale
           </button>
           <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-            Apri Code Mode
+            Apri la modalita codice
           </button>
         </div>
       </header>
@@ -147,14 +147,14 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <p className="landing-hero-eyebrow">Tutorial operativo dedicato</p>
             <h1>Scrivi ERS con un flusso serio: tastiera, parser, canvas, verifica.</h1>
             <p className="tutorial-hero-lead">
-              Questa pagina spiega come usare davvero il Code Mode di ER Diagram Studio: cosa scrivere prima,
-              quando passare a Split, come modellare attributi composti, e quali errori aspettarti mentre il parser
+              Questa pagina spiega come usare davvero la modalita codice di {props.appTitle}: cosa scrivere prima,
+              quando passare alla vista affiancata, come modellare attributi composti, e quali errori aspettarti mentre il parser
               mantiene l&apos;ultimo stato valido del diagramma.
             </p>
 
             <div className="tutorial-hero-actions">
               <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-                Entra in Code Mode
+                Entra nella modalita codice
               </button>
               <button type="button" className="landing-secondary-link" onClick={props.onOpenStudio}>
                 Apri Studio completo
@@ -178,7 +178,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
                 <h2>Il file .ers e il tuo centro di controllo.</h2>
               </div>
               <div className="tutorial-stage-status">
-                <span>Sync live</span>
+                <span>Sincronizzazione live</span>
                 <span>Parser ERS</span>
                 <span>Canvas Chen</span>
               </div>
@@ -198,11 +198,11 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
 
         <section className="tutorial-section" id="tutorial-workflow">
           <div className="tutorial-section-heading">
-            <span>Workflow</span>
+            <span>Flusso di lavoro</span>
             <h2>Il percorso corretto e scrivere in ordine strutturale, non riga per riga a caso.</h2>
             <p>
-              Il Code Mode rende veloce la modellazione solo se mantieni una disciplina minima: host prima dei figli,
-              relazioni leggibili e controlli visivi in Split quando serve.
+              La modalita codice rende veloce la modellazione solo se mantieni una disciplina minima: contenitore prima
+              dei figli, relazioni leggibili e controlli visivi nella vista affiancata quando serve.
             </p>
           </div>
 
@@ -243,7 +243,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               <h3>Tre dettagli che evitano quasi tutti i dubbi iniziali.</h3>
               <ul className="tutorial-note-list">
                 <li>
-                  <code>multivalued</code> e il keyword attuale per l&apos;attributo composto principale.
+                  <code>multivalued</code> e la parola chiave attuale per l&apos;attributo composto principale.
                 </li>
                 <li>
                   <code>attribute-link figlio -&gt; padre</code> collega un sotto-attributo al suo contenitore.
@@ -291,10 +291,10 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
 
             <article className="tutorial-warning-card tutorial-warning-card-strong">
               <span className="landing-kicker">Quando usare questa pagina</span>
-              <h3>Prima di una review, prima di importare un .ers, o quando passi dal canvas al testo.</h3>
+              <h3>Prima di una revisione, prima di importare un .ers, o quando passi dal canvas al testo.</h3>
               <p>
-                La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente il Code Mode
-                senza perdere il contesto del workflow consigliato.
+                La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente la modalita codice
+                senza perdere il contesto del flusso consigliato.
               </p>
               <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
                 Vai al file .ers
@@ -306,7 +306,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-final-cta">
           <div>
             <span className="landing-kicker">Pronto a scrivere</span>
-            <h2>Apri il workspace nel punto giusto: Code se vuoi velocita, Studio se vuoi controllo completo.</h2>
+            <h2>Apri lo spazio di lavoro nel punto giusto: modalita codice se vuoi velocita, studio se vuoi controllo completo.</h2>
           </div>
 
           <div className="tutorial-final-actions">
@@ -314,7 +314,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               Studio completo
             </button>
             <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-              Apri Code Mode
+              Apri la modalita codice
             </button>
           </div>
         </section>

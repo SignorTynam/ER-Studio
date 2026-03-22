@@ -994,12 +994,12 @@ export default function App() {
 
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
-    setStatus("Codice ERS rigenerato dal diagramma.");
-  }
+      setStatus("Codice ERS rigenerato dal diagramma.");
+    }
 
   async function handleExportPng() {
     if (!svgRef.current) {
-      setStatus("Apri la vista Diagramma o Split per esportare il PNG.");
+      setStatus("Apri la vista Diagramma o Affiancata per esportare il PNG.");
       return;
     }
 
@@ -1008,13 +1008,13 @@ export default function App() {
       setStatus("PNG esportato.");
     } catch (error) {
       console.error(error);
-      setStatusError("Export PNG non riuscito.");
+      setStatusError("Esportazione PNG non riuscita.");
     }
   }
 
   function handleExportSvg() {
     if (!svgRef.current) {
-      setStatus("Apri la vista Diagramma o Split per esportare l'SVG.");
+      setStatus("Apri la vista Diagramma o Affiancata per esportare l'SVG.");
       return;
     }
 
@@ -1232,7 +1232,7 @@ export default function App() {
                     setAboutOpen(true);
                   }}
                 >
-                  Apri About
+                  Apri la guida
                 </button>
                 <button type="button" className="mode-button active" onClick={() => setIntroOpen(false)}>
                   Inizia a disegnare
@@ -1253,7 +1253,7 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="help-modal-head">
-              <h2 id="about-modal-title">About</h2>
+              <h2 id="about-modal-title">Informazioni</h2>
               <button type="button" className="help-close" onClick={() => setAboutOpen(false)}>
                 Chiudi
               </button>
@@ -1266,7 +1266,7 @@ export default function App() {
 
             <div className="help-sections">
               <details className="help-section" open>
-                <summary>Strumenti e Shortcut</summary>
+                <summary>Strumenti e scorciatoie</summary>
                 <ul className="help-list">
                   <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione, T Testo.</li>
                 </ul>
@@ -1285,31 +1285,31 @@ export default function App() {
                 <ul className="help-list">
                   <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
                   <li>Doppio click su nodo o collegamento per rinominare/aggiornare il testo (cardinalita inclusa).</li>
-                  <li>Nell'Inspector puoi attivare weak entity, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
+                  <li>Nell'ispettore puoi attivare entita deboli dedicate, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
                   <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
                   <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>
                 </ul>
               </details>
 
               <details className="help-section">
-                <summary>Navigazione Canvas</summary>
+                <summary>Navigazione del canvas</summary>
                 <ul className="help-list">
-                  <li>Navigazione canvas: rotella per zoom, tool Sposta per pan, oppure trascina con tasto centrale.</li>
+                  <li>Navigazione canvas: rotella per zoom, strumento Sposta per pan, oppure trascina con tasto centrale.</li>
                 </ul>
               </details>
 
               <details className="help-section">
                 <summary>Comandi Tastiera</summary>
                 <ul className="help-list">
-                  <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y redo.</li>
-                  <li>Delete/Backspace elimina la selezione; Esc annulla selezione corrente e chiude i modal About/New.</li>
+                  <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
+                  <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
                 </ul>
               </details>
 
               <details className="help-section">
-                <summary>Code Mode e Sync Live</summary>
+                <summary>Modalita codice e sincronizzazione live</summary>
                 <ul className="help-list">
-                  <li>In vista Code o Split, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
+                  <li>In vista Codice o Affiancata, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
                   <li>Se il codice e incompleto o non valido, viene mostrato l'errore nel pannello senza alterare l'ultimo stato valido del diagramma.</li>
                   <li>Usa Rigenera dal diagramma per riallineare rapidamente il sorgente ERS allo stato corrente del canvas.</li>
                 </ul>
@@ -1318,7 +1318,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Validazioni ed Errori</summary>
                 <ul className="help-list">
-                  <li>I messaggi di errore appaiono come toast in alto a destra.</li>
+                  <li>I messaggi di errore appaiono come notifiche in alto a destra.</li>
                 </ul>
               </details>
 
@@ -1345,7 +1345,7 @@ export default function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="help-modal-head">
-              <h2 id="new-modal-title">New</h2>
+              <h2 id="new-modal-title">Novita</h2>
               <button type="button" className="help-close" onClick={() => setWhatsNewOpen(false)}>
                 Chiudi
               </button>

@@ -100,7 +100,7 @@ export function AppHeader(props: AppHeaderProps) {
       <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
         {props.onHome ? (
           <button type="button" className="header-button" onClick={props.onHome}>
-            Home
+            Inizio
           </button>
         ) : null}
 
@@ -132,41 +132,41 @@ export function AppHeader(props: AppHeaderProps) {
           <summary>Modifica</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onUndo)} disabled={!props.canUndo}>
-              Undo
+              Annulla
             </button>
             <button type="button" onClick={(event) => runMenuAction(event, props.onRedo)} disabled={!props.canRedo}>
-              Redo
+              Ripeti
             </button>
           </div>
         </details>
 
         <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>Export</summary>
+          <summary>Esporta</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
-              Export PNG
+              Esporta PNG
             </button>
             <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
-              Export SVG
+              Esporta SVG
             </button>
           </div>
         </details>
 
         <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>About</summary>
+          <summary>Guida</summary>
           <div className="nav-menu">
             <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
-              About
+              Informazioni
             </button>
             <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
-              New
+              Novita
             </button>
           </div>
         </details>
       </nav>
 
       <div className="header-switches">
-        <div className="mode-switch" role="group" aria-label="Vista workspace">
+        <div className="mode-switch" role="group" aria-label="Vista di lavoro">
           <button
             className={props.workspaceView === "diagram" ? "mode-button active" : "mode-button"}
             type="button"
@@ -179,7 +179,7 @@ export function AppHeader(props: AppHeaderProps) {
             type="button"
             onClick={() => props.onWorkspaceViewChange("split")}
           >
-            Split
+            Affiancata
           </button>
           <button
             className={props.workspaceView === "code" ? "mode-button active" : "mode-button"}
@@ -203,7 +203,7 @@ export function AppHeader(props: AppHeaderProps) {
             type="button"
             onClick={() => props.onModeChange("view")}
           >
-            Solo visualizzazione
+            Solo lettura
           </button>
         </div>
       </div>

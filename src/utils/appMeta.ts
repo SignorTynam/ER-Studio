@@ -1,4 +1,4 @@
-export const APP_NAME = "ER Diagram Studio";
+export const APP_NAME = "Studio Diagrammi ER";
 export const APP_VERSION = "2.4";
 export const APP_TITLE = `${APP_NAME}`;
 
@@ -15,24 +15,24 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     updates: [
       "Aggiunte entita deboli dedicate con doppio rettangolo, configurabili dall'Inspector e serializzate in ERS con la flag weak.",
       "Aggiunti attributi composti con nodo principale ovale, supporto ERS tramite multivalued e numero arbitrario di sotto-attributi collegabili.",
-      "Generalizzazioni estese con vincoli ISA disjoint/overlap e total/partial, disponibili su canvas, Inspector e Code Mode.",
+      "Generalizzazioni estese con vincoli ISA disjoint/overlap e total/partial, disponibili su canvas, Inspector e modalita codice.",
     ],
   },
   {
     version: "2.3",
     date: "2026-03-19",
     updates: [
-      "Code Mode aggiornato con sincronizzazione live: il diagramma si aggiorna automaticamente durante la scrittura del codice ERS valido.",
-      "Rimosso il pulsante Applica al diagramma e semplificato il workflow operativo del pannello codice.",
-      "About e help allineati al nuovo comportamento live sync e alla versione 2.3.",
+      "Modalita codice aggiornata con sincronizzazione live: il diagramma si aggiorna automaticamente durante la scrittura del codice ERS valido.",
+      "Rimosso il pulsante Applica al diagramma e semplificato il flusso operativo del pannello codice.",
+      "Informazioni e guida allineate al nuovo comportamento live sync e alla versione 2.3.",
     ],
   },
   {
     version: "2.2",
     date: "2026-03-19",
     updates: [
-      "Aggiornata la sezione About con stato notazione ER portato a v2.2 e descrizioni piu precise dei comandi principali.",
-      "Allineata la versione applicativa e le etichette versione tra header, home e modal informativi.",
+      "Aggiornata la sezione Informazioni con stato notazione ER portato a v2.2 e descrizioni piu precise dei comandi principali.",
+      "Allineata la versione applicativa e le etichette versione tra header, pagina iniziale e finestre informative.",
       "Migliorata la leggibilita del changelog con nuova voce di rilascio 2.2.",
     ],
   },
@@ -40,8 +40,8 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     version: "2.1",
     date: "2026-03-19",
     updates: [
-      "Aggiornata la sezione About con indicazioni piu chiare su strumenti, workflow e stato della notazione ER.",
-      "Allineata la versione applicativa e la release card della home alla nuova versione 2.1.",
+      "Aggiornata la sezione Informazioni con indicazioni piu chiare su strumenti, flusso di lavoro e stato della notazione ER.",
+      "Allineata la versione applicativa e la scheda rilascio della pagina iniziale alla nuova versione 2.1.",
       "Migliorata la comunicazione delle funzionalita disponibili e dei prossimi elementi ER in roadmap.",
     ],
   },
@@ -50,7 +50,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     date: "2026-03-13",
     updates: [
       "Nuovo strumento Cancella (shortcut X): elimina con click diretto nodi e collegamenti.",
-      "Workflow guidato per identificatore esterno: si crea selezionando identificatore sorgente e poi entita/attributo destinazione.",
+      "Flusso guidato per identificatore esterno: si crea selezionando identificatore sorgente e poi entita/attributo destinazione.",
       "Rendering identificatore esterno migliorato: linea stabile, routing anti-collisione e rispetto della posizione relativa degli elementi.",
       "Interazione completa identificatore esterno: trascinamento linea e pallina con offset persistenti.",
       "Rimozione identificatore esterno dedicata: con Delete sul simbolo oppure dal pulsante nell'Inspector, senza eliminare attributi.",
@@ -73,9 +73,9 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     version: "1.0",
     date: "2026-03-13",
     updates: [
-      "Rinominato il menu Aiuto in About.",
-      "Aggiunto il pulsante New con storico aggiornamenti.",
-      "Introdotto versioning applicazione: ER Diagram Studio 1.0.",
+      "Rinominato il menu Aiuto in Informazioni.",
+      "Aggiunto il pulsante Novita con storico aggiornamenti.",
+      "Introdotto versioning applicazione: Studio Diagrammi ER 1.0.",
       "Migliorata la resa attributi: cardinalita opzionale, etichetta dinamica e connessioni lineari.",
       "Aggiunto identificatore composto interno configurabile manualmente selezionando 2+ attributi.",
     ],

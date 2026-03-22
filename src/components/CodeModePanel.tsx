@@ -43,14 +43,14 @@ export function CodeModePanel(props: CodeModePanelProps) {
     <section className={props.layout === "split" ? "code-mode-panel split" : "code-mode-panel"}>
       <div className="code-mode-head">
         <div>
-          <div className="panel-heading">Code Mode</div>
+          <div className="panel-heading">Modalita codice</div>
           <h2>{props.diagramName}.ers</h2>
-          <p>Scrivi il diagramma in linguaggio ER Studio: il canvas si sincronizza live mentre digiti.</p>
+          <p>Scrivi il diagramma in ERS: il canvas si aggiorna in tempo reale mentre modifichi il file.</p>
         </div>
 
         <div className="code-mode-actions">
           <button type="button" className="header-button" onClick={props.onOpenTutorial}>
-            Tutorial Code
+            Tutorial modalita codice
           </button>
           <button type="button" className="header-button" onClick={props.onLoad}>
             Carica .ers
@@ -65,13 +65,24 @@ export function CodeModePanel(props: CodeModePanelProps) {
       </div>
 
       <div className="code-mode-status">
+        <span className={props.dirty ? "code-mode-status-strong" : "code-mode-status-ok"}>
+          {props.dirty ? "Bozza modificata" : "Bozza allineata"}
+        </span>
         <span>{props.nodeCount} nodi</span>
         <span>{props.edgeCount} collegamenti</span>
         <span>{props.issueCount} validazioni</span>
-        <span>{props.parseError ? "Codice non valido" : "Sync live attivo"}</span>
+        <span className={props.parseError ? "code-mode-status-warning" : ""}>
+          {props.parseError ? "Ultimo stato valido mantenuto" : "Sincronizzazione attiva"}
+        </span>
       </div>
 
       {props.parseError ? <div className="code-mode-error">{props.parseError}</div> : null}
+      {!props.parseError ? (
+        <p className="code-mode-hint">
+          Suggerimento: usa la vista affiancata quando vuoi verificare subito cardinalita, attributi composti e
+          vincoli ISA mentre scrivi.
+        </p>
+      ) : null}
 
       <div className="code-mode-body">
         <label className="code-mode-editor">
@@ -100,12 +111,25 @@ export function CodeModePanel(props: CodeModePanelProps) {
                 <li>
                   <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
                 </li>
-                <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
-                <li>Nel blocco usa `attribute`, `identifier`, `composite`, `multivalued`; `multivalued` crea l&apos;attributo composto principale a cui puoi collegare altri attributi.</li>
-                <li>Le generalizzazioni accettano anche `disjoint` o `overlap` e `total` o `partial` sulla stessa riga `inheritance`.</li>
-                <li>Per casi avanzati di relazione puoi usare `connect` ed `external` dentro il blocco `relation`.</li>
+                <li>
+                  <code>relation nome &quot;LABEL&quot; entitaA &quot;(0,N)&quot; entitaB &quot;(1,N)&quot;</code>{" "}
+                  descrive una relazione binaria.
+                </li>
+                <li>
+                  Nel blocco usa <code>attribute</code>, <code>identifier</code>, <code>composite</code>,{" "}
+                  <code>multivalued</code>; <code>multivalued</code> crea l&apos;attributo composto principale a cui
+                  puoi collegare altri attributi.
+                </li>
+                <li>
+                  Le generalizzazioni accettano anche <code>disjoint</code> o <code>overlap</code> e{" "}
+                  <code>total</code> o <code>partial</code> sulla stessa riga <code>inheritance</code>.
+                </li>
+                <li>
+                  Per casi avanzati di relazione puoi usare <code>connect</code> ed <code>external</code> dentro il
+                  blocco <code>relation</code>.
+                </li>
                 <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
-                <li>La sincronizzazione e live: quando il codice e valido il diagramma viene aggiornato automaticamente.</li>
+                <li>La sincronizzazione e in tempo reale: quando il codice e valido il diagramma viene aggiornato automaticamente.</li>
               </ul>
 
               <div className="panel-heading minor">Esempio</div>

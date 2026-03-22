@@ -3351,3 +3351,362 @@ html {
     font-size: clamp(2.8rem, 14vw, 4rem);
   }
 }
+
+/* Tema Alma Mater Studiorum - Universita di Bologna */
+:root {
+  --unibo-red: #bb2e29;
+  --unibo-red-strong: #982522;
+  --unibo-red-deep: #7a1919;
+  --unibo-red-soft: rgba(187, 46, 41, 0.12);
+  --unibo-gray: #6d6e71;
+  --unibo-gray-deep: #53565a;
+  --unibo-ink: #2c2121;
+  --studio-bg: #efe4e1;
+  --studio-surface: rgba(255, 251, 249, 0.84);
+  --studio-surface-strong: rgba(255, 252, 250, 0.96);
+  --studio-line: rgba(83, 86, 90, 0.2);
+  --studio-line-strong: rgba(83, 86, 90, 0.82);
+  --studio-ink: var(--unibo-ink);
+  --studio-muted: #645d5c;
+  --studio-accent: var(--unibo-red);
+  --studio-accent-soft: var(--unibo-red-soft);
+  --studio-shadow: 0 20px 44px rgba(90, 48, 44, 0.14);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(187, 46, 41, 0.16), transparent 24%),
+    radial-gradient(circle at top right, rgba(109, 110, 113, 0.14), transparent 28%),
+    linear-gradient(180deg, #faf5f2 0%, #f0e5e2 46%, #ebddda 100%);
+  color: var(--studio-ink);
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgba(187, 46, 41, 0.18);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at center top, rgba(187, 46, 41, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(187, 46, 41, 0.04) 100%);
+}
+
+.app-header,
+.landing-site-header,
+.tutorial-header {
+  background: rgba(251, 246, 243, 0.84);
+  border-bottom-color: rgba(83, 86, 90, 0.16);
+  box-shadow: 0 8px 28px rgba(90, 48, 44, 0.07);
+}
+
+.app-title-block h1,
+.landing-brand-link strong,
+.tutorial-brand strong {
+  color: var(--unibo-red-deep);
+}
+
+.app-subtitle,
+.app-eyebrow,
+.landing-kicker,
+.landing-hero-eyebrow,
+.landing-section-heading span,
+.landing-proof-kicker,
+.landing-release-label,
+.landing-preview-label,
+.landing-doc-card span,
+.panel-heading,
+.tutorial-section-heading span {
+  color: var(--unibo-gray-deep);
+}
+
+.app-version-pill,
+.landing-version-chip {
+  border-color: rgba(187, 46, 41, 0.18);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--unibo-red-deep);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.header-button,
+.mode-button,
+.panel-toggle,
+.code-mode-guide-toggle,
+.action-grid button,
+.field input,
+.field select,
+.tool-button,
+.nav-group > summary,
+.landing-site-nav a,
+.tutorial-nav a,
+.landing-secondary-link {
+  border-color: rgba(83, 86, 90, 0.18);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--studio-ink);
+  box-shadow: 0 8px 18px rgba(90, 48, 44, 0.05);
+}
+
+.header-button:hover:not(:disabled),
+.mode-button:hover:not(:disabled),
+.panel-toggle:hover:not(:disabled),
+.code-mode-guide-toggle:hover:not(:disabled),
+.action-grid button:hover:not(:disabled),
+.tool-button:hover:not(:disabled),
+.nav-group > summary:hover,
+.landing-site-nav a:hover,
+.tutorial-nav a:hover,
+.landing-secondary-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(187, 46, 41, 0.34);
+  box-shadow: 0 12px 22px rgba(90, 48, 44, 0.1);
+}
+
+.landing-primary-button,
+.mode-button.active,
+.tool-button.active,
+.nav-group[open] > summary {
+  border-color: var(--unibo-red-strong);
+  background: linear-gradient(135deg, var(--unibo-red) 0%, var(--unibo-red-strong) 100%);
+  color: #fffdfb;
+  box-shadow: 0 14px 28px rgba(122, 25, 25, 0.22);
+}
+
+.landing-primary-button:hover,
+.mode-button.active:hover:not(:disabled),
+.tool-button.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--unibo-red-strong) 0%, var(--unibo-red-deep) 100%);
+}
+
+.tool-button.active .tool-shortcut {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.mode-switch {
+  border-color: rgba(187, 46, 41, 0.16);
+  background: rgba(187, 46, 41, 0.06);
+}
+
+.nav-menu {
+  border-color: rgba(83, 86, 90, 0.18);
+  background: rgba(255, 251, 249, 0.96);
+}
+
+.nav-menu button:hover:not(:disabled) {
+  background: rgba(187, 46, 41, 0.08);
+}
+
+.workspace-shell {
+  background:
+    radial-gradient(circle at center top, rgba(187, 46, 41, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(187, 46, 41, 0.04) 100%);
+}
+
+.toolbar-panel,
+.inspector-panel,
+.code-mode-panel,
+.landing-hero-copy,
+.landing-preview-card,
+.landing-route-card,
+.landing-info-card,
+.landing-spotlight-card,
+.landing-doc-card,
+.landing-code-card,
+.landing-step-card,
+.landing-service-card,
+.tutorial-hero-copy,
+.tutorial-flow-card,
+.tutorial-syntax-card,
+.tutorial-note-card,
+.tutorial-warning-card {
+  border-color: rgba(83, 86, 90, 0.16);
+  background: rgba(255, 252, 250, 0.8);
+  box-shadow: 0 18px 40px rgba(90, 48, 44, 0.1);
+}
+
+.landing-shell,
+.tutorial-shell {
+  background:
+    radial-gradient(circle at top left, rgba(187, 46, 41, 0.16), transparent 24%),
+    radial-gradient(circle at top right, rgba(109, 110, 113, 0.14), transparent 30%),
+    linear-gradient(180deg, #f9f3f0 0%, #efe3e0 48%, #ebdcda 100%);
+}
+
+.landing-stat-row div,
+.tutorial-mode-card {
+  border-color: rgba(187, 46, 41, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(248, 241, 238, 0.88) 100%);
+}
+
+.landing-stat-row strong,
+.landing-info-card h3,
+.landing-spotlight-card h3,
+.landing-doc-card h3,
+.landing-step-card h3,
+.landing-service-card h3,
+.tutorial-flow-card h3,
+.tutorial-syntax-card h3,
+.tutorial-note-card h3,
+.tutorial-warning-card h3 {
+  color: var(--unibo-red-deep);
+}
+
+.landing-release-card,
+.tutorial-stage-card,
+.landing-final-cta,
+.tutorial-final-cta {
+  background: linear-gradient(135deg, #7a1919 0%, #bb2e29 52%, #6d6e71 100%);
+  color: #fffdfa;
+  border-color: rgba(122, 25, 25, 0.24);
+}
+
+.landing-release-card p,
+.landing-release-card li,
+.tutorial-stage-footer p,
+.tutorial-final-cta .landing-kicker,
+.landing-final-cta .landing-kicker {
+  color: rgba(255, 253, 250, 0.82);
+}
+
+.landing-preview-stage {
+  border-color: rgba(187, 46, 41, 0.12);
+  background:
+    linear-gradient(rgba(187, 46, 41, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 110, 113, 0.06) 1px, transparent 1px),
+    linear-gradient(180deg, #fffdfa 0%, #f6ece8 100%);
+}
+
+.preview-relationship,
+.preview-attribute::before {
+  border-color: var(--unibo-red-deep);
+}
+
+.preview-node,
+.preview-cardinality {
+  box-shadow: 0 8px 20px rgba(90, 48, 44, 0.08);
+}
+
+.tutorial-stage-status span,
+.code-mode-status span {
+  border-color: rgba(187, 46, 41, 0.18);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--unibo-red-deep);
+}
+
+.code-mode-status-strong,
+.code-mode-status-ok {
+  font-weight: 700;
+}
+
+.code-mode-status-strong {
+  background: rgba(187, 46, 41, 0.12) !important;
+}
+
+.code-mode-status-warning {
+  background: rgba(187, 46, 41, 0.08) !important;
+  color: var(--unibo-red-deep) !important;
+}
+
+.code-mode-panel {
+  background:
+    radial-gradient(circle at top right, rgba(187, 46, 41, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(252, 248, 245, 0.9) 0%, rgba(245, 238, 235, 0.94) 100%);
+}
+
+.code-mode-head h2,
+.tutorial-stage-head h2 {
+  color: var(--unibo-red-deep);
+}
+
+.code-mode-head p,
+.tutorial-section-heading p,
+.tutorial-hero-lead,
+.landing-hero-lead,
+.landing-section-lead {
+  color: var(--studio-muted);
+}
+
+.code-mode-editor textarea,
+.tutorial-stage-code,
+.tutorial-syntax-card pre,
+.code-mode-sample {
+  border-color: rgba(187, 46, 41, 0.36);
+  background: #1d1516;
+  color: #f8f2ee;
+}
+
+.code-mode-editor textarea:focus {
+  box-shadow: inset 0 0 0 1px rgba(187, 46, 41, 0.86);
+}
+
+.code-mode-guide {
+  border-color: rgba(187, 46, 41, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.code-mode-hint {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(187, 46, 41, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--studio-muted);
+  line-height: 1.5;
+}
+
+.code-mode-error,
+.toast-error {
+  border-color: var(--unibo-red);
+  background: linear-gradient(180deg, #fff7f5 0%, #fee8e4 100%);
+}
+
+.intro-modal,
+.help-modal {
+  border-color: rgba(187, 46, 41, 0.24);
+  background: #fffdfb;
+  box-shadow: 0 24px 52px rgba(90, 48, 44, 0.24);
+}
+
+.intro-modal-head,
+.help-modal-head {
+  border-bottom-color: rgba(187, 46, 41, 0.14);
+  background: linear-gradient(180deg, #fff9f7 0%, #f3e8e5 100%);
+}
+
+.help-close {
+  border-color: rgba(187, 46, 41, 0.2);
+  color: var(--unibo-red-deep);
+}
+
+.help-close:hover {
+  background: rgba(187, 46, 41, 0.08);
+}
+
+.toast {
+  border-color: rgba(187, 46, 41, 0.2);
+  box-shadow: 0 16px 28px rgba(90, 48, 44, 0.16);
+}
