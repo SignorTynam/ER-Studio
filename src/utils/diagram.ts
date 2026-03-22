@@ -3,6 +3,8 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  IsaCompleteness,
+  IsaDisjointness,
   NodeKind,
   Point,
   SelectionState,
@@ -81,6 +83,20 @@ export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
       height: size.height,
       isIdentifier: false,
       isCompositeInternal: false,
+      isMultivalued: false,
+    };
+  }
+
+  if (nodeType === "entity") {
+    return {
+      id: createId(nodeType),
+      type: nodeType,
+      label: getDefaultLabel(nodeType),
+      x,
+      y,
+      width: size.width,
+      height: size.height,
+      isWeak: false,
     };
   }
 
@@ -304,6 +320,14 @@ function isEdgeKind(value: string): value is EdgeKind {
   return ["connector", "attribute", "inheritance"].includes(value);
 }
 
+function isIsaDisjointness(value: string | undefined): value is IsaDisjointness {
+  return value === "disjoint" || value === "overlap";
+}
+
+function isIsaCompleteness(value: string | undefined): value is IsaCompleteness {
+  return value === "total" || value === "partial";
+}
+
 function normalizeCardinality(value: string | undefined): string {
   if (!value) {
     return "";
@@ -339,6 +363,14 @@ export function parseDiagram(rawJson: string): DiagramDocument {
               ...node,
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
+              isMultivalued: node.isMultivalued === true,
+            };
+          }
+
+          if (node.type === "entity") {
+            return {
+              ...node,
+              isWeak: node.isWeak === true,
             };
           }
 
@@ -395,7 +427,20 @@ export function parseDiagram(rawJson: string): DiagramDocument {
       )
         .map((edge) => {
           if (edge.type === "inheritance") {
-            return edge;
+            const rawInheritanceEdge = edge as DiagramEdge & {
+              isaDisjointness?: string;
+              isaCompleteness?: string;
+            };
+
+            return {
+              ...edge,
+              isaDisjointness: isIsaDisjointness(rawInheritanceEdge.isaDisjointness)
+                ? rawInheritanceEdge.isaDisjointness
+                : undefined,
+              isaCompleteness: isIsaCompleteness(rawInheritanceEdge.isaCompleteness)
+                ? rawInheritanceEdge.isaCompleteness
+                : undefined,
+            };
           }
 
           const parsedCardinality =
@@ -444,6 +489,19 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
     const connectedEdges = edgesByNode.get(node.id) ?? [];
 
     if (node.type === "attribute") {
+      if (
+        node.isMultivalued === true &&
+        (node.isIdentifier === true || node.isCompositeInternal === true)
+      ) {
+        issues.push({
+          id: `attribute-conflict-${node.id}`,
+          level: "error",
+          message: `L'attributo "${node.label}" non puo essere multivalore e identificatore allo stesso tempo.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
       const hasHost = connectedEdges.some((edge) => edge.type === "attribute");
       if (!hasHost) {
         issues.push({
@@ -546,6 +604,47 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           targetType: "node",
         });
       }
+    }
+  });
+
+  const inheritanceGroups = new Map<string, Array<Extract<DiagramEdge, { type: "inheritance" }>>>();
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "inheritance") {
+      return;
+    }
+
+    const bucket = inheritanceGroups.get(edge.targetId) ?? [];
+    bucket.push(edge);
+    inheritanceGroups.set(edge.targetId, bucket);
+  });
+
+  inheritanceGroups.forEach((group, superClassId) => {
+    if (group.length < 2) {
+      return;
+    }
+
+    const superClass = diagram.nodes.find((node) => node.id === superClassId);
+    const disjointnessValues = new Set(group.map((edge) => edge.isaDisjointness ?? ""));
+    const completenessValues = new Set(group.map((edge) => edge.isaCompleteness ?? ""));
+
+    if (disjointnessValues.size > 1) {
+      issues.push({
+        id: `inheritance-disjointness-${superClassId}`,
+        level: "warning",
+        message: `Le generalizzazioni verso "${superClass?.label ?? superClassId}" devono condividere lo stesso vincolo disjoint/overlap.`,
+        targetId: group[0].id,
+        targetType: "edge",
+      });
+    }
+
+    if (completenessValues.size > 1) {
+      issues.push({
+        id: `inheritance-completeness-${superClassId}`,
+        level: "warning",
+        message: `Le generalizzazioni verso "${superClass?.label ?? superClassId}" devono condividere lo stesso vincolo total/partial.`,
+        targetId: group[0].id,
+        targetType: "edge",
+      });
     }
   });
 

@@ -15,14 +15,19 @@ interface CodeModePanelProps {
   onLoad: () => void;
 }
 
-const ERS_SAMPLE = `entity studente "STUDENTE" {
-  identifier matricola "MATRICOLA"
+const ERS_SAMPLE = `entity persona "PERSONA" {
+  identifier id "ID"
+  multivalued telefoni "TELEFONI"
 }
 
-entity corso "CORSO" {
+entity dipendente "DIPENDENTE" weak {
 }
 
-relation frequenta "FREQUENTA" studente "(0,N)" corso "(1,N)"`;
+entity consulente "CONSULENTE" {
+}
+
+inheritance dipendente -> persona disjoint total
+inheritance consulente -> persona overlap partial`;
 
 export function CodeModePanel(props: CodeModePanelProps) {
   const [guideOpen, setGuideOpen] = useState(props.layout === "code");
@@ -92,7 +97,9 @@ export function CodeModePanel(props: CodeModePanelProps) {
                   <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
                 </li>
                 <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
-                <li>Nel blocco usa `attribute`, `identifier`, `composite`; per casi avanzati puoi usare `connect` ed `external`.</li>
+                <li>Nel blocco usa `attribute`, `identifier`, `composite`, `multivalued`; aggiungi `weak` nell&apos;header per un&apos;entita debole.</li>
+                <li>Le generalizzazioni accettano anche `disjoint` o `overlap` e `total` o `partial` sulla stessa riga `inheritance`.</li>
+                <li>Per casi avanzati di relazione puoi usare `connect` ed `external` dentro il blocco `relation`.</li>
                 <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
                 <li>La sincronizzazione e live: quando il codice e valido il diagramma viene aggiornato automaticamente.</li>
               </ul>

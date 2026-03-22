@@ -608,10 +608,28 @@ export default function App() {
 
     if (
       currentNode?.type === "attribute" &&
+      currentNode.isMultivalued === true &&
+      (attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true)
+    ) {
+      setStatusError("Un attributo multivalore non puo essere usato in un identificatore.");
+      return;
+    }
+
+    if (
+      currentNode?.type === "attribute" &&
       attributePatch.isIdentifier === true &&
       currentNode.isCompositeInternal === true
     ) {
       setStatusError("Un attributo nel composto interno non puo essere anche identificatore singolo.");
+      return;
+    }
+
+    if (
+      currentNode?.type === "attribute" &&
+      attributePatch.isMultivalued === true &&
+      (currentNode.isIdentifier === true || currentNode.isCompositeInternal === true)
+    ) {
+      setStatusError("Un attributo usato in un identificatore non puo diventare multivalore.");
       return;
     }
 
@@ -650,11 +668,22 @@ export default function App() {
           return hostNode?.type === "relationship";
         });
 
-        return !linkedToRelationship;
+        return !linkedToRelationship && node.isMultivalued !== true;
       });
 
       if (targetIds.length !== nodeIds.length) {
-        setStatusError("Alcuni attributi sono collegati a un'associazione e non possono essere identificatori.");
+        setStatusError("Alcuni attributi sono multivalore o collegati a un'associazione e non possono essere identificatori.");
+      }
+    }
+
+    if (attributePatch.isMultivalued === true) {
+      targetIds = targetIds.filter((nodeId) => {
+        const node = history.present.nodes.find((item) => item.id === nodeId);
+        return node?.type !== "attribute" || (node.isIdentifier !== true && node.isCompositeInternal !== true);
+      });
+
+      if (targetIds.length !== nodeIds.length) {
+        setStatusError("Gli attributi usati in un identificatore non possono diventare multivalore.");
       }
     }
 
@@ -1131,6 +1160,7 @@ export default function App() {
                 <ul className="help-list">
                   <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
                   <li>Doppio click su nodo o collegamento per rinominare/aggiornare il testo (cardinalita inclusa).</li>
+                  <li>Nell'Inspector puoi attivare weak entity, attributi multivalore e vincoli ISA avanzati sulle generalizzazioni.</li>
                   <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
                   <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>
                 </ul>
@@ -1168,10 +1198,11 @@ export default function App() {
               </details>
 
               <details className="help-section">
-                <summary>Stato Notazione ER (v2.3)</summary>
+                <summary>Stato Notazione ER (v2.4)</summary>
                 <ul className="help-list">
-                  <li>Disponibile: entita, relazioni, attributi, cardinalita, generalizzazione, identificatori semplici/composti interni/esterni.</li>
-                  <li>In roadmap: entita deboli dedicate, attributi multivalore o derivati e vincoli ISA avanzati (disjoint/overlap, total/partial).</li>
+                  <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi multivalore, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
+                  <li>Disponibile: vincoli ISA avanzati disjoint/overlap e total/partial su ogni collegamento di generalizzazione.</li>
+                  <li>Ancora non coperto: attributi derivati e altri simboli EER specialistici non ancora presenti nel canvas.</li>
                 </ul>
               </details>
             </div>

@@ -1,5 +1,5 @@
 export const APP_NAME = "ER Diagram Studio";
-export const APP_VERSION = "2.3";
+export const APP_VERSION = "2.4";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.4",
+    date: "2026-03-22",
+    updates: [
+      "Aggiunte entita deboli dedicate con doppio rettangolo, configurabili dall'Inspector e serializzate in ERS con la flag weak.",
+      "Aggiunti attributi multivalore con simbolo dedicato, supporto ERS tramite multivalued e validazione dei conflitti con gli identificatori.",
+      "Generalizzazioni estese con vincoli ISA disjoint/overlap e total/partial, disponibili su canvas, Inspector e Code Mode.",
+    ],
+  },
   {
     version: "2.3",
     date: "2026-03-19",

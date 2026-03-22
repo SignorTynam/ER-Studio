@@ -12,6 +12,8 @@ export type ToolKind =
   | "text";
 export type EditorMode = "edit" | "view";
 export type LineStyle = "solid" | "dashed";
+export type IsaDisjointness = "disjoint" | "overlap";
+export type IsaCompleteness = "total" | "partial";
 
 export interface Point {
   x: number;
@@ -31,6 +33,7 @@ export interface BaseNode extends Bounds {
 
 export interface EntityNode extends BaseNode {
   type: "entity";
+  isWeak?: boolean;
 }
 
 export interface RelationshipNode extends BaseNode {
@@ -49,6 +52,7 @@ export interface AttributeNode extends BaseNode {
   type: "attribute";
   isIdentifier?: boolean;
   isCompositeInternal?: boolean;
+  isMultivalued?: boolean;
 }
 
 export interface TextNode extends BaseNode {
@@ -83,6 +87,8 @@ export interface AttributeEdge extends BaseEdge {
 
 export interface InheritanceEdge extends BaseEdge {
   type: "inheritance";
+  isaDisjointness?: IsaDisjointness;
+  isaCompleteness?: IsaCompleteness;
 }
 
 export type DiagramEdge = ConnectorEdge | AttributeEdge | InheritanceEdge;
@@ -119,4 +125,3 @@ export interface EdgeGeometry {
   points: Point[];
   labelPoint: Point;
 }
-

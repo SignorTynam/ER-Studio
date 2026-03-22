@@ -8,12 +8,21 @@ interface AttributeLabelLayout {
   dominantBaseline: "middle";
 }
 
+function getAttributeIndicatorOffset(node: DiagramNode): number {
+  return node.type === "attribute" && node.isMultivalued === true ? 40 : 24;
+}
+
+function getAttributeVerticalAnchor(node: DiagramNode): number {
+  return node.type === "attribute" && node.isMultivalued === true ? node.x + 18 : node.x + 10;
+}
+
 export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): AttributeLabelLayout {
   const cy = node.y + node.height / 2;
+  const indicatorOffset = getAttributeIndicatorOffset(node);
 
   if (!direction) {
     return {
-      x: node.x + 24,
+      x: node.x + indicatorOffset,
       y: cy,
       textAnchor: "start",
       dominantBaseline: "middle",
@@ -32,7 +41,7 @@ export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): A
 
   const goesDown = direction.y >= 0;
   return {
-    x: node.x + 10,
+    x: getAttributeVerticalAnchor(node),
     y: goesDown ? node.y - 8 : node.y + node.height + 8,
     textAnchor: "middle",
     dominantBaseline: "middle",
@@ -52,6 +61,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   const { node } = props;
 
   if (node.type === "entity") {
+    const inset = 8;
     return (
       <g
         className={props.selected ? "diagram-node selected" : "diagram-node"}
@@ -67,6 +77,17 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           stroke="#111111"
           strokeWidth={props.selected || props.pending ? 2.6 : 2}
         />
+        {node.isWeak === true ? (
+          <rect
+            x={node.x + inset}
+            y={node.y + inset}
+            width={Math.max(0, node.width - inset * 2)}
+            height={Math.max(0, node.height - inset * 2)}
+            fill="none"
+            stroke="#111111"
+            strokeWidth={props.selected || props.pending ? 2.2 : 1.8}
+          />
+        ) : null}
         <text
           x={node.x + node.width / 2}
           y={node.y + node.height / 2}
@@ -102,6 +123,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   if (node.type === "attribute") {
     const cy = node.y + node.height / 2;
     const isIdentifier = node.isIdentifier === true;
+    const isMultivalued = node.isMultivalued === true;
     const labelLayout = getAttributeLabelLayout(node, props.attributeDirection);
 
     return (
@@ -122,6 +144,16 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           />
         ) : null}
         <circle cx={node.x + 10} cy={cy} r={7} fill={isIdentifier ? "#111111" : "#ffffff"} stroke="#111111" strokeWidth={2} />
+        {isMultivalued ? (
+          <>
+            <line x1={node.x + 16} y1={cy} x2={node.x + 26} y2={cy - 10} stroke="#111111" strokeWidth={2} />
+            <line x1={node.x + 17} y1={cy} x2={node.x + 28} y2={cy} stroke="#111111" strokeWidth={2} />
+            <line x1={node.x + 16} y1={cy} x2={node.x + 26} y2={cy + 10} stroke="#111111" strokeWidth={2} />
+            <circle cx={node.x + 28} cy={cy - 10} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
+            <circle cx={node.x + 30} cy={cy} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
+            <circle cx={node.x + 28} cy={cy + 10} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
+          </>
+        ) : null}
         <text
           x={labelLayout.x}
           y={labelLayout.y}

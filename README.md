@@ -23,9 +23,9 @@ npm run preview
 
 ## Funzionalita principali
 
-- Entita, relazioni, attributi laterali, testo libero e gerarchie con frecce verso l'alto
+- Entita, entita deboli dedicate, relazioni, attributi, attributi multivalore, testo libero e gerarchie ISA
 - Drag-and-drop, snap to grid, zoom, pan, selezione multipla, duplicazione e allineamento
-- Undo/redo e validazioni di base per attributi, relazioni e link di ereditarieta
+- Undo/redo e validazioni per attributi, relazioni e link di ereditarieta con vincoli disjoint/overlap e total/partial
 - Modalita modifica e solo visualizzazione
-- Salvataggio/caricamento JSON e export PNG/SVG
+- Salvataggio/caricamento JSON, export PNG/SVG e sorgente ERS con sincronizzazione live
 - Pulsante `Carica esempio` con scenario `CITTA'`, `PERSONA`, `UOMO`, `DONNA`, `MILITARE`, `LAVORATRICE`

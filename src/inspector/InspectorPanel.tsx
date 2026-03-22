@@ -81,12 +81,16 @@ export function InspectorPanel(props: InspectorPanelProps) {
       props.selection.nodeIds.includes(node.id) && node.type === "attribute",
   );
   const eligibleCompositeAttributeNodes = selectedAttributeNodes.filter(
-    (node) => node.isIdentifier !== true && !isAttributeLinkedToRelationship(node.id),
+    (node) =>
+      node.isIdentifier !== true &&
+      node.isMultivalued !== true &&
+      !isAttributeLinkedToRelationship(node.id),
   );
   const canConfigureCompositeInternal = eligibleCompositeAttributeNodes.length >= 2;
   const allSelectedAttributesComposite =
     canConfigureCompositeInternal && eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
   const hasIdentifierInSelection = selectedAttributeNodes.some((node) => node.isIdentifier === true);
+  const hasMultivaluedInSelection = selectedAttributeNodes.some((node) => node.isMultivalued === true);
   const hasRelationshipLinkedAttributesInSelection = selectedAttributeNodes.some((node) =>
     isAttributeLinkedToRelationship(node.id),
   );
@@ -282,6 +286,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   disabled={
                     props.mode === "view" ||
                     selectedNode.isCompositeInternal === true ||
+                    selectedNode.isMultivalued === true ||
                     selectedAttributeLinkedToRelationship
                   }
                   onChange={(event) =>
@@ -294,9 +299,53 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   Questo attributo fa parte di un identificatore composto interno e non puo essere identificatore singolo.
                 </p>
               ) : null}
+              {selectedNode.isMultivalued === true ? (
+                <p className="action-hint">
+                  Un attributo multivalore non puo essere usato come identificatore semplice.
+                </p>
+              ) : null}
               {selectedAttributeLinkedToRelationship ? (
                 <p className="action-hint">
                   Un'associazione non puo avere identificatori: scollega l'attributo dalla relazione per abilitarlo.
+                </p>
+              ) : null}
+              <label className="field checkbox-field">
+                <span>Attributo multivalore</span>
+                <input
+                  type="checkbox"
+                  checked={selectedNode.isMultivalued === true}
+                  disabled={
+                    props.mode === "view" ||
+                    selectedNode.isIdentifier === true ||
+                    selectedNode.isCompositeInternal === true
+                  }
+                  onChange={(event) =>
+                    props.onNodeChange(selectedNode.id, { isMultivalued: event.target.checked })
+                  }
+                />
+              </label>
+              {selectedNode.isIdentifier === true || selectedNode.isCompositeInternal === true ? (
+                <p className="action-hint">
+                  Gli attributi usati in un identificatore non possono essere marcati come multivalore.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+
+          {selectedNode.type === "entity" ? (
+            <>
+              <label className="field checkbox-field">
+                <span>Entita debole dedicata</span>
+                <input
+                  type="checkbox"
+                  checked={selectedNode.isWeak === true}
+                  disabled={props.mode === "view"}
+                  onChange={(event) => props.onNodeChange(selectedNode.id, { isWeak: event.target.checked })}
+                />
+              </label>
+              {selectedNode.isWeak === true ? (
+                <p className="action-hint">
+                  L'entita viene resa con doppio rettangolo, come weak entity dedicata.
                 </p>
               ) : null}
             </>
@@ -344,6 +393,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
             {hasRelationshipLinkedAttributesInSelection ? (
               <p className="action-hint">
                 Gli attributi collegati a un'associazione sono esclusi: un'associazione non puo avere identificatori.
+              </p>
+            ) : null}
+            {hasMultivaluedInSelection ? (
+              <p className="action-hint">
+                Gli attributi multivalore sono esclusi dal composto interno.
               </p>
             ) : null}
           </div>
@@ -395,15 +449,58 @@ export function InspectorPanel(props: InspectorPanelProps) {
           ) : null}
 
           {selectedEdge.type === "inheritance" ? (
-            <label className="field">
-              <span>Nome collegamento</span>
-              <input
-                value={selectedEdge.label}
-                disabled={props.mode === "view"}
-                placeholder="Etichetta opzionale"
-                onChange={(event) => props.onEdgeChange(selectedEdge.id, { label: event.target.value })}
-              />
-            </label>
+            <>
+              <label className="field">
+                <span>Nome collegamento</span>
+                <input
+                  value={selectedEdge.label}
+                  disabled={props.mode === "view"}
+                  placeholder="Etichetta opzionale"
+                  onChange={(event) => props.onEdgeChange(selectedEdge.id, { label: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Vincolo ISA</span>
+                <select
+                  value={selectedEdge.isaDisjointness ?? ""}
+                  disabled={props.mode === "view"}
+                  onChange={(event) =>
+                    props.onEdgeChange(selectedEdge.id, {
+                      isaDisjointness:
+                        event.target.value === "disjoint" || event.target.value === "overlap"
+                          ? event.target.value
+                          : undefined,
+                    })
+                  }
+                >
+                  <option value="">Nessun vincolo</option>
+                  <option value="disjoint">Disjoint</option>
+                  <option value="overlap">Overlap</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Copertura ISA</span>
+                <select
+                  value={selectedEdge.isaCompleteness ?? ""}
+                  disabled={props.mode === "view"}
+                  onChange={(event) =>
+                    props.onEdgeChange(selectedEdge.id, {
+                      isaCompleteness:
+                        event.target.value === "total" || event.target.value === "partial"
+                          ? event.target.value
+                          : undefined,
+                    })
+                  }
+                >
+                  <option value="">Nessuna copertura</option>
+                  <option value="total">Total</option>
+                  <option value="partial">Partial</option>
+                </select>
+              </label>
+              <p className="action-hint">
+                `D/O` e `T/P` vengono mostrati sul canvas; `total` usa anche una doppia linea.
+              </p>
+            </>
           ) : null}
 
           <label className="field">
