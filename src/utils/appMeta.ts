@@ -14,7 +14,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
     date: "2026-03-22",
     updates: [
       "Aggiunte entita deboli dedicate con doppio rettangolo, configurabili dall'Inspector e serializzate in ERS con la flag weak.",
-      "Aggiunti attributi multivalore con simbolo dedicato, supporto ERS tramite multivalued e validazione dei conflitti con gli identificatori.",
+      "Aggiunti attributi composti con nodo principale ovale, supporto ERS tramite multivalued e numero arbitrario di sotto-attributi collegabili.",
       "Generalizzazioni estese con vincoli ISA disjoint/overlap e total/partial, disponibili su canvas, Inspector e Code Mode.",
     ],
   },

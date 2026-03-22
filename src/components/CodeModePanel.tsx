@@ -97,7 +97,7 @@ export function CodeModePanel(props: CodeModePanelProps) {
                   <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
                 </li>
                 <li>`relation nome "LABEL" entitaA "(0,N)" entitaB "(1,N)"` descrive una relazione binaria.</li>
-                <li>Nel blocco usa `attribute`, `identifier`, `composite`, `multivalued`; aggiungi `weak` nell&apos;header per un&apos;entita debole.</li>
+                <li>Nel blocco usa `attribute`, `identifier`, `composite`, `multivalued`; `multivalued` crea l&apos;attributo composto principale a cui puoi collegare altri attributi.</li>
                 <li>Le generalizzazioni accettano anche `disjoint` o `overlap` e `total` o `partial` sulla stessa riga `inheritance`.</li>
                 <li>Per casi avanzati di relazione puoi usare `connect` ed `external` dentro il blocco `relation`.</li>
                 <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>

@@ -17,6 +17,11 @@ import {
   isSupportedCardinality,
 } from "./cardinality";
 
+const COMPOSITE_ATTRIBUTE_MIN_SIZE = {
+  width: 220,
+  height: 110,
+};
+
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -156,8 +161,10 @@ export function canConnect(
       sourceNode.type === "attribute" || targetNode.type === "attribute";
     const otherIsAttachable =
       sourceNode.type === "entity" ||
+      sourceNode.type === "attribute" ||
       sourceNode.type === "relationship" ||
       targetNode.type === "entity" ||
+      targetNode.type === "attribute" ||
       targetNode.type === "relationship";
     return oneIsAttribute && otherIsAttachable;
   }
@@ -359,11 +366,18 @@ export function parseDiagram(rawJson: string): DiagramDocument {
         )
         .map((node) => {
           if (node.type === "attribute") {
+            const isMultivalued = node.isMultivalued === true;
             return {
               ...node,
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
-              isMultivalued: node.isMultivalued === true,
+              isMultivalued,
+              width: isMultivalued
+                ? Math.max(node.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width)
+                : node.width,
+              height: isMultivalued
+                ? Math.max(node.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height)
+                : node.height,
             };
           }
 
@@ -507,7 +521,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         issues.push({
           id: `attribute-${node.id}`,
           level: "warning",
-          message: `L'attributo "${node.label}" non è collegato a un'entità o a una relazione.`,
+          message: `L'attributo "${node.label}" non è collegato a un'entità, una relazione o un attributo padre.`,
           targetId: node.id,
           targetType: "node",
         });

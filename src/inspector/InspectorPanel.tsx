@@ -301,7 +301,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
               ) : null}
               {selectedNode.isMultivalued === true ? (
                 <p className="action-hint">
-                  Un attributo multivalore non puo essere usato come identificatore semplice.
+                  Un attributo composto non puo essere usato come identificatore semplice.
                 </p>
               ) : null}
               {selectedAttributeLinkedToRelationship ? (
@@ -310,7 +310,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 </p>
               ) : null}
               <label className="field checkbox-field">
-                <span>Attributo multivalore</span>
+                <span>Attributo composto</span>
                 <input
                   type="checkbox"
                   checked={selectedNode.isMultivalued === true}
@@ -326,7 +326,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
               </label>
               {selectedNode.isIdentifier === true || selectedNode.isCompositeInternal === true ? (
                 <p className="action-hint">
-                  Gli attributi usati in un identificatore non possono essere marcati come multivalore.
+                  Gli attributi usati in un identificatore non possono essere marcati come composti.
+                </p>
+              ) : null}
+              {selectedNode.isMultivalued === true ? (
+                <p className="action-hint">
+                  Collega altri attributi a questo nodo per aggiungere un numero arbitrario di sotto-attributi.
                 </p>
               ) : null}
             </>
@@ -397,7 +402,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             ) : null}
             {hasMultivaluedInSelection ? (
               <p className="action-hint">
-                Gli attributi multivalore sono esclusi dal composto interno.
+                Gli attributi composti sono esclusi dal composto interno.
               </p>
             ) : null}
           </div>

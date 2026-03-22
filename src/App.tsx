@@ -52,10 +52,13 @@ type AppSurface = "landing" | "studio";
 type WorkspaceView = "diagram" | "split" | "code";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
+const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
 
 function sanitizeFileNameBase(value: string): string {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "diagramma-er";
 }
+
+const DEFAULT_ATTRIBUTE_SIZE = { width: 170, height: 72 };
 
 function downloadTextFile(content: string, fileName: string, mimeType = "text/plain;charset=utf-8") {
   const blob = new Blob([content], { type: mimeType });
@@ -99,6 +102,18 @@ function updateEdgeInDiagram(
   return {
     ...diagram,
     edges: diagram.edges.map((edge) => (edge.id === edgeId ? { ...edge, ...patch } : edge)),
+  };
+}
+
+function updateEdgesInDiagram(
+  diagram: DiagramDocument,
+  edgeIds: string[],
+  patch: Partial<DiagramEdge>,
+): DiagramDocument {
+  const targetIds = new Set(edgeIds);
+  return {
+    ...diagram,
+    edges: diagram.edges.map((edge) => (targetIds.has(edge.id) ? { ...edge, ...patch } : edge)),
   };
 }
 
@@ -150,17 +165,39 @@ function clearExternalIdentifierFromRelationship(
 }
 
 function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
-  const attributeEdge = diagram.edges.find(
-    (edge) =>
-      edge.type === "attribute" && (edge.sourceId === attributeId || edge.targetId === attributeId),
-  );
-  if (!attributeEdge) {
-    return undefined;
+  const visited = new Set<string>();
+  let currentAttributeId = attributeId;
+
+  while (!visited.has(currentAttributeId)) {
+    visited.add(currentAttributeId);
+    const attributeEdge = diagram.edges.find(
+      (edge) => edge.type === "attribute" && edge.sourceId === currentAttributeId,
+    ) ?? diagram.edges.find(
+      (edge) =>
+        edge.type === "attribute" &&
+        edge.targetId === currentAttributeId &&
+        diagram.nodes.find((node) => node.id === edge.sourceId)?.type !== "attribute",
+    );
+
+    if (!attributeEdge) {
+      return undefined;
+    }
+
+    const hostId = attributeEdge.sourceId === currentAttributeId ? attributeEdge.targetId : attributeEdge.sourceId;
+    const hostNode = diagram.nodes.find((node) => node.id === hostId);
+
+    if (hostNode?.type === "entity") {
+      return hostNode;
+    }
+
+    if (hostNode?.type !== "attribute") {
+      return undefined;
+    }
+
+    currentAttributeId = hostNode.id;
   }
 
-  const hostId = attributeEdge.sourceId === attributeId ? attributeEdge.targetId : attributeEdge.sourceId;
-  const hostNode = diagram.nodes.find((node) => node.id === hostId);
-  return hostNode?.type === "entity" ? hostNode : undefined;
+  return undefined;
 }
 
 function findRelationshipBetweenEntities(
@@ -482,26 +519,49 @@ export default function App() {
   }
 
   function handleCreateEdge(type: "connector" | "attribute" | "inheritance", sourceId: string, targetId: string) {
-    const sourceNode = findNode(history.present, sourceId);
-    const targetNode = findNode(history.present, targetId);
+    let resolvedSourceId = sourceId;
+    let resolvedTargetId = targetId;
+    let sourceNode = findNode(history.present, resolvedSourceId);
+    let targetNode = findNode(history.present, resolvedTargetId);
 
     if (!sourceNode || !targetNode) {
       return { success: false, message: "Impossibile creare il collegamento: nodo mancante." };
+    }
+
+    if (
+      type === "attribute" &&
+      sourceNode.type === "attribute" &&
+      targetNode.type === "attribute" &&
+      sourceNode.isMultivalued === true &&
+      targetNode.isMultivalued !== true
+    ) {
+      resolvedSourceId = targetId;
+      resolvedTargetId = sourceId;
+      sourceNode = targetNode;
+      targetNode = findNode(history.present, resolvedTargetId) as DiagramNode;
     }
 
     if (!canConnect(type, sourceNode, targetNode)) {
       return { success: false, message: "Connessione non compatibile con la sintassi Chen." };
     }
 
-    if (edgeAlreadyExists(history.present, type, sourceId, targetId)) {
+    if (edgeAlreadyExists(history.present, type, resolvedSourceId, resolvedTargetId)) {
       return { success: false, message: "Collegamento gia presente." };
     }
 
-    const nextEdge = createEdge(type, sourceId, targetId);
-    const nextDiagram = {
+    const nextEdge = createEdge(type, resolvedSourceId, resolvedTargetId);
+    const nextDiagramBase = {
       ...history.present,
       edges: [...history.present.edges, nextEdge],
     };
+    const nextDiagram =
+      type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
+        ? updateNodeInDiagram(nextDiagramBase, targetNode.id, {
+            isMultivalued: true,
+            width: Math.max(targetNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
+            height: Math.max(targetNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
+          } as Partial<DiagramNode>)
+        : nextDiagramBase;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [nextEdge.id] });
@@ -579,6 +639,7 @@ export default function App() {
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
     const currentNode = history.present.nodes.find((node) => node.id === nodeId);
     const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
+    let normalizedAttributePatch = attributePatch;
 
     const attributeLinkedToRelationship =
       currentNode?.type === "attribute" &&
@@ -606,34 +667,57 @@ export default function App() {
       return;
     }
 
-    if (
-      currentNode?.type === "attribute" &&
-      currentNode.isMultivalued === true &&
-      (attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true)
-    ) {
-      setStatusError("Un attributo multivalore non puo essere usato in un identificatore.");
-      return;
+    if (currentNode?.type === "attribute") {
+      if (attributePatch.isIdentifier === true) {
+        normalizedAttributePatch = {
+          ...normalizedAttributePatch,
+          isCompositeInternal: false,
+          isMultivalued: false,
+        };
+      }
+
+      if (attributePatch.isCompositeInternal === true) {
+        normalizedAttributePatch = {
+          ...normalizedAttributePatch,
+          isIdentifier: false,
+          isMultivalued: false,
+        };
+      }
+
+      if (attributePatch.isMultivalued === true) {
+        normalizedAttributePatch = {
+          ...normalizedAttributePatch,
+          isIdentifier: false,
+          isCompositeInternal: false,
+        };
+      }
     }
 
-    if (
-      currentNode?.type === "attribute" &&
-      attributePatch.isIdentifier === true &&
-      currentNode.isCompositeInternal === true
-    ) {
-      setStatusError("Un attributo nel composto interno non puo essere anche identificatore singolo.");
-      return;
-    }
+    const nextPatch =
+      currentNode?.type === "attribute" && normalizedAttributePatch.isMultivalued === true
+        ? {
+            ...patch,
+            ...normalizedAttributePatch,
+            width: Math.max(currentNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
+            height: Math.max(currentNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
+          }
+        : currentNode?.type === "attribute" &&
+            normalizedAttributePatch.isMultivalued === false &&
+            currentNode.isMultivalued === true
+          ? {
+              ...patch,
+              ...normalizedAttributePatch,
+              width: DEFAULT_ATTRIBUTE_SIZE.width,
+              height: DEFAULT_ATTRIBUTE_SIZE.height,
+            }
+        : currentNode?.type === "attribute"
+          ? {
+              ...patch,
+              ...normalizedAttributePatch,
+            }
+          : patch;
 
-    if (
-      currentNode?.type === "attribute" &&
-      attributePatch.isMultivalued === true &&
-      (currentNode.isIdentifier === true || currentNode.isCompositeInternal === true)
-    ) {
-      setStatusError("Un attributo usato in un identificatore non puo diventare multivalore.");
-      return;
-    }
-
-    const nextDiagram = updateNodeInDiagram(history.present, nodeId, patch);
+    const nextDiagram = updateNodeInDiagram(history.present, nodeId, nextPatch);
     commitDiagram(nextDiagram);
   }
 
@@ -672,7 +756,7 @@ export default function App() {
       });
 
       if (targetIds.length !== nodeIds.length) {
-        setStatusError("Alcuni attributi sono multivalore o collegati a un'associazione e non possono essere identificatori.");
+        setStatusError("Alcuni attributi sono composti o collegati a un'associazione e non possono essere identificatori.");
       }
     }
 
@@ -683,7 +767,7 @@ export default function App() {
       });
 
       if (targetIds.length !== nodeIds.length) {
-        setStatusError("Gli attributi usati in un identificatore non possono diventare multivalore.");
+        setStatusError("Gli attributi usati in un identificatore non possono diventare composti.");
       }
     }
 
@@ -696,7 +780,25 @@ export default function App() {
   }
 
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
-    const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
+    const currentEdge = history.present.edges.find((edge) => edge.id === edgeId);
+
+    const updatesIsaGroup =
+      currentEdge?.type === "inheritance" &&
+      ("isaDisjointness" in patch || "isaCompleteness" in patch);
+
+    const nextDiagram =
+      updatesIsaGroup && currentEdge
+        ? updateEdgesInDiagram(
+            history.present,
+            history.present.edges
+              .filter(
+                (edge) => edge.type === "inheritance" && edge.targetId === currentEdge.targetId,
+              )
+              .map((edge) => edge.id),
+            patch,
+          )
+        : updateEdgeInDiagram(history.present, edgeId, patch);
+
     commitDiagram(nextDiagram);
   }
 
@@ -1160,7 +1262,7 @@ export default function App() {
                 <ul className="help-list">
                   <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
                   <li>Doppio click su nodo o collegamento per rinominare/aggiornare il testo (cardinalita inclusa).</li>
-                  <li>Nell'Inspector puoi attivare weak entity, attributi multivalore e vincoli ISA avanzati sulle generalizzazioni.</li>
+                  <li>Nell'Inspector puoi attivare weak entity, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
                   <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
                   <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>
                 </ul>
@@ -1200,7 +1302,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Stato Notazione ER (v2.4)</summary>
                 <ul className="help-list">
-                  <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi multivalore, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
+                  <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi composti, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
                   <li>Disponibile: vincoli ISA avanzati disjoint/overlap e total/partial su ogni collegamento di generalizzazione.</li>
                   <li>Ancora non coperto: attributi derivati e altri simboli EER specialistici non ancora presenti nel canvas.</li>
                 </ul>

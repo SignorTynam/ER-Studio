@@ -9,11 +9,11 @@ interface AttributeLabelLayout {
 }
 
 function getAttributeIndicatorOffset(node: DiagramNode): number {
-  return node.type === "attribute" && node.isMultivalued === true ? 40 : 24;
+  return 24;
 }
 
 function getAttributeVerticalAnchor(node: DiagramNode): number {
-  return node.type === "attribute" && node.isMultivalued === true ? node.x + 18 : node.x + 10;
+  return node.x + 10;
 }
 
 export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): AttributeLabelLayout {
@@ -124,7 +124,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     const cy = node.y + node.height / 2;
     const isIdentifier = node.isIdentifier === true;
     const isMultivalued = node.isMultivalued === true;
-    const labelLayout = getAttributeLabelLayout(node, props.attributeDirection);
 
     return (
       <g
@@ -143,26 +142,55 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeDasharray="4 3"
           />
         ) : null}
-        <circle cx={node.x + 10} cy={cy} r={7} fill={isIdentifier ? "#111111" : "#ffffff"} stroke="#111111" strokeWidth={2} />
         {isMultivalued ? (
           <>
-            <line x1={node.x + 16} y1={cy} x2={node.x + 26} y2={cy - 10} stroke="#111111" strokeWidth={2} />
-            <line x1={node.x + 17} y1={cy} x2={node.x + 28} y2={cy} stroke="#111111" strokeWidth={2} />
-            <line x1={node.x + 16} y1={cy} x2={node.x + 26} y2={cy + 10} stroke="#111111" strokeWidth={2} />
-            <circle cx={node.x + 28} cy={cy - 10} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
-            <circle cx={node.x + 30} cy={cy} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
-            <circle cx={node.x + 28} cy={cy + 10} r={4} fill="#ffffff" stroke="#111111" strokeWidth={2} />
+            <ellipse
+              cx={node.x + node.width / 2}
+              cy={cy}
+              rx={node.width / 2}
+              ry={node.height / 2}
+              fill="#ffffff"
+              stroke="#111111"
+              strokeWidth={props.selected || props.pending ? 2.6 : 2}
+            />
+            <text
+              x={node.x + node.width / 2}
+              y={cy}
+              className="shape-label"
+              textAnchor="middle"
+              dominantBaseline="middle"
+            >
+              {node.label}
+            </text>
           </>
-        ) : null}
-        <text
-          x={labelLayout.x}
-          y={labelLayout.y}
-          className="attribute-label"
-          textAnchor={labelLayout.textAnchor}
-          dominantBaseline={labelLayout.dominantBaseline}
-        >
-          {node.label}
-        </text>
+        ) : (
+          <>
+            {(() => {
+              const labelLayout = getAttributeLabelLayout(node, props.attributeDirection);
+              return (
+                <>
+                  <circle
+                    cx={node.x + 10}
+                    cy={cy}
+                    r={7}
+                    fill={isIdentifier ? "#111111" : "#ffffff"}
+                    stroke="#111111"
+                    strokeWidth={2}
+                  />
+                  <text
+                    x={labelLayout.x}
+                    y={labelLayout.y}
+                    className="attribute-label"
+                    textAnchor={labelLayout.textAnchor}
+                    dominantBaseline={labelLayout.dominantBaseline}
+                  >
+                    {node.label}
+                  </text>
+                </>
+              );
+            })()}
+          </>
+        )}
       </g>
     );
   }

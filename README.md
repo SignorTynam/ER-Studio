@@ -23,7 +23,7 @@ npm run preview
 
 ## Funzionalita principali
 
-- Entita, entita deboli dedicate, relazioni, attributi, attributi multivalore, testo libero e gerarchie ISA
+- Entita, entita deboli dedicate, relazioni, attributi, attributi composti con sotto-attributi, testo libero e gerarchie ISA
 - Drag-and-drop, snap to grid, zoom, pan, selezione multipla, duplicazione e allineamento
 - Undo/redo e validazioni per attributi, relazioni e link di ereditarieta con vincoli disjoint/overlap e total/partial
 - Modalita modifica e solo visualizzazione

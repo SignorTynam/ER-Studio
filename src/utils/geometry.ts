@@ -18,6 +18,10 @@ export const MIN_ZOOM = 0.45;
 export const MAX_ZOOM = 2.4;
 export const WORLD_EXTENT = 5200;
 
+function usesCompositeAttributeShape(node: DiagramNode): boolean {
+  return node.type === "attribute" && node.isMultivalued === true;
+}
+
 export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
@@ -57,6 +61,10 @@ export function clientPointFromWorld(
 
 export function getNodeCenter(node: DiagramNode): Point {
   if (node.type === "attribute") {
+    if (usesCompositeAttributeShape(node)) {
+      return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    }
+
     return { x: node.x + 10, y: node.y + node.height / 2 };
   }
 
@@ -97,6 +105,27 @@ export function getNodeAnchor(
   role: "source" | "target",
 ): Point {
   if (node.type === "attribute") {
+    if (usesCompositeAttributeShape(node)) {
+      const center = getNodeCenter(node);
+      const radiusX = node.width / 2;
+      const radiusY = node.height / 2;
+      const deltaX = toward.x - center.x;
+      const deltaY = toward.y - center.y;
+      const scaleDenominator =
+        (deltaX * deltaX) / Math.max(1, radiusX * radiusX) +
+        (deltaY * deltaY) / Math.max(1, radiusY * radiusY);
+
+      if (scaleDenominator <= 0) {
+        return center;
+      }
+
+      const t = 1 / Math.sqrt(scaleDenominator);
+      return {
+        x: center.x + deltaX * t,
+        y: center.y + deltaY * t,
+      };
+    }
+
     const center = { x: node.x + 10, y: node.y + node.height / 2 };
     const radius = 7;
     const deltaX = toward.x - center.x;
@@ -346,6 +375,18 @@ function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: 
     return {
       x: center.x + deltaX * t,
       y: center.y + deltaY * t,
+    };
+  }
+
+  if (node.type === "attribute") {
+    const anchor = getNodeAnchor(node, toward, "attribute", "target");
+    if (usesCompositeAttributeShape(node)) {
+      return anchor;
+    }
+
+    return {
+      x: anchor.x,
+      y: clamp(anchor.y + laneOffset / 3, node.y + 4, node.y + node.height - 4),
     };
   }
 

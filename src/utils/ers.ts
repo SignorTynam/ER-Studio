@@ -187,12 +187,18 @@ function buildAttributeHostMap(diagram: DiagramDocument): Map<string, string> {
     const sourceNode = diagram.nodes.find((node) => node.id === edge.sourceId);
     const targetNode = diagram.nodes.find((node) => node.id === edge.targetId);
 
-    if (sourceNode?.type === "attribute" && (targetNode?.type === "entity" || targetNode?.type === "relationship")) {
+    if (
+      sourceNode?.type === "attribute" &&
+      (targetNode?.type === "entity" || targetNode?.type === "relationship" || targetNode?.type === "attribute")
+    ) {
       hostByAttributeId.set(sourceNode.id, targetNode.id);
       return;
     }
 
-    if (targetNode?.type === "attribute" && (sourceNode?.type === "entity" || sourceNode?.type === "relationship")) {
+    if (
+      targetNode?.type === "attribute" &&
+      (sourceNode?.type === "entity" || sourceNode?.type === "relationship")
+    ) {
       hostByAttributeId.set(targetNode.id, sourceNode.id);
     }
   });
@@ -1092,6 +1098,11 @@ function parseNodeStatement(
     throw new ErsParseError(line, "Un attributo multivalued non puo essere anche identifier o compositeInternal.");
   }
 
+  if (node.type === "attribute" && node.isMultivalued === true) {
+    node.width = Math.max(node.width, 220);
+    node.height = Math.max(node.height, 110);
+  }
+
   if (
     node.type === "relationship" &&
     externalSpec &&
@@ -1205,7 +1216,10 @@ function getAttributeHostNodes(diagram: DiagramDocument): Map<string, DiagramNod
     const source = diagram.nodes.find((node) => node.id === edge.sourceId);
     const target = diagram.nodes.find((node) => node.id === edge.targetId);
 
-    if (source?.type === "attribute" && (target?.type === "entity" || target?.type === "relationship")) {
+    if (
+      source?.type === "attribute" &&
+      (target?.type === "entity" || target?.type === "relationship" || target?.type === "attribute")
+    ) {
       const bucket = map.get(target.id) ?? [];
       bucket.push(source);
       map.set(target.id, bucket);
@@ -1251,6 +1265,56 @@ function buildAttributeDeclaration(
           ? "multivalued"
           : "attribute";
   return `  ${keyword} ${getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId)} ${quoteValue(attribute.label)}`;
+}
+
+function buildStandaloneAttributeLine(
+  attribute: Extract<DiagramNode, { type: "attribute" }>,
+  alias: string,
+): string {
+  const keyword =
+    attribute.isIdentifier === true
+      ? "identifier"
+      : attribute.isCompositeInternal === true
+        ? "composite"
+        : attribute.isMultivalued === true
+          ? "multivalued"
+          : "attribute";
+
+  return `${keyword} ${alias} ${quoteValue(attribute.label)}`;
+}
+
+function buildNestedAttributeLegacyLines(
+  diagram: DiagramDocument,
+  aliasByNodeId: Map<string, string>,
+): string[] {
+  const nestedAttributes = [...diagram.nodes]
+    .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
+    .filter((attribute) =>
+      diagram.edges.some(
+        (edge) =>
+          edge.type === "attribute" &&
+          edge.sourceId === attribute.id &&
+          diagram.nodes.find((candidate) => candidate.id === edge.targetId)?.type === "attribute",
+      ),
+    )
+    .sort(compareNodes);
+
+  return nestedAttributes.flatMap((attribute) => {
+    const alias = aliasByNodeId.get(attribute.id) ?? attribute.id;
+    const parentEdge = diagram.edges.find(
+      (edge) =>
+        edge.type === "attribute" &&
+        edge.sourceId === attribute.id &&
+        diagram.nodes.find((candidate) => candidate.id === edge.targetId)?.type === "attribute",
+    );
+    const hostAlias = parentEdge ? aliasByNodeId.get(parentEdge.targetId) ?? parentEdge.targetId : undefined;
+
+    if (!hostAlias) {
+      return [];
+    }
+
+    return [buildStandaloneAttributeLine(attribute, alias), `attribute-link ${alias} -> ${hostAlias}`];
+  });
 }
 
 function buildEntityBlock(
@@ -1394,18 +1458,8 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
         node.type === "attribute" && !attributeHostMap.has(node.id),
     )
     .sort(compareNodes)
-    .map((attribute) => {
-      const alias = aliasByNodeId.get(attribute.id) ?? attribute.id;
-      const keyword =
-        attribute.isIdentifier === true
-          ? "identifier"
-          : attribute.isCompositeInternal === true
-            ? "composite"
-            : attribute.isMultivalued === true
-              ? "multivalued"
-              : "attribute";
-      return `${keyword} ${alias} ${quoteValue(attribute.label)}`;
-    });
+    .map((attribute) => buildStandaloneAttributeLine(attribute, aliasByNodeId.get(attribute.id) ?? attribute.id));
+  const nestedAttributeLines = buildNestedAttributeLegacyLines(diagram, aliasByNodeId);
   const textLines = [...diagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "text" }> => node.type === "text")
     .sort(compareNodes)
@@ -1449,8 +1503,13 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   if (relationLines.length > 0) {
     sections.push("", "# Relations", ...relationLines);
   }
-  if (orphanAttributeLines.length > 0 || textLines.length > 0 || inheritanceLines.length > 0) {
-    sections.push("", "# Extras", ...orphanAttributeLines, ...textLines, ...inheritanceLines);
+  if (
+    orphanAttributeLines.length > 0 ||
+    nestedAttributeLines.length > 0 ||
+    textLines.length > 0 ||
+    inheritanceLines.length > 0
+  ) {
+    sections.push("", "# Extras", ...orphanAttributeLines, ...nestedAttributeLines, ...textLines, ...inheritanceLines);
   }
 
   return sections.join("\n");
@@ -1589,7 +1648,10 @@ function autoPlaceDiagram(diagram: DiagramDocument, lockedNodeIds: Set<string>):
       attributesByHostId.set(hostId, bucket);
     });
 
-  attributesByHostId.forEach((attributes, hostId) => {
+  function positionHostedAttributes(
+    hostId: string,
+    attributes: Array<Extract<DiagramNode, { type: "attribute" }>>,
+  ) {
     const host = getNode(hostId);
     let identifierIndex = 0;
     let regularIndex = 0;
@@ -1621,6 +1683,47 @@ function autoPlaceDiagram(diagram: DiagramDocument, lockedNodeIds: Set<string>):
         y: snapValue(y, GRID_SIZE),
       });
     });
+  }
+
+  attributesByHostId.forEach((attributes, hostId) => {
+    const host = getNode(hostId);
+    if (host.type === "attribute") {
+      return;
+    }
+
+    positionHostedAttributes(hostId, attributes);
+  });
+
+  const pendingAttributeHosts = new Map(
+    [...attributesByHostId.entries()].filter(([hostId]) => getNode(hostId).type === "attribute"),
+  );
+
+  let guard = 0;
+  while (pendingAttributeHosts.size > 0 && guard < pendingAttributeHosts.size + 4) {
+    let progressed = false;
+
+    [...pendingAttributeHosts.entries()].forEach(([hostId, attributes]) => {
+      const host = getNode(hostId);
+      const hostPlaced = lockedNodeIds.has(hostId) || nextNodes.has(hostId);
+
+      if (!hostPlaced) {
+        return;
+      }
+
+      positionHostedAttributes(hostId, attributes);
+      pendingAttributeHosts.delete(hostId);
+      progressed = true;
+    });
+
+    if (!progressed) {
+      break;
+    }
+
+    guard += 1;
+  }
+
+  pendingAttributeHosts.forEach((attributes, hostId) => {
+    positionHostedAttributes(hostId, attributes);
   });
 
   const orphanAttributes = [...diagram.nodes]
