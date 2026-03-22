@@ -2298,6 +2298,13 @@ html {
   color: #49443a;
 }
 
+.landing-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .landing-cta-row {
   display: flex;
   flex-wrap: wrap;
@@ -2840,5 +2847,507 @@ html {
 
   .landing-footer {
     margin-bottom: 20px;
+  }
+}
+
+.tutorial-shell {
+  --tutorial-border: rgba(24, 24, 21, 0.12);
+  --tutorial-panel: rgba(255, 252, 244, 0.74);
+  --tutorial-panel-strong: rgba(24, 24, 21, 0.94);
+  --tutorial-copy: #4d473d;
+  min-height: 100vh;
+  color: #151512;
+  background:
+    radial-gradient(circle at top left, rgba(183, 111, 42, 0.14), transparent 24%),
+    radial-gradient(circle at 86% 10%, rgba(45, 96, 88, 0.18), transparent 26%),
+    linear-gradient(180deg, #f7f0e5 0%, #ece4d7 44%, #e6ddd2 100%);
+}
+
+.tutorial-header {
+  position: sticky;
+  top: 0;
+  z-index: 14;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--tutorial-border);
+  background: rgba(247, 240, 229, 0.8);
+  backdrop-filter: blur(18px);
+}
+
+.tutorial-header-main {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1 1 720px;
+  min-width: 0;
+}
+
+.tutorial-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.tutorial-brand strong {
+  font-size: 1.12rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tutorial-nav,
+.tutorial-header-actions,
+.tutorial-hero-actions,
+.tutorial-final-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tutorial-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.66rem 0.9rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #171717;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.tutorial-nav a:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(23, 23, 20, 0.24);
+}
+
+.tutorial-header-actions {
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.tutorial-main {
+  position: relative;
+  z-index: 1;
+  width: min(1280px, calc(100vw - 44px));
+  margin: 0 auto;
+  padding: 38px 0 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+
+.tutorial-main section {
+  scroll-margin-top: 116px;
+}
+
+.tutorial-hero,
+.tutorial-syntax-layout,
+.tutorial-warning-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.tutorial-hero {
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  align-items: start;
+}
+
+.tutorial-hero-copy,
+.tutorial-stage-card,
+.tutorial-flow-card,
+.tutorial-syntax-card,
+.tutorial-note-card,
+.tutorial-warning-card,
+.tutorial-final-cta {
+  border: 1px solid var(--tutorial-border);
+  border-radius: 30px;
+  box-shadow: 0 18px 42px rgba(41, 35, 24, 0.09);
+}
+
+.tutorial-hero-copy,
+.tutorial-flow-card,
+.tutorial-syntax-card,
+.tutorial-note-card,
+.tutorial-warning-card {
+  background: var(--tutorial-panel);
+  backdrop-filter: blur(10px);
+}
+
+.tutorial-hero-copy {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: landing-rise 580ms ease both;
+}
+
+.tutorial-hero-copy h1,
+.tutorial-section-heading h2,
+.tutorial-stage-head h2,
+.tutorial-final-cta h2 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.tutorial-hero-copy h1 {
+  font-size: clamp(3.4rem, 6vw, 5.7rem);
+  max-width: 10.5ch;
+}
+
+.tutorial-hero-lead,
+.tutorial-stage-footer p,
+.tutorial-section-heading p,
+.tutorial-mode-card p,
+.tutorial-flow-card p,
+.tutorial-syntax-card p,
+.tutorial-note-card li,
+.tutorial-warning-card p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.66;
+  color: var(--tutorial-copy);
+}
+
+.tutorial-mode-grid,
+.tutorial-flow-grid,
+.tutorial-syntax-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.tutorial-mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tutorial-mode-card {
+  padding: 16px 18px;
+  border: 1px solid rgba(24, 24, 21, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.tutorial-mode-card h2,
+.tutorial-flow-card h3,
+.tutorial-syntax-card h3,
+.tutorial-note-card h3,
+.tutorial-warning-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+}
+
+.tutorial-stage-card {
+  padding: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(72, 123, 111, 0.16), transparent 28%),
+    linear-gradient(160deg, rgba(17, 17, 16, 0.96) 0%, rgba(36, 34, 30, 0.98) 52%, rgba(46, 82, 76, 0.96) 100%);
+  color: #fffef8;
+  overflow: hidden;
+  animation: landing-rise 760ms ease both;
+}
+
+.tutorial-stage-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.tutorial-stage-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tutorial-stage-status span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0.34rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tutorial-stage-code,
+.tutorial-syntax-card pre {
+  margin: 0;
+  border-radius: 22px;
+  background: #121211;
+  color: #f7f3e8;
+  padding: 16px 18px;
+  overflow: auto;
+  font-family: "Cascadia Code", "Consolas", "Courier New", monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.tutorial-stage-code {
+  margin-top: 18px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.tutorial-stage-footer {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tutorial-stage-footer strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tutorial-stage-footer p {
+  color: rgba(255, 254, 248, 0.82);
+}
+
+.tutorial-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tutorial-section-heading {
+  padding: 0 6px;
+}
+
+.tutorial-section-heading p {
+  max-width: 74ch;
+}
+
+.tutorial-flow-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tutorial-flow-card,
+.tutorial-syntax-card,
+.tutorial-note-card,
+.tutorial-warning-card {
+  padding: 24px;
+}
+
+.tutorial-flow-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 32px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(45, 96, 88, 0.1);
+  color: #2f6258;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.tutorial-syntax-layout {
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+  align-items: start;
+}
+
+.tutorial-syntax-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tutorial-note-card {
+  position: sticky;
+  top: 116px;
+}
+
+.tutorial-note-list {
+  margin: 14px 0 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tutorial-note-divider {
+  height: 1px;
+  margin: 18px 0;
+  background: rgba(24, 24, 21, 0.1);
+}
+
+.tutorial-warning-grid {
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+}
+
+.tutorial-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tutorial-warning-list strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tutorial-warning-card-strong {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+  background:
+    radial-gradient(circle at top right, rgba(183, 111, 42, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 250, 240, 0.84) 0%, rgba(244, 237, 224, 0.92) 100%);
+}
+
+.tutorial-final-cta {
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, #171717 0%, #25231e 58%, #355e57 100%);
+  color: #fffef8;
+}
+
+.tutorial-final-cta h2 {
+  font-size: clamp(2.1rem, 3.5vw, 3.2rem);
+  max-width: 14ch;
+}
+
+.tutorial-final-cta .landing-kicker {
+  color: rgba(255, 254, 248, 0.68);
+}
+
+.tutorial-final-cta .landing-primary-button {
+  background: #fffef8;
+  color: #171717;
+  border-color: #fffef8;
+}
+
+.tutorial-final-cta .landing-primary-button:hover {
+  background: #f0ebe1;
+}
+
+@media (max-width: 1260px) {
+  .tutorial-header {
+    padding-inline: 22px;
+  }
+
+  .tutorial-hero,
+  .tutorial-syntax-layout,
+  .tutorial-warning-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-flow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tutorial-syntax-grid,
+  .tutorial-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-note-card {
+    position: static;
+  }
+}
+
+@media (max-width: 920px) {
+  .tutorial-header,
+  .tutorial-header-main,
+  .tutorial-header-actions {
+    align-items: stretch;
+  }
+
+  .tutorial-header-main {
+    flex-direction: column;
+  }
+
+  .tutorial-nav,
+  .tutorial-header-actions {
+    justify-content: flex-start;
+  }
+
+  .tutorial-main {
+    width: min(100vw - 28px, 1280px);
+  }
+
+  .tutorial-hero-copy {
+    padding: 24px;
+  }
+
+  .tutorial-flow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-final-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .tutorial-header {
+    padding: 16px;
+  }
+
+  .tutorial-brand {
+    min-width: 0;
+  }
+
+  .tutorial-nav a,
+  .tutorial-header .landing-version-chip,
+  .tutorial-header .landing-primary-button,
+  .tutorial-header .landing-secondary-link,
+  .tutorial-hero-actions .landing-primary-button,
+  .tutorial-hero-actions .landing-secondary-link,
+  .tutorial-final-actions .landing-primary-button,
+  .tutorial-final-actions .landing-secondary-link {
+    width: 100%;
+  }
+
+  .tutorial-main {
+    width: min(100vw - 20px, 1280px);
+    padding-top: 22px;
+    gap: 24px;
+  }
+
+  .tutorial-hero-copy,
+  .tutorial-stage-card,
+  .tutorial-flow-card,
+  .tutorial-syntax-card,
+  .tutorial-note-card,
+  .tutorial-warning-card,
+  .tutorial-final-cta {
+    padding: 20px;
+  }
+
+  .tutorial-hero-copy h1 {
+    font-size: clamp(2.8rem, 14vw, 4rem);
   }
 }

@@ -5,6 +5,7 @@ interface LandingPageProps {
   appVersion: string;
   latestRelease: AppChangelogEntry;
   onOpenStudio: () => void;
+  onOpenCodeTutorial: () => void;
 }
 
 const NAV_ITEMS = [
@@ -146,6 +147,9 @@ export function LandingPage(props: LandingPageProps) {
 
         <div className="landing-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
+          <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
+            Tutorial Code Mode
+          </button>
           <a className="landing-secondary-link" href="#landing-documentation">
             Documentation
           </a>
@@ -168,6 +172,9 @@ export function LandingPage(props: LandingPageProps) {
             <div className="landing-cta-row">
               <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
                 Entra nello Studio
+              </button>
+              <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
+                Tutorial Code Mode
               </button>
               <a className="landing-secondary-link" href="#landing-about">
                 Scopri il prodotto
@@ -320,6 +327,11 @@ relationship Frequenta between Studente and Corso
                 Il codice ERS e parte del racconto del prodotto: la landing lo introduce, il Code Mode lo rende
                 operativo, e il canvas lo traduce in diagramma.
               </p>
+              <div className="landing-inline-actions">
+                <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
+                  Apri guida completa
+                </button>
+              </div>
             </article>
           </div>
         </section>
@@ -342,6 +354,12 @@ relationship Frequenta between Studente and Corso
                 <p>{item.text}</p>
               </article>
             ))}
+          </div>
+
+          <div className="landing-inline-actions">
+            <button type="button" className="landing-primary-button" onClick={props.onOpenCodeTutorial}>
+              Vai al tutorial Code Mode
+            </button>
           </div>
         </section>
 

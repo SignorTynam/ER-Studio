@@ -3,6 +3,7 @@ import type { ChangeEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodeModePanel } from "./components/CodeModePanel";
+import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { LandingPage } from "./components/LandingPage";
 import { useHistory } from "./hooks/useHistory";
 import { InspectorPanel } from "./inspector/InspectorPanel";
@@ -48,7 +49,7 @@ interface ToastMessage {
   message: string;
 }
 
-type AppSurface = "landing" | "studio";
+type AppSurface = "landing" | "studio" | "code-tutorial";
 type WorkspaceView = "diagram" | "split" | "code";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
@@ -279,13 +280,21 @@ export default function App() {
     return ERROR_PATTERNS.some((pattern) => pattern.test(message));
   }
 
-  function openStudioSurface() {
+  function openStudioSurface(nextView: WorkspaceView = "diagram") {
     setSurface("studio");
+    setWorkspaceView(nextView);
     setIntroOpen(false);
   }
 
   function openLandingSurface() {
     setSurface("landing");
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
+  }
+
+  function openCodeTutorialSurface() {
+    setSurface("code-tutorial");
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
@@ -1019,7 +1028,20 @@ export default function App() {
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
         latestRelease={APP_CHANGELOG[0]}
-        onOpenStudio={openStudioSurface}
+        onOpenStudio={() => openStudioSurface("diagram")}
+        onOpenCodeTutorial={openCodeTutorialSurface}
+      />
+    );
+  }
+
+  if (surface === "code-tutorial") {
+    return (
+      <CodeModeTutorialPage
+        appTitle={APP_TITLE}
+        appVersion={APP_VERSION}
+        onBackHome={openLandingSurface}
+        onOpenStudio={() => openStudioSurface("diagram")}
+        onOpenCodeStudio={() => openStudioSurface("code")}
       />
     );
   }
@@ -1125,6 +1147,7 @@ export default function App() {
               onReset={handleResetCodeFromDiagram}
               onDownload={handleSaveErs}
               onLoad={handleLoadErsRequest}
+              onOpenTutorial={openCodeTutorialSurface}
             />
           ) : null}
         </div>

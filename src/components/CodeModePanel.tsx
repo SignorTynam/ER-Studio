@@ -13,6 +13,7 @@ interface CodeModePanelProps {
   onReset: () => void;
   onDownload: () => void;
   onLoad: () => void;
+  onOpenTutorial: () => void;
 }
 
 const ERS_SAMPLE = `entity persona "PERSONA" {
@@ -48,6 +49,9 @@ export function CodeModePanel(props: CodeModePanelProps) {
         </div>
 
         <div className="code-mode-actions">
+          <button type="button" className="header-button" onClick={props.onOpenTutorial}>
+            Tutorial Code
+          </button>
           <button type="button" className="header-button" onClick={props.onLoad}>
             Carica .ers
           </button>
