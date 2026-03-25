@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type {
+  FocusEvent as ReactFocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent,
   PointerEvent as ReactPointerEvent,
   RefObject,
@@ -18,6 +20,7 @@ import {
   GRID_SIZE,
   normalizeBounds,
   pathFromPoints,
+  snapValue,
   WORLD_EXTENT,
   worldPointFromClient,
 } from "../utils/geometry";
@@ -41,6 +44,12 @@ const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_GRID = "var(--diagram-grid)";
 const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
 const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
+const DIAGRAM_FOCUS = "var(--diagram-focus)";
+
+type FocusTarget =
+  | { kind: "node"; id: string }
+  | { kind: "edge"; id: string }
+  | null;
 
 type InteractionState =
   | { kind: "idle" }
@@ -125,6 +134,7 @@ interface DiagramCanvasProps {
   ) => { success: boolean; message: string };
   onDeleteNode: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
+  onDeleteSelection: () => void;
   onDeleteExternalIdentifier: (relationshipId: string) => void;
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
@@ -241,6 +251,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
+  const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
+  const [focusedTarget, setFocusedTarget] = useState<FocusTarget>(null);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
 
@@ -766,6 +778,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   useEffect(() => {
     if (props.tool !== "connector" && props.tool !== "inheritance") {
       setPendingConnectionSource(null);
+      setConnectionPreviewPoint(null);
       if (props.statusMessage.startsWith("Sorgente")) {
         props.onStatusMessageChange("");
       }
@@ -773,9 +786,31 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     if (props.mode === "view") {
       setPendingConnectionSource(null);
+      setConnectionPreviewPoint(null);
       setInlineEdit(null);
     }
   }, [props.mode, props.onStatusMessageChange, props.statusMessage, props.tool]);
+
+  useEffect(() => {
+    if (!focusedTarget) {
+      return;
+    }
+
+    if (
+      focusedTarget.kind === "node" &&
+      !props.diagram.nodes.some((node) => node.id === focusedTarget.id)
+    ) {
+      setFocusedTarget(null);
+      return;
+    }
+
+    if (
+      focusedTarget.kind === "edge" &&
+      !props.diagram.edges.some((edge) => edge.id === focusedTarget.id)
+    ) {
+      setFocusedTarget(null);
+    }
+  }, [focusedTarget, props.diagram.edges, props.diagram.nodes]);
 
   function beginPanInteraction(pointerId: number, clientX: number, clientY: number) {
     setInteraction({
@@ -798,23 +833,166 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     );
   }
 
+  function cancelPendingConnection(clearStatus = true) {
+    setPendingConnectionSource(null);
+    setConnectionPreviewPoint(null);
+    if (clearStatus && props.statusMessage.startsWith("Sorgente")) {
+      props.onStatusMessageChange("");
+    }
+  }
+
+  function openInlineEditorForSelection() {
+    if (props.mode !== "edit" || props.tool !== "select") {
+      return;
+    }
+
+    if (props.selection.nodeIds.length === 1 && props.selection.edgeIds.length === 0) {
+      const node = nodeMap.get(props.selection.nodeIds[0]);
+      if (node) {
+        setInlineEdit({ kind: "node", id: node.id, value: node.label });
+      }
+      return;
+    }
+
+    if (props.selection.edgeIds.length === 1 && props.selection.nodeIds.length === 0) {
+      const edge = props.diagram.edges.find((candidate) => candidate.id === props.selection.edgeIds[0]);
+      if (!edge) {
+        return;
+      }
+
+      const value =
+        edge.type === "connector"
+          ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
+          : edge.type === "attribute"
+            ? edge.cardinality ?? ""
+            : edge.label;
+
+      setInlineEdit({ kind: "edge", id: edge.id, value });
+    }
+  }
+
+  function moveSelectedNodes(deltaX: number, deltaY: number): boolean {
+    if (props.mode !== "edit" || props.selection.nodeIds.length === 0) {
+      return false;
+    }
+
+    const nextDiagram = {
+      ...props.diagram,
+      nodes: props.diagram.nodes.map((node) =>
+        props.selection.nodeIds.includes(node.id)
+          ? {
+              ...node,
+              x: snapValue(node.x + deltaX),
+              y: snapValue(node.y + deltaY),
+            }
+          : node,
+      ),
+    };
+
+    props.onCommitDiagram(nextDiagram, props.diagram);
+    props.onStatusMessageChange("Selezione spostata con la tastiera.");
+    return true;
+  }
+
+  function moveSelectedEdgeOffset(delta: number): boolean {
+    if (props.mode !== "edit" || props.selection.nodeIds.length > 0 || props.selection.edgeIds.length !== 1) {
+      return false;
+    }
+
+    const nextDiagram = {
+      ...props.diagram,
+      edges: props.diagram.edges.map((edge) =>
+        edge.id === props.selection.edgeIds[0]
+          ? {
+              ...edge,
+              manualOffset: Math.round(((edge.manualOffset ?? 0) + delta) / 2) * 2,
+            }
+          : edge,
+      ),
+    };
+
+    props.onCommitDiagram(nextDiagram, props.diagram);
+    props.onStatusMessageChange("Collegamento regolato con la tastiera.");
+    return true;
+  }
+
+  function handleCanvasKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (inlineEdit) {
+      return;
+    }
+
+    if (event.key === "Escape" && pendingConnectionSource) {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelPendingConnection();
+      props.onStatusMessageChange("Creazione collegamento annullata.");
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      openInlineEditorForSelection();
+      return;
+    }
+
+    if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onDeleteSelection();
+      return;
+    }
+
+    const distance = event.shiftKey ? GRID_SIZE * 2 : GRID_SIZE;
+    const arrowMoves: Record<string, { x: number; y: number; edgeDelta: number }> = {
+      ArrowUp: { x: 0, y: -distance, edgeDelta: -distance / 2 },
+      ArrowDown: { x: 0, y: distance, edgeDelta: distance / 2 },
+      ArrowLeft: { x: -distance, y: 0, edgeDelta: -distance / 2 },
+      ArrowRight: { x: distance, y: 0, edgeDelta: distance / 2 },
+    };
+
+    const movement = arrowMoves[event.key];
+    if (!movement) {
+      return;
+    }
+
+    const movedNodes = moveSelectedNodes(movement.x, movement.y);
+    const movedEdge = !movedNodes && moveSelectedEdgeOffset(movement.edgeDelta);
+
+    if (movedNodes || movedEdge) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  function handleNodeFocus(node: DiagramNode) {
+    setFocusedTarget({ kind: "node", id: node.id });
+    props.onSelectionChange({ nodeIds: [node.id], edgeIds: [] });
+  }
+
+  function handleEdgeFocus(edge: DiagramEdge) {
+    setFocusedTarget({ kind: "edge", id: edge.id });
+    props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+  }
+
   function beginConnection(node: DiagramNode) {
     if (!pendingConnectionSource) {
       setPendingConnectionSource(node.id);
-      props.onStatusMessageChange(`Sorgente selezionata: ${node.label}. Seleziona la destinazione.`);
+      setConnectionPreviewPoint(getNodeCenter(node));
+      props.onStatusMessageChange(
+        `Sorgente selezionata: ${node.label}. Seleziona la destinazione o premi Esc per annullare.`,
+      );
       return;
     }
 
     if (pendingConnectionSource === node.id) {
-      setPendingConnectionSource(null);
-      props.onStatusMessageChange("");
+      cancelPendingConnection();
       return;
     }
 
     const sourceNode = nodeMap.get(pendingConnectionSource);
     if (!sourceNode) {
-      setPendingConnectionSource(null);
-      props.onStatusMessageChange("");
+      cancelPendingConnection();
       return;
     }
 
@@ -826,7 +1004,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           : "connector";
 
     const result = props.onCreateEdge(edgeType, pendingConnectionSource, node.id);
-    setPendingConnectionSource(null);
+    cancelPendingConnection(false);
     props.onStatusMessageChange(result.message);
   }
 
@@ -838,6 +1016,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (!containerRef.current) {
       return;
     }
+
+    containerRef.current.focus();
 
     const worldPoint = getWorldPointFromEvent(event);
     if (!worldPoint) {
@@ -855,8 +1035,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    setPendingConnectionSource(null);
-    props.onStatusMessageChange("");
+    cancelPendingConnection();
 
     if (props.mode === "view") {
       setInteraction({
@@ -888,6 +1067,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
+    event.currentTarget.focus();
 
     if (props.tool === "delete") {
       if (props.mode === "edit") {
@@ -962,6 +1142,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
+    event.currentTarget.focus();
 
     if (props.tool === "delete") {
       if (props.mode === "edit") {
@@ -1084,6 +1265,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (pendingConnectionSource) {
+      const worldPoint = getWorldPointFromEvent(event);
+      if (worldPoint) {
+        setConnectionPreviewPoint(worldPoint);
+      }
+    }
+
     if (interaction.kind === "idle") {
       return;
     }
@@ -1399,14 +1587,37 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const inlineEdge =
     inlineEdit?.kind === "edge" ? props.diagram.edges.find((candidate) => candidate.id === inlineEdit.id) : null;
   const editingEdgeCardinality = inlineEdge?.type === "connector" || inlineEdge?.type === "attribute";
+  const pendingSourceNode = pendingConnectionSource ? nodeMap.get(pendingConnectionSource) : undefined;
+  const pendingEdgeType: EdgeKind =
+    props.tool === "inheritance"
+      ? "inheritance"
+      : pendingSourceNode?.type === "attribute"
+        ? "attribute"
+        : "connector";
+  const pendingConnectionPath =
+    pendingSourceNode && connectionPreviewPoint
+      ? pathFromPoints([
+          getNodeAnchor(pendingSourceNode, connectionPreviewPoint, pendingEdgeType, "source"),
+          connectionPreviewPoint,
+        ])
+      : null;
 
   return (
     <div
       ref={containerRef}
       className="canvas-panel"
+      role="region"
+      tabIndex={0}
+      aria-label="Canvas diagramma ER. Usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare e Canc per eliminare."
+      onKeyDown={handleCanvasKeyDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerLeave={(event) => {
+        if (pendingConnectionSource) {
+          setConnectionPreviewPoint(null);
+        }
+        handlePointerUp(event);
+      }}
       onWheel={handleCanvasWheel}
     >
       <svg ref={props.svgRef} className="diagram-canvas">
@@ -1453,6 +1664,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
+                focused={focusedTarget?.kind === "edge" && focusedTarget.id === edge.id}
+                focusable={props.tool === "select"}
+                onFocus={handleEdgeFocus}
+                onBlur={(focusEvent: ReactFocusEvent<SVGGElement>) => {
+                  if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget as Node | null)) {
+                    setFocusedTarget((current) =>
+                      current?.kind === "edge" && current.id === edge.id ? null : current,
+                    );
+                  }
+                }}
                 onPointerDown={handleEdgePointerDown}
                 onLabelPointerDown={handleEdgeLabelPointerDown}
                 onDoubleClick={startInlineEdgeEdit}
@@ -1466,11 +1687,36 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               node={node}
               selected={props.selection.nodeIds.includes(node.id)}
               pending={pendingConnectionSource === node.id}
+              focused={focusedTarget?.kind === "node" && focusedTarget.id === node.id}
+              focusable={props.tool === "select" || props.tool === "connector" || props.tool === "inheritance"}
+              onFocus={handleNodeFocus}
+              onBlur={(focusEvent: ReactFocusEvent<SVGGElement>) => {
+                if (!focusEvent.currentTarget.contains(focusEvent.relatedTarget as Node | null)) {
+                  setFocusedTarget((current) =>
+                    current?.kind === "node" && current.id === node.id ? null : current,
+                  );
+                }
+              }}
               attributeDirection={attributeDirectionMap.get(node.id)}
               onPointerDown={handleNodePointerDown}
               onDoubleClick={startInlineNodeEdit}
             />
           ))}
+
+          {pendingConnectionPath ? (
+            <g className="connection-preview" pointerEvents="none">
+              <path
+                d={pendingConnectionPath}
+                fill="none"
+                stroke={DIAGRAM_FOCUS}
+                strokeWidth={2.5}
+                strokeDasharray="10 8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx={connectionPreviewPoint?.x} cy={connectionPreviewPoint?.y} r={6} fill={DIAGRAM_FOCUS} />
+            </g>
+          ) : null}
 
           {compositeIdentifierLayouts.map((layout) => (
             <g key={`composite-id-${layout.hostId}`} className="composite-identifier" pointerEvents="none">

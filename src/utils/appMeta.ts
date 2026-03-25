@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.4";
+export const APP_VERSION = "2.4.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.4.2",
+    date: "2026-03-25",
+    updates: [
+      "Accessibilita tastiera estesa al canvas: focus su nodi e collegamenti, selezione da tastiera, spostamento con frecce e rinomina con Invio.",
+      "Aggiunta protezione dalle modifiche non salvate su home, guida codice, nuovo diagramma e import JSON/ERS, oltre alla guardia prima di chiudere la pagina.",
+      "Notifiche migliorate con toast di successo e azione rapida Annulla dove possibile; creazione collegamenti resa piu chiara con preview visiva ed Esc per annullare.",
+    ],
+  },
   {
     version: "2.4",
     date: "2026-03-22",

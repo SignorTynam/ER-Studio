@@ -3732,6 +3732,8 @@ summary:focus-visible {
   --diagram-grid: rgba(79, 107, 100, 0.12);
   --diagram-selection-stroke: #70847d;
   --diagram-selection-fill: rgba(79, 107, 100, 0.09);
+  --diagram-focus: #7d9f96;
+  --diagram-pending: #c08d5a;
   color: var(--studio-ink);
   background: #f7f8f4;
   font-family: "Aptos", "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -4314,6 +4316,13 @@ summary:focus-visible {
   border-radius: 30px;
   background: linear-gradient(180deg, #f8faf6 0%, #eff3ed 100%);
   box-shadow: var(--studio-shadow);
+  outline: none;
+}
+
+.canvas-panel:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(125, 159, 150, 0.22),
+    var(--studio-shadow);
 }
 
 .entity-label,
@@ -4616,6 +4625,35 @@ summary:focus-visible {
   border: 1px solid var(--studio-line);
   background: var(--studio-surface-strong);
   color: var(--studio-ink);
+}
+
+.toast-success {
+  border-color: rgba(79, 107, 100, 0.24);
+  background: linear-gradient(180deg, #f7fbf8 0%, #ebf4ef 100%);
+}
+
+.toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toast-body p {
+  margin: 0;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.toast-actions button {
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--studio-ink);
+  padding: 0.5rem 0.8rem;
 }
 
 .tutorial-header-main,

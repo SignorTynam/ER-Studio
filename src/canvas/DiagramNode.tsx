@@ -1,9 +1,11 @@
-import type { MouseEvent, PointerEvent } from "react";
+import type { FocusEvent, MouseEvent, PointerEvent } from "react";
 import type { DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
+const DIAGRAM_FOCUS = "var(--diagram-focus)";
+const DIAGRAM_PENDING = "var(--diagram-pending)";
 
 interface AttributeLabelLayout {
   x: number;
@@ -56,7 +58,11 @@ interface DiagramNodeProps {
   node: DiagramNode;
   selected: boolean;
   pending: boolean;
+  focused: boolean;
+  focusable: boolean;
   attributeDirection?: Point;
+  onFocus: (node: DiagramNode) => void;
+  onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, node: DiagramNode) => void;
   onDoubleClick: (event: MouseEvent<SVGGElement>, node: DiagramNode) => void;
 }
@@ -69,9 +75,26 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     return (
       <g
         className={props.selected ? "diagram-node selected" : "diagram-node"}
+        tabIndex={props.focusable ? 0 : -1}
+        focusable={props.focusable ? "true" : "false"}
+        aria-label={`Nodo ${node.type}: ${node.label}`}
+        onFocus={() => props.onFocus(node)}
+        onBlur={props.onBlur}
         onPointerDown={(event) => props.onPointerDown(event, node)}
         onDoubleClick={(event) => props.onDoubleClick(event, node)}
       >
+        {props.focused ? (
+          <rect
+            x={node.x - 10}
+            y={node.y - 10}
+            width={node.width + 20}
+            height={node.height + 20}
+            fill="none"
+            stroke={DIAGRAM_FOCUS}
+            strokeWidth={2}
+            strokeDasharray="8 6"
+          />
+        ) : null}
         <rect
           x={node.x}
           y={node.y}
@@ -91,6 +114,9 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             stroke={DIAGRAM_STROKE}
             strokeWidth={props.selected || props.pending ? 2.2 : 1.8}
           />
+        ) : null}
+        {props.pending ? (
+          <circle cx={node.x + node.width + 8} cy={node.y - 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
         <text
           x={node.x + node.width / 2}
@@ -113,15 +139,32 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     return (
       <g
         className={props.selected ? "diagram-node selected" : "diagram-node"}
+        tabIndex={props.focusable ? 0 : -1}
+        focusable={props.focusable ? "true" : "false"}
+        aria-label={`Nodo ${node.type}: ${node.label}`}
+        onFocus={() => props.onFocus(node)}
+        onBlur={props.onBlur}
         onPointerDown={(event) => props.onPointerDown(event, node)}
         onDoubleClick={(event) => props.onDoubleClick(event, node)}
       >
+        {props.focused ? (
+          <polygon
+            points={`${cx},${node.y - 10} ${node.x + node.width + 10},${cy} ${cx},${node.y + node.height + 10} ${node.x - 10},${cy}`}
+            fill="none"
+            stroke={DIAGRAM_FOCUS}
+            strokeWidth={2}
+            strokeDasharray="8 6"
+          />
+        ) : null}
         <polygon
           points={points}
           fill={DIAGRAM_NODE_FILL}
           stroke={DIAGRAM_STROKE}
           strokeWidth={props.selected || props.pending ? 2.6 : 2}
         />
+        {props.pending ? (
+          <circle cx={node.x + node.width + 8} cy={node.y + 8} r={6} fill={DIAGRAM_PENDING} />
+        ) : null}
         <text x={cx} y={cy} className="shape-label" textAnchor="middle" dominantBaseline="middle">
           {node.label}
         </text>
@@ -137,9 +180,26 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     return (
       <g
         className={props.selected ? "diagram-node selected" : "diagram-node"}
+        tabIndex={props.focusable ? 0 : -1}
+        focusable={props.focusable ? "true" : "false"}
+        aria-label={`Nodo ${node.type}: ${node.label}`}
+        onFocus={() => props.onFocus(node)}
+        onBlur={props.onBlur}
         onPointerDown={(event) => props.onPointerDown(event, node)}
         onDoubleClick={(event) => props.onDoubleClick(event, node)}
       >
+        {props.focused ? (
+          <rect
+            x={node.x - 12}
+            y={node.y - 10}
+            width={node.width + 24}
+            height={node.height + 20}
+            fill="none"
+            stroke={DIAGRAM_FOCUS}
+            strokeWidth={2}
+            strokeDasharray="8 6"
+          />
+        ) : null}
         {props.selected ? (
           <rect
             x={node.x - 4}
@@ -205,11 +265,28 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   }
 
   return (
-    <g
-      className={props.selected ? "diagram-node selected" : "diagram-node"}
-      onPointerDown={(event) => props.onPointerDown(event, node)}
-      onDoubleClick={(event) => props.onDoubleClick(event, node)}
-    >
+      <g
+        className={props.selected ? "diagram-node selected" : "diagram-node"}
+        tabIndex={props.focusable ? 0 : -1}
+        focusable={props.focusable ? "true" : "false"}
+        aria-label={`Nodo ${node.type}: ${node.label}`}
+        onFocus={() => props.onFocus(node)}
+        onBlur={props.onBlur}
+        onPointerDown={(event) => props.onPointerDown(event, node)}
+        onDoubleClick={(event) => props.onDoubleClick(event, node)}
+      >
+      {props.focused ? (
+        <rect
+          x={node.x - 8}
+          y={node.y - 14}
+          width={node.width + 16}
+          height={node.height + 18}
+          fill="none"
+          stroke={DIAGRAM_FOCUS}
+          strokeWidth={2}
+          strokeDasharray="8 6"
+        />
+      ) : null}
       <text x={node.x} y={node.y + node.height} className="free-text-label">
         {node.label}
       </text>

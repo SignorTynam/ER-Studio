@@ -46,7 +46,11 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 interface ToastMessage {
   id: number;
+  title: string;
   message: string;
+  tone: "success" | "error";
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
@@ -226,6 +230,7 @@ function findRelationshipBetweenEntities(
 export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
+  const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
   const [surface, setSurface] = useState<AppSurface>("landing");
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("diagram");
   const [tool, setTool] = useState<ToolKind>("select");
@@ -233,11 +238,11 @@ export default function App() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
-  const [errorToasts, setErrorToasts] = useState<ToastMessage[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
-  const [codeDraft, setCodeDraft] = useState(() => serializeDiagramToErs(initialDiagramRef.current));
+  const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
@@ -246,11 +251,16 @@ export default function App() {
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
+  const historyRef = useRef(history);
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
+  const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
+  const lastSavedCodeRef = useRef(initialSerializedCode);
+  const hasUnsavedChangesRef = useRef(false);
 
   const issues = validateDiagram(history.present);
+  historyRef.current = history;
 
   useEffect(() => {
     if (!statusMessage || statusMessage.startsWith("Sorgente")) {
@@ -264,20 +274,113 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [statusMessage]);
 
+  useEffect(() => {
+    const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
+    hasUnsavedChangesRef.current =
+      serializeDiagram(history.present) !== lastSavedDiagramRef.current || currentCode !== lastSavedCodeRef.current;
+  }, [history.present, codeDraft]);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChangesRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   function dismissToast(toastId: number) {
-    setErrorToasts((current) => current.filter((toast) => toast.id !== toastId));
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }
+
+  function showToast(toast: Omit<ToastMessage, "id">, duration = 4200) {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current, { id, ...toast }]);
+
+    if (duration > 0) {
+      window.setTimeout(() => {
+        dismissToast(id);
+      }, duration);
+    }
   }
 
   function showErrorToast(message: string) {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setErrorToasts((current) => [...current, { id, message }]);
-    window.setTimeout(() => {
-      dismissToast(id);
-    }, 4200);
+    showToast(
+      {
+        title: "Errore",
+        message,
+        tone: "error",
+      },
+      5200,
+    );
+  }
+
+  function showSuccessToast(message: string) {
+    showToast({
+      title: "Operazione completata",
+      message,
+      tone: "success",
+    });
+  }
+
+  function showUndoToast(message: string, undoStatus = "Operazione annullata.") {
+    showToast(
+      {
+        title: "Operazione completata",
+        message,
+        tone: "success",
+        actionLabel: "Annulla",
+        onAction: () => {
+          historyRef.current.undo();
+          setSelection({ nodeIds: [], edgeIds: [] });
+          setStatus(undoStatus);
+        },
+      },
+      6200,
+    );
+  }
+
+  function handleToastAction(toastId: number) {
+    const toast = toasts.find((item) => item.id === toastId);
+    if (!toast?.onAction) {
+      return;
+    }
+
+    toast.onAction();
+    dismissToast(toastId);
   }
 
   function isErrorMessage(message: string): boolean {
     return ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  }
+
+  function markDocumentBaseline(diagram: DiagramDocument) {
+    lastSavedDiagramRef.current = serializeDiagram(diagram);
+    lastSavedCodeRef.current = serializeDiagramToErs(diagram);
+    hasUnsavedChangesRef.current = false;
+  }
+
+  function markDiagramSaved(diagram: DiagramDocument) {
+    lastSavedDiagramRef.current = serializeDiagram(diagram);
+  }
+
+  function markCodeSaved(code: string) {
+    lastSavedCodeRef.current = code;
+  }
+
+  function confirmDiscardChanges(actionLabel: string): boolean {
+    if (!hasUnsavedChangesRef.current) {
+      return true;
+    }
+
+    return window.confirm(
+      `Ci sono modifiche non salvate. Vuoi davvero ${actionLabel}? Le modifiche non salvate andranno perse.`,
+    );
   }
 
   function openStudioSurface(nextView: WorkspaceView = "diagram") {
@@ -287,6 +390,10 @@ export default function App() {
   }
 
   function openLandingSurface() {
+    if (surface === "studio" && !confirmDiscardChanges("tornare alla home")) {
+      return;
+    }
+
     setSurface("landing");
     setAboutOpen(false);
     setWhatsNewOpen(false);
@@ -294,6 +401,10 @@ export default function App() {
   }
 
   function openCodeTutorialSurface() {
+    if (surface === "studio" && !confirmDiscardChanges("aprire la guida della modalita codice")) {
+      return;
+    }
+
     setSurface("code-tutorial");
     setAboutOpen(false);
     setWhatsNewOpen(false);
@@ -327,6 +438,25 @@ export default function App() {
   function syncCodeDraftWithDiagram(diagram: DiagramDocument) {
     replaceCodeDraft(serializeDiagramToErs(diagram));
     setCodeError("");
+  }
+
+  function applyWorkspaceDocument(
+    nextDiagram: DiagramDocument,
+    status: string,
+    toastMessage: string,
+    nextView?: WorkspaceView,
+  ) {
+    history.commit(nextDiagram, history.present);
+    syncCodeDraftWithDiagram(nextDiagram);
+    markDocumentBaseline(nextDiagram);
+    setSelection({ nodeIds: [], edgeIds: [] });
+    setViewport(DEFAULT_VIEWPORT);
+    setTool("select");
+    if (nextView) {
+      setWorkspaceView(nextView);
+    }
+    setStatus(status);
+    showUndoToast(toastMessage);
   }
 
   function updateCodeDraft(nextCode: string) {
@@ -492,23 +622,27 @@ export default function App() {
   }
 
   function handleNewDiagram() {
-    const nextDiagram = createEmptyDiagram("Nuovo diagramma");
-    history.commit(nextDiagram, history.present);
-    syncCodeDraftWithDiagram(nextDiagram);
-    setSelection({ nodeIds: [], edgeIds: [] });
-    setViewport(DEFAULT_VIEWPORT);
-    setTool("select");
-    setStatus("Nuovo diagramma creato.");
+    if (!confirmDiscardChanges("creare un nuovo diagramma")) {
+      return;
+    }
+
+    applyWorkspaceDocument(
+      createEmptyDiagram("Nuovo diagramma"),
+      "Nuovo diagramma creato.",
+      "Nuovo diagramma creato. Puoi annullare se vuoi ripristinare il lavoro precedente.",
+    );
   }
 
   function handleLoadExample() {
-    const nextDiagram = createExampleDiagram();
-    history.commit(nextDiagram, history.present);
-    syncCodeDraftWithDiagram(nextDiagram);
-    setSelection({ nodeIds: [], edgeIds: [] });
-    setViewport(DEFAULT_VIEWPORT);
-    setTool("select");
-    setStatus("Esempio Chen caricato.");
+    if (!confirmDiscardChanges("caricare l'esempio")) {
+      return;
+    }
+
+    applyWorkspaceDocument(
+      createExampleDiagram(),
+      "Esempio Chen caricato.",
+      "Esempio Chen caricato. Puoi annullare per tornare al diagramma precedente.",
+    );
   }
 
   function handleCreateNode(
@@ -836,6 +970,7 @@ export default function App() {
         commitDiagram(nextDiagram);
         setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
         setStatus("Identificatore esterno rimosso.");
+        showUndoToast("Identificatore esterno rimosso.");
         return;
       }
     }
@@ -844,6 +979,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Selezione eliminata.");
+    showUndoToast("Selezione eliminata.");
   }
 
   function handleDeleteNodeById(nodeId: string) {
@@ -855,6 +991,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Elemento eliminato.");
+    showUndoToast("Elemento eliminato.");
   }
 
   function handleDeleteEdgeById(edgeId: string) {
@@ -866,6 +1003,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Collegamento eliminato.");
+    showUndoToast("Collegamento eliminato.");
   }
 
   function handleClearExternalIdentifier(relationshipId: string) {
@@ -883,6 +1021,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [relationshipId], edgeIds: [] });
     setStatus("Identificatore esterno rimosso.");
+    showUndoToast("Identificatore esterno rimosso.");
   }
 
   function handleDuplicateSelection() {
@@ -898,6 +1037,7 @@ export default function App() {
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
     setStatus("Selezione duplicata.");
+    showUndoToast("Selezione duplicata.");
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
@@ -918,6 +1058,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setStatus("Allineamento applicato.");
+    showUndoToast("Allineamento applicato.");
   }
 
   function handleSaveJson() {
@@ -926,20 +1067,38 @@ export default function App() {
       `${sanitizeFileNameBase(history.present.meta.name)}.json`,
       "application/json;charset=utf-8",
     );
+    markDiagramSaved(history.present);
+    if (!codeDirtyRef.current) {
+      markCodeSaved(serializeDiagramToErs(history.present));
+    }
     setStatus("Diagramma salvato in JSON.");
+    showSuccessToast("Diagramma JSON esportato con successo.");
   }
 
   function handleSaveErs() {
     const source = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}.ers`);
+    markCodeSaved(source);
+    if (!codeDirtyRef.current && !codeError) {
+      markDiagramSaved(history.present);
+    }
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
+    showSuccessToast(codeDirtyRef.current ? "Bozza ERS esportata con successo." : "File ERS esportato con successo.");
   }
 
   function handleLoadRequest() {
+    if (!confirmDiscardChanges("caricare un file JSON")) {
+      return;
+    }
+
     jsonFileInputRef.current?.click();
   }
 
   function handleLoadErsRequest() {
+    if (!confirmDiscardChanges("caricare un file ERS")) {
+      return;
+    }
+
     ersFileInputRef.current?.click();
   }
 
@@ -952,12 +1111,11 @@ export default function App() {
     try {
       const rawText = await file.text();
       const parsed = parseDiagram(rawText);
-      history.commit(parsed, history.present);
-      syncCodeDraftWithDiagram(parsed);
-      setSelection({ nodeIds: [], edgeIds: [] });
-      setViewport(DEFAULT_VIEWPORT);
-      setTool("select");
-      setStatus("Diagramma caricato.");
+      applyWorkspaceDocument(
+        parsed,
+        "Diagramma caricato.",
+        `Import completato da ${file.name}. Puoi annullare per ripristinare il diagramma precedente.`,
+      );
     } catch (error) {
       console.error(error);
       setStatusError("JSON non valido.");
@@ -975,13 +1133,12 @@ export default function App() {
     try {
       const rawText = await file.text();
       const parsed = parseErsDiagram(rawText, history.present);
-      history.commit(parsed, history.present);
-      syncCodeDraftWithDiagram(parsed);
-      setSelection({ nodeIds: [], edgeIds: [] });
-      setViewport(DEFAULT_VIEWPORT);
-      setTool("select");
-      setWorkspaceView("code");
-      setStatus("Codice ERS caricato.");
+      applyWorkspaceDocument(
+        parsed,
+        "Codice ERS caricato.",
+        `Import completato da ${file.name}. Puoi annullare per ripristinare il lavoro precedente.`,
+        "code",
+      );
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "Codice ERS non valido.";
@@ -994,8 +1151,9 @@ export default function App() {
 
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
-      setStatus("Codice ERS rigenerato dal diagramma.");
-    }
+    setStatus("Codice ERS rigenerato dal diagramma.");
+    showSuccessToast("Sorgente ERS rigenerato dal diagramma corrente.");
+  }
 
   async function handleExportPng() {
     if (!svgRef.current) {
@@ -1006,6 +1164,7 @@ export default function App() {
     try {
       await downloadPng(svgRef.current, "chen-er-diagram.png");
       setStatus("PNG esportato.");
+      showSuccessToast("PNG esportato con successo.");
     } catch (error) {
       console.error(error);
       setStatusError("Esportazione PNG non riuscita.");
@@ -1020,6 +1179,7 @@ export default function App() {
 
     downloadSvg(svgRef.current, "chen-er-diagram.svg");
     setStatus("SVG esportato.");
+    showSuccessToast("SVG esportato con successo.");
   }
 
   if (surface === "landing") {
@@ -1126,6 +1286,7 @@ export default function App() {
               onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
               onDeleteNode={handleDeleteNodeById}
               onDeleteEdge={handleDeleteEdgeById}
+              onDeleteSelection={handleDeleteSelection}
               onDeleteExternalIdentifier={handleClearExternalIdentifier}
               onRenameNode={handleRenameNode}
               onRenameEdge={handleRenameEdge}
@@ -1303,6 +1464,7 @@ export default function App() {
                 <ul className="help-list">
                   <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
                   <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
+                  <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
                 </ul>
               </details>
 
@@ -1323,7 +1485,7 @@ export default function App() {
               </details>
 
               <details className="help-section">
-                <summary>Stato Notazione ER (v2.4)</summary>
+                <summary>Stato Notazione ER (v{APP_VERSION})</summary>
                 <ul className="help-list">
                   <li>Disponibile: entita, entita deboli dedicate, relazioni, attributi, attributi composti, cardinalita, generalizzazione e identificatori semplici/composti interni/esterni.</li>
                   <li>Disponibile: vincoli ISA avanzati disjoint/overlap e total/partial su ogni collegamento di generalizzazione.</li>
@@ -1371,13 +1533,26 @@ export default function App() {
       ) : null}
 
       <div className="toast-stack" aria-live="assertive" aria-atomic="false">
-        {errorToasts.map((toast) => (
-          <div key={toast.id} className="toast toast-error" role="alert">
-            <strong>Errore</strong>
-            <p>{toast.message}</p>
-            <button type="button" onClick={() => dismissToast(toast.id)} aria-label="Chiudi notifica errore">
-              Chiudi
-            </button>
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={toast.tone === "error" ? "toast toast-error" : "toast toast-success"}
+            role={toast.tone === "error" ? "alert" : "status"}
+          >
+            <div className="toast-body">
+              <strong>{toast.title}</strong>
+              <p>{toast.message}</p>
+            </div>
+            <div className="toast-actions">
+              {toast.onAction && toast.actionLabel ? (
+                <button type="button" onClick={() => handleToastAction(toast.id)}>
+                  {toast.actionLabel}
+                </button>
+              ) : null}
+              <button type="button" onClick={() => dismissToast(toast.id)} aria-label="Chiudi notifica">
+                Chiudi
+              </button>
+            </div>
           </div>
         ))}
       </div>

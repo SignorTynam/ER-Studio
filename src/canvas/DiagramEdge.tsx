@@ -1,8 +1,9 @@
-import type { MouseEvent, PointerEvent } from "react";
+import type { FocusEvent, MouseEvent, PointerEvent } from "react";
 import { getEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
+const DIAGRAM_FOCUS = "var(--diagram-focus)";
 
 interface EdgeLaneInfo {
   laneIndex: number;
@@ -15,6 +16,10 @@ interface DiagramEdgeProps {
   targetNode: DiagramNode;
   laneInfo?: EdgeLaneInfo;
   selected: boolean;
+  focused: boolean;
+  focusable: boolean;
+  onFocus: (edge: DiagramEdge) => void;
+  onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, edge: DiagramEdge) => void;
   onLabelPointerDown: (event: PointerEvent<SVGTextElement>, edge: DiagramEdge) => void;
   onDoubleClick: (event: MouseEvent<SVGGElement>, edge: DiagramEdge) => void;
@@ -83,10 +88,26 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   return (
     <g
       className={props.selected ? "diagram-edge selected" : "diagram-edge"}
+      tabIndex={props.focusable ? 0 : -1}
+      focusable={props.focusable ? "true" : "false"}
+      aria-label={`Collegamento ${props.edge.type} tra ${props.sourceNode.label} e ${props.targetNode.label}`}
+      onFocus={() => props.onFocus(props.edge)}
+      onBlur={props.onBlur}
       onPointerDown={(event) => props.onPointerDown(event, props.edge)}
       onDoubleClick={(event) => props.onDoubleClick(event, props.edge)}
     >
       <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
+      {props.focused ? (
+        <path
+          d={pathData}
+          fill="none"
+          stroke={DIAGRAM_FOCUS}
+          strokeWidth={5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="10 8"
+        />
+      ) : null}
       {secondaryPathData ? (
         <path
           d={secondaryPathData}
