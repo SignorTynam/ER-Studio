@@ -98,7 +98,7 @@ export function Toolbar(props: ToolbarProps) {
           aria-label={props.collapsed ? "Espandi pannello strumenti" : "Comprimi pannello strumenti"}
           title={props.collapsed ? "Espandi" : "Comprimi"}
         >
-          {props.collapsed ? "→" : "←"}
+          {props.collapsed ? ">" : "<"}
         </button>
       </div>
 

@@ -37,6 +37,11 @@ import {
   CONNECTOR_CARDINALITY_PLACEHOLDER,
 } from "../utils/cardinality";
 
+const DIAGRAM_STROKE = "var(--diagram-stroke)";
+const DIAGRAM_GRID = "var(--diagram-grid)";
+const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
+const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
+
 type InteractionState =
   | { kind: "idle" }
   | {
@@ -1407,7 +1412,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       <svg ref={props.svgRef} className="diagram-canvas">
         <defs>
           <pattern id="canvas-grid" width={GRID_SIZE} height={GRID_SIZE} patternUnits="userSpaceOnUse">
-            <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke="#d7d7d2" strokeWidth="1" />
+            <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke={DIAGRAM_GRID} strokeWidth="1" />
           </pattern>
           <marker
             id="arrowhead"
@@ -1418,7 +1423,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M 0 0 L 12 6 L 0 12 z" fill="#111111" />
+            <path d="M 0 0 L 12 6 L 0 12 z" fill={DIAGRAM_STROKE} />
           </marker>
         </defs>
 
@@ -1470,11 +1475,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           {compositeIdentifierLayouts.map((layout) => (
             <g key={`composite-id-${layout.hostId}`} className="composite-identifier" pointerEvents="none">
               {layout.orientation === "vertical" ? (
-                <line x1={layout.x} y1={layout.y1} x2={layout.x} y2={layout.y2} stroke="#111111" strokeWidth={2} />
+                <line x1={layout.x} y1={layout.y1} x2={layout.x} y2={layout.y2} stroke={DIAGRAM_STROKE} strokeWidth={2} />
               ) : (
-                <line x1={layout.x1} y1={layout.y} x2={layout.x2} y2={layout.y} stroke="#111111" strokeWidth={2} />
+                <line x1={layout.x1} y1={layout.y} x2={layout.x2} y2={layout.y} stroke={DIAGRAM_STROKE} strokeWidth={2} />
               )}
-              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill="#111111" stroke="#111111" strokeWidth={2} />
+              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill={DIAGRAM_STROKE} stroke={DIAGRAM_STROKE} strokeWidth={2} />
               <circle
                 cx={layout.marker.x}
                 cy={layout.marker.y}
@@ -1499,7 +1504,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   <path
                     d={pathData}
                     fill="none"
-                    stroke="#111111"
+                    stroke={DIAGRAM_STROKE}
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1508,8 +1513,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     cx={layout.marker.x}
                     cy={layout.marker.y}
                     r={8}
-                    fill="#111111"
-                    stroke="#111111"
+                    fill={DIAGRAM_STROKE}
+                    stroke={DIAGRAM_STROKE}
                     strokeWidth={2}
                   />
                 </g>
@@ -1524,7 +1529,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               width={selectionBounds.width + 16}
               height={selectionBounds.height + 16}
               fill="none"
-              stroke="#6b6b66"
+              stroke={DIAGRAM_SELECTION}
               strokeDasharray="6 4"
             />
           ) : null}
@@ -1535,8 +1540,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               y={marqueeBounds.y}
               width={marqueeBounds.width}
               height={marqueeBounds.height}
-              fill="rgba(40,40,40,0.06)"
-              stroke="#4b4b46"
+              fill={DIAGRAM_SELECTION_FILL}
+              stroke={DIAGRAM_SELECTION}
               strokeDasharray="6 4"
             />
           ) : null}

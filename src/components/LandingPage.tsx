@@ -9,122 +9,59 @@ interface LandingPageProps {
 }
 
 const NAV_ITEMS = [
-  { label: "Inizio", href: "#landing-home" },
-  { label: "Presentazione", href: "#landing-about" },
-  { label: "Documentazione", href: "#landing-documentation" },
-  { label: "Tutorial", href: "#landing-tutorial" },
-  { label: "Funzioni", href: "#landing-services" },
+  { label: "Panoramica", href: "#landing-home" },
+  { label: "Workspace", href: "#landing-workspace" },
+  { label: "Flusso", href: "#landing-flow" },
 ];
 
-const ABOUT_PILLARS = [
+const WORKSPACE_PILLARS = [
   {
-    title: "Introduzione leggibile",
+    title: "Layout piu rilassato",
     text:
-      "La pagina iniziale spiega subito cosa fa l'app, per chi e stata pensata e quali percorsi usare prima di entrare nel canvas.",
+      "Header, toolbar, canvas e inspector sono leggibili a colpo d'occhio, con piu aria tra i blocchi e meno rumore visivo.",
   },
   {
-    title: "Navigazione chiara",
+    title: "Gerarchia chiara",
     text:
-      "Navbar, sezioni ancorate e CTA coerenti aiutano a passare da panoramica, documentazione e tutorial senza perdersi.",
+      "Le azioni frequenti restano vicine, mentre i pannelli laterali diventano piu ordinati e coerenti con il ritmo del lavoro.",
   },
   {
-    title: "Stessa identita visiva",
+    title: "Palette da studio",
     text:
-      "Il linguaggio visivo resta coerente con lo studio: superfici morbide, tipografia editoriale e contrasti netti dove servono.",
-  },
-];
-
-const DOCUMENTATION_AREAS = [
-  {
-    eyebrow: "Prodotto",
-    title: "Panoramica dell'app",
-    points: [
-      "Pagina iniziale pubblica per capire il prodotto prima di aprire l'editor.",
-      "Studio operativo separato, pensato per modellare senza distrazioni.",
-      "Rilascio e versione sempre visibili nel percorso iniziale.",
-    ],
-  },
-  {
-    eyebrow: "Modalita codice",
-    title: "Documentazione del codice",
-    points: [
-      "Modalita codice con sincronizzazione live tra sorgente ERS e canvas.",
-      "Errori di parsing mostrati in modo diretto durante la scrittura.",
-      "Rigenerazione del sorgente dal diagramma corrente in un click.",
-    ],
-  },
-  {
-    eyebrow: "Formato",
-    title: "Sintassi ERS e modello",
-    points: [
-      "Entita, relazioni, attributi e cardinalita nel flusso base.",
-      "Supporto per identificatori interni, composti ed esterni.",
-      "Esporta PNG, SVG e JSON per consegna, revisione o presentazione.",
-    ],
+      "Toni salvia, sabbia e ardesia mantengono il contrasto alto senza creare la fatica tipica delle interfacce troppo aggressive.",
   },
 ];
 
-const TUTORIAL_STEPS = [
+const WORKFLOW_STEPS = [
   {
     step: "01",
-    title: "Apri il canvas solo quando serve",
+    title: "Apri lo studio solo quando sei pronto",
     text:
-      "Usa la landing per orientarti, poi entra nello studio con una CTA sempre visibile e senza menu nascosti.",
+      "La landing ora funziona come una vera pagina introduttiva: spiega l'app, mostra il percorso e lascia entrare nello spazio operativo con intenzione.",
   },
   {
     step: "02",
-    title: "Disegna il modello base",
+    title: "Lavora con vista e modalita giuste",
     text:
-      "Aggiungi entita, relazioni e attributi; il lessico Chen e gia il centro dell'interfaccia.",
+      "Passi velocemente da Diagramma, Affiancata e Codice, senza perdere il contesto del progetto corrente.",
   },
   {
     step: "03",
-    title: "Rifinisci con ispettore e modalita codice",
+    title: "Rifinisci e valida senza frizioni",
     text:
-      "Controlla cardinalita, identificatori e sorgente ERS con ispettore e modalita codice in un flusso lineare.",
-  },
-  {
-    step: "04",
-    title: "Esporta e presenta",
-    text:
-      "Quando il modello e pronto puoi esportarlo o riaprirlo in seguito con una struttura chiara e consistente.",
+      "Toolbar, inspector e sincronizzazione ERS restano presenti ma meno invadenti, cosi il canvas torna davvero al centro.",
   },
 ];
 
-const SERVICE_AREAS = [
-  {
-    title: "Presentazione del prodotto",
-    text:
-      "Una sezione pensata per raccontare il valore dell'app, i casi d'uso principali e la differenza tra presentazione e spazio di lavoro.",
-    tag: "orientamento",
-  },
-  {
-    title: "Documentazione integrata",
-    text:
-      "Spazio dedicato a flusso, formato ERS, modalita codice e note di rilascio: utile sia per chi usa l'app sia per chi la studia.",
-    tag: "codice",
-  },
-  {
-    title: "Tutorial operativo",
-    text:
-      "Percorso a step per passare dalla prima visita alla modellazione, con esempi semplici e call to action coerenti.",
-    tag: "avvio",
-  },
-  {
-    title: "Servizi di lavoro",
-    text:
-      "Canvas, esportazione, validazione e revisione sono presentati come parti di un unico ecosistema, non come funzioni sparse.",
-    tag: "flusso",
-  },
-];
+const ERS_PREVIEW = `entity progetto "PROGETTO" {
+  identifier id "ID"
+  attribute nome "NOME"
+}
 
-const FOOTER_LINKS = [
-  { label: "Inizio", href: "#landing-home" },
-  { label: "Presentazione", href: "#landing-about" },
-  { label: "Documentazione", href: "#landing-documentation" },
-  { label: "Tutorial", href: "#landing-tutorial" },
-  { label: "Funzioni", href: "#landing-services" },
-];
+relation assegna "ASSEGNA" {
+  connect persona "(1,N)"
+  connect progetto "(0,N)"
+}`;
 
 export function LandingPage(props: LandingPageProps) {
   return (
@@ -132,7 +69,7 @@ export function LandingPage(props: LandingPageProps) {
       <header className="landing-site-header">
         <div className="landing-header-main">
           <a className="landing-brand-link" href="#landing-home" aria-label={`Vai a ${props.appTitle}`}>
-            <span className="landing-kicker">Applicazione ufficiale</span>
+            <span className="landing-kicker">Comfort workspace</span>
             <strong>{props.appTitle}</strong>
           </a>
 
@@ -148,11 +85,8 @@ export function LandingPage(props: LandingPageProps) {
         <div className="landing-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
           <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
-            Guida alla modalita codice
+            Guida ERS
           </button>
-          <a className="landing-secondary-link" href="#landing-documentation">
-            Documentazione
-          </a>
           <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
             Apri Studio
           </button>
@@ -162,11 +96,11 @@ export function LandingPage(props: LandingPageProps) {
       <main className="landing-main">
         <section className="landing-hero" id="landing-home">
           <div className="landing-hero-copy">
-            <p className="landing-hero-eyebrow">Sito introduttivo e spazio operativo</p>
-            <h1>{props.appTitle}, spiegato bene prima di aprire il canvas.</h1>
+            <p className="landing-hero-eyebrow">Pagina introduttiva semplice e reale</p>
+            <h1>Uno studio piu comodo, piu chiaro e pronto al lavoro serio.</h1>
             <p className="landing-hero-lead">
-              La pagina iniziale diventa una vera introduzione dell&apos;app: racconta il prodotto, guida alla
-              documentazione, mostra il tutorial e porta nello studio solo quando l&apos;utente e pronto.
+              La home introduce l&apos;app in modo netto e senza confusione. Quando entri nello studio trovi un
+              ambiente piu rilassato, con layout ordinato, colori morbidi e focus immediato sul diagramma.
             </p>
 
             <div className="landing-cta-row">
@@ -174,25 +108,25 @@ export function LandingPage(props: LandingPageProps) {
                 Entra nello Studio
               </button>
               <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
-                Guida alla modalita codice
+                Apri la guida codice
               </button>
-              <a className="landing-secondary-link" href="#landing-about">
-                Scopri il prodotto
+              <a className="landing-secondary-link" href="#landing-workspace">
+                Scopri il redesign
               </a>
             </div>
 
             <div className="landing-stat-row">
               <div>
-                <strong>Canvas Chen nativo</strong>
-                <span>Modellazione concettuale chiara, senza adattare editor generici.</span>
+                <strong>Workspace comodo</strong>
+                <span>Pannelli piu ariosi, header leggibile e una gerarchia pensata per lavorare a lungo.</span>
               </div>
               <div>
-                <strong>Codice e diagramma sincronizzati</strong>
-                <span>ERS allineato al canvas durante la scrittura valida.</span>
+                <strong>Vista affiancata utile</strong>
+                <span>Canvas e codice convivono meglio, senza la sensazione di schermi sovraccarichi.</span>
               </div>
               <div>
-                <strong>Esportazione e revisione</strong>
-                <span>PNG, SVG, JSON e note di rilascio leggibili fin dalla pagina iniziale.</span>
+                <strong>Palette piu calma</strong>
+                <span>Contrasti professionali ma morbidi, adatti a una sessione di modellazione continua.</span>
               </div>
             </div>
           </div>
@@ -200,24 +134,24 @@ export function LandingPage(props: LandingPageProps) {
           <div className="landing-hero-side">
             <article className="landing-preview-card">
               <div className="landing-preview-stage" aria-hidden="true">
-                <div className="preview-node preview-entity preview-entity-left">STUDENTE</div>
-                <div className="preview-node preview-relationship">FREQUENTA</div>
-                <div className="preview-node preview-entity preview-entity-right">CORSO</div>
-                <div className="preview-node preview-attribute preview-attribute-left">MATRICOLA</div>
-                <div className="preview-node preview-attribute preview-attribute-right">CFU</div>
+                <div className="preview-node preview-entity preview-entity-left">PERSONA</div>
+                <div className="preview-node preview-relationship">ASSEGNA</div>
+                <div className="preview-node preview-entity preview-entity-right">PROGETTO</div>
+                <div className="preview-node preview-attribute preview-attribute-left">Matricola</div>
+                <div className="preview-node preview-attribute preview-attribute-right">Budget</div>
                 <span className="preview-line preview-line-left" />
                 <span className="preview-line preview-line-right" />
                 <span className="preview-line preview-line-attribute-left" />
                 <span className="preview-line preview-line-attribute-right" />
-                <span className="preview-cardinality preview-cardinality-left">(0,N)</span>
-                <span className="preview-cardinality preview-cardinality-right">(1,N)</span>
+                <span className="preview-cardinality preview-cardinality-left">(1,N)</span>
+                <span className="preview-cardinality preview-cardinality-right">(0,N)</span>
               </div>
 
               <div className="landing-preview-copy">
-                <span className="landing-preview-label">Anteprima</span>
+                <span className="landing-preview-label">Anteprima workspace</span>
                 <p>
-                  Un canvas focalizzato sul modello concettuale, con nodi chiari, collegamenti naturali e un percorso
-                  semplice tra introduzione, studio e documentazione.
+                  Un ambiente orientato al lavoro: superfici chiare, pannelli meno pesanti e un canvas che torna a
+                  essere il centro operativo.
                 </p>
               </div>
             </article>
@@ -237,43 +171,43 @@ export function LandingPage(props: LandingPageProps) {
               </article>
 
               <article className="landing-route-card">
-                <span className="landing-proof-kicker">Percorso consigliato</span>
+                <span className="landing-proof-kicker">Routine consigliata</span>
                 <ol className="landing-route-list">
-                  <li>Leggi la panoramica del prodotto.</li>
-                  <li>Apri documentazione e tutorial dalla barra superiore.</li>
-                  <li>Entra nello studio con il contesto gia chiaro.</li>
+                  <li>Leggi la panoramica iniziale.</li>
+                  <li>Apri lo studio nella vista piu adatta.</li>
+                  <li>Usa canvas, inspector e ERS con meno attrito visivo.</li>
                 </ol>
               </article>
             </div>
           </div>
         </section>
 
-        <section className="landing-section" id="landing-about">
+        <section className="landing-section" id="landing-workspace">
           <div className="landing-section-heading">
-            <span>Presentazione</span>
-            <h2>La pagina iniziale presenta il prodotto come sito, non come semplice splash screen.</h2>
+            <span>Workspace</span>
+            <h2>Il redesign punta a farti lavorare comodo, non soltanto a rendere l&apos;app piu bella.</h2>
             <p className="landing-section-lead">
-              L&apos;obiettivo e far capire subito cos&apos;e {props.appTitle}, perche esiste e quale strada seguire:
-              informarsi, approfondire il codice, orientarsi e poi modellare.
+              La pagina iniziale diventa piu pulita e il vero cambiamento prosegue dentro lo studio: piu ordine,
+              meno tensione visiva e strumenti che si leggono piu velocemente.
             </p>
           </div>
 
           <div className="landing-about-layout">
             <article className="landing-spotlight-card">
-              <span className="landing-kicker">Perche funziona</span>
-              <h3>Un ingresso piu user friendly, coerente con il tono editoriale dell&apos;app.</h3>
+              <span className="landing-kicker">Obiettivo del nuovo layout</span>
+              <h3>Creare un ambiente di lavoro comodo, coerente e semplice da capire.</h3>
               <p>
-                La pagina usa una struttura da prodotto: hero, sezioni informative, documentazione, tutorial, servizi
-                e footer. Il visitatore capisce subito cosa aspettarsi e dove cliccare.
+                L&apos;interfaccia separa meglio introduzione e lavoro operativo. La landing accompagna, lo studio
+                esegue. Questa distinzione rende il percorso piu naturale fin dal primo click.
               </p>
               <p>
-                Lo studio resta il cuore operativo, ma la landing ora lo introduce nel modo corretto invece di
-                somigliare a un layout incompleto o troppo tecnico.
+                Dentro lo studio il layout usa spaziatura piu stabile, pannelli meno rigidi e una palette che aiuta a
+                concentrarsi sul diagramma invece che sull&apos;interfaccia stessa.
               </p>
             </article>
 
             <div className="landing-card-grid">
-              {ABOUT_PILLARS.map((item) => (
+              {WORKSPACE_PILLARS.map((item) => (
                 <article key={item.title} className="landing-info-card">
                   <h3>{item.title}</h3>
                   <p>{item.text}</p>
@@ -283,49 +217,36 @@ export function LandingPage(props: LandingPageProps) {
           </div>
         </section>
 
-        <section className="landing-section" id="landing-documentation">
+        <section className="landing-section" id="landing-flow">
           <div className="landing-section-heading">
-            <span>Documentazione</span>
-            <h2>Documentazione del prodotto e del codice, leggibile direttamente dalla pagina iniziale.</h2>
+            <span>Flusso</span>
+            <h2>Un percorso breve: capire l&apos;app, entrare nello studio, lavorare bene.</h2>
             <p className="landing-section-lead">
-              Questa sezione crea un ponte tra chi vuole usare l&apos;app e chi vuole capirne meglio il comportamento,
-              il flusso ERS e la logica dello spazio di lavoro.
+              La nuova home resta essenziale e porta subito verso lo spazio operativo, senza le tante sezioni da sito
+              vetrina che rallentano il passaggio al lavoro vero.
             </p>
           </div>
 
           <div className="landing-docs-layout">
-            <div className="landing-doc-grid">
-              {DOCUMENTATION_AREAS.map((item) => (
-                <article key={item.title} className="landing-doc-card">
-                  <span>{item.eyebrow}</span>
+            <div className="landing-tutorial-grid">
+              {WORKFLOW_STEPS.map((item) => (
+                <article key={item.step} className="landing-step-card">
+                  <span className="landing-step-number">{item.step}</span>
                   <h3>{item.title}</h3>
-                  <ul>
-                    {item.points.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
+                  <p>{item.text}</p>
                 </article>
               ))}
             </div>
 
             <article className="landing-code-card">
               <div className="landing-code-head">
-                <span className="landing-kicker">Snippet ERS</span>
-                <strong>Documentazione per il codice</strong>
+                <span className="landing-kicker">Codice ERS</span>
+                <strong>Una guida chiara resta a un click</strong>
               </div>
-              <pre>{`entity Studente
-  attribute Matricola key
-  attribute Nome
-
-entity Corso
-  attribute Cfu
-
-relationship Frequenta between Studente and Corso
-  cardinality Studente (0,N)
-  cardinality Corso (1,N)`}</pre>
+              <pre>{ERS_PREVIEW}</pre>
               <p>
-                Il codice ERS e parte del racconto del prodotto: la pagina iniziale lo introduce, la modalita codice lo rende
-                operativo, e il canvas lo traduce in diagramma.
+                Se preferisci modellare da tastiera, la guida alla modalita codice resta facilmente raggiungibile dalla
+                landing e dalla workspace.
               </p>
               <div className="landing-inline-actions">
                 <button type="button" className="landing-secondary-link" onClick={props.onOpenCodeTutorial}>
@@ -336,61 +257,13 @@ relationship Frequenta between Studente and Corso
           </div>
         </section>
 
-        <section className="landing-section" id="landing-tutorial">
-          <div className="landing-section-heading">
-            <span>Tutorial</span>
-            <h2>Un percorso guidato in quattro passi, senza frizioni.</h2>
-            <p className="landing-section-lead">
-              Invece di lasciare l&apos;utente da solo davanti al canvas, la pagina guida il primo approccio con step
-              concreti e progressivi.
-            </p>
-          </div>
-
-          <div className="landing-tutorial-grid">
-            {TUTORIAL_STEPS.map((item) => (
-              <article key={item.step} className="landing-step-card">
-                <span className="landing-step-number">{item.step}</span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className="landing-inline-actions">
-            <button type="button" className="landing-primary-button" onClick={props.onOpenCodeTutorial}>
-              Vai al tutorial della modalita codice
-            </button>
-          </div>
-        </section>
-
-        <section className="landing-section" id="landing-services">
-          <div className="landing-section-heading">
-            <span>Funzioni</span>
-            <h2>Le aree chiave dell&apos;esperienza sono esplicitate come servizi del prodotto.</h2>
-            <p className="landing-section-lead">
-              Ogni blocco della pagina iniziale indirizza a un bisogno diverso: capire l&apos;app, leggere il comportamento del
-              codice, seguire il tutorial o passare al lavoro operativo.
-            </p>
-          </div>
-
-          <div className="landing-service-grid">
-            {SERVICE_AREAS.map((item) => (
-              <article key={item.title} className="landing-service-card">
-                <span className="landing-service-tag">{item.tag}</span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
         <section className="landing-final-cta">
           <div>
             <span className="landing-kicker">Pronto a modellare</span>
-            <h2>Apri {props.appTitle} quando vuoi passare dall&apos;introduzione al lavoro vero.</h2>
+            <h2>Apri {props.appTitle} e lavora in uno studio piu semplice, piu calmo e piu leggibile.</h2>
           </div>
           <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
-            Apri ER Studio
+            Vai allo Studio
           </button>
         </section>
       </main>
@@ -399,15 +272,12 @@ relationship Frequenta between Studente and Corso
         <div className="landing-footer-grid">
           <div className="landing-footer-brand">
             <span className="landing-kicker">{props.appTitle}</span>
-            <p>
-              Una landing introduttiva piu chiara, con navbar, documentazione, tutorial, servizi e accesso rapido al
-              spazio operativo.
-            </p>
+            <p>Una home essenziale per presentare l&apos;app e un workspace ridisegnato per lavorare con piu comfort.</p>
           </div>
 
           <div className="landing-footer-links">
             <strong>Navigazione</strong>
-            {FOOTER_LINKS.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <a key={item.label} href={item.href}>
                 {item.label}
               </a>
@@ -415,16 +285,15 @@ relationship Frequenta between Studente and Corso
           </div>
 
           <div className="landing-footer-links">
-            <strong>Rilascio</strong>
+            <strong>Versione</strong>
             <span>{props.latestRelease.version}</span>
             <span>{props.latestRelease.date}</span>
-            <a href="#landing-documentation">Apri documentazione</a>
           </div>
 
           <div className="landing-footer-cta">
             <span className="landing-version-chip">Versione {props.appVersion}</span>
             <button type="button" className="landing-primary-button" onClick={props.onOpenStudio}>
-              Vai allo Studio
+              Apri lo Studio
             </button>
           </div>
         </div>

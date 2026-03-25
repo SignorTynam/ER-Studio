@@ -28,6 +28,17 @@ interface AppHeaderProps {
   onHome?: () => void;
 }
 
+const WORKSPACE_VIEW_LABEL: Record<AppHeaderProps["workspaceView"], string> = {
+  diagram: "Diagramma",
+  split: "Affiancata",
+  code: "Codice",
+};
+
+const EDITOR_MODE_LABEL: Record<EditorMode, string> = {
+  edit: "Modifica",
+  view: "Solo lettura",
+};
+
 export function AppHeader(props: AppHeaderProps) {
   const navRef = useRef<HTMLElement | null>(null);
 
@@ -92,9 +103,23 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className="app-header">
       <div className="app-title-block">
+        <div className="app-eyebrow">Workspace operativo</div>
         <h1>{props.appTitle}</h1>
-        <div className="app-subtitle">{props.diagramName}</div>
-        <div className="app-version-pill">Versione {props.appVersion}</div>
+        <div className="app-title-meta">
+          <div className="app-subtitle">{props.diagramName}</div>
+          <div className="app-version-pill">Versione {props.appVersion}</div>
+        </div>
+      </div>
+
+      <div className="header-status-strip" aria-label="Stato workspace">
+        <div className="header-status-card">
+          <span>Vista</span>
+          <strong>{WORKSPACE_VIEW_LABEL[props.workspaceView]}</strong>
+        </div>
+        <div className="header-status-card">
+          <span>Modalita</span>
+          <strong>{EDITOR_MODE_LABEL[props.mode]}</strong>
+        </div>
       </div>
 
       <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
@@ -186,7 +211,7 @@ export function AppHeader(props: AppHeaderProps) {
             type="button"
             onClick={() => props.onWorkspaceViewChange("code")}
           >
-            Codice
+            ERS
           </button>
         </div>
 

@@ -1,6 +1,10 @@
 import type { MouseEvent, PointerEvent } from "react";
 import type { DiagramNode, Point } from "../types/diagram";
 
+const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
+const DIAGRAM_STROKE = "var(--diagram-stroke)";
+const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
+
 interface AttributeLabelLayout {
   x: number;
   y: number;
@@ -73,8 +77,8 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           y={node.y}
           width={node.width}
           height={node.height}
-          fill="#ffffff"
-          stroke="#111111"
+          fill={DIAGRAM_NODE_FILL}
+          stroke={DIAGRAM_STROKE}
           strokeWidth={props.selected || props.pending ? 2.6 : 2}
         />
         {node.isWeak === true ? (
@@ -84,7 +88,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             width={Math.max(0, node.width - inset * 2)}
             height={Math.max(0, node.height - inset * 2)}
             fill="none"
-            stroke="#111111"
+            stroke={DIAGRAM_STROKE}
             strokeWidth={props.selected || props.pending ? 2.2 : 1.8}
           />
         ) : null}
@@ -112,7 +116,12 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onPointerDown={(event) => props.onPointerDown(event, node)}
         onDoubleClick={(event) => props.onDoubleClick(event, node)}
       >
-        <polygon points={points} fill="#ffffff" stroke="#111111" strokeWidth={props.selected || props.pending ? 2.6 : 2} />
+        <polygon
+          points={points}
+          fill={DIAGRAM_NODE_FILL}
+          stroke={DIAGRAM_STROKE}
+          strokeWidth={props.selected || props.pending ? 2.6 : 2}
+        />
         <text x={cx} y={cy} className="shape-label" textAnchor="middle" dominantBaseline="middle">
           {node.label}
         </text>
@@ -138,7 +147,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             width={node.width + 8}
             height={node.height + 8}
             fill="none"
-            stroke="#555555"
+            stroke={DIAGRAM_SELECTION}
             strokeDasharray="4 3"
           />
         ) : null}
@@ -149,8 +158,8 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               cy={cy}
               rx={node.width / 2}
               ry={node.height / 2}
-              fill="#ffffff"
-              stroke="#111111"
+              fill={DIAGRAM_NODE_FILL}
+              stroke={DIAGRAM_STROKE}
               strokeWidth={props.selected || props.pending ? 2.6 : 2}
             />
             <text
@@ -173,8 +182,8 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     cx={node.x + 10}
                     cy={cy}
                     r={7}
-                    fill={isIdentifier ? "#111111" : "#ffffff"}
-                    stroke="#111111"
+                    fill={isIdentifier ? DIAGRAM_STROKE : DIAGRAM_NODE_FILL}
+                    stroke={DIAGRAM_STROKE}
                     strokeWidth={2}
                   />
                   <text
@@ -211,7 +220,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           width={node.width + 8}
           height={node.height + 8}
           fill="none"
-          stroke="#555555"
+          stroke={DIAGRAM_SELECTION}
           strokeDasharray="4 3"
         />
       ) : null}

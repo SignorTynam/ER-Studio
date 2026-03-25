@@ -2,6 +2,8 @@ import type { MouseEvent, PointerEvent } from "react";
 import { getEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 
+const DIAGRAM_STROKE = "var(--diagram-stroke)";
+
 interface EdgeLaneInfo {
   laneIndex: number;
   laneCount: number;
@@ -89,7 +91,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         <path
           d={secondaryPathData}
           fill="none"
-          stroke="#111111"
+          stroke={DIAGRAM_STROKE}
           strokeWidth={1.6}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -99,7 +101,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       <path
         d={pathData}
         fill="none"
-        stroke="#111111"
+        stroke={DIAGRAM_STROKE}
         strokeWidth={props.selected ? 2.8 : 2}
         strokeLinecap="round"
         strokeLinejoin="round"

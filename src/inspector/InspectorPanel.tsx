@@ -158,7 +158,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             aria-label="Espandi pannello proprieta"
             title="Espandi"
           >
-            ←
+            {"<"}
           </button>
         </div>
 
@@ -198,7 +198,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
           aria-label="Comprimi pannello proprieta"
           title="Comprimi"
         >
-          →
+          {">"}
         </button>
       </div>
 
