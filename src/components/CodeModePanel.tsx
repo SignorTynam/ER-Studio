@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import type { ReactNode } from "react";
 
 interface CodeModePanelProps {
   code: string;
@@ -16,50 +17,157 @@ interface CodeModePanelProps {
   onOpenTutorial: () => void;
 }
 
-const ERS_SAMPLE = `entity persona "PERSONA" {
-  identifier id "ID"
-  multivalued telefoni "TELEFONI"
+const KEYWORD_PATTERN =
+  /\b(?:diagram|entity|relationship|relation|attribute|identifier|composite|multivalued|inheritance|connect|external|text|weak|label|card|style|offset|disjoint|overlap|total|partial|from|to|target|targetEntity|targetAttribute|sourceAttribute|compositeInternal)\b/g;
+const STRING_PATTERN = /"(?:\\.|[^"\\])*"/g;
+const CARDINALITY_PATTERN = /\((?:0|1),(?:1|N)\)/g;
+const TOKEN_PATTERN =
+  /#.*$|\/\/.*$|"(?:\\.|[^"\\])*"|->|\b(?:diagram|entity|relationship|relation|attribute|identifier|composite|multivalued|inheritance|connect|external|text|weak|label|card|style|offset|disjoint|overlap|total|partial|from|to|target|targetEntity|targetAttribute|sourceAttribute|compositeInternal)\b|\((?:0|1),(?:1|N)\)|[{}]/g;
+
+function parseErrorLine(error: string): number | null {
+  const match = error.match(/ERS linea (\d+)/i);
+  return match ? Number(match[1]) : null;
 }
 
-entity dipendente "DIPENDENTE" weak {
-}
+function highlightLine(line: string, lineIndex: number): ReactNode[] {
+  const segments: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const matcher = new RegExp(TOKEN_PATTERN);
 
-entity consulente "CONSULENTE" {
-}
+  while ((match = matcher.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push(
+        <span key={`plain-${lineIndex}-${lastIndex}`} className="code-token-plain">
+          {line.slice(lastIndex, match.index)}
+        </span>,
+      );
+    }
 
-inheritance dipendente -> persona disjoint total
-inheritance consulente -> persona overlap partial`;
+    const token = match[0];
+    let className = "code-token-plain";
+    if (token.startsWith("#") || token.startsWith("//")) {
+      className = "code-token-comment";
+    } else if (token.startsWith("\"")) {
+      className = "code-token-string";
+    } else if (token === "->") {
+      className = "code-token-operator";
+    } else if (token === "{" || token === "}") {
+      className = "code-token-punctuation";
+    } else if (CARDINALITY_PATTERN.test(token)) {
+      className = "code-token-cardinality";
+    } else if (KEYWORD_PATTERN.test(token)) {
+      className = "code-token-keyword";
+    }
+
+    KEYWORD_PATTERN.lastIndex = 0;
+    CARDINALITY_PATTERN.lastIndex = 0;
+    STRING_PATTERN.lastIndex = 0;
+
+    segments.push(
+      <span key={`token-${lineIndex}-${match.index}`} className={className}>
+        {token}
+      </span>,
+    );
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < line.length) {
+    segments.push(
+      <span key={`plain-tail-${lineIndex}-${lastIndex}`} className="code-token-plain">
+        {line.slice(lastIndex)}
+      </span>,
+    );
+  }
+
+  if (segments.length === 0) {
+    segments.push(
+      <span key={`empty-${lineIndex}`} className="code-token-plain">
+        {" "}
+      </span>,
+    );
+  }
+
+  return segments;
+}
 
 export function CodeModePanel(props: CodeModePanelProps) {
-  const [guideOpen, setGuideOpen] = useState(props.layout === "code");
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const highlightRef = useRef<HTMLPreElement | null>(null);
+  const gutterRef = useRef<HTMLDivElement | null>(null);
+
+  const lineCount = Math.max(1, props.code.split(/\r?\n/).length);
+  const errorLine = parseErrorLine(props.parseError);
+  const highlightedLines = useMemo(
+    () =>
+      props.code.split(/\r?\n/).map((line, index) => (
+        <div key={`line-${index + 1}`} className="code-highlight-line">
+          {highlightLine(line, index)}
+        </div>
+      )),
+    [props.code],
+  );
+
+  function syncEditorScroll() {
+    if (!editorRef.current) {
+      return;
+    }
+
+    const { scrollTop, scrollLeft } = editorRef.current;
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = scrollTop;
+      highlightRef.current.scrollLeft = scrollLeft;
+    }
+    if (gutterRef.current) {
+      gutterRef.current.scrollTop = scrollTop;
+    }
+  }
 
   useEffect(() => {
-    if (props.layout === "code") {
-      setGuideOpen(true);
+    syncEditorScroll();
+  }, [props.code]);
+
+  function focusErrorLine(lineNumber: number) {
+    if (!editorRef.current) {
+      return;
     }
-  }, [props.layout]);
+
+    const lines = props.code.split(/\r?\n/);
+    let start = 0;
+    for (let index = 0; index < lineNumber - 1; index += 1) {
+      start += (lines[index]?.length ?? 0) + 1;
+    }
+
+    const end = start + (lines[lineNumber - 1]?.length ?? 0);
+    editorRef.current.focus();
+    editorRef.current.setSelectionRange(start, end);
+
+    const lineHeight = Number.parseFloat(window.getComputedStyle(editorRef.current).lineHeight) || 24;
+    editorRef.current.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
+    syncEditorScroll();
+  }
 
   return (
     <section className={props.layout === "split" ? "code-mode-panel split" : "code-mode-panel"}>
       <div className="code-mode-head">
         <div>
-          <div className="panel-heading">Modalita codice</div>
+          <div className="panel-heading">Code mode</div>
           <h2>{props.diagramName}.ers</h2>
-          <p>Scrivi il diagramma in ERS: il canvas si aggiorna in tempo reale mentre modifichi il file.</p>
+          <p>Editor ERS essenziale, leggibile e sincronizzato con il modello.</p>
         </div>
 
         <div className="code-mode-actions">
-          <button type="button" className="header-button" onClick={props.onOpenTutorial}>
-            Tutorial modalita codice
-          </button>
           <button type="button" className="header-button" onClick={props.onLoad}>
-            Carica .ers
+            Carica ERS
           </button>
           <button type="button" className="header-button" onClick={props.onDownload}>
-            Scarica .ers
+            Scarica ERS
           </button>
           <button type="button" className="header-button" onClick={props.onReset}>
-            Rigenera dal diagramma
+            Rigenera
+          </button>
+          <button type="button" className="header-button" onClick={props.onOpenTutorial}>
+            Guida
           </button>
         </div>
       </div>
@@ -70,75 +178,68 @@ export function CodeModePanel(props: CodeModePanelProps) {
         </span>
         <span>{props.nodeCount} nodi</span>
         <span>{props.edgeCount} collegamenti</span>
-        <span>{props.issueCount} validazioni</span>
-        <span className={props.parseError ? "code-mode-status-warning" : ""}>
-          {props.parseError ? "Ultimo stato valido mantenuto" : "Sincronizzazione attiva"}
-        </span>
+        <span>{props.issueCount} controlli</span>
       </div>
 
-      {props.parseError ? <div className="code-mode-error">{props.parseError}</div> : null}
-      {!props.parseError ? (
+      {props.parseError ? (
+        <div className="code-mode-error code-mode-error-inline">
+          <div className="code-mode-error-copy">
+            <strong>Errore di parsing</strong>
+            <p>{props.parseError}</p>
+          </div>
+          {errorLine ? (
+            <button type="button" className="header-button" onClick={() => focusErrorLine(errorLine)}>
+              Vai alla riga {errorLine}
+            </button>
+          ) : null}
+        </div>
+      ) : (
         <p className="code-mode-hint">
-          Suggerimento: usa la vista affiancata quando vuoi verificare subito cardinalita, attributi composti e
-          vincoli ISA mentre scrivi.
+          Sintassi semplice: scrivi il modello, il canvas si aggiorna in tempo reale quando il codice e valido.
         </p>
-      ) : null}
+      )}
 
-      <div className="code-mode-body">
-        <label className="code-mode-editor">
-          <span className="panel-heading minor">Sorgente ERS</span>
-          <textarea
-            value={props.code}
-            spellCheck={false}
-            onChange={(event) => props.onCodeChange(event.target.value)}
-          />
-        </label>
+      <div className="code-editor-shell">
+        <div className="code-editor-topbar">
+          <span className="code-editor-file">{props.diagramName}.ers</span>
+          <span className="code-editor-meta">{lineCount} righe</span>
+        </div>
 
-        <aside className="code-mode-guide">
-          <button
-            type="button"
-            className="code-mode-guide-toggle"
-            onClick={() => setGuideOpen((current) => !current)}
-            aria-expanded={guideOpen}
-          >
-            <span className="panel-heading minor">Sintassi</span>
-            <span>{guideOpen ? "Nascondi" : "Mostra"}</span>
-          </button>
+        <div className="code-editor-frame">
+          <div ref={gutterRef} className="code-editor-gutter" aria-hidden="true">
+            {Array.from({ length: lineCount }, (_, index) => (
+              <span
+                key={`gutter-${index + 1}`}
+                className={errorLine === index + 1 ? "code-editor-line-number error" : "code-editor-line-number"}
+              >
+                {index + 1}
+              </span>
+            ))}
+          </div>
 
-          {guideOpen ? (
-            <>
-              <ul className="code-mode-guide-list">
-                <li>
-                  <code>entity nome &quot;LABEL&quot; {"{"} ... {"}"}</code> descrive l&apos;entita e i suoi attributi.
-                </li>
-                <li>
-                  <code>relation nome &quot;LABEL&quot; entitaA &quot;(0,N)&quot; entitaB &quot;(1,N)&quot;</code>{" "}
-                  descrive una relazione binaria.
-                </li>
-                <li>
-                  Nel blocco usa <code>attribute</code>, <code>identifier</code>, <code>composite</code>,{" "}
-                  <code>multivalued</code>; <code>multivalued</code> crea l&apos;attributo composto principale a cui
-                  puoi collegare altri attributi.
-                </li>
-                <li>
-                  Le generalizzazioni accettano anche <code>disjoint</code> o <code>overlap</code> e{" "}
-                  <code>total</code> o <code>partial</code> sulla stessa riga <code>inheritance</code>.
-                </li>
-                <li>
-                  Per casi avanzati di relazione puoi usare <code>connect</code> ed <code>external</code> dentro il
-                  blocco <code>relation</code>.
-                </li>
-                <li>Il layout del canvas resta separato dal codice: coordinate e dimensioni non vengono serializzate.</li>
-                <li>La sincronizzazione e in tempo reale: quando il codice e valido il diagramma viene aggiornato automaticamente.</li>
-              </ul>
+          <div className="code-editor-surface">
+            <pre ref={highlightRef} className="code-editor-highlight" aria-hidden="true">
+              {highlightedLines}
+            </pre>
+            <textarea
+              ref={editorRef}
+              className="code-editor-input"
+              value={props.code}
+              spellCheck={false}
+              onChange={(event) => props.onCodeChange(event.target.value)}
+              onScroll={syncEditorScroll}
+            />
+          </div>
+        </div>
+      </div>
 
-              <div className="panel-heading minor">Esempio</div>
-              <pre className="code-mode-sample">{ERS_SAMPLE}</pre>
-            </>
-          ) : (
-            <p className="code-mode-guide-hint">Apri la guida per vedere sintassi ed esempio del DSL.</p>
-          )}
-        </aside>
+      <div className="code-mode-reference">
+        <div className="panel-heading minor">Sintassi essenziale</div>
+        <div className="code-mode-reference-list">
+          <code>entity ordine "ORDINE" {"{"}</code>
+          <code>relation acquisto cliente "(0,N)" ordine "(1,1)"</code>
+          <code>inheritance premium -&gt; cliente disjoint total</code>
+        </div>
       </div>
     </section>
   );

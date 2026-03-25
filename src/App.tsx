@@ -260,6 +260,15 @@ export default function App() {
   const hasUnsavedChangesRef = useRef(false);
 
   const issues = validateDiagram(history.present);
+  const selectedNode =
+    selection.nodeIds.length === 1 && selection.edgeIds.length === 0
+      ? history.present.nodes.find((node) => node.id === selection.nodeIds[0])
+      : undefined;
+  const selectedEdge =
+    selection.edgeIds.length === 1 && selection.nodeIds.length === 0
+      ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
+      : undefined;
+  const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   historyRef.current = history;
 
   useEffect(() => {
@@ -776,7 +785,47 @@ export default function App() {
         mode === "composite"
           ? "Identificatore esterno composto creato. Verifica cardinalita (1,1) e (0,1)."
           : "Identificatore esterno creato. Verifica cardinalita (1,1) e (0,1).",
+      };
+  }
+
+  function handleCreateAttributeFromSelection() {
+    if (mode === "view" || selection.nodeIds.length !== 1 || selection.edgeIds.length > 0) {
+      return;
+    }
+
+    const hostNode = history.present.nodes.find((node) => node.id === selection.nodeIds[0]);
+    if (!hostNode || (hostNode.type !== "entity" && hostNode.type !== "relationship" && hostNode.type !== "attribute")) {
+      return;
+    }
+
+    const nextAttribute = createNode("attribute", {
+      x: hostNode.x + hostNode.width + 140,
+      y: hostNode.y + hostNode.height / 2 + (hostNode.type === "attribute" ? 56 : 0),
+    }) as Extract<DiagramNode, { type: "attribute" }>;
+    const nextEdge = createEdge("attribute", nextAttribute.id, hostNode.id);
+    const nextDiagramBase: DiagramDocument = {
+      ...history.present,
+      nodes: [...history.present.nodes, nextAttribute],
+      edges: [...history.present.edges, nextEdge],
     };
+    const nextDiagram =
+      hostNode.type === "attribute"
+        ? updateNodeInDiagram(nextDiagramBase, hostNode.id, {
+            isMultivalued: true,
+            width: Math.max(hostNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
+            height: Math.max(hostNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
+          } as Partial<DiagramNode>)
+        : nextDiagramBase;
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [nextAttribute.id], edgeIds: [] });
+    setTool("select");
+    setStatus(`Attributo collegato a ${hostNode.label}.`);
+    showUndoToast(
+      hostNode.type === "attribute"
+        ? `Sotto-attributo creato da ${hostNode.label}.`
+        : `Attributo creato per ${hostNode.label}.`,
+    );
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -952,6 +1001,60 @@ export default function App() {
   function handleRenameEdge(edgeId: string, label: string) {
     const nextDiagram = updateEdgeTextInDiagram(history.present, edgeId, label);
     commitDiagram(nextDiagram);
+  }
+
+  function handleRenameSelectionQuick() {
+    if (mode === "view") {
+      return;
+    }
+
+    if (selectedNode) {
+      const nextLabel = window.prompt("Nuovo nome elemento", selectedNode.label);
+      if (nextLabel == null) {
+        return;
+      }
+
+      const normalized = nextLabel.trim();
+      if (!normalized || normalized === selectedNode.label) {
+        return;
+      }
+
+      handleRenameNode(selectedNode.id, normalized);
+      setStatus("Elemento rinominato.");
+      return;
+    }
+
+    if (!selectedEdge) {
+      return;
+    }
+
+    const promptLabel =
+      selectedEdge.type === "connector"
+        ? "Nuova cardinalita"
+        : selectedEdge.type === "attribute"
+          ? "Nuova cardinalita opzionale"
+          : "Nuovo nome collegamento";
+    const currentValue =
+      selectedEdge.type === "connector" || selectedEdge.type === "attribute"
+        ? selectedEdge.cardinality ?? ""
+        : selectedEdge.label;
+    const nextValue = window.prompt(promptLabel, currentValue);
+    if (nextValue == null) {
+      return;
+    }
+
+    const normalized = nextValue.trim();
+    if (selectedEdge.type === "connector" && !normalized) {
+      setStatusError("La cardinalita del collegamento non puo essere vuota.");
+      return;
+    }
+
+    if (normalized === currentValue) {
+      return;
+    }
+
+    handleRenameEdge(selectedEdge.id, normalized);
+    setStatus("Collegamento aggiornato.");
   }
 
   function handleDeleteSelection() {
@@ -1254,7 +1357,18 @@ export default function App() {
             activeTool={tool}
             mode={mode}
             collapsed={toolbarCollapsed}
+            canUndo={history.canUndo}
+            canRedo={history.canRedo}
+            selectionItemCount={selectionItemCount}
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
             onToolChange={setTool}
+            onUndo={history.undo}
+            onRedo={history.redo}
+            onDuplicateSelection={handleDuplicateSelection}
+            onDeleteSelection={handleDeleteSelection}
+            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+            onRenameSelection={handleRenameSelectionQuick}
             onToggleCollapse={() => setToolbarCollapsed((current) => !current)}
           />
         ) : null}
@@ -1327,6 +1441,8 @@ export default function App() {
             onDeleteSelection={handleDeleteSelection}
             onDuplicateSelection={handleDuplicateSelection}
             onAlign={handleAlignSelection}
+            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+            onRenameSelection={handleRenameSelectionQuick}
             onToggleCollapse={() => setInspectorCollapsed((current) => !current)}
           />
         ) : null}
