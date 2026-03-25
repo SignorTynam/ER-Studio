@@ -4,6 +4,7 @@ import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
+const DIAGRAM_DRAG = "var(--diagram-drag)";
 const DIAGRAM_WARNING = "var(--diagram-warning)";
 const DIAGRAM_WARNING_FILL = "var(--diagram-warning-fill)";
 const DIAGRAM_ERROR = "var(--diagram-error)";
@@ -22,6 +23,8 @@ interface DiagramEdgeProps {
   targetNode: DiagramNode;
   laneInfo?: EdgeLaneInfo;
   selected: boolean;
+  dragging: boolean;
+  ghost?: boolean;
   focused: boolean;
   focusable: boolean;
   validationLevel?: DiagramIssueLevel;
@@ -118,6 +121,7 @@ function getInheritanceConstraintLabel(edge: Extract<DiagramEdge, { type: "inher
 }
 
 export function DiagramEdgeView(props: DiagramEdgeProps) {
+  const isGhost = props.ghost === true;
   const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
   const secondaryPathData =
@@ -139,23 +143,32 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         : props.edge.type === "inheritance"
           ? props.edge.label
           : "";
-  const strokeColor = getValidationStroke(props.validationLevel);
-  const haloColor = getValidationHalo(props.validationLevel);
+  const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
+  const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
+  const baseOpacity = isGhost ? 0.58 : 1;
+  const labelOpacity = isGhost ? 0.72 : 1;
+  const primaryDashArray = isGhost ? "10 8" : dashArray;
+  const secondaryDashArray = isGhost ? "10 8" : dashArray;
+  const groupClassName = isGhost ? "diagram-edge ghost" : props.selected ? "diagram-edge selected" : "diagram-edge";
+  const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
+  const groupFocusable = !isGhost && props.focusable ? "true" : "false";
 
   return (
     <g
-      className={props.selected ? "diagram-edge selected" : "diagram-edge"}
-      tabIndex={props.focusable ? 0 : -1}
-      focusable={props.focusable ? "true" : "false"}
-      aria-label={`Collegamento ${props.edge.type} tra ${props.sourceNode.label} e ${props.targetNode.label}`}
-      onFocus={() => props.onFocus(props.edge)}
-      onBlur={props.onBlur}
-      onPointerDown={(event) => props.onPointerDown(event, props.edge)}
-      onDoubleClick={(event) => props.onDoubleClick(event, props.edge)}
+      className={groupClassName}
+      tabIndex={groupTabIndex}
+      focusable={groupFocusable}
+      aria-label={isGhost ? undefined : `Collegamento ${props.edge.type} tra ${props.sourceNode.label} e ${props.targetNode.label}`}
+      aria-hidden={isGhost ? true : undefined}
+      pointerEvents={isGhost ? "none" : undefined}
+      onFocus={isGhost ? undefined : () => props.onFocus(props.edge)}
+      onBlur={isGhost ? undefined : props.onBlur}
+      onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, props.edge)}
+      onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, props.edge)}
     >
-      <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
-      {props.validationLevel ? (
+      {!isGhost ? <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} /> : null}
+      {!isGhost && props.validationLevel ? (
         <path
           d={pathData}
           fill="none"
@@ -165,7 +178,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           strokeLinejoin="round"
         />
       ) : null}
-      {props.focused ? (
+      {!isGhost && props.focused ? (
         <path
           d={pathData}
           fill="none"
@@ -181,21 +194,23 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           d={secondaryPathData}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={1.6}
+          strokeWidth={isGhost ? 1.4 : 1.6}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray={dashArray}
+          strokeDasharray={secondaryDashArray}
+          opacity={baseOpacity}
         />
       ) : null}
       <path
         d={pathData}
         fill="none"
         stroke={strokeColor}
-        strokeWidth={props.selected ? 2.8 : 2}
+        strokeWidth={isGhost ? 1.8 : props.selected || props.dragging ? 2.8 : 2}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray={dashArray}
+        strokeDasharray={primaryDashArray}
         markerEnd={props.edge.type === "inheritance" ? "url(#arrowhead)" : undefined}
+        opacity={baseOpacity}
       />
       {inheritanceConstraintLabel ? (
         <text
@@ -204,7 +219,8 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           textAnchor="middle"
           className="edge-label inheritance-constraint-label"
           fill={strokeColor}
-          onPointerDown={(event) => props.onLabelPointerDown(event, props.edge)}
+          opacity={labelOpacity}
+          onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
         >
           {inheritanceConstraintLabel}
         </text>
@@ -216,12 +232,13 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           textAnchor="middle"
           className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
           fill={strokeColor}
-          onPointerDown={(event) => props.onLabelPointerDown(event, props.edge)}
+          opacity={labelOpacity}
+          onPointerDown={isGhost ? undefined : (event) => props.onLabelPointerDown(event, props.edge)}
         >
           {displayLabel}
         </text>
       ) : null}
-      {renderValidationBadge(geometry.labelPoint.x + 18, badgeY, props.validationLevel, props.validationCount)}
+      {!isGhost ? renderValidationBadge(geometry.labelPoint.x + 18, badgeY, props.validationLevel, props.validationCount) : null}
     </g>
   );
 }

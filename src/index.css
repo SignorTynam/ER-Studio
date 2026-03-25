@@ -3670,6 +3670,8 @@ summary:focus-visible {
   --diagram-selection-stroke: #70847d;
   --diagram-selection-fill: rgba(79, 107, 100, 0.09);
   --diagram-focus: #7d9f96;
+  --diagram-drag: #5d7d75;
+  --diagram-drag-fill: rgba(93, 125, 117, 0.14);
   --diagram-pending: #c08d5a;
   --diagram-warning: #b67f43;
   --diagram-warning-fill: rgba(182, 127, 67, 0.18);

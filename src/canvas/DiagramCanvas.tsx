@@ -164,6 +164,82 @@ function unionSelection(base: SelectionState, nodeIds: string[]): SelectionState
   };
 }
 
+function buildAttributeDirectionMap(diagram: DiagramDocument): Map<string, Point> {
+  const directions = new Map<string, Point>();
+  const localNodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = localNodeMap.get(edge.sourceId);
+    const targetNode = localNodeMap.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+
+    const attributeNode =
+      sourceNode.type === "attribute" ? sourceNode : targetNode.type === "attribute" ? targetNode : null;
+    if (!attributeNode || directions.has(attributeNode.id)) {
+      return;
+    }
+
+    const hostNode = attributeNode.id === sourceNode.id ? targetNode : sourceNode;
+    const attributeCenter = getNodeCenter(attributeNode);
+    const hostCenter = getNodeCenter(hostNode);
+
+    directions.set(attributeNode.id, {
+      x: hostCenter.x - attributeCenter.x,
+      y: hostCenter.y - attributeCenter.y,
+    });
+  });
+
+  return directions;
+}
+
+function expandDragNodeIds(diagram: DiagramDocument, seedNodeIds: string[]): string[] {
+  if (seedNodeIds.length === 0) {
+    return [];
+  }
+
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const expandedIds = new Set(seedNodeIds);
+  const queue = [...seedNodeIds];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    if (!currentId) {
+      continue;
+    }
+
+    diagram.edges.forEach((edge) => {
+      if (edge.type !== "attribute") {
+        return;
+      }
+
+      const sourceNode = nodeById.get(edge.sourceId);
+      const targetNode = nodeById.get(edge.targetId);
+
+      const hostedAttribute =
+        edge.sourceId === currentId && targetNode?.type === "attribute"
+          ? targetNode
+          : edge.targetId === currentId && sourceNode?.type === "attribute"
+            ? sourceNode
+            : undefined;
+
+      if (!hostedAttribute || expandedIds.has(hostedAttribute.id)) {
+        return;
+      }
+
+      expandedIds.add(hostedAttribute.id);
+      queue.push(hostedAttribute.id);
+    });
+  }
+
+  return [...expandedIds];
+}
+
 function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "relationship" | "attribute" | "text"> {
   return tool === "entity" || tool === "relationship" || tool === "attribute" || tool === "text";
 }
@@ -275,6 +351,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     pathPoints: Point[];
   }> = [];
   const edgeGeometryMap = new Map<string, Point[]>();
+  const originalAttributeDirectionMap =
+    interaction.kind === "drag" ? buildAttributeDirectionMap(interaction.originalDiagram) : new Map<string, Point>();
 
   props.issues.forEach((issue) => {
     const targetMap = issue.targetType === "node" ? nodeIssueMap : edgeIssueMap;
@@ -768,9 +846,25 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
 
-  const selectionBounds = getSelectionBounds(
-    props.diagram.nodes.filter((node) => props.selection.nodeIds.includes(node.id)),
-  );
+  const activeDragNodeIds = interaction.kind === "drag" ? interaction.nodeIds : props.selection.nodeIds;
+  const selectionBounds = getSelectionBounds(props.diagram.nodes.filter((node) => activeDragNodeIds.includes(node.id)));
+  const dragOriginBounds =
+    interaction.kind === "drag"
+      ? getSelectionBounds(interaction.originalDiagram.nodes.filter((node) => interaction.nodeIds.includes(node.id)))
+      : null;
+  const dragGhostNodeIds = interaction.kind === "drag" ? new Set(interaction.nodeIds) : new Set<string>();
+  const dragGhostEdges =
+    interaction.kind === "drag"
+      ? interaction.originalDiagram.edges.filter(
+          (edge) => dragGhostNodeIds.has(edge.sourceId) || dragGhostNodeIds.has(edge.targetId),
+        )
+      : interaction.kind === "edge-drag"
+        ? interaction.originalDiagram.edges.filter((edge) => edge.id === interaction.edgeId)
+        : [];
+  const dragGhostNodeMap =
+    interaction.kind === "drag"
+      ? new Map(interaction.originalDiagram.nodes.map((node) => [node.id, node]))
+      : new Map<string, DiagramNode>();
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -894,10 +988,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return false;
     }
 
+    const movingNodeIds = expandDragNodeIds(props.diagram, props.selection.nodeIds);
     const nextDiagram = {
       ...props.diagram,
       nodes: props.diagram.nodes.map((node) =>
-        props.selection.nodeIds.includes(node.id)
+        movingNodeIds.includes(node.id)
           ? {
               ...node,
               x: snapValue(node.x + deltaX),
@@ -1133,10 +1228,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const nodeIds =
+    const selectedNodeIds =
       props.selection.nodeIds.includes(node.id) && props.selection.nodeIds.length > 0
         ? props.selection.nodeIds
         : [node.id];
+    const nodeIds = expandDragNodeIds(props.diagram, selectedNodeIds);
 
     const originalDiagram = props.diagram;
     const originPositions: Record<string, Point> = {};
@@ -1147,7 +1243,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       }
     });
 
-    props.onSelectionChange({ nodeIds, edgeIds: [] });
+    props.onSelectionChange({ nodeIds: selectedNodeIds, edgeIds: [] });
     setInteraction({
       kind: "drag",
       pointerId: event.pointerId,
@@ -1666,6 +1762,105 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             onPointerDown={handleCanvasPointerDown}
           />
 
+          {dragGhostEdges.map((edge) => {
+            const sourceNode = dragGhostNodeMap.get(edge.sourceId) ?? nodeMap.get(edge.sourceId);
+            const targetNode = dragGhostNodeMap.get(edge.targetId) ?? nodeMap.get(edge.targetId);
+
+            if (!sourceNode || !targetNode) {
+              return null;
+            }
+
+            return (
+              <DiagramEdgeView
+                key={`ghost-${edge.id}`}
+                edge={edge}
+                sourceNode={sourceNode}
+                targetNode={targetNode}
+                laneInfo={connectorLaneMap.get(edge.id)}
+                selected={false}
+                dragging={false}
+                ghost
+                focused={false}
+                focusable={false}
+                onFocus={() => undefined}
+                onBlur={() => undefined}
+                onPointerDown={() => undefined}
+                onLabelPointerDown={() => undefined}
+                onDoubleClick={() => undefined}
+              />
+            );
+          })}
+
+          {interaction.kind === "drag"
+            ? interaction.originalDiagram.nodes
+                .filter((node) => dragGhostNodeIds.has(node.id))
+                .map((node) => (
+                  <DiagramNodeView
+                    key={`ghost-${node.id}`}
+                    node={node}
+                    selected={false}
+                    dragging={false}
+                    ghost
+                    pending={false}
+                    validationLevel={undefined}
+                    validationCount={undefined}
+                    focused={false}
+                    focusable={false}
+                    onFocus={() => undefined}
+                    onBlur={() => undefined}
+                    attributeDirection={originalAttributeDirectionMap.get(node.id)}
+                    onPointerDown={() => undefined}
+                    onDoubleClick={() => undefined}
+                  />
+                ))
+            : null}
+
+          {interaction.kind === "drag" && selectionBounds ? (
+            <g pointerEvents="none">
+              <rect
+                x={selectionBounds.x - 18}
+                y={selectionBounds.y - 18}
+                width={selectionBounds.width + 36}
+                height={selectionBounds.height + 36}
+                rx={18}
+                ry={18}
+                fill="rgba(255, 253, 250, 0.72)"
+                stroke={DIAGRAM_STROKE}
+                strokeWidth={3.2}
+              />
+              <rect
+                x={selectionBounds.x - 8}
+                y={selectionBounds.y - 8}
+                width={selectionBounds.width + 16}
+                height={selectionBounds.height + 16}
+                rx={14}
+                ry={14}
+                fill="none"
+                stroke="var(--diagram-drag)"
+                strokeWidth={1.7}
+                strokeDasharray="10 8"
+                opacity={0.7}
+              />
+            </g>
+          ) : null}
+
+          {interaction.kind === "drag" && dragOriginBounds ? (
+            <rect
+              x={dragOriginBounds.x - 10}
+              y={dragOriginBounds.y - 10}
+              width={dragOriginBounds.width + 20}
+              height={dragOriginBounds.height + 20}
+              rx={14}
+              ry={14}
+              fill="none"
+              stroke="var(--diagram-drag)"
+              strokeDasharray="10 8"
+              strokeWidth={1.6}
+              opacity={0.46}
+              pointerEvents="none"
+            />
+          ) : null}
+
           {props.diagram.edges.map((edge) => {
             const sourceNode = nodeMap.get(edge.sourceId);
             const targetNode = nodeMap.get(edge.targetId);
@@ -1682,6 +1877,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
+                dragging={interaction.kind === "edge-drag" && interaction.edgeId === edge.id}
                 validationLevel={edgeIssueMap.get(edge.id)?.level}
                 validationCount={edgeIssueMap.get(edge.id)?.count}
                 focused={focusedTarget?.kind === "edge" && focusedTarget.id === edge.id}
@@ -1706,6 +1902,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               key={node.id}
               node={node}
               selected={props.selection.nodeIds.includes(node.id)}
+              dragging={interaction.kind === "drag" && interaction.nodeIds.includes(node.id)}
               pending={pendingConnectionSource === node.id}
               validationLevel={nodeIssueMap.get(node.id)?.level}
               validationCount={nodeIssueMap.get(node.id)?.count}
@@ -1790,7 +1987,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             })()
           ))}
 
-          {selectionBounds ? (
+          {interaction.kind !== "drag" && selectionBounds ? (
             <rect
               x={selectionBounds.x - 8}
               y={selectionBounds.y - 8}

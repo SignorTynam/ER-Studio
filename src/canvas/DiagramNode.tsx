@@ -6,6 +6,7 @@ const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
 const DIAGRAM_PENDING = "var(--diagram-pending)";
+const DIAGRAM_DRAG = "var(--diagram-drag)";
 const DIAGRAM_WARNING = "var(--diagram-warning)";
 const DIAGRAM_WARNING_FILL = "var(--diagram-warning-fill)";
 const DIAGRAM_ERROR = "var(--diagram-error)";
@@ -110,6 +111,8 @@ export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): A
 interface DiagramNodeProps {
   node: DiagramNode;
   selected: boolean;
+  dragging: boolean;
+  ghost?: boolean;
   pending: boolean;
   focused: boolean;
   focusable: boolean;
@@ -124,24 +127,36 @@ interface DiagramNodeProps {
 
 export function DiagramNodeView(props: DiagramNodeProps) {
   const { node } = props;
-  const strokeColor = getValidationStroke(props.validationLevel);
-  const haloColor = getValidationHalo(props.validationLevel);
+  const isGhost = props.ghost === true;
+  const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
+  const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeCount = props.validationCount;
+  const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
+  const baseDash = isGhost ? "10 8" : undefined;
+  const baseOpacity = isGhost ? 0.6 : 1;
+  const labelOpacity = isGhost ? 0.74 : 1;
+  const shapeStrokeWidth = isGhost ? 1.8 : props.selected || props.pending || props.dragging ? 2.6 : 2;
+  const weakShapeStrokeWidth = isGhost ? 1.6 : props.selected || props.pending || props.dragging ? 2.2 : 1.8;
+  const groupClassName = isGhost ? "diagram-node ghost" : props.selected ? "diagram-node selected" : "diagram-node";
+  const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
+  const groupFocusable = !isGhost && props.focusable ? "true" : "false";
 
   if (node.type === "entity") {
     const inset = 8;
     return (
       <g
-        className={props.selected ? "diagram-node selected" : "diagram-node"}
-        tabIndex={props.focusable ? 0 : -1}
-        focusable={props.focusable ? "true" : "false"}
-        aria-label={`Nodo ${node.type}: ${node.label}`}
-        onFocus={() => props.onFocus(node)}
-        onBlur={props.onBlur}
-        onPointerDown={(event) => props.onPointerDown(event, node)}
-        onDoubleClick={(event) => props.onDoubleClick(event, node)}
+        className={groupClassName}
+        tabIndex={groupTabIndex}
+        focusable={groupFocusable}
+        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-hidden={isGhost ? true : undefined}
+        pointerEvents={isGhost ? "none" : undefined}
+        onFocus={isGhost ? undefined : () => props.onFocus(node)}
+        onBlur={isGhost ? undefined : props.onBlur}
+        onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
+        onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
-        {props.validationLevel ? (
+        {!isGhost && props.validationLevel ? (
           <rect
             x={node.x - 8}
             y={node.y - 8}
@@ -152,7 +167,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {props.focused ? (
+        {!isGhost && props.focused ? (
           <rect
             x={node.x - 10}
             y={node.y - 10}
@@ -169,9 +184,11 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           y={node.y}
           width={node.width}
           height={node.height}
-          fill={DIAGRAM_NODE_FILL}
+          fill={baseFill}
           stroke={strokeColor}
-          strokeWidth={props.selected || props.pending ? 2.6 : 2}
+          strokeWidth={shapeStrokeWidth}
+          strokeDasharray={baseDash}
+          opacity={baseOpacity}
         />
         {node.isWeak === true ? (
           <rect
@@ -181,13 +198,15 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             height={Math.max(0, node.height - inset * 2)}
             fill="none"
             stroke={strokeColor}
-            strokeWidth={props.selected || props.pending ? 2.2 : 1.8}
+            strokeWidth={weakShapeStrokeWidth}
+            strokeDasharray={baseDash}
+            opacity={baseOpacity}
           />
         ) : null}
-        {props.pending ? (
+        {!isGhost && props.pending ? (
           <circle cx={node.x + node.width + 8} cy={node.y - 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
-        {renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount)}
+        {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount) : null}
         <text
           x={node.x + node.width / 2}
           y={node.y + node.height / 2}
@@ -195,6 +214,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           textAnchor="middle"
           dominantBaseline="middle"
           fill={strokeColor}
+          opacity={labelOpacity}
         >
           {node.label.toUpperCase()}
         </text>
@@ -209,16 +229,18 @@ export function DiagramNodeView(props: DiagramNodeProps) {
 
     return (
       <g
-        className={props.selected ? "diagram-node selected" : "diagram-node"}
-        tabIndex={props.focusable ? 0 : -1}
-        focusable={props.focusable ? "true" : "false"}
-        aria-label={`Nodo ${node.type}: ${node.label}`}
-        onFocus={() => props.onFocus(node)}
-        onBlur={props.onBlur}
-        onPointerDown={(event) => props.onPointerDown(event, node)}
-        onDoubleClick={(event) => props.onDoubleClick(event, node)}
+        className={groupClassName}
+        tabIndex={groupTabIndex}
+        focusable={groupFocusable}
+        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-hidden={isGhost ? true : undefined}
+        pointerEvents={isGhost ? "none" : undefined}
+        onFocus={isGhost ? undefined : () => props.onFocus(node)}
+        onBlur={isGhost ? undefined : props.onBlur}
+        onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
+        onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
-        {props.validationLevel ? (
+        {!isGhost && props.validationLevel ? (
           <polygon
             points={`${cx},${node.y - 8} ${node.x + node.width + 8},${cy} ${cx},${node.y + node.height + 8} ${node.x - 8},${cy}`}
             fill="none"
@@ -226,7 +248,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {props.focused ? (
+        {!isGhost && props.focused ? (
           <polygon
             points={`${cx},${node.y - 10} ${node.x + node.width + 10},${cy} ${cx},${node.y + node.height + 10} ${node.x - 10},${cy}`}
             fill="none"
@@ -237,15 +259,17 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         ) : null}
         <polygon
           points={points}
-          fill={DIAGRAM_NODE_FILL}
+          fill={baseFill}
           stroke={strokeColor}
-          strokeWidth={props.selected || props.pending ? 2.6 : 2}
+          strokeWidth={shapeStrokeWidth}
+          strokeDasharray={baseDash}
+          opacity={baseOpacity}
         />
-        {props.pending ? (
+        {!isGhost && props.pending ? (
           <circle cx={node.x + node.width + 8} cy={node.y + 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
-        {renderValidationBadge(node.x + node.width + 10, node.y - 8, props.validationLevel, badgeCount)}
-        <text x={cx} y={cy} className="shape-label" textAnchor="middle" dominantBaseline="middle" fill={strokeColor}>
+        {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 8, props.validationLevel, badgeCount) : null}
+        <text x={cx} y={cy} className="shape-label" textAnchor="middle" dominantBaseline="middle" fill={strokeColor} opacity={labelOpacity}>
           {node.label}
         </text>
       </g>
@@ -259,16 +283,18 @@ export function DiagramNodeView(props: DiagramNodeProps) {
 
     return (
       <g
-        className={props.selected ? "diagram-node selected" : "diagram-node"}
-        tabIndex={props.focusable ? 0 : -1}
-        focusable={props.focusable ? "true" : "false"}
-        aria-label={`Nodo ${node.type}: ${node.label}`}
-        onFocus={() => props.onFocus(node)}
-        onBlur={props.onBlur}
-        onPointerDown={(event) => props.onPointerDown(event, node)}
-        onDoubleClick={(event) => props.onDoubleClick(event, node)}
+        className={groupClassName}
+        tabIndex={groupTabIndex}
+        focusable={groupFocusable}
+        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-hidden={isGhost ? true : undefined}
+        pointerEvents={isGhost ? "none" : undefined}
+        onFocus={isGhost ? undefined : () => props.onFocus(node)}
+        onBlur={isGhost ? undefined : props.onBlur}
+        onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
+        onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
-        {props.validationLevel ? (
+        {!isGhost && props.validationLevel ? (
           <rect
             x={node.x - 10}
             y={node.y - 8}
@@ -279,7 +305,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeWidth={7}
           />
         ) : null}
-        {props.focused ? (
+        {!isGhost && props.focused ? (
           <rect
             x={node.x - 12}
             y={node.y - 10}
@@ -291,7 +317,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             strokeDasharray="8 6"
           />
         ) : null}
-        {props.selected ? (
+        {!isGhost && props.selected ? (
           <rect
             x={node.x - 4}
             y={node.y - 4}
@@ -309,9 +335,11 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               cy={cy}
               rx={node.width / 2}
               ry={node.height / 2}
-              fill={DIAGRAM_NODE_FILL}
+              fill={baseFill}
               stroke={strokeColor}
-              strokeWidth={props.selected || props.pending ? 2.6 : 2}
+              strokeWidth={shapeStrokeWidth}
+              strokeDasharray={baseDash}
+              opacity={baseOpacity}
             />
             <text
               x={node.x + node.width / 2}
@@ -320,6 +348,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
               textAnchor="middle"
               dominantBaseline="middle"
               fill={strokeColor}
+              opacity={labelOpacity}
             >
               {node.label}
             </text>
@@ -334,9 +363,11 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     cx={node.x + 10}
                     cy={cy}
                     r={7}
-                    fill={isIdentifier ? strokeColor : DIAGRAM_NODE_FILL}
+                    fill={isGhost ? "none" : isIdentifier ? strokeColor : DIAGRAM_NODE_FILL}
                     stroke={strokeColor}
                     strokeWidth={2}
+                    strokeDasharray={baseDash}
+                    opacity={baseOpacity}
                   />
                   <text
                     x={labelLayout.x}
@@ -345,6 +376,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     textAnchor={labelLayout.textAnchor}
                     dominantBaseline={labelLayout.dominantBaseline}
                     fill={strokeColor}
+                    opacity={labelOpacity}
                   >
                     {node.label}
                   </text>
@@ -353,23 +385,25 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             })()}
           </>
         )}
-        {renderValidationBadge(node.x + 18, node.y - 10, props.validationLevel, badgeCount)}
+        {!isGhost ? renderValidationBadge(node.x + 18, node.y - 10, props.validationLevel, badgeCount) : null}
       </g>
     );
   }
 
   return (
     <g
-      className={props.selected ? "diagram-node selected" : "diagram-node"}
-      tabIndex={props.focusable ? 0 : -1}
-      focusable={props.focusable ? "true" : "false"}
-      aria-label={`Nodo ${node.type}: ${node.label}`}
-      onFocus={() => props.onFocus(node)}
-      onBlur={props.onBlur}
-      onPointerDown={(event) => props.onPointerDown(event, node)}
-      onDoubleClick={(event) => props.onDoubleClick(event, node)}
+      className={groupClassName}
+      tabIndex={groupTabIndex}
+      focusable={groupFocusable}
+      aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+      aria-hidden={isGhost ? true : undefined}
+      pointerEvents={isGhost ? "none" : undefined}
+      onFocus={isGhost ? undefined : () => props.onFocus(node)}
+      onBlur={isGhost ? undefined : props.onBlur}
+      onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
+      onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
     >
-      {props.validationLevel ? (
+      {!isGhost && props.validationLevel ? (
         <rect
           x={node.x - 8}
           y={node.y - 14}
@@ -380,7 +414,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           strokeWidth={6}
         />
       ) : null}
-      {props.focused ? (
+      {!isGhost && props.focused ? (
         <rect
           x={node.x - 8}
           y={node.y - 14}
@@ -392,10 +426,10 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           strokeDasharray="8 6"
         />
       ) : null}
-      <text x={node.x} y={node.y + node.height} className="free-text-label" fill={strokeColor}>
+      <text x={node.x} y={node.y + node.height} className="free-text-label" fill={strokeColor} opacity={labelOpacity}>
         {node.label}
       </text>
-      {props.selected ? (
+      {!isGhost && props.selected ? (
         <rect
           x={node.x - 4}
           y={node.y - 4}
@@ -406,7 +440,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           strokeDasharray="4 3"
         />
       ) : null}
-      {renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount)}
+      {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount) : null}
     </g>
   );
 }
