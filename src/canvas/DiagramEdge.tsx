@@ -1,9 +1,15 @@
-import type { FocusEvent, MouseEvent, PointerEvent } from "react";
+import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
+const DIAGRAM_WARNING = "var(--diagram-warning)";
+const DIAGRAM_WARNING_FILL = "var(--diagram-warning-fill)";
+const DIAGRAM_ERROR = "var(--diagram-error)";
+const DIAGRAM_ERROR_FILL = "var(--diagram-error-fill)";
+
+type DiagramIssueLevel = "warning" | "error" | undefined;
 
 interface EdgeLaneInfo {
   laneIndex: number;
@@ -18,11 +24,60 @@ interface DiagramEdgeProps {
   selected: boolean;
   focused: boolean;
   focusable: boolean;
+  validationLevel?: DiagramIssueLevel;
+  validationCount?: number;
   onFocus: (edge: DiagramEdge) => void;
   onBlur: (event: FocusEvent<SVGGElement>) => void;
   onPointerDown: (event: PointerEvent<SVGGElement>, edge: DiagramEdge) => void;
   onLabelPointerDown: (event: PointerEvent<SVGTextElement>, edge: DiagramEdge) => void;
   onDoubleClick: (event: MouseEvent<SVGGElement>, edge: DiagramEdge) => void;
+}
+
+function getValidationStroke(level: DiagramIssueLevel): string {
+  if (level === "error") {
+    return DIAGRAM_ERROR;
+  }
+
+  if (level === "warning") {
+    return DIAGRAM_WARNING;
+  }
+
+  return DIAGRAM_STROKE;
+}
+
+function getValidationHalo(level: DiagramIssueLevel): string {
+  if (level === "error") {
+    return DIAGRAM_ERROR_FILL;
+  }
+
+  if (level === "warning") {
+    return DIAGRAM_WARNING_FILL;
+  }
+
+  return "transparent";
+}
+
+function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, count?: number): ReactNode {
+  if (!level) {
+    return null;
+  }
+
+  const badgeText = count && count > 1 ? String(Math.min(count, 9)) : "!";
+  return (
+    <g className="diagram-validation-badge" aria-hidden="true">
+      <circle cx={x} cy={y} r={9} fill="#fffdf7" stroke={getValidationStroke(level)} strokeWidth={2} />
+      <text
+        x={x}
+        y={y + 0.5}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill={getValidationStroke(level)}
+        style={{ fontSize: "10px", fontWeight: 700 }}
+      >
+        {badgeText}
+      </text>
+    </g>
+  );
 }
 
 function offsetPolyline(points: Point[], offset: number): Point[] {
@@ -81,9 +136,12 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       ? connectorCardinality
       : props.edge.type === "attribute"
         ? attributeCardinality
-      : props.edge.type === "inheritance"
-        ? props.edge.label
-        : "";
+        : props.edge.type === "inheritance"
+          ? props.edge.label
+          : "";
+  const strokeColor = getValidationStroke(props.validationLevel);
+  const haloColor = getValidationHalo(props.validationLevel);
+  const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
 
   return (
     <g
@@ -97,6 +155,16 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       onDoubleClick={(event) => props.onDoubleClick(event, props.edge)}
     >
       <path d={pathData} fill="none" stroke="transparent" strokeWidth={16} />
+      {props.validationLevel ? (
+        <path
+          d={pathData}
+          fill="none"
+          stroke={haloColor}
+          strokeWidth={7}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : null}
       {props.focused ? (
         <path
           d={pathData}
@@ -112,7 +180,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         <path
           d={secondaryPathData}
           fill="none"
-          stroke={DIAGRAM_STROKE}
+          stroke={strokeColor}
           strokeWidth={1.6}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -122,7 +190,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       <path
         d={pathData}
         fill="none"
-        stroke={DIAGRAM_STROKE}
+        stroke={strokeColor}
         strokeWidth={props.selected ? 2.8 : 2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -135,6 +203,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           y={geometry.labelPoint.y - (displayLabel ? 18 : 8)}
           textAnchor="middle"
           className="edge-label inheritance-constraint-label"
+          fill={strokeColor}
           onPointerDown={(event) => props.onLabelPointerDown(event, props.edge)}
         >
           {inheritanceConstraintLabel}
@@ -146,11 +215,13 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           y={geometry.labelPoint.y + (inheritanceConstraintLabel ? 10 : -6)}
           textAnchor="middle"
           className={props.edge.type === "connector" ? "edge-label connector-label" : "edge-label"}
+          fill={strokeColor}
           onPointerDown={(event) => props.onLabelPointerDown(event, props.edge)}
         >
           {displayLabel}
         </text>
       ) : null}
+      {renderValidationBadge(geometry.labelPoint.x + 18, badgeY, props.validationLevel, props.validationCount)}
     </g>
   );
 }

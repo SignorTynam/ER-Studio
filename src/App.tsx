@@ -44,7 +44,7 @@ const DEFAULT_VIEWPORT: Viewport = {
   zoom: 1,
 };
 
-interface ToastMessage {
+interface WorkspaceNotice {
   id: number;
   title: string;
   message: string;
@@ -238,7 +238,7 @@ export default function App() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
   const [statusMessage, setStatusMessage] = useState("");
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
@@ -303,42 +303,41 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  function dismissToast(toastId: number) {
-    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  function dismissNotice(noticeId: number) {
+    setNotices((current) => current.filter((notice) => notice.id !== noticeId));
   }
 
-  function showToast(toast: Omit<ToastMessage, "id">, duration = 4200) {
+  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration = notice.tone === "error" ? 0 : 5200) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((current) => [...current, { id, ...toast }]);
+    setNotices((current) => [{ id, ...notice }, ...current.filter((item) => item.message !== notice.message).slice(0, 2)]);
 
     if (duration > 0) {
       window.setTimeout(() => {
-        dismissToast(id);
+        dismissNotice(id);
       }, duration);
     }
   }
 
-  function showErrorToast(message: string) {
-    showToast(
+  function showErrorNotice(message: string) {
+    showNotice(
       {
         title: "Errore",
         message,
         tone: "error",
       },
-      5200,
     );
   }
 
-  function showSuccessToast(message: string) {
-    showToast({
+  function showSuccessNotice(message: string) {
+    showNotice({
       title: "Operazione completata",
       message,
       tone: "success",
     });
   }
 
-  function showUndoToast(message: string, undoStatus = "Operazione annullata.") {
-    showToast(
+  function showUndoNotice(message: string, undoStatus = "Operazione annullata.") {
+    showNotice(
       {
         title: "Operazione completata",
         message,
@@ -350,18 +349,18 @@ export default function App() {
           setStatus(undoStatus);
         },
       },
-      6200,
+      7200,
     );
   }
 
-  function handleToastAction(toastId: number) {
-    const toast = toasts.find((item) => item.id === toastId);
-    if (!toast?.onAction) {
+  function handleNoticeAction(noticeId: number) {
+    const notice = notices.find((item) => item.id === noticeId);
+    if (!notice?.onAction) {
       return;
     }
 
-    toast.onAction();
-    dismissToast(toastId);
+    notice.onAction();
+    dismissNotice(noticeId);
   }
 
   function isErrorMessage(message: string): boolean {
@@ -426,13 +425,13 @@ export default function App() {
 
   function setStatusError(message: string) {
     setStatusMessage(message);
-    showErrorToast(message);
+    showErrorNotice(message);
   }
 
   function handleCanvasStatusMessage(message: string) {
     setStatusMessage(message);
     if (message && isErrorMessage(message)) {
-      showErrorToast(message);
+      showErrorNotice(message);
     }
   }
 
@@ -452,7 +451,7 @@ export default function App() {
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
-    toastMessage: string,
+    noticeMessage: string,
     nextView?: WorkspaceView,
   ) {
     history.commit(nextDiagram, history.present);
@@ -465,7 +464,7 @@ export default function App() {
       setWorkspaceView(nextView);
     }
     setStatus(status);
-    showUndoToast(toastMessage);
+    showUndoNotice(noticeMessage);
   }
 
   function updateCodeDraft(nextCode: string) {
@@ -821,7 +820,7 @@ export default function App() {
     setSelection({ nodeIds: [nextAttribute.id], edgeIds: [] });
     setTool("select");
     setStatus(`Attributo collegato a ${hostNode.label}.`);
-    showUndoToast(
+    showUndoNotice(
       hostNode.type === "attribute"
         ? `Sotto-attributo creato da ${hostNode.label}.`
         : `Attributo creato per ${hostNode.label}.`,
@@ -1073,7 +1072,7 @@ export default function App() {
         commitDiagram(nextDiagram);
         setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
         setStatus("Identificatore esterno rimosso.");
-        showUndoToast("Identificatore esterno rimosso.");
+        showUndoNotice("Identificatore esterno rimosso.");
         return;
       }
     }
@@ -1082,7 +1081,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Selezione eliminata.");
-    showUndoToast("Selezione eliminata.");
+    showUndoNotice("Selezione eliminata.");
   }
 
   function handleDeleteNodeById(nodeId: string) {
@@ -1094,7 +1093,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Elemento eliminato.");
-    showUndoToast("Elemento eliminato.");
+    showUndoNotice("Elemento eliminato.");
   }
 
   function handleDeleteEdgeById(edgeId: string) {
@@ -1106,7 +1105,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Collegamento eliminato.");
-    showUndoToast("Collegamento eliminato.");
+    showUndoNotice("Collegamento eliminato.");
   }
 
   function handleClearExternalIdentifier(relationshipId: string) {
@@ -1124,7 +1123,7 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [relationshipId], edgeIds: [] });
     setStatus("Identificatore esterno rimosso.");
-    showUndoToast("Identificatore esterno rimosso.");
+    showUndoNotice("Identificatore esterno rimosso.");
   }
 
   function handleDuplicateSelection() {
@@ -1140,7 +1139,7 @@ export default function App() {
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
     setStatus("Selezione duplicata.");
-    showUndoToast("Selezione duplicata.");
+    showUndoNotice("Selezione duplicata.");
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
@@ -1161,7 +1160,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setStatus("Allineamento applicato.");
-    showUndoToast("Allineamento applicato.");
+    showUndoNotice("Allineamento applicato.");
   }
 
   function handleSaveJson() {
@@ -1175,7 +1174,7 @@ export default function App() {
       markCodeSaved(serializeDiagramToErs(history.present));
     }
     setStatus("Diagramma salvato in JSON.");
-    showSuccessToast("Diagramma JSON esportato con successo.");
+    showSuccessNotice("Diagramma JSON esportato con successo.");
   }
 
   function handleSaveErs() {
@@ -1186,7 +1185,7 @@ export default function App() {
       markDiagramSaved(history.present);
     }
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
-    showSuccessToast(codeDirtyRef.current ? "Bozza ERS esportata con successo." : "File ERS esportato con successo.");
+    showSuccessNotice(codeDirtyRef.current ? "Bozza ERS esportata con successo." : "File ERS esportato con successo.");
   }
 
   function handleLoadRequest() {
@@ -1255,7 +1254,7 @@ export default function App() {
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
     setStatus("Codice ERS rigenerato dal diagramma.");
-    showSuccessToast("Sorgente ERS rigenerato dal diagramma corrente.");
+    showSuccessNotice("Sorgente ERS rigenerato dal diagramma corrente.");
   }
 
   async function handleExportPng() {
@@ -1267,7 +1266,7 @@ export default function App() {
     try {
       await downloadPng(svgRef.current, "chen-er-diagram.png");
       setStatus("PNG esportato.");
-      showSuccessToast("PNG esportato con successo.");
+      showSuccessNotice("PNG esportato con successo.");
     } catch (error) {
       console.error(error);
       setStatusError("Esportazione PNG non riuscita.");
@@ -1282,7 +1281,7 @@ export default function App() {
 
     downloadSvg(svgRef.current, "chen-er-diagram.svg");
     setStatus("SVG esportato.");
-    showSuccessToast("SVG esportato con successo.");
+    showSuccessNotice("SVG esportato con successo.");
   }
 
   if (surface === "landing") {
@@ -1342,6 +1341,39 @@ export default function App() {
         onHome={openLandingSurface}
       />
 
+      {notices.length > 0 ? (
+        <section className="workspace-notice-center" aria-live="assertive" aria-atomic="false">
+          <div className="workspace-notice-stack">
+            {notices.map((notice) => (
+              <article
+                key={notice.id}
+                className={
+                  notice.tone === "error"
+                    ? "workspace-notice workspace-notice-error"
+                    : "workspace-notice workspace-notice-success"
+                }
+                role={notice.tone === "error" ? "alert" : "status"}
+              >
+                <div className="workspace-notice-main">
+                  <strong>{notice.title}</strong>
+                  <p>{notice.message}</p>
+                </div>
+                <div className="workspace-notice-actions">
+                  {notice.onAction && notice.actionLabel ? (
+                    <button type="button" onClick={() => handleNoticeAction(notice.id)}>
+                      {notice.actionLabel}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => dismissNotice(notice.id)} aria-label="Chiudi notifica">
+                    Chiudi
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div
         className={[
           "workspace-shell",
@@ -1389,6 +1421,7 @@ export default function App() {
               tool={tool}
               mode={mode}
               viewport={viewport}
+              issues={issues}
               statusMessage={statusMessage}
               svgRef={svgRef}
               onViewportChange={setViewport}
@@ -1596,7 +1629,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Validazioni ed Errori</summary>
                 <ul className="help-list">
-                  <li>I messaggi di errore appaiono come notifiche in alto a destra.</li>
+                  <li>Gli errori critici compaiono nel centro notifiche sotto l'header e vengono evidenziati direttamente su nodi e collegamenti.</li>
                 </ul>
               </details>
 
@@ -1648,30 +1681,6 @@ export default function App() {
         </div>
       ) : null}
 
-      <div className="toast-stack" aria-live="assertive" aria-atomic="false">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={toast.tone === "error" ? "toast toast-error" : "toast toast-success"}
-            role={toast.tone === "error" ? "alert" : "status"}
-          >
-            <div className="toast-body">
-              <strong>{toast.title}</strong>
-              <p>{toast.message}</p>
-            </div>
-            <div className="toast-actions">
-              {toast.onAction && toast.actionLabel ? (
-                <button type="button" onClick={() => handleToastAction(toast.id)}>
-                  {toast.actionLabel}
-                </button>
-              ) : null}
-              <button type="button" onClick={() => dismissToast(toast.id)} aria-label="Chiudi notifica">
-                Chiudi
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

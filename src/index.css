@@ -52,7 +52,7 @@ button:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: 100vh;
   color: #111111;
 }
@@ -1744,60 +1744,6 @@ button:disabled {
   content: "-";
 }
 
-.toast-stack {
-  position: fixed;
-  top: 84px;
-  right: 16px;
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(380px, calc(100vw - 24px));
-  pointer-events: none;
-}
-
-.toast {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid #171717;
-  border-left-width: 6px;
-  background: #fffdf8;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
-}
-
-.toast strong {
-  font-size: 0.84rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.toast p {
-  margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.35;
-}
-
-.toast button {
-  align-self: flex-end;
-  border: 1px solid currentColor;
-  background: transparent;
-  padding: 0.2rem 0.46rem;
-  font-size: 0.76rem;
-}
-
-.toast-error {
-  border-left-color: #b1362c;
-  background: linear-gradient(180deg, #fff7f5 0%, #ffe9e4 100%);
-}
-
-.toast-error strong,
-.toast-error button {
-  color: #7e1f17;
-}
-
 @media (max-width: 1180px) {
   .landing-hero {
     grid-template-columns: 1fr;
@@ -1923,14 +1869,6 @@ button:disabled {
 
   .code-mode-panel {
     padding: 14px;
-  }
-
-  .toast-stack {
-    top: auto;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    width: auto;
   }
 
   .intro-grid {
@@ -3678,8 +3616,7 @@ summary:focus-visible {
   line-height: 1.5;
 }
 
-.code-mode-error,
-.toast-error {
+.code-mode-error {
   border-color: var(--unibo-red);
   background: linear-gradient(180deg, #fff7f5 0%, #fee8e4 100%);
 }
@@ -3734,6 +3671,10 @@ summary:focus-visible {
   --diagram-selection-fill: rgba(79, 107, 100, 0.09);
   --diagram-focus: #7d9f96;
   --diagram-pending: #c08d5a;
+  --diagram-warning: #b67f43;
+  --diagram-warning-fill: rgba(182, 127, 67, 0.18);
+  --diagram-error: #b24d34;
+  --diagram-error-fill: rgba(178, 77, 52, 0.2);
   color: var(--studio-ink);
   background: #f7f8f4;
   font-family: "Aptos", "IBM Plex Sans", "Segoe UI", sans-serif;
@@ -4409,8 +4350,7 @@ summary:focus-visible {
   background: rgba(184, 138, 91, 0.14) !important;
 }
 
-.code-mode-error,
-.toast-error {
+.code-mode-error {
   border: 1px solid rgba(184, 138, 91, 0.28);
   border-radius: 18px;
   background: linear-gradient(180deg, #fffaf4 0%, #f7ede2 100%);
@@ -4613,47 +4553,6 @@ summary:focus-visible {
 .help-modal-head {
   border-bottom: 1px solid var(--studio-line);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(242, 246, 240, 0.92) 100%);
-}
-
-.toast-stack {
-  top: 90px;
-  right: 18px;
-  gap: 12px;
-}
-
-.toast {
-  border: 1px solid var(--studio-line);
-  background: var(--studio-surface-strong);
-  color: var(--studio-ink);
-}
-
-.toast-success {
-  border-color: rgba(79, 107, 100, 0.24);
-  background: linear-gradient(180deg, #f7fbf8 0%, #ebf4ef 100%);
-}
-
-.toast-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.toast-body p {
-  margin: 0;
-}
-
-.toast-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.toast-actions button {
-  border: 1px solid var(--studio-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.76);
-  color: var(--studio-ink);
-  padding: 0.5rem 0.8rem;
 }
 
 .tutorial-header-main,
@@ -4876,6 +4775,80 @@ summary:focus-visible {
   --inspector-width: 318px;
   gap: 14px;
   padding: 14px;
+}
+
+.workspace-notice-center {
+  padding: 10px 14px 0;
+}
+
+.workspace-notice-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--studio-line);
+  border-radius: 18px;
+  background: var(--studio-surface-strong);
+  box-shadow: 0 12px 24px rgba(35, 44, 40, 0.08);
+}
+
+.workspace-notice-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-notice-main strong {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-notice-main p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.workspace-notice-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.workspace-notice-actions button {
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.84rem;
+}
+
+.workspace-notice-success {
+  border-color: rgba(79, 107, 100, 0.24);
+  background: linear-gradient(180deg, #f8fbf8 0%, #eef5ef 100%);
+}
+
+.workspace-notice-success strong,
+.workspace-notice-success button {
+  color: var(--studio-accent-strong);
+}
+
+.workspace-notice-error {
+  border-color: rgba(178, 77, 52, 0.28);
+  background: linear-gradient(180deg, #fff8f4 0%, #f8ece4 100%);
+}
+
+.workspace-notice-error strong,
+.workspace-notice-error button {
+  color: var(--diagram-error);
 }
 
 .toolbar-panel,
@@ -5255,6 +5228,11 @@ summary:focus-visible {
 
   .workspace-shell {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-notice {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .code-mode-error-inline {

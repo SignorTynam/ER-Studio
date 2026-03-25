@@ -33,6 +33,7 @@ import type {
   Point,
   SelectionState,
   ToolKind,
+  ValidationIssue,
   Viewport,
 } from "../types/diagram";
 import {
@@ -113,6 +114,7 @@ interface DiagramCanvasProps {
   tool: ToolKind;
   mode: EditorMode;
   viewport: Viewport;
+  issues: ValidationIssue[];
   statusMessage: string;
   svgRef: RefObject<SVGSVGElement>;
   onViewportChange: (viewport: Viewport) => void;
@@ -257,6 +259,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [spacePressed, setSpacePressed] = useState(false);
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
+  const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
+  const edgeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
@@ -271,6 +275,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     pathPoints: Point[];
   }> = [];
   const edgeGeometryMap = new Map<string, Point[]>();
+
+  props.issues.forEach((issue) => {
+    const targetMap = issue.targetType === "node" ? nodeIssueMap : edgeIssueMap;
+    const current = targetMap.get(issue.targetId);
+    if (!current) {
+      targetMap.set(issue.targetId, { level: issue.level, count: 1 });
+      return;
+    }
+
+    targetMap.set(issue.targetId, {
+      level: current.level === "error" || issue.level === "error" ? "error" : "warning",
+      count: current.count + 1,
+    });
+  });
 
   props.diagram.edges.forEach((edge) => {
     if (edge.type !== "connector") {
@@ -1634,7 +1652,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M 0 0 L 12 6 L 0 12 z" fill={DIAGRAM_STROKE} />
+            <path d="M 0 0 L 12 6 L 0 12 z" fill="context-stroke" />
           </marker>
         </defs>
 
@@ -1664,6 +1682,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 targetNode={targetNode}
                 laneInfo={connectorLaneMap.get(edge.id)}
                 selected={props.selection.edgeIds.includes(edge.id)}
+                validationLevel={edgeIssueMap.get(edge.id)?.level}
+                validationCount={edgeIssueMap.get(edge.id)?.count}
                 focused={focusedTarget?.kind === "edge" && focusedTarget.id === edge.id}
                 focusable={props.tool === "select"}
                 onFocus={handleEdgeFocus}
@@ -1687,6 +1707,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               node={node}
               selected={props.selection.nodeIds.includes(node.id)}
               pending={pendingConnectionSource === node.id}
+              validationLevel={nodeIssueMap.get(node.id)?.level}
+              validationCount={nodeIssueMap.get(node.id)?.count}
               focused={focusedTarget?.kind === "node" && focusedTarget.id === node.id}
               focusable={props.tool === "select" || props.tool === "connector" || props.tool === "inheritance"}
               onFocus={handleNodeFocus}
