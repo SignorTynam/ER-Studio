@@ -596,6 +596,51 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       }
     }
 
+    if (node.type === "entity") {
+      const hasRelationshipConnection = connectedEdges.some((edge) => {
+        if (edge.type !== "connector") {
+          return false;
+        }
+
+        const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+        const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+        return otherNode?.type === "relationship";
+      });
+
+      const hasInheritanceConnection = connectedEdges.some((edge) => edge.type === "inheritance");
+      const hasEntityConnection = hasRelationshipConnection || hasInheritanceConnection;
+
+      if (!hasEntityConnection) {
+        issues.push({
+          id: `entity-disconnected-${node.id}`,
+          level: "warning",
+          message: `L'entita "${node.label}" non e collegata ad altre entita o relazioni.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
+      const hasAttribute = connectedEdges.some((edge) => {
+        if (edge.type !== "attribute") {
+          return false;
+        }
+
+        const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
+        const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+        return otherNode?.type === "attribute";
+      });
+
+      if (!hasAttribute) {
+        issues.push({
+          id: `entity-no-attributes-${node.id}`,
+          level: "warning",
+          message: `L'entita "${node.label}" non ha attributi collegati.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+    }
+
     if (node.type === "entity" || node.type === "relationship") {
       const compositeAttributes = connectedEdges
         .filter((edge) => edge.type === "attribute")

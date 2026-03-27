@@ -50,6 +50,8 @@ interface WorkspaceNotice {
   message: string;
   tone: "success" | "warning" | "error";
   sticky?: boolean;
+  stickyType?: "source-selection" | "selection-warning";
+  targetId?: string;
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
@@ -300,6 +302,22 @@ export default function App() {
     selection.edgeIds.length === 1 && selection.nodeIds.length === 0
       ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
       : undefined;
+  const selectedWarningIssue =
+    selectedNode
+      ? issues.find(
+          (issue) =>
+            issue.level === "warning" &&
+            issue.targetType === "node" &&
+            issue.targetId === selectedNode.id,
+        )
+      : selectedEdge
+        ? issues.find(
+            (issue) =>
+              issue.level === "warning" &&
+              issue.targetType === "edge" &&
+              issue.targetId === selectedEdge.id,
+          )
+      : undefined;
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
@@ -316,6 +334,15 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, [statusMessage]);
+
+  useEffect(() => {
+    if (!selectedWarningIssue) {
+      dismissStickyNotices("selection-warning");
+      return;
+    }
+
+    showSelectionWarningNotice(selectedWarningIssue);
+  }, [selectedWarningIssue]);
 
   useEffect(() => {
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
@@ -395,15 +422,46 @@ export default function App() {
     setNotices((current) => current.filter((notice) => notice.id !== noticeId));
   }
 
-  function dismissStickyNotices() {
+  function dismissStickyNotices(stickyType?: WorkspaceNotice["stickyType"]) {
     setNotices((current) => {
-      const stickyNotices = current.filter((notice) => notice.sticky);
+      const stickyNotices = current.filter(
+        (notice) => notice.sticky && (stickyType === undefined || notice.stickyType === stickyType),
+      );
       if (stickyNotices.length === 0) {
         return current;
       }
 
       stickyNotices.forEach((notice) => clearNoticeTimer(notice.id));
-      return current.filter((notice) => !notice.sticky);
+      return current.filter((notice) => !stickyNotices.some((stickyNotice) => stickyNotice.id === notice.id));
+    });
+  }
+
+  function showSelectionWarningNotice(issue: ValidationIssue) {
+    if (issue.level !== "warning") {
+      return;
+    }
+
+    setNotices((current) => {
+      const existing = current.find((notice) => notice.stickyType === "selection-warning");
+      if (existing && existing.targetId === issue.targetId && existing.message === issue.message) {
+        return current;
+      }
+
+      const selectionWarningNotices = current.filter((notice) => notice.stickyType === "selection-warning");
+      selectionWarningNotices.forEach((notice) => clearNoticeTimer(notice.id));
+
+      const retained = current.filter((notice) => notice.stickyType !== "selection-warning");
+      return [
+        {
+          id: nextNoticeIdRef.current++,
+          message: issue.message,
+          tone: "warning",
+          sticky: true,
+          stickyType: "selection-warning",
+          targetId: issue.targetId,
+        },
+        ...retained,
+      ];
     });
   }
 
@@ -411,10 +469,18 @@ export default function App() {
     const id = nextNoticeIdRef.current++;
 
     setNotices((current) => {
+      const preservedSelectionWarningNotices =
+        notice.stickyType === "selection-warning"
+          ? []
+          : current.filter((item) => item.stickyType === "selection-warning");
       const retained = current.filter((item) => item.message !== notice.message && !item.sticky).slice(0, 1);
-      const removed = current.filter((item) => !retained.some((kept) => kept.id === item.id));
+      const removed = current.filter(
+        (item) =>
+          !retained.some((kept) => kept.id === item.id) &&
+          !preservedSelectionWarningNotices.some((kept) => kept.id === item.id),
+      );
       removed.forEach((item) => clearNoticeTimer(item.id));
-      return [{ id, ...notice }, ...retained];
+      return [{ id, ...notice }, ...preservedSelectionWarningNotices, ...retained];
     });
 
     if (duration !== null) {
@@ -439,6 +505,7 @@ export default function App() {
         message,
         tone: "warning",
         sticky,
+        stickyType: sticky ? "source-selection" : undefined,
       },
       sticky ? null : NOTICE_DURATION_MS.warning,
     );
@@ -530,7 +597,7 @@ export default function App() {
   function setStatus(message: string) {
     setStatusMessage(message);
     if (!message.trim()) {
-      dismissStickyNotices();
+      dismissStickyNotices("source-selection");
       return;
     }
 
