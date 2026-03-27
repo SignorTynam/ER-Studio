@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.5";
+export const APP_VERSION = "2.5.1";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -10,7 +10,7 @@ export interface AppChangelogEntry {
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
   {
-    version: "2.5",
+    version: "2.5.1",
     date: "2026-03-27",
     updates: [
       "Toast workspace unificati in overlay: non spostano piu il layout e sostituiscono i vecchi messaggi inline nel canvas.",
