@@ -705,6 +705,7 @@ export default function App() {
   function handleWorkspaceViewChange(nextView: WorkspaceView) {
     setWorkspaceView(nextView);
     if (nextView === "split") {
+      setToolbarCollapsed(true);
       setInspectorCollapsed(true);
       setInspectorPeekOpen(false);
     }
@@ -1414,6 +1415,8 @@ export default function App() {
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
         onExample={handleLoadExample}
+        onResetErs={handleResetCodeFromDiagram}
+        onOpenErsGuide={openCodeTutorialSurface}
         onAbout={() => {
           setWhatsNewOpen(false);
           setAboutOpen(true);
@@ -1465,6 +1468,7 @@ export default function App() {
         <div
           className={[
             "workspace-shell",
+            workspaceView === "split" ? "workspace-shell-split" : "",
             effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
             effectiveInspectorCollapsed ? "inspector-collapsed" : "",
             focusMode ? "workspace-shell-focus" : "",

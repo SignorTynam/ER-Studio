@@ -25,6 +25,8 @@ interface AppHeaderProps {
   onExportPng: () => void;
   onExportSvg: () => void;
   onExample: () => void;
+  onResetErs: () => void;
+  onOpenErsGuide: () => void;
   onAbout: () => void;
   onWhatsNew: () => void;
   onToggleFocusMode: () => void;
@@ -203,6 +205,11 @@ export function AppHeader(props: AppHeaderProps) {
                   >
                     {props.inspectorCollapsed ? "Apri contesto" : "Comprimi contesto"}
                   </button>
+                  {props.workspaceView === "split" ? (
+                    <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
+                      Rigenera ERS
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="nav-menu-section">
@@ -244,6 +251,9 @@ export function AppHeader(props: AppHeaderProps) {
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">Aiuto</div>
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onOpenErsGuide)}>
+                    Guida ERS
+                  </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
                     Informazioni
                   </button>

@@ -5498,6 +5498,14 @@ summary:focus-visible {
   --inspector-width: 34px;
 }
 
+.workspace-shell.workspace-shell-split.inspector-collapsed {
+  --inspector-width: 24px;
+}
+
+.workspace-shell.workspace-shell-split.workspace-idle.inspector-collapsed {
+  --inspector-width: 24px;
+}
+
 .workspace-shell.workspace-shell-focus {
   --toolbar-width: 0px;
   --inspector-width: 0px;
@@ -5530,8 +5538,12 @@ summary:focus-visible {
 }
 
 .workspace-main.split {
-  grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.58fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--workspace-gap);
+}
+
+.workspace-shell.workspace-shell-split .workspace-main.split {
+  gap: 4px;
 }
 
 .toolbar-panel,
@@ -5655,6 +5667,22 @@ summary:focus-visible {
   border-radius: 999px;
   background: rgba(252, 250, 245, 0.54);
   border-color: rgba(42, 39, 31, 0.05);
+}
+
+.workspace-shell.workspace-shell-split .inspector-panel.collapsed {
+  padding-inline: 2px;
+}
+
+.workspace-shell.workspace-shell-split .inspector-panel-idle {
+  padding: 0;
+}
+
+.workspace-shell.workspace-shell-split .inspector-panel-idle .panel-toggle {
+  min-width: 22px;
+  min-height: 38px;
+  background: rgba(252, 250, 245, 0.36);
+  border-color: rgba(42, 39, 31, 0.03);
+  box-shadow: none;
 }
 
 .inspector-compact-stack {
@@ -5806,6 +5834,71 @@ summary:focus-visible {
   min-height: 26px;
   padding: 0.18rem 0.56rem;
   font-size: 0.76rem;
+}
+
+.code-mode-panel.code-mode-panel-editor-only {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  background: #161c1a;
+  border-color: rgba(79, 107, 100, 0.2);
+  box-shadow: none;
+}
+
+.code-mode-panel.code-mode-panel-editor-only.has-error {
+  border-color: rgba(184, 138, 91, 0.3);
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: #161c1a;
+  box-shadow: none;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-frame {
+  min-height: 0;
+  height: 100%;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-gutter {
+  padding: 18px 0;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-surface {
+  min-height: 0;
+  height: 100%;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-highlight,
+.code-mode-panel.code-mode-panel-editor-only .code-editor-input {
+  min-height: 100%;
+  height: 100%;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-input {
+  resize: none;
+}
+
+.code-mode-panel.code-mode-panel-editor-only.split {
+  border-left: 0;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-line-number.error {
+  color: #ffd2a7;
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-input::selection {
+  background: rgba(118, 183, 240, 0.22);
+}
+
+.code-mode-panel.code-mode-panel-editor-only .code-editor-highlight,
+.code-mode-panel.code-mode-panel-editor-only .code-editor-input,
+.code-mode-panel.code-mode-panel-editor-only .code-editor-line-number {
+  font-size: 0.94rem;
 }
 
 .workspace-notice-center {
