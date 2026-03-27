@@ -33,11 +33,11 @@ function createId(prefix: string): string {
 function getDefaultLabel(nodeType: NodeKind): string {
   switch (nodeType) {
     case "entity":
-      return "NUOVA ENTITA'";
+      return "Nuova entità";
     case "relationship":
-      return "NUOVA RELAZIONE";
+      return "Nuova relazione";
     case "attribute":
-      return "NUOVO ATTRIBUTO";
+      return "Nuovo attributo";
     case "text":
       return "Testo";
     default:
