@@ -32,11 +32,6 @@ interface InspectorPanelProps {
   onToggleCollapse?: () => void;
 }
 
-function numberValue(value: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function findDirectAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
   const attributeEdge = diagram.edges.find(
     (edge) => edge.type === "attribute" && (edge.sourceId === attributeId || edge.targetId === attributeId),
@@ -233,35 +228,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
     );
   }
 
-  function renderPositionFields(node: DiagramNode) {
-    if (node.type === "attribute") {
-      return null;
-    }
-
-    return (
-      <div className="field-grid">
-        <label className="field">
-          <span>Posizione X</span>
-          <input
-            type="number"
-            value={node.x}
-            disabled={!canEdit}
-            onChange={(event) => props.onNodeChange(node.id, { x: numberValue(event.target.value) })}
-          />
-        </label>
-        <label className="field">
-          <span>Posizione Y</span>
-          <input
-            type="number"
-            value={node.y}
-            disabled={!canEdit}
-            onChange={(event) => props.onNodeChange(node.id, { y: numberValue(event.target.value) })}
-          />
-        </label>
-      </div>
-    );
-  }
-
   function renderMultiSelection() {
     return (
       <>
@@ -338,7 +304,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   onChange={(event) => props.onNodeChange(node.id, { isWeak: event.target.checked })}
                 />
               </label>
-              {renderPositionFields(node)}
             </div>
           </section>
           {renderSelectionActions()}
@@ -374,7 +339,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   </button>
                 </>
               ) : null}
-              {renderPositionFields(node)}
             </div>
           </section>
           {renderSelectionActions()}
@@ -458,7 +422,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
               />
             </label>
-            {renderPositionFields(node)}
           </div>
         </section>
         {renderSelectionActions()}

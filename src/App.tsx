@@ -269,6 +269,62 @@ function findRelationshipBetweenEntities(
   return undefined;
 }
 
+function getNodeKindLabel(node: DiagramNode): string {
+  if (node.type === "entity") {
+    return "entita";
+  }
+
+  if (node.type === "relationship") {
+    return "associazione";
+  }
+
+  if (node.type === "attribute") {
+    return "attributo";
+  }
+
+  return "testo";
+}
+
+function getConnectionFailureReason(
+  edgeType: "connector" | "attribute" | "inheritance",
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+): string {
+  if (sourceNode.id === targetNode.id) {
+    return "Non puoi collegare un elemento a se stesso.";
+  }
+
+  const sourceKind = getNodeKindLabel(sourceNode);
+  const targetKind = getNodeKindLabel(targetNode);
+
+  if (edgeType === "connector") {
+    if (sourceNode.type === "entity" && targetNode.type === "entity") {
+      return "Due entita non si collegano direttamente: inserisci un'associazione tra le due.";
+    }
+
+    if (sourceNode.type === "relationship" && targetNode.type === "relationship") {
+      return "Due associazioni non si collegano direttamente con un collegamento Chen.";
+    }
+
+    if (sourceNode.type === "attribute" || targetNode.type === "attribute") {
+      return "Per un attributo usa lo strumento Attributo, non Collegamento.";
+    }
+
+    return `Collegamento non valido tra ${sourceKind} e ${targetKind}: il collegamento Chen richiede un'entita e un'associazione.`;
+  }
+
+  if (edgeType === "inheritance") {
+    return `La generalizzazione richiede due entita. Hai selezionato ${sourceKind} e ${targetKind}.`;
+  }
+
+  const oneIsAttribute = sourceNode.type === "attribute" || targetNode.type === "attribute";
+  if (!oneIsAttribute) {
+    return `Il collegamento attributo richiede almeno un attributo. Hai selezionato ${sourceKind} e ${targetKind}.`;
+  }
+
+  return `Un attributo puo essere collegato solo a entita, associazione o attributo. Hai selezionato ${sourceKind} e ${targetKind}.`;
+}
+
 type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
 type AttributeNodeDraft = Extract<DiagramNode, { type: "attribute" }>;
 
@@ -1078,7 +1134,10 @@ export default function App() {
     }
 
     if (!canConnect(type, sourceNode, targetNode)) {
-      return { success: false, message: "Connessione non compatibile con la sintassi Chen." };
+      return {
+        success: false,
+        message: getConnectionFailureReason(type, sourceNode, targetNode),
+      };
     }
 
     if (edgeAlreadyExists(history.present, type, resolvedSourceId, resolvedTargetId)) {
