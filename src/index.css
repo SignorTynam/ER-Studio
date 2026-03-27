@@ -5012,8 +5012,26 @@ summary:focus-visible {
   grid-template-columns: 22px minmax(0, 1fr) auto;
 }
 
+.toolbar-panel .tool-button.active {
+  border-color: var(--studio-accent-strong);
+  background: linear-gradient(135deg, var(--studio-accent) 0%, var(--studio-accent-strong) 100%);
+  color: #f8faf6;
+  box-shadow: 0 14px 28px rgba(57, 81, 75, 0.22);
+}
+
+.toolbar-panel .tool-button.active:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--studio-accent-strong) 0%, #2d423d 100%);
+}
+
 .toolbar-panel .tool-button .tool-shortcut {
   opacity: 0.62;
+}
+
+.toolbar-panel .tool-button.active .tool-shortcut {
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8faf6;
 }
 
 .canvas-panel {
