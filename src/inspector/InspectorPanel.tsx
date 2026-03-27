@@ -26,6 +26,7 @@ interface InspectorPanelProps {
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
   onCreateAttributeForSelection: () => void;
+  onIssueSelect: (issue: ValidationIssue) => void;
   onRenameSelection: () => void;
   onToggleCollapse: () => void;
 }
@@ -636,9 +637,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
             ) : (
               <div className="validation-list">
                 {props.issues.map((issue) => (
-                  <div
+                  <button
                     key={issue.id}
+                    type="button"
                     className={`validation-item ${issue.level === "error" ? "error" : "warning"}`}
+                    onClick={() => props.onIssueSelect(issue)}
                   >
                     <div className="validation-head">
                       <span className="validation-icon" aria-hidden="true">
@@ -647,7 +650,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                       <strong className="validation-badge">{issue.level === "error" ? "Errore" : "Avviso"}</strong>
                     </div>
                     <p className="validation-message">{issue.message}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

@@ -16,6 +16,7 @@ import type {
   Point,
   SelectionState,
   ToolKind,
+  ValidationIssue,
   Viewport,
 } from "./types/diagram";
 import {
@@ -54,7 +55,19 @@ type AppSurface = "landing" | "studio" | "code-tutorial";
 type WorkspaceView = "diagram" | "split";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
-const WARNING_PATTERNS = [/gia presente/i, /^nessun/i, /^nessuna/i, /seleziona almeno/i, /apri la vista/i, /gia allineati/i, /non disponibile/i];
+const WARNING_PATTERNS = [
+  /gia presente/i,
+  /^nessun/i,
+  /^nessuna/i,
+  /^sorgente selezionata:/i,
+  /seleziona almeno/i,
+  /seleziona la destinazione/i,
+  /apri la vista/i,
+  /gia allineati/i,
+  /non disponibile/i,
+  /rimoss[oa]/i,
+  /eliminat[oa]/i,
+] as const;
 const NOTICE_DURATION_MS = {
   warning: 4400,
   error: 6200,
@@ -470,6 +483,15 @@ export default function App() {
 
   function setStatus(message: string) {
     setStatusMessage(message);
+    const tone = getNoticeTone(message);
+    if (tone === "error") {
+      showErrorNotice(message);
+      return;
+    }
+
+    if (tone === "warning") {
+      showWarningNotice(message);
+    }
   }
 
   function setStatusWarning(message: string) {
@@ -483,16 +505,17 @@ export default function App() {
   }
 
   function handleCanvasStatusMessage(message: string) {
-    setStatusMessage(message);
-    const tone = getNoticeTone(message);
-    if (tone === "error") {
-      showErrorNotice(message);
+    setStatus(message);
+  }
+
+  function handleIssueNotice(issue: ValidationIssue) {
+    setStatusMessage(issue.message);
+    if (issue.level === "error") {
+      showErrorNotice(issue.message);
       return;
     }
 
-    if (tone === "warning") {
-      showWarningNotice(message);
-    }
+    showWarningNotice(issue.message);
   }
 
   function handleToggleToolRail() {
@@ -1555,6 +1578,7 @@ export default function App() {
             onDuplicateSelection={handleDuplicateSelection}
             onAlign={handleAlignSelection}
             onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+            onIssueSelect={handleIssueNotice}
             onRenameSelection={handleRenameSelectionQuick}
             onToggleCollapse={handleToggleInspector}
           />

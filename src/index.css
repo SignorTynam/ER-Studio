@@ -4483,10 +4483,27 @@ summary:focus-visible {
 }
 
 .validation-item {
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--studio-line);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.68);
+  appearance: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.validation-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(35, 44, 40, 0.08);
+}
+
+.validation-item:focus-visible {
+  outline: 2px solid var(--studio-accent-strong);
+  outline-offset: 2px;
 }
 
 .validation-item.error {
