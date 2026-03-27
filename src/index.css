@@ -4891,6 +4891,17 @@ summary:focus-visible {
   color: var(--diagram-warning);
 }
 
+.workspace-toast-success {
+  border-color: rgba(60, 133, 89, 0.3);
+  background: linear-gradient(180deg, rgba(244, 255, 248, 0.96) 0%, rgba(228, 248, 236, 0.98) 100%);
+  color: #2d6644;
+}
+
+.workspace-toast-success .workspace-toast-badge {
+  background: rgba(60, 133, 89, 0.14);
+  color: #2f6f49;
+}
+
 .workspace-toast-error {
   border-color: rgba(178, 77, 52, 0.3);
   background: linear-gradient(180deg, rgba(255, 247, 243, 0.96) 0%, rgba(249, 233, 225, 0.98) 100%);

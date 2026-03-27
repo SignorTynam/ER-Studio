@@ -48,7 +48,7 @@ const DEFAULT_VIEWPORT: Viewport = {
 interface WorkspaceNotice {
   id: number;
   message: string;
-  tone: "warning" | "error";
+  tone: "success" | "warning" | "error";
   sticky?: boolean;
 }
 
@@ -56,6 +56,7 @@ type AppSurface = "landing" | "studio" | "code-tutorial";
 type WorkspaceView = "diagram" | "split";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
+const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
 const WARNING_PATTERNS = [
   /gia presente/i,
   /^nessun/i,
@@ -66,10 +67,10 @@ const WARNING_PATTERNS = [
   /apri la vista/i,
   /gia allineati/i,
   /non disponibile/i,
-  /rimoss[oa]/i,
-  /eliminat[oa]/i,
 ] as const;
+const SUCCESS_PATTERNS = [/aggiunt[oa]/i, /creat[oa]/i, /caricat[oa]/i, /salvat[oa]/i, /esportat[oa]/i, /rigenerat[oa]/i] as const;
 const NOTICE_DURATION_MS = {
+  success: 3200,
   warning: 4400,
   error: 6200,
 } as const;
@@ -443,9 +444,20 @@ export default function App() {
     );
   }
 
+  function showSuccessNotice(message: string) {
+    showNotice({
+      message,
+      tone: "success",
+    });
+  }
+
   function getNoticeTone(message: string): WorkspaceNotice["tone"] | null {
     if (!message.trim()) {
       return null;
+    }
+
+    if (CANCELLATION_PATTERNS.some((pattern) => pattern.test(message))) {
+      return "error";
     }
 
     if (ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
@@ -454,6 +466,10 @@ export default function App() {
 
     if (WARNING_PATTERNS.some((pattern) => pattern.test(message))) {
       return "warning";
+    }
+
+    if (SUCCESS_PATTERNS.some((pattern) => pattern.test(message))) {
+      return "success";
     }
 
     return null;
@@ -529,11 +545,16 @@ export default function App() {
       return;
     }
 
+    if (tone === "success") {
+      showSuccessNotice(message);
+      return;
+    }
+
     if (notices.some((notice) => notice.sticky)) {
       showNotice(
         {
           message,
-          tone: "warning",
+          tone: "success",
         },
         STATUS_FOLLOWUP_NOTICE_MS,
       );
@@ -1505,12 +1526,16 @@ export default function App() {
                   className={
                     notice.tone === "error"
                       ? "workspace-toast workspace-toast-error"
-                      : "workspace-toast workspace-toast-warning"
+                      : notice.tone === "warning"
+                        ? "workspace-toast workspace-toast-warning"
+                        : "workspace-toast workspace-toast-success"
                   }
                   role={notice.tone === "error" ? "alert" : "status"}
                 >
                   <div className="workspace-toast-body">
-                    <span className="workspace-toast-badge">{notice.tone === "error" ? "Errore" : "Avviso"}</span>
+                    <span className="workspace-toast-badge">
+                      {notice.tone === "error" ? "Errore" : notice.tone === "warning" ? "Avviso" : "Successo"}
+                    </span>
                     <p>{notice.message}</p>
                   </div>
                   <button
