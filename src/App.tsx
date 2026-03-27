@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
-import { CodeModePanel } from "./components/CodeModePanel";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { LandingPage } from "./components/LandingPage";
 import { useHistory } from "./hooks/useHistory";
-import { InspectorPanel } from "./inspector/InspectorPanel";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   DiagramDocument,
@@ -57,7 +55,6 @@ interface WorkspaceNotice {
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
-type WorkspaceView = "diagram" | "split";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
 const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
@@ -86,15 +83,9 @@ const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
 const TOOLBAR_COLLAPSED_WIDTH = 62;
-const INSPECTOR_COLLAPSED_WIDTH = 56;
-const IDLE_INSPECTOR_COLLAPSED_WIDTH = 34;
-const IDLE_SPLIT_INSPECTOR_COLLAPSED_WIDTH = 24;
 const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 216 : 196;
-const DEFAULT_INSPECTOR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 344 : 320;
 const MIN_TOOLBAR_WIDTH = 180;
 const MAX_TOOLBAR_WIDTH = 320;
-const MIN_INSPECTOR_WIDTH = 288;
-const MAX_INSPECTOR_WIDTH = 440;
 const RESIZER_WIDTH = 12;
 
 function isSourceSelectionPendingMessage(message: string): boolean {
@@ -369,7 +360,6 @@ export default function App() {
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
   const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
   const [surface, setSurface] = useState<AppSurface>("landing");
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("diagram");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
@@ -383,12 +373,9 @@ export default function App() {
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
   const [toolbarCollapsed, setToolbarCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
-  const [inspectorPeekOpen, setInspectorPeekOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
   const [toolbarWidth, setToolbarWidth] = useState(DEFAULT_TOOLBAR_WIDTH);
-  const [inspectorWidth, setInspectorWidth] = useState(DEFAULT_INSPECTOR_WIDTH);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -402,7 +389,7 @@ export default function App() {
   const nextNoticeIdRef = useRef(1);
   const noticeTimeoutsRef = useRef(new Map<number, number>());
   const panelResizeRef = useRef<{
-    panel: "toolbar" | "inspector";
+    panel: "toolbar";
     startClientX: number;
     startWidth: number;
   } | null>(null);
@@ -435,34 +422,20 @@ export default function App() {
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
-  const effectiveInspectorCollapsed = focusMode || (hasSelection ? inspectorCollapsed : !inspectorPeekOpen);
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
     max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
-  };
-  const inspectorResizeBounds = {
-    min: MIN_INSPECTOR_WIDTH,
-    max: clampValue(Math.floor(windowWidth * 0.34), 320, MAX_INSPECTOR_WIDTH),
   };
   const visibleToolbarWidth = focusMode
     ? 0
     : effectiveToolbarCollapsed
       ? TOOLBAR_COLLAPSED_WIDTH
       : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
-  const visibleInspectorWidth = focusMode
-    ? 0
-    : effectiveInspectorCollapsed
-      ? workspaceView === "split" && !hasSelection
-        ? IDLE_SPLIT_INSPECTOR_COLLAPSED_WIDTH
-        : hasSelection
-          ? INSPECTOR_COLLAPSED_WIDTH
-          : IDLE_INSPECTOR_COLLAPSED_WIDTH
-      : clampValue(inspectorWidth, inspectorResizeBounds.min, inspectorResizeBounds.max);
   const workspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
-    "--inspector-resizer-width": !focusMode && !effectiveInspectorCollapsed ? `${RESIZER_WIDTH}px` : "0px",
-    "--inspector-width": `${visibleInspectorWidth}px`,
+    "--inspector-resizer-width": "0px",
+    "--inspector-width": "0px",
   } as CSSProperties;
 
   useEffect(() => {
@@ -519,31 +492,11 @@ export default function App() {
     if (windowWidth < 1460) {
       setToolbarCollapsed(true);
     }
-
-    if (windowWidth < 1240) {
-      setInspectorCollapsed(true);
-      setInspectorPeekOpen(false);
-    }
   }, [windowWidth]);
 
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
-    setInspectorWidth((current) => clampValue(current, inspectorResizeBounds.min, inspectorResizeBounds.max));
-  }, [toolbarResizeBounds.max, toolbarResizeBounds.min, inspectorResizeBounds.max, inspectorResizeBounds.min]);
-
-  useEffect(() => {
-    if (hasSelection) {
-      setInspectorPeekOpen(false);
-    }
-  }, [hasSelection]);
-
-  useEffect(() => {
-    if (!focusMode) {
-      return;
-    }
-
-    setInspectorPeekOpen(false);
-  }, [focusMode]);
+  }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
 
   useEffect(() => {
     function handleResizePointerMove(event: PointerEvent) {
@@ -552,22 +505,12 @@ export default function App() {
         return;
       }
 
-      if (currentResize.panel === "toolbar") {
-        const nextWidth = clampValue(
-          currentResize.startWidth + (event.clientX - currentResize.startClientX),
-          toolbarResizeBounds.min,
-          toolbarResizeBounds.max,
-        );
-        setToolbarWidth(nextWidth);
-        return;
-      }
-
       const nextWidth = clampValue(
-        currentResize.startWidth + (currentResize.startClientX - event.clientX),
-        inspectorResizeBounds.min,
-        inspectorResizeBounds.max,
+        currentResize.startWidth + (event.clientX - currentResize.startClientX),
+        toolbarResizeBounds.min,
+        toolbarResizeBounds.max,
       );
-      setInspectorWidth(nextWidth);
+      setToolbarWidth(nextWidth);
     }
 
     function stopResize() {
@@ -587,7 +530,7 @@ export default function App() {
       window.removeEventListener("pointerup", stopResize);
       document.body.classList.remove("workspace-resizing");
     };
-  }, [toolbarResizeBounds.max, toolbarResizeBounds.min, inspectorResizeBounds.max, inspectorResizeBounds.min]);
+  }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
 
   useEffect(() => {
     return () => {
@@ -757,9 +700,8 @@ export default function App() {
     );
   }
 
-  function openStudioSurface(nextView: WorkspaceView = "diagram") {
+  function openStudioSurface() {
     setSurface("studio");
-    setWorkspaceView(nextView);
     setIntroOpen(false);
   }
 
@@ -860,22 +802,6 @@ export default function App() {
     });
   }
 
-  function handleToggleInspector() {
-    if (!hasSelection) {
-      setInspectorPeekOpen((current) => {
-        const next = !current;
-        return next;
-      });
-      return;
-    }
-
-    setInspectorCollapsed((current) => {
-      const next = !current;
-      setStatus(next ? "Inspector contestuale compresso." : "Inspector contestuale espanso.");
-      return next;
-    });
-  }
-
   function handleToggleFocusMode() {
     setFocusMode((current) => {
       const next = !current;
@@ -885,7 +811,7 @@ export default function App() {
   }
 
   function handlePanelResizeStart(
-    panel: "toolbar" | "inspector",
+    panel: "toolbar",
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
     if (event.button !== 0) {
@@ -896,18 +822,15 @@ export default function App() {
     panelResizeRef.current = {
       panel,
       startClientX: event.clientX,
-      startWidth: panel === "toolbar" ? toolbarWidth : inspectorWidth,
+      startWidth: toolbarWidth,
     };
     document.body.classList.add("workspace-resizing");
   }
 
-  function resetPanelWidth(panel: "toolbar" | "inspector") {
+  function resetPanelWidth(panel: "toolbar") {
     if (panel === "toolbar") {
       setToolbarWidth(clampValue(DEFAULT_TOOLBAR_WIDTH, toolbarResizeBounds.min, toolbarResizeBounds.max));
-      return;
     }
-
-    setInspectorWidth(clampValue(DEFAULT_INSPECTOR_WIDTH, inspectorResizeBounds.min, inspectorResizeBounds.max));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -926,7 +849,6 @@ export default function App() {
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
-    nextView?: WorkspaceView,
   ) {
     history.commit(nextDiagram, history.present);
     syncCodeDraftWithDiagram(nextDiagram);
@@ -934,9 +856,6 @@ export default function App() {
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
     setTool("select");
-    if (nextView) {
-      setWorkspaceView(nextView);
-    }
     setStatus(status);
   }
 
@@ -1005,11 +924,7 @@ export default function App() {
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (workspaceView === "split") {
-          handleSaveErs();
-        } else {
-          handleSaveJson();
-        }
+        handleSaveJson();
         return;
       }
 
@@ -1087,7 +1002,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen, workspaceView]);
+  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -1098,15 +1013,6 @@ export default function App() {
     if (nextMode === "view") {
       setTool("select");
       setStatus("");
-    }
-  }
-
-  function handleWorkspaceViewChange(nextView: WorkspaceView) {
-    setWorkspaceView(nextView);
-    if (nextView === "split") {
-      setToolbarCollapsed(true);
-      setInspectorCollapsed(true);
-      setInspectorPeekOpen(false);
     }
   }
 
@@ -1718,7 +1624,6 @@ export default function App() {
       applyWorkspaceDocument(
         parsed,
         "Codice ERS caricato.",
-        "split",
       );
     } catch (error) {
       console.error(error);
@@ -1737,7 +1642,7 @@ export default function App() {
 
   async function handleExportPng() {
     if (!svgRef.current) {
-      setStatusWarning("Apri la vista Diagramma o Affiancata per esportare il PNG.");
+      setStatusWarning("Canvas non disponibile per esportare il PNG.");
       return;
     }
 
@@ -1752,7 +1657,7 @@ export default function App() {
 
   function handleExportSvg() {
     if (!svgRef.current) {
-      setStatusWarning("Apri la vista Diagramma o Affiancata per esportare l'SVG.");
+      setStatusWarning("Canvas non disponibile per esportare l'SVG.");
       return;
     }
 
@@ -1766,7 +1671,7 @@ export default function App() {
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
         latestRelease={APP_CHANGELOG[0]}
-        onOpenStudio={() => openStudioSurface("diagram")}
+        onOpenStudio={openStudioSurface}
         onOpenCodeTutorial={openCodeTutorialSurface}
       />
     );
@@ -1778,8 +1683,8 @@ export default function App() {
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
         onBackHome={openLandingSurface}
-        onOpenStudio={() => openStudioSurface("diagram")}
-        onOpenCodeStudio={() => openStudioSurface("split")}
+        onOpenStudio={openStudioSurface}
+        onOpenCodeStudio={openStudioSurface}
       />
     );
   }
@@ -1791,14 +1696,11 @@ export default function App() {
         appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
         mode={mode}
-        workspaceView={workspaceView}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
         focusMode={focusMode}
         toolRailCollapsed={effectiveToolbarCollapsed}
-        inspectorCollapsed={effectiveInspectorCollapsed}
         onModeChange={handleModeChange}
-        onWorkspaceViewChange={handleWorkspaceViewChange}
         onNew={handleNewDiagram}
         onUndo={history.undo}
         onRedo={history.redo}
@@ -1821,7 +1723,6 @@ export default function App() {
         }}
         onToggleFocusMode={handleToggleFocusMode}
         onToggleToolRail={handleToggleToolRail}
-        onToggleInspector={handleToggleInspector}
         onHome={openLandingSurface}
       />
 
@@ -1864,9 +1765,7 @@ export default function App() {
         <div
           className={[
             "workspace-shell",
-            workspaceView === "split" ? "workspace-shell-split" : "",
             effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
-            effectiveInspectorCollapsed ? "inspector-collapsed" : "",
             focusMode ? "workspace-shell-focus" : "",
             hasSelection ? "workspace-has-selection" : "workspace-idle",
           ]
@@ -1907,13 +1806,7 @@ export default function App() {
             disabled={focusMode || effectiveToolbarCollapsed}
           />
 
-          <div
-            className={
-              workspaceView === "split"
-                ? "workspace-main split"
-                : "workspace-main diagram-only"
-            }
-          >
+          <div className="workspace-main diagram-only">
             <DiagramCanvas
               diagram={history.present}
               selection={selection}
@@ -1938,58 +1831,7 @@ export default function App() {
               onRenameEdge={handleRenameEdge}
               onStatusMessageChange={handleCanvasStatusMessage}
             />
-
-            {workspaceView === "split" ? (
-              <CodeModePanel
-                code={codeDraft}
-                dirty={codeDirty}
-                parseError={codeError}
-                diagramName={history.present.meta.name}
-                nodeCount={history.present.nodes.length}
-                edgeCount={history.present.edges.length}
-                issueCount={issues.length}
-                layout="split"
-                onCodeChange={updateCodeDraft}
-                onReset={handleResetCodeFromDiagram}
-                onDownload={handleSaveErs}
-                onLoad={handleLoadErsRequest}
-                onOpenTutorial={openCodeTutorialSurface}
-              />
-            ) : null}
           </div>
-
-          <button
-            type="button"
-            className={
-              !focusMode && !effectiveInspectorCollapsed
-                ? "workspace-resizer workspace-resizer-active"
-                : "workspace-resizer"
-            }
-            onPointerDown={(event) => handlePanelResizeStart("inspector", event)}
-            onDoubleClick={() => resetPanelWidth("inspector")}
-            aria-label="Ridimensiona inspector"
-            title="Trascina per allargare o ridurre l'inspector"
-            disabled={focusMode || effectiveInspectorCollapsed}
-          />
-
-          <InspectorPanel
-            diagram={history.present}
-            selection={selection}
-            mode={mode}
-            issues={issues}
-            collapsed={effectiveInspectorCollapsed}
-            onNodeChange={handleNodeChange}
-            onNodesChange={handleNodesChange}
-            onEdgeChange={handleEdgeChange}
-            onClearExternalIdentifier={handleClearExternalIdentifier}
-            onDeleteSelection={handleDeleteSelection}
-            onDuplicateSelection={handleDuplicateSelection}
-            onAlign={handleAlignSelection}
-            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-            onIssueSelect={handleIssueNotice}
-            onRenameSelection={handleRenameSelectionQuick}
-            onToggleCollapse={handleToggleInspector}
-          />
         </div>
       </div>
 

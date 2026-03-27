@@ -7,14 +7,11 @@ interface AppHeaderProps {
   appVersion: string;
   diagramName: string;
   mode: EditorMode;
-  workspaceView: "diagram" | "split";
   canUndo: boolean;
   canRedo: boolean;
   focusMode: boolean;
   toolRailCollapsed: boolean;
-  inspectorCollapsed: boolean;
   onModeChange: (mode: EditorMode) => void;
-  onWorkspaceViewChange: (view: "diagram" | "split") => void;
   onNew: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -31,7 +28,6 @@ interface AppHeaderProps {
   onWhatsNew: () => void;
   onToggleFocusMode: () => void;
   onToggleToolRail: () => void;
-  onToggleInspector: () => void;
   onHome?: () => void;
 }
 
@@ -162,26 +158,6 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-switches">
         <div className="header-control-group">
-          <div className="header-group-label">Vista</div>
-          <div className="mode-switch mode-switch-primary" role="group" aria-label="Vista di lavoro">
-            <button
-              className={props.workspaceView === "diagram" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onWorkspaceViewChange("diagram")}
-            >
-              Diagramma
-            </button>
-            <button
-              className={props.workspaceView === "split" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onWorkspaceViewChange("split")}
-            >
-              Affiancata
-            </button>
-          </div>
-        </div>
-
-        <div className="header-control-group">
           <div className="header-group-label">Modalita</div>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label="Modalita editor">
             <button
@@ -266,18 +242,9 @@ export function AppHeader(props: AppHeaderProps) {
                   >
                     {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={(event) => runMenuAction(event, props.onToggleInspector)}
-                    disabled={props.focusMode}
-                  >
-                    {props.inspectorCollapsed ? "Apri contesto" : "Comprimi contesto"}
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
+                    Rigenera ERS
                   </button>
-                  {props.workspaceView === "split" ? (
-                    <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
-                      Rigenera ERS
-                    </button>
-                  ) : null}
                 </div>
 
                 <div className="nav-menu-section">
