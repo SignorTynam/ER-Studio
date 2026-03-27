@@ -30,6 +30,13 @@ function usesCompositeAttributeShape(node: DiagramNode): boolean {
   return node.type === "attribute" && node.isMultivalued === true;
 }
 
+function getSimpleAttributeIndicatorCenter(node: Extract<DiagramNode, { type: "attribute" }>): Point {
+  return {
+    x: node.x + 10,
+    y: node.y + node.height / 2,
+  };
+}
+
 export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
@@ -68,6 +75,11 @@ export function clientPointFromWorld(
 }
 
 export function getNodeLogicalAnchor(node: DiagramNode): Point {
+  if (node.type === "attribute" && !usesCompositeAttributeShape(node)) {
+    // Simple attributes are marker-based; use the indicator center as their logical center.
+    return getSimpleAttributeIndicatorCenter(node);
+  }
+
   return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
 }
 
@@ -157,10 +169,7 @@ function intersectEllipseBounds(node: DiagramNode, toward: Point): Point {
 }
 
 function intersectSimpleAttributeIndicator(node: Extract<DiagramNode, { type: "attribute" }>, toward: Point): Point {
-  const indicatorCenter = {
-    x: node.x + 10,
-    y: node.y + node.height / 2,
-  };
+  const indicatorCenter = getSimpleAttributeIndicatorCenter(node);
   const indicatorRadius = 7;
   const deltaX = toward.x - indicatorCenter.x;
   const deltaY = toward.y - indicatorCenter.y;
