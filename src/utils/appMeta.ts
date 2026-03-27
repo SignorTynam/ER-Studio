@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.4.2";
+export const APP_VERSION = "2.4.3";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.4.3",
+    date: "2026-03-27",
+    updates: [
+      "Refactor geometria connector: anchor logico spostato al centro del bounding box per il calcolo di direzione, lato dominante e routing iniziale.",
+      "Routing ortogonale reso piu stabile: i trunk paralleli si spostano senza cambiare lato di uscita o ingresso dei nodi.",
+      "Clipping finale sul bordo separato dalla logica di routing, con linee piu bilanciate durante drag, move e resize.",
+    ],
+  },
   {
     version: "2.4.2",
     date: "2026-03-25",

@@ -13,6 +13,14 @@ interface EdgeLaneInfo {
   laneCount: number;
 }
 
+type ConnectionSide = "left" | "right" | "top" | "bottom";
+
+interface EdgeEndpointGeometry {
+  logicalAnchor: Point;
+  visualAttachmentPoint: Point;
+  side: ConnectionSide;
+}
+
 export const GRID_SIZE = 20;
 export const MIN_ZOOM = 0.45;
 export const MAX_ZOOM = 2.4;
@@ -59,16 +67,12 @@ export function clientPointFromWorld(
   };
 }
 
-export function getNodeCenter(node: DiagramNode): Point {
-  if (node.type === "attribute") {
-    if (usesCompositeAttributeShape(node)) {
-      return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
-    }
-
-    return { x: node.x + 10, y: node.y + node.height / 2 };
-  }
-
+export function getNodeLogicalAnchor(node: DiagramNode): Point {
   return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+}
+
+export function getNodeCenter(node: DiagramNode): Point {
+  return getNodeLogicalAnchor(node);
 }
 
 export function getNodeBounds(node: DiagramNode): Bounds {
@@ -98,81 +102,112 @@ export function normalizeBounds(start: Point, end: Point): Bounds {
   };
 }
 
+export function getDominantConnectionSide(from: Point, to: Point): ConnectionSide {
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0 ? "right" : "left";
+  }
+
+  return deltaY >= 0 ? "bottom" : "top";
+}
+
+function intersectRectBounds(node: DiagramNode, toward: Point): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node);
+  const deltaX = toward.x - logicalAnchor.x;
+  const deltaY = toward.y - logicalAnchor.y;
+  const halfWidth = node.width / 2;
+  const halfHeight = node.height / 2;
+  const scaleDenominator = Math.max(
+    Math.abs(deltaX) / Math.max(1, halfWidth),
+    Math.abs(deltaY) / Math.max(1, halfHeight),
+  );
+
+  if (scaleDenominator <= 0.001) {
+    return logicalAnchor;
+  }
+
+  const t = 1 / scaleDenominator;
+  return {
+    x: logicalAnchor.x + deltaX * t,
+    y: logicalAnchor.y + deltaY * t,
+  };
+}
+
+function intersectEllipseBounds(node: DiagramNode, toward: Point): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node);
+  const radiusX = node.width / 2;
+  const radiusY = node.height / 2;
+  const deltaX = toward.x - logicalAnchor.x;
+  const deltaY = toward.y - logicalAnchor.y;
+  const scaleDenominator =
+    (deltaX * deltaX) / Math.max(1, radiusX * radiusX) +
+    (deltaY * deltaY) / Math.max(1, radiusY * radiusY);
+
+  if (scaleDenominator <= 0.001) {
+    return logicalAnchor;
+  }
+
+  const t = 1 / Math.sqrt(scaleDenominator);
+  return {
+    x: logicalAnchor.x + deltaX * t,
+    y: logicalAnchor.y + deltaY * t,
+  };
+}
+
+function intersectDiamondBounds(node: DiagramNode, toward: Point): Point {
+  const logicalAnchor = getNodeLogicalAnchor(node);
+  const halfWidth = node.width / 2;
+  const halfHeight = node.height / 2;
+  const deltaX = toward.x - logicalAnchor.x;
+  const deltaY = toward.y - logicalAnchor.y;
+  const scaleDenominator =
+    Math.abs(deltaX) / Math.max(1, halfWidth) +
+    Math.abs(deltaY) / Math.max(1, halfHeight);
+
+  if (scaleDenominator <= 0.001) {
+    return logicalAnchor;
+  }
+
+  const t = 1 / scaleDenominator;
+  return {
+    x: logicalAnchor.x + deltaX * t,
+    y: logicalAnchor.y + deltaY * t,
+  };
+}
+
+// Routing decisions use the logical center; the shape perimeter is only used here for final clipping.
+export function clipPointToNodePerimeter(node: DiagramNode, toward: Point): Point {
+  if (node.type === "relationship") {
+    return intersectDiamondBounds(node, toward);
+  }
+
+  if (node.type === "attribute" && usesCompositeAttributeShape(node)) {
+    return intersectEllipseBounds(node, toward);
+  }
+
+  // Simple attributes are rendered as indicator + label, so the bounding box is the most stable visual clip area.
+  return intersectRectBounds(node, toward);
+}
+
+function buildEdgeEndpointGeometry(node: DiagramNode, toward: Point): EdgeEndpointGeometry {
+  const logicalAnchor = getNodeLogicalAnchor(node);
+
+  return {
+    logicalAnchor,
+    visualAttachmentPoint: clipPointToNodePerimeter(node, toward),
+    side: getDominantConnectionSide(logicalAnchor, toward),
+  };
+}
+
 export function getNodeAnchor(
   node: DiagramNode,
   toward: Point,
-  edgeType: EdgeKind,
-  role: "source" | "target",
+  _edgeType: EdgeKind,
+  _role: "source" | "target",
 ): Point {
-  if (node.type === "attribute") {
-    if (usesCompositeAttributeShape(node)) {
-      const center = getNodeCenter(node);
-      const radiusX = node.width / 2;
-      const radiusY = node.height / 2;
-      const deltaX = toward.x - center.x;
-      const deltaY = toward.y - center.y;
-      const scaleDenominator =
-        (deltaX * deltaX) / Math.max(1, radiusX * radiusX) +
-        (deltaY * deltaY) / Math.max(1, radiusY * radiusY);
-
-      if (scaleDenominator <= 0) {
-        return center;
-      }
-
-      const t = 1 / Math.sqrt(scaleDenominator);
-      return {
-        x: center.x + deltaX * t,
-        y: center.y + deltaY * t,
-      };
-    }
-
-    const center = { x: node.x + 10, y: node.y + node.height / 2 };
-    const radius = 7;
-    const deltaX = toward.x - center.x;
-    const deltaY = toward.y - center.y;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      return {
-        x: deltaX >= 0 ? center.x + radius : center.x - radius,
-        y: center.y,
-      };
-    }
-
-    return {
-      x: center.x,
-      y: deltaY >= 0 ? center.y + radius : center.y - radius,
-    };
-  }
-
-  const center = getNodeCenter(node);
-
-  if (edgeType === "inheritance") {
-    const deltaX = toward.x - center.x;
-    const deltaY = toward.y - center.y;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      return deltaX >= 0
-        ? { x: node.x + node.width, y: center.y }
-        : { x: node.x, y: center.y };
-    }
-
-    return deltaY >= 0
-      ? { x: center.x, y: node.y + node.height }
-      : { x: center.x, y: node.y };
-  }
-
-  const deltaX = toward.x - center.x;
-  const deltaY = toward.y - center.y;
-
-  if (Math.abs(deltaX) > Math.abs(deltaY)) {
-    return deltaX >= 0
-      ? { x: node.x + node.width, y: center.y }
-      : { x: node.x, y: center.y };
-  }
-
-  return deltaY >= 0
-    ? { x: center.x, y: node.y + node.height }
-    : { x: center.x, y: node.y };
+  return clipPointToNodePerimeter(node, toward);
 }
 
 function dedupePoints(points: Point[]): Point[] {
@@ -224,46 +259,25 @@ export function buildOrthogonalPoints(
     return simplifyPoints([source, target]);
   }
 
-  const deltaX = target.x - source.x;
-  const deltaY = target.y - source.y;
-  const horizontalBias =
-    Math.abs(deltaX) >= Math.abs(deltaY);
+  const sourceSide = getDominantConnectionSide(source, target);
+  const horizontalBias = sourceSide === "left" || sourceSide === "right";
 
   if (horizontalBias) {
-    if (laneOffset === 0) {
-      const midX = (source.x + target.x) / 2;
-      return simplifyPoints([
-        source,
-        { x: midX, y: source.y },
-        { x: midX, y: target.y },
-        target,
-      ]);
-    }
-
-    const midY = (source.y + target.y) / 2 + laneOffset;
+    // Shift the shared trunk instead of the endpoints so exit/entry stay coherent with center-to-center direction.
+    const midX = (source.x + target.x) / 2 + laneOffset;
     return simplifyPoints([
       source,
-      { x: source.x, y: midY },
-      { x: target.x, y: midY },
+      { x: midX, y: source.y },
+      { x: midX, y: target.y },
       target,
     ]);
   }
 
-  if (laneOffset === 0) {
-    const midY = (source.y + target.y) / 2;
-    return simplifyPoints([
-      source,
-      { x: source.x, y: midY },
-      { x: target.x, y: midY },
-      target,
-    ]);
-  }
-
-  const midX = (source.x + target.x) / 2 + laneOffset;
+  const midY = (source.y + target.y) / 2 + laneOffset;
   return simplifyPoints([
     source,
-    { x: midX, y: source.y },
-    { x: midX, y: target.y },
+    { x: source.x, y: midY },
+    { x: target.x, y: midY },
     target,
   ]);
 }
@@ -355,83 +369,57 @@ function getPointAlongPolyline(points: Point[], progress: number): Point {
 }
 
 function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: number): Point {
-  if (node.type === "relationship") {
-    const center = getNodeCenter(node);
-    const halfWidth = node.width / 2;
-    const halfHeight = node.height / 2;
-    const deltaX = toward.x - center.x;
-    const deltaY = toward.y - center.y;
-
-    // Intersect the ray from center->toward with the diamond boundary:
-    // |x-cx|/(w/2) + |y-cy|/(h/2) = 1
-    const scaleDenominator =
-      Math.abs(deltaX) / Math.max(1, halfWidth) + Math.abs(deltaY) / Math.max(1, halfHeight);
-
-    if (scaleDenominator <= 0) {
-      return center;
-    }
-
-    const t = 1 / scaleDenominator;
-    return {
-      x: center.x + deltaX * t,
-      y: center.y + deltaY * t,
-    };
-  }
-
-  if (node.type === "attribute") {
-    const anchor = getNodeAnchor(node, toward, "attribute", "target");
-    if (usesCompositeAttributeShape(node)) {
-      return anchor;
-    }
-
-    return {
-      x: anchor.x,
-      y: clamp(anchor.y + laneOffset / 3, node.y + 4, node.y + node.height - 4),
-    };
-  }
-
-  const center = getNodeCenter(node);
-  const deltaX = toward.x - center.x;
-  const deltaY = toward.y - center.y;
-  const margin = 8;
-
-  if (Math.abs(deltaX) > Math.abs(deltaY)) {
-    return {
-      x: deltaX >= 0 ? node.x + node.width : node.x,
-      y: clamp(center.y + laneOffset, node.y + margin, node.y + node.height - margin),
-    };
-  }
-
-  return {
-    x: clamp(center.x + laneOffset, node.x + margin, node.x + node.width - margin),
-    y: deltaY >= 0 ? node.y + node.height : node.y,
-  };
+  const endpoint = buildEdgeEndpointGeometry(node, toward);
+  return applyLaneOffsetToAnchor(node, endpoint.visualAttachmentPoint, endpoint.side, laneOffset);
 }
 
-function applyLaneOffsetToAnchor(node: DiagramNode, anchor: Point, laneOffset: number): Point {
-  // Relationship nodes are diamonds, so rectangular edge offsets can visually detach lines.
-  if (laneOffset === 0 || node.type === "attribute" || node.type === "relationship") {
+function applyLaneOffsetToAnchor(
+  node: DiagramNode,
+  anchor: Point,
+  side: ConnectionSide,
+  laneOffset: number,
+): Point {
+  // Keep clipping clean on diamonds/ellipses; only rectangular bounds get tangential lane offsets.
+  if (
+    laneOffset === 0 ||
+    node.type === "relationship" ||
+    (node.type === "attribute" && usesCompositeAttributeShape(node))
+  ) {
     return anchor;
   }
 
-  const epsilon = 0.1;
-  const margin = 8;
-  const left = node.x;
-  const right = node.x + node.width;
-  const top = node.y;
-  const bottom = node.y + node.height;
+  const margin = node.type === "attribute" ? 4 : 8;
 
-  if (Math.abs(anchor.x - left) < epsilon || Math.abs(anchor.x - right) < epsilon) {
+  if (side === "left" || side === "right") {
     return {
       x: anchor.x,
-      y: clamp(anchor.y + laneOffset, top + margin, bottom - margin),
+      y: clamp(anchor.y + laneOffset, node.y + margin, node.y + node.height - margin),
     };
   }
 
   return {
-    x: clamp(anchor.x + laneOffset, left + margin, right - margin),
+    x: clamp(anchor.x + laneOffset, node.x + margin, node.x + node.width - margin),
     y: anchor.y,
   };
+}
+
+function attachPolylineToNodeBounds(
+  logicalPoints: Point[],
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+): Point[] {
+  if (logicalPoints.length < 2) {
+    return logicalPoints;
+  }
+
+  const points = [...logicalPoints];
+  const sourceEndpoint = buildEdgeEndpointGeometry(sourceNode, points[1]);
+  const targetEndpoint = buildEdgeEndpointGeometry(targetNode, points[points.length - 2]);
+
+  points[0] = sourceEndpoint.visualAttachmentPoint;
+  points[points.length - 1] = targetEndpoint.visualAttachmentPoint;
+
+  return simplifyPoints(points);
 }
 
 export function getEdgeGeometry(
@@ -445,37 +433,36 @@ export function getEdgeGeometry(
     edge.type === "attribute"
       ? getAttributeLaneOffset(edge.id)
       : getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
-  let sourcePoint: Point;
-  let targetPoint: Point;
+  let points: Point[];
 
   if (edge.type === "attribute") {
     const sourceIsAttribute = sourceNode.type === "attribute";
     const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
     const hostNode = sourceIsAttribute ? targetNode : sourceNode;
-    const hostCenter = getNodeCenter(hostNode);
-    const attributeCenter = getNodeCenter(attributeNode);
+    const attributeEndpoint = buildEdgeEndpointGeometry(
+      attributeNode,
+      getNodeLogicalAnchor(hostNode),
+    );
 
-    // Keep attribute routing stable regardless of edge source/target creation order.
-    sourcePoint = getNodeAnchor(attributeNode, hostCenter, edge.type, "source");
-    targetPoint = getAttributeEntityAnchor(hostNode, attributeCenter, laneOffset);
+    // Attribute geometry stays normalized attribute -> host, but its direction now comes from logical centers.
+    points = simplifyPoints([
+      attributeEndpoint.visualAttachmentPoint,
+      getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, laneOffset),
+    ]);
   } else {
-    const targetCenter = getNodeCenter(targetNode);
-    const sourceCenter = getNodeCenter(sourceNode);
-    sourcePoint = getNodeAnchor(sourceNode, targetCenter, edge.type, "source");
-    targetPoint = getNodeAnchor(targetNode, sourceCenter, edge.type, "target");
+    const shouldUseStraightConnector =
+      edge.type === "connector" && laneCount === 1 && laneOffset === 0;
+    const logicalPoints = shouldUseStraightConnector
+      ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
+      : buildOrthogonalPoints(
+          getNodeLogicalAnchor(sourceNode),
+          getNodeLogicalAnchor(targetNode),
+          edge.type,
+          laneOffset,
+        );
 
-    if (edge.type === "connector" && laneOffset !== 0) {
-      // Keep parallel connectors visually distinct near both endpoints.
-      sourcePoint = applyLaneOffsetToAnchor(sourceNode, sourcePoint, laneOffset);
-      targetPoint = applyLaneOffsetToAnchor(targetNode, targetPoint, laneOffset);
-    }
+    points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
   }
-
-  const shouldUseStraightConnector =
-    edge.type === "connector" && laneCount === 1 && laneOffset === 0;
-  const points = shouldUseStraightConnector
-    ? [sourcePoint, targetPoint]
-    : buildOrthogonalPoints(sourcePoint, targetPoint, edge.type, laneOffset);
 
   return {
     points,

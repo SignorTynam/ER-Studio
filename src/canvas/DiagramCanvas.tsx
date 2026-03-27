@@ -11,6 +11,7 @@ import { DiagramEdgeView } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
 import {
   clampZoom,
+  clipPointToNodePerimeter,
   clientPointFromWorld,
   getEdgeGeometry,
   getNodeAnchor,
@@ -1702,16 +1703,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     inlineEdit?.kind === "edge" ? props.diagram.edges.find((candidate) => candidate.id === inlineEdit.id) : null;
   const editingEdgeCardinality = inlineEdge?.type === "connector" || inlineEdge?.type === "attribute";
   const pendingSourceNode = pendingConnectionSource ? nodeMap.get(pendingConnectionSource) : undefined;
-  const pendingEdgeType: EdgeKind =
-    props.tool === "inheritance"
-      ? "inheritance"
-      : pendingSourceNode?.type === "attribute"
-        ? "attribute"
-        : "connector";
   const pendingConnectionPath =
     pendingSourceNode && connectionPreviewPoint
       ? pathFromPoints([
-          getNodeAnchor(pendingSourceNode, connectionPreviewPoint, pendingEdgeType, "source"),
+          clipPointToNodePerimeter(pendingSourceNode, connectionPreviewPoint),
           connectionPreviewPoint,
         ])
       : null;
