@@ -17,7 +17,8 @@ interface InspectorPanelProps {
   selection: SelectionState;
   mode: EditorMode;
   issues: ValidationIssue[];
-  collapsed: boolean;
+  collapsed?: boolean;
+  embedded?: boolean;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
@@ -28,7 +29,7 @@ interface InspectorPanelProps {
   onCreateAttributeForSelection: () => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onRenameSelection: () => void;
-  onToggleCollapse: () => void;
+  onToggleCollapse?: () => void;
 }
 
 function numberValue(value: string): number {
@@ -96,12 +97,14 @@ function getSelectionHeading(
   }
 
   return {
-    title: "Workspace",
+    title: "Canvas",
     subtitle: "Seleziona un elemento per vedere solo le impostazioni pertinenti.",
   };
 }
 
 export function InspectorPanel(props: InspectorPanelProps) {
+  const isEmbedded = props.embedded === true;
+  const isCollapsed = props.collapsed === true && !isEmbedded;
   const canEdit = props.mode !== "view";
   const selectedNodeCount = props.selection.nodeIds.length;
   const selectedEdgeCount = props.selection.edgeIds.length;
@@ -157,7 +160,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
 
-  if (props.collapsed) {
+  if (isCollapsed) {
     if (isIdleContext) {
       return (
         <aside className="inspector-panel collapsed inspector-panel-idle">
@@ -584,21 +587,29 @@ export function InspectorPanel(props: InspectorPanelProps) {
   }
 
   return (
-    <aside className="inspector-panel inspector-panel-context">
+    <aside
+      className={
+        isEmbedded
+          ? "inspector-panel inspector-panel-context inspector-panel-embedded"
+          : "inspector-panel inspector-panel-context"
+      }
+    >
       <div className="panel-head-row">
         <div>
           <div className="panel-heading">{heading.title}</div>
           <p className="panel-subheading">{heading.subtitle}</p>
         </div>
-        <button
-          type="button"
-          className="panel-toggle"
-          onClick={props.onToggleCollapse}
-          aria-label="Comprimi pannello contesto"
-          title="Comprimi"
-        >
-          {">"}
-        </button>
+        {!isEmbedded ? (
+          <button
+            type="button"
+            className="panel-toggle"
+            onClick={props.onToggleCollapse}
+            aria-label="Comprimi pannello contesto"
+            title="Comprimi"
+          >
+            {">"}
+          </button>
+        ) : null}
       </div>
 
       <section className="context-card context-card-hero">
@@ -623,7 +634,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
           </div>
         </section>
       ) : null}
-
     </aside>
   );
 }

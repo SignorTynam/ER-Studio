@@ -1,15 +1,27 @@
-import type { DiagramEdge, DiagramNode, EditorMode, ToolKind } from "../types/diagram";
+import { InspectorPanel } from "../inspector/InspectorPanel";
+import type {
+  DiagramDocument,
+  DiagramEdge,
+  DiagramNode,
+  EditorMode,
+  SelectionState,
+  ToolKind,
+  ValidationIssue,
+} from "../types/diagram";
 import { TOOL_DEFINITIONS } from "../utils/toolConfig";
 
 const PRIMARY_TOOLS: ToolKind[] = ["select", "move", "entity", "relationship", "connector", "inheritance", "text"];
 
 interface ToolbarProps {
+  diagram: DiagramDocument;
+  selection: SelectionState;
   activeTool: ToolKind;
   mode: EditorMode;
   collapsed: boolean;
   canUndo: boolean;
   canRedo: boolean;
   selectionItemCount: number;
+  issues: ValidationIssue[];
   selectedNode?: DiagramNode;
   selectedEdge?: DiagramEdge;
   onToolChange: (tool: ToolKind) => void;
@@ -19,6 +31,12 @@ interface ToolbarProps {
   onDeleteSelection: () => void;
   onCreateAttributeForSelection: () => void;
   onRenameSelection: () => void;
+  onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
+  onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
+  onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
+  onClearExternalIdentifier: (relationshipId: string) => void;
+  onAlign: (axis: "left" | "center" | "top" | "middle") => void;
+  onIssueSelect: (issue: ValidationIssue) => void;
   onToggleCollapse: () => void;
 }
 
@@ -205,15 +223,7 @@ export function Toolbar(props: ToolbarProps) {
     }
     return result;
   }, []);
-  const canEditSelection = props.mode !== "view" && props.selectionItemCount > 0;
-  const canCreateAttribute =
-    props.mode !== "view" &&
-    !!props.selectedNode &&
-    (props.selectedNode.type === "entity" ||
-      props.selectedNode.type === "relationship" ||
-      props.selectedNode.type === "attribute");
-  const attributeActionLabel =
-    props.selectedNode?.type === "attribute" ? "Aggiungi sotto-attributo" : "Aggiungi attributo";
+  const showContextOnly = !props.collapsed && props.selectionItemCount > 0;
 
   return (
     <aside className={props.collapsed ? "toolbar-panel collapsed" : "toolbar-panel"}>
@@ -237,108 +247,81 @@ export function Toolbar(props: ToolbarProps) {
         </button>
       </div>
 
-      <section className="toolbar-section">
-        <div className="toolbar-section-label">Cronologia</div>
-        <div className="toolbar-list toolbar-list-tight">
-          <button
-            type="button"
-            className="toolbar-action-button"
-            onClick={props.onUndo}
-            disabled={!props.canUndo}
-            aria-label="Annulla"
-            title="Annulla"
-          >
-            <ActionIcon kind="undo" />
-            <span className="tool-label">Annulla</span>
-          </button>
-          <button
-            type="button"
-            className="toolbar-action-button"
-            onClick={props.onRedo}
-            disabled={!props.canRedo}
-            aria-label="Ripeti"
-            title="Ripeti"
-          >
-            <ActionIcon kind="redo" />
-            <span className="tool-label">Ripeti</span>
-          </button>
-        </div>
-      </section>
-
-      {props.selectionItemCount > 0 ? (
-        <section className="toolbar-section toolbar-section-context">
-          <div className="toolbar-section-label">Selezione</div>
+      {!showContextOnly ? (
+        <section className="toolbar-section">
+          <div className="toolbar-section-label">Cronologia</div>
           <div className="toolbar-list toolbar-list-tight">
-            {canCreateAttribute ? (
-              <button
-                type="button"
-                className="toolbar-action-button accent"
-                onClick={props.onCreateAttributeForSelection}
-                title={attributeActionLabel}
-              >
-                <ActionIcon kind="attribute" />
-                <span className="tool-label">{attributeActionLabel}</span>
-              </button>
-            ) : null}
-            {(props.selectedNode || props.selectedEdge) ? (
-              <button
-                type="button"
-                className="toolbar-action-button"
-                onClick={props.onRenameSelection}
-                disabled={props.mode === "view"}
-                title="Rinomina"
-              >
-                <ActionIcon kind="rename" />
-                <span className="tool-label">Rinomina</span>
-              </button>
-            ) : null}
             <button
               type="button"
               className="toolbar-action-button"
-              onClick={props.onDuplicateSelection}
-              disabled={!canEditSelection}
-              title="Duplica"
+              onClick={props.onUndo}
+              disabled={!props.canUndo}
+              aria-label="Annulla"
+              title="Annulla"
             >
-              <ActionIcon kind="duplicate" />
-              <span className="tool-label">Duplica</span>
+              <ActionIcon kind="undo" />
+              <span className="tool-label">Annulla</span>
             </button>
             <button
               type="button"
-              className="toolbar-action-button destructive"
-              onClick={props.onDeleteSelection}
-              disabled={!canEditSelection}
-              title="Elimina"
+              className="toolbar-action-button"
+              onClick={props.onRedo}
+              disabled={!props.canRedo}
+              aria-label="Ripeti"
+              title="Ripeti"
             >
-              <ActionIcon kind="delete" />
-              <span className="tool-label">Elimina</span>
+              <ActionIcon kind="redo" />
+              <span className="tool-label">Ripeti</span>
             </button>
           </div>
         </section>
       ) : null}
 
-      <section className="toolbar-section">
-        <div className="toolbar-section-label">Strumenti base</div>
-        <div className="toolbar-list">
-          {availableTools.map((item) => {
-            const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
-            return (
-              <button
-                key={item.tool}
-                type="button"
-                className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
-                onClick={() => props.onToolChange(item.tool)}
-                disabled={disabled}
-                title={`${item.label} (${item.shortcut.toUpperCase()})`}
-                aria-label={item.label}
-              >
-                <ToolIcon tool={item.tool} />
-                <span className="tool-label">{item.label}</span>
-                <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {showContextOnly ? (
+        <InspectorPanel
+          embedded
+          diagram={props.diagram}
+          selection={props.selection}
+          mode={props.mode}
+          issues={props.issues}
+          onNodeChange={props.onNodeChange}
+          onNodesChange={props.onNodesChange}
+          onEdgeChange={props.onEdgeChange}
+          onClearExternalIdentifier={props.onClearExternalIdentifier}
+          onDeleteSelection={props.onDeleteSelection}
+          onDuplicateSelection={props.onDuplicateSelection}
+          onAlign={props.onAlign}
+          onCreateAttributeForSelection={props.onCreateAttributeForSelection}
+          onIssueSelect={props.onIssueSelect}
+          onRenameSelection={props.onRenameSelection}
+        />
+      ) : null}
+
+      {!showContextOnly ? (
+        <section className="toolbar-section">
+          <div className="toolbar-section-label">Strumenti base</div>
+          <div className="toolbar-list">
+            {availableTools.map((item) => {
+              const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
+              return (
+                <button
+                  key={item.tool}
+                  type="button"
+                  className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
+                  onClick={() => props.onToolChange(item.tool)}
+                  disabled={disabled}
+                  title={`${item.label} (${item.shortcut.toUpperCase()})`}
+                  aria-label={item.label}
+                >
+                  <ToolIcon tool={item.tool} />
+                  <span className="tool-label">{item.label}</span>
+                  <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </aside>
   );
 }

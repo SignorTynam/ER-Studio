@@ -5823,6 +5823,20 @@ body.workspace-resizing {
   border-color: rgba(42, 39, 31, 0.05);
 }
 
+.toolbar-panel {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.toolbar-panel .inspector-panel-embedded {
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
 .workspace-shell.workspace-shell-split .inspector-panel.collapsed {
   padding-inline: 2px;
 }

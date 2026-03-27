@@ -1774,12 +1774,15 @@ export default function App() {
           style={workspaceShellStyle}
         >
           <Toolbar
+            diagram={history.present}
+            selection={selection}
             activeTool={tool}
             mode={mode}
             collapsed={effectiveToolbarCollapsed}
             canUndo={history.canUndo}
             canRedo={history.canRedo}
             selectionItemCount={selectionItemCount}
+            issues={issues}
             selectedNode={selectedNode}
             selectedEdge={selectedEdge}
             onToolChange={setTool}
@@ -1789,6 +1792,12 @@ export default function App() {
             onDeleteSelection={handleDeleteSelection}
             onCreateAttributeForSelection={handleCreateAttributeFromSelection}
             onRenameSelection={handleRenameSelectionQuick}
+            onNodeChange={handleNodeChange}
+            onNodesChange={handleNodesChange}
+            onEdgeChange={handleEdgeChange}
+            onClearExternalIdentifier={handleClearExternalIdentifier}
+            onAlign={handleAlignSelection}
+            onIssueSelect={handleIssueNotice}
             onToggleCollapse={handleToggleToolRail}
           />
 
