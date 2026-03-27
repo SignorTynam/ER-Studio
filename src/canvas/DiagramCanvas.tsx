@@ -228,48 +228,6 @@ function buildAttributeDirectionMap(diagram: DiagramDocument): Map<string, Point
   return directions;
 }
 
-function expandDragNodeIds(diagram: DiagramDocument, seedNodeIds: string[]): string[] {
-  if (seedNodeIds.length === 0) {
-    return [];
-  }
-
-  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const expandedIds = new Set(seedNodeIds);
-  const queue = [...seedNodeIds];
-
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    if (!currentId) {
-      continue;
-    }
-
-    diagram.edges.forEach((edge) => {
-      if (edge.type !== "attribute") {
-        return;
-      }
-
-      const sourceNode = nodeById.get(edge.sourceId);
-      const targetNode = nodeById.get(edge.targetId);
-
-      const hostedAttribute =
-        edge.sourceId === currentId && targetNode?.type === "attribute"
-          ? targetNode
-          : edge.targetId === currentId && sourceNode?.type === "attribute"
-            ? sourceNode
-            : undefined;
-
-      if (!hostedAttribute || expandedIds.has(hostedAttribute.id)) {
-        return;
-      }
-
-      expandedIds.add(hostedAttribute.id);
-      queue.push(hostedAttribute.id);
-    });
-  }
-
-  return [...expandedIds];
-}
-
 function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "relationship" | "attribute" | "text"> {
   return tool === "entity" || tool === "relationship" || tool === "attribute" || tool === "text";
 }
@@ -1151,11 +1109,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return false;
     }
 
-    const movingNodeIds = expandDragNodeIds(props.diagram, props.selection.nodeIds);
+    const movingNodeIds = new Set(props.selection.nodeIds);
     const nextDiagram = {
       ...props.diagram,
       nodes: props.diagram.nodes.map((node) =>
-        movingNodeIds.includes(node.id)
+        movingNodeIds.has(node.id)
           ? {
               ...node,
               x: snapValue(node.x + deltaX),
@@ -1430,7 +1388,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.selection.nodeIds.includes(node.id) && props.selection.nodeIds.length > 0
         ? props.selection.nodeIds
         : [node.id];
-    const nodeIds = expandDragNodeIds(props.diagram, selectedNodeIds);
+    const nodeIds = selectedNodeIds;
 
     const originalDiagram = props.diagram;
     const originPositions: Record<string, Point> = {};
