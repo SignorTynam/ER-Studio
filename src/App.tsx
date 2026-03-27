@@ -748,6 +748,15 @@ export default function App() {
       return;
     }
 
+    const warningTargetSelected =
+      issue.targetType === "node"
+        ? selectedNode?.id === issue.targetId
+        : selectedEdge?.id === issue.targetId;
+
+    if (!warningTargetSelected) {
+      return;
+    }
+
     showWarningNotice(issue.message);
   }
 
