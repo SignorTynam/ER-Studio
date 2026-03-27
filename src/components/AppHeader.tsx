@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
@@ -37,6 +37,38 @@ interface AppHeaderProps {
 
 export function AppHeader(props: AppHeaderProps) {
   const navRef = useRef<HTMLElement | null>(null);
+  const menuGroupRef = useRef<HTMLDetailsElement | null>(null);
+  const [menuStyle, setMenuStyle] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
+  function updateMenuPosition() {
+    const menuGroup = menuGroupRef.current;
+    if (!menuGroup?.open) {
+      setMenuStyle(null);
+      return;
+    }
+
+    const summary = menuGroup.querySelector("summary");
+    if (!summary) {
+      return;
+    }
+
+    const viewportPadding = 12;
+    const triggerRect = summary.getBoundingClientRect();
+    const width = Math.min(360, Math.max(280, window.innerWidth - viewportPadding * 2));
+    const left = Math.max(
+      viewportPadding,
+      Math.min(triggerRect.right - width, window.innerWidth - width - viewportPadding),
+    );
+    const top = triggerRect.bottom + 8;
+    const maxHeight = Math.max(220, window.innerHeight - top - viewportPadding);
+
+    setMenuStyle({ top, left, width, maxHeight });
+  }
 
   function closeAllMenus() {
     if (!navRef.current) {
@@ -44,6 +76,7 @@ export function AppHeader(props: AppHeaderProps) {
     }
 
     navRef.current.querySelectorAll("details[open]").forEach((group) => group.removeAttribute("open"));
+    setMenuStyle(null);
   }
 
   useEffect(() => {
@@ -72,9 +105,26 @@ export function AppHeader(props: AppHeaderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    function handleViewportChange() {
+      updateMenuPosition();
+    }
+
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, []);
+
   function handleGroupToggle(event: SyntheticEvent<HTMLDetailsElement>) {
     const currentGroup = event.currentTarget;
     if (!currentGroup.open || !navRef.current) {
+      if (currentGroup === menuGroupRef.current) {
+        setMenuStyle(null);
+      }
       return;
     }
 
@@ -83,6 +133,12 @@ export function AppHeader(props: AppHeaderProps) {
         group.removeAttribute("open");
       }
     });
+
+    if (currentGroup === menuGroupRef.current) {
+      window.requestAnimationFrame(() => {
+        updateMenuPosition();
+      });
+    }
   }
 
   function runMenuAction(event: MouseEvent<HTMLButtonElement>, action: () => void) {
@@ -186,9 +242,21 @@ export function AppHeader(props: AppHeaderProps) {
         <div className="header-control-group header-control-group-menu">
           <div className="header-group-label">Workspace</div>
           <nav ref={navRef} className="header-nav" aria-label="Azioni secondarie">
-            <details className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
+            <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
               <summary>Menu</summary>
-              <div className="nav-menu nav-menu-wide">
+              <div
+                className="nav-menu nav-menu-wide nav-menu-floating"
+                style={
+                  menuStyle
+                    ? {
+                        top: `${menuStyle.top}px`,
+                        left: `${menuStyle.left}px`,
+                        width: `${menuStyle.width}px`,
+                        maxHeight: `${menuStyle.maxHeight}px`,
+                      }
+                    : { visibility: "hidden" }
+                }
+              >
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">Workspace</div>
                   <button

@@ -4790,6 +4790,7 @@ summary:focus-visible {
 
 .header-nav {
   justify-content: flex-end;
+  overflow: visible;
 }
 
 .workspace-shell {
@@ -5499,6 +5500,18 @@ summary:focus-visible {
   border-radius: 16px;
 }
 
+.header-nav .nav-menu.nav-menu-floating {
+  position: fixed;
+  right: auto;
+  left: 0;
+  z-index: 60;
+  min-width: 280px;
+  border: 1px solid rgba(42, 39, 31, 0.08);
+  background: rgba(252, 253, 250, 0.98);
+  box-shadow: 0 18px 38px rgba(35, 44, 40, 0.16);
+  backdrop-filter: blur(18px);
+}
+
 .nav-menu-wide {
   display: flex;
   flex-direction: column;
@@ -5511,6 +5524,7 @@ summary:focus-visible {
 .nav-menu-section {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 6px;
   padding-top: 10px;
 }
@@ -5528,6 +5542,13 @@ summary:focus-visible {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(42, 39, 31, 0.52);
+}
+
+.nav-menu button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .workspace-shell {
