@@ -530,7 +530,6 @@ export default function App() {
     if (!hasSelection) {
       setInspectorPeekOpen((current) => {
         const next = !current;
-        setStatus(next ? "Inspector aperto in modalita panoramica." : "Inspector contestuale ridotto.");
         return next;
       });
       return;
