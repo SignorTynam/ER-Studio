@@ -155,7 +155,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
-  const isIdleContext = selectionCount === 0 && props.issues.length === 0;
+  const isIdleContext = selectionCount === 0;
 
   if (props.collapsed) {
     if (isIdleContext) {
@@ -194,10 +194,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
           <div className="inspector-compact-card">
             <strong>{heading.title}</strong>
             <span>{selectionCount === 0 ? "Nessuna selezione" : `${selectionCount} elementi`}</span>
-          </div>
-          <div className="inspector-compact-card tone-muted">
-            <strong>{props.issues.length}</strong>
-            <span>Issue</span>
           </div>
         </div>
       </aside>
@@ -628,35 +624,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
         </section>
       ) : null}
 
-      {(props.issues.length > 0 || selectionCount === 0) ? (
-        <details className="context-card context-card-validations" open={selectionCount === 0 && props.issues.length > 0}>
-          <summary className="section-summary">Controlli modello ({props.issues.length})</summary>
-          <div className="section-body inspector-stack">
-            {props.issues.length === 0 ? (
-              <p className="validation-ok">Nessuna anomalia rilevata.</p>
-            ) : (
-              <div className="validation-list">
-                {props.issues.map((issue) => (
-                  <button
-                    key={issue.id}
-                    type="button"
-                    className={`validation-item ${issue.level === "error" ? "error" : "warning"}`}
-                    onClick={() => props.onIssueSelect(issue)}
-                  >
-                    <div className="validation-head">
-                      <span className="validation-icon" aria-hidden="true">
-                        !
-                      </span>
-                      <strong className="validation-badge">{issue.level === "error" ? "Errore" : "Avviso"}</strong>
-                    </div>
-                    <p className="validation-message">{issue.message}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </details>
-      ) : null}
     </aside>
   );
 }
