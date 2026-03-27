@@ -9,7 +9,7 @@ import type {
   NodeKind,
 } from "../types/diagram";
 import { CONNECTOR_CARDINALITY_PLACEHOLDER, isSupportedCardinality } from "./cardinality";
-import { canConnect, validateDiagram } from "./diagram";
+import { canConnect, getMultivaluedAttributeSize, validateDiagram } from "./diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
 
 const DEFAULT_NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
@@ -1099,8 +1099,9 @@ function parseNodeStatement(
   }
 
   if (node.type === "attribute" && node.isMultivalued === true) {
-    node.width = Math.max(node.width, 220);
-    node.height = Math.max(node.height, 110);
+    const nextSize = getMultivaluedAttributeSize(node.label);
+    node.width = nextSize.width;
+    node.height = nextSize.height;
   }
 
   if (

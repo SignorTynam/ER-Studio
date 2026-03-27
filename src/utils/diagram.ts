@@ -17,10 +17,31 @@ import {
   isSupportedCardinality,
 } from "./cardinality";
 
-const COMPOSITE_ATTRIBUTE_MIN_SIZE = {
-  width: 220,
-  height: 110,
-};
+const MULTIVALUED_ATTRIBUTE_MIN_WIDTH = 100;
+const MULTIVALUED_ATTRIBUTE_MAX_WIDTH = 320;
+const MULTIVALUED_ATTRIBUTE_HEIGHT = 52;
+const MULTIVALUED_ATTRIBUTE_HORIZONTAL_PADDING = 46;
+const MULTIVALUED_ATTRIBUTE_CHAR_WIDTH = 8;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function getMultivaluedAttributeSize(label: string): { width: number; height: number } {
+  const normalizedLabel = label.trim();
+  const estimatedTextWidth = normalizedLabel.length * MULTIVALUED_ATTRIBUTE_CHAR_WIDTH;
+  const paddedWidth = estimatedTextWidth + MULTIVALUED_ATTRIBUTE_HORIZONTAL_PADDING;
+  const width = clamp(
+    snapValue(paddedWidth, 10),
+    MULTIVALUED_ATTRIBUTE_MIN_WIDTH,
+    MULTIVALUED_ATTRIBUTE_MAX_WIDTH,
+  );
+
+  return {
+    width,
+    height: MULTIVALUED_ATTRIBUTE_HEIGHT,
+  };
+}
 
 function createId(prefix: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -367,16 +388,17 @@ export function parseDiagram(rawJson: string): DiagramDocument {
         .map((node) => {
           if (node.type === "attribute") {
             const isMultivalued = node.isMultivalued === true;
+            const multivaluedSize = getMultivaluedAttributeSize(node.label);
             return {
               ...node,
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
               isMultivalued,
               width: isMultivalued
-                ? Math.max(node.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width)
+                ? multivaluedSize.width
                 : node.width,
               height: isMultivalued
-                ? Math.max(node.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height)
+                ? multivaluedSize.height
                 : node.height,
             };
           }

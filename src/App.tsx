@@ -28,6 +28,7 @@ import {
   duplicateSelection,
   edgeAlreadyExists,
   findNode,
+  getMultivaluedAttributeSize,
   parseDiagram,
   removeSelection,
   serializeDiagram,
@@ -78,7 +79,6 @@ const NOTICE_DURATION_MS = {
   error: 6200,
 } as const;
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
-const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
 const ATTRIBUTE_CREATION_HORIZONTAL_OFFSET = 140;
 const ATTRIBUTE_CREATION_STACK_GAP = 28;
 const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
@@ -316,17 +316,19 @@ function getNextAttributePosition(
   const hostedAttributes = findDirectHostedAttributes(diagram, hostNode.id);
 
   if (hostNode.type === "attribute") {
-    const hostWidth = Math.max(hostNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width);
-    const hostHeight = Math.max(hostNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height);
+    const hostSize =
+      hostNode.isMultivalued === true
+        ? { width: hostNode.width, height: hostNode.height }
+        : getMultivaluedAttributeSize(hostNode.label);
     const compositeIndex = hostedAttributes.length;
 
     return {
       x: snapValue(
-        hostNode.x + hostWidth / 2 - nextAttribute.width / 2 + compositeIndex * COMPOSITE_CHILD_HORIZONTAL_STEP,
+        hostNode.x + hostSize.width / 2 - nextAttribute.width / 2 + compositeIndex * COMPOSITE_CHILD_HORIZONTAL_STEP,
         GRID_SIZE,
       ),
       y: snapValue(
-        hostNode.y + hostHeight + COMPOSITE_CHILD_VERTICAL_GAP + compositeIndex * COMPOSITE_CHILD_VERTICAL_STEP,
+        hostNode.y + hostSize.height + COMPOSITE_CHILD_VERTICAL_GAP + compositeIndex * COMPOSITE_CHILD_VERTICAL_STEP,
         GRID_SIZE,
       ),
     };
@@ -1184,11 +1186,14 @@ export default function App() {
     };
     const nextDiagram =
       type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
-        ? updateNodeInDiagram(nextDiagramBase, targetNode.id, {
-            isMultivalued: true,
-            width: Math.max(targetNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
-            height: Math.max(targetNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
-          } as Partial<DiagramNode>)
+        ? (() => {
+            const nextSize = getMultivaluedAttributeSize(targetNode.label);
+            return updateNodeInDiagram(nextDiagramBase, targetNode.id, {
+              isMultivalued: true,
+              width: nextSize.width,
+              height: nextSize.height,
+            } as Partial<DiagramNode>);
+          })()
         : nextDiagramBase;
 
     commitDiagram(nextDiagram);
@@ -1287,11 +1292,14 @@ export default function App() {
     };
     const nextDiagram =
       hostNode.type === "attribute"
-        ? updateNodeInDiagram(nextDiagramBase, hostNode.id, {
-            isMultivalued: true,
-            width: Math.max(hostNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
-            height: Math.max(hostNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
-          } as Partial<DiagramNode>)
+        ? (() => {
+            const nextSize = getMultivaluedAttributeSize(hostNode.label);
+            return updateNodeInDiagram(nextDiagramBase, hostNode.id, {
+              isMultivalued: true,
+              width: nextSize.width,
+              height: nextSize.height,
+            } as Partial<DiagramNode>);
+          })()
         : nextDiagramBase;
 
     commitDiagram(nextDiagram);
@@ -1357,13 +1365,22 @@ export default function App() {
       }
     }
 
+    const attributeWillBeMultivalued =
+      currentNode?.type === "attribute" &&
+      (normalizedAttributePatch.isMultivalued === true ||
+        (currentNode.isMultivalued === true && normalizedAttributePatch.isMultivalued !== false));
+    const nextMultivaluedSize =
+      currentNode?.type === "attribute" && attributeWillBeMultivalued
+        ? getMultivaluedAttributeSize(typeof patch.label === "string" ? patch.label : currentNode.label)
+        : null;
+
     const nextPatch =
-      currentNode?.type === "attribute" && normalizedAttributePatch.isMultivalued === true
+      currentNode?.type === "attribute" && attributeWillBeMultivalued && nextMultivaluedSize
         ? {
             ...patch,
             ...normalizedAttributePatch,
-            width: Math.max(currentNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width),
-            height: Math.max(currentNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height),
+            width: nextMultivaluedSize.width,
+            height: nextMultivaluedSize.height,
           }
         : currentNode?.type === "attribute" &&
             normalizedAttributePatch.isMultivalued === false &&
