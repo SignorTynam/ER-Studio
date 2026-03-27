@@ -1657,6 +1657,39 @@ button:disabled {
   min-height: 34px;
 }
 
+.action-modal {
+  width: min(460px, 100%);
+}
+
+.action-modal-content {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-modal-content p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.action-modal-field {
+  margin: 0;
+}
+
+.action-modal-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #8f2419;
+}
+
+.action-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .help-list {
   margin: 0;
   padding: 8px 30px 14px;

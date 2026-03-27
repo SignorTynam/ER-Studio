@@ -54,6 +54,23 @@ interface WorkspaceNotice {
   targetId?: string;
 }
 
+interface ConfirmDialogState {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+}
+
+interface PromptDialogState {
+  title: string;
+  label: string;
+  placeholder?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  required: boolean;
+  requiredMessage: string;
+}
+
 type AppSurface = "landing" | "studio" | "code-tutorial";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
@@ -425,6 +442,10 @@ export default function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
+  const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
+  const [promptValue, setPromptValue] = useState("");
+  const [promptError, setPromptError] = useState("");
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
@@ -444,6 +465,9 @@ export default function App() {
   const hasUnsavedChangesRef = useRef(false);
   const nextNoticeIdRef = useRef(1);
   const noticeTimeoutsRef = useRef(new Map<number, number>());
+  const confirmDialogResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const promptDialogResolverRef = useRef<((value: string | null) => void) | null>(null);
+  const promptInputRef = useRef<HTMLInputElement | null>(null);
   const panelResizeRef = useRef<{
     panel: "toolbar";
     startClientX: number;
@@ -553,6 +577,33 @@ export default function App() {
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
   }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
+
+  useEffect(() => {
+    if (!promptDialog) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      promptInputRef.current?.focus();
+      promptInputRef.current?.select();
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [promptDialog]);
+
+  useEffect(() => {
+    return () => {
+      if (confirmDialogResolverRef.current) {
+        confirmDialogResolverRef.current(false);
+        confirmDialogResolverRef.current = null;
+      }
+
+      if (promptDialogResolverRef.current) {
+        promptDialogResolverRef.current(null);
+        promptDialogResolverRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     function handleResizePointerMove(event: PointerEvent) {
@@ -746,14 +797,98 @@ export default function App() {
     lastSavedCodeRef.current = code;
   }
 
-  function confirmDiscardChanges(actionLabel: string): boolean {
+  function closeConfirmDialog(confirmed: boolean) {
+    const resolve = confirmDialogResolverRef.current;
+    confirmDialogResolverRef.current = null;
+    setConfirmDialog(null);
+    resolve?.(confirmed);
+  }
+
+  function requestConfirmDialog(options: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+  }): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (confirmDialogResolverRef.current) {
+        confirmDialogResolverRef.current(false);
+      }
+
+      confirmDialogResolverRef.current = resolve;
+      setConfirmDialog({
+        title: options.title,
+        message: options.message,
+        confirmLabel: options.confirmLabel ?? "Conferma",
+        cancelLabel: options.cancelLabel ?? "Annulla",
+      });
+    });
+  }
+
+  function closePromptDialog(value: string | null) {
+    const resolve = promptDialogResolverRef.current;
+    promptDialogResolverRef.current = null;
+    setPromptDialog(null);
+    setPromptValue("");
+    setPromptError("");
+    resolve?.(value);
+  }
+
+  function requestPromptDialog(options: {
+    title: string;
+    label: string;
+    initialValue: string;
+    placeholder?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    required?: boolean;
+    requiredMessage?: string;
+  }): Promise<string | null> {
+    return new Promise((resolve) => {
+      if (promptDialogResolverRef.current) {
+        promptDialogResolverRef.current(null);
+      }
+
+      promptDialogResolverRef.current = resolve;
+      setPromptDialog({
+        title: options.title,
+        label: options.label,
+        placeholder: options.placeholder,
+        confirmLabel: options.confirmLabel ?? "Salva",
+        cancelLabel: options.cancelLabel ?? "Annulla",
+        required: options.required === true,
+        requiredMessage: options.requiredMessage ?? "Il campo non puo essere vuoto.",
+      });
+      setPromptValue(options.initialValue);
+      setPromptError("");
+    });
+  }
+
+  function submitPromptDialog() {
+    if (!promptDialog) {
+      return;
+    }
+
+    const normalized = promptValue.trim();
+    if (promptDialog.required && !normalized) {
+      setPromptError(promptDialog.requiredMessage);
+      return;
+    }
+
+    closePromptDialog(normalized);
+  }
+
+  async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
     if (!hasUnsavedChangesRef.current) {
       return true;
     }
 
-    return window.confirm(
-      `Ci sono modifiche non salvate. Vuoi davvero ${actionLabel}? Le modifiche non salvate andranno perse.`,
-    );
+    return requestConfirmDialog({
+      title: "Modifiche non salvate",
+      message: `Ci sono modifiche non salvate. Vuoi davvero ${actionLabel}? Le modifiche non salvate andranno perse.`,
+      confirmLabel: "Continua",
+      cancelLabel: "Annulla",
+    });
   }
 
   function openStudioSurface() {
@@ -761,8 +896,8 @@ export default function App() {
     setIntroOpen(false);
   }
 
-  function openLandingSurface() {
-    if (surface === "studio" && !confirmDiscardChanges("tornare alla home")) {
+  async function openLandingSurface() {
+    if (surface === "studio" && !(await confirmDiscardChanges("tornare alla home"))) {
       return;
     }
 
@@ -772,8 +907,8 @@ export default function App() {
     setIntroOpen(false);
   }
 
-  function openCodeTutorialSurface() {
-    if (surface === "studio" && !confirmDiscardChanges("aprire la guida ERS")) {
+  async function openCodeTutorialSurface() {
+    if (surface === "studio" && !(await confirmDiscardChanges("aprire la guida ERS"))) {
       return;
     }
 
@@ -851,11 +986,7 @@ export default function App() {
   }
 
   function handleToggleToolRail() {
-    setToolbarCollapsed((current) => {
-      const next = !current;
-      setStatus(next ? "Rail strumenti compresso." : "Rail strumenti espanso.");
-      return next;
-    });
+    setToolbarCollapsed((current) => !current);
   }
 
   function handleToggleFocusMode() {
@@ -1036,6 +1167,18 @@ export default function App() {
       }
 
       if (event.key === "Escape") {
+        if (promptDialog) {
+          event.preventDefault();
+          closePromptDialog(null);
+          return;
+        }
+
+        if (confirmDialog) {
+          event.preventDefault();
+          closeConfirmDialog(false);
+          return;
+        }
+
         if (introOpen) {
           setIntroOpen(false);
           return;
@@ -1058,7 +1201,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [aboutOpen, history, introOpen, selection, mode, whatsNewOpen]);
+  }, [aboutOpen, confirmDialog, history, introOpen, mode, promptDialog, selection, whatsNewOpen]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -1072,8 +1215,8 @@ export default function App() {
     }
   }
 
-  function handleNewDiagram() {
-    if (!confirmDiscardChanges("creare un nuovo diagramma")) {
+  async function handleNewDiagram() {
+    if (!(await confirmDiscardChanges("creare un nuovo diagramma"))) {
       return;
     }
 
@@ -1083,8 +1226,8 @@ export default function App() {
     );
   }
 
-  function handleLoadExample() {
-    if (!confirmDiscardChanges("caricare l'esempio")) {
+  async function handleLoadExample() {
+    if (!(await confirmDiscardChanges("caricare l'esempio"))) {
       return;
     }
 
@@ -1457,23 +1600,28 @@ export default function App() {
     commitDiagram(nextDiagram);
   }
 
-  function handleRenameSelectionQuick() {
+  async function handleRenameSelectionQuick() {
     if (mode === "view") {
       return;
     }
 
     if (selectedNode) {
-      const nextLabel = window.prompt("Nuovo nome elemento", selectedNode.label);
+      const nextLabel = await requestPromptDialog({
+        title: "Rinomina elemento",
+        label: "Nuovo nome elemento",
+        initialValue: selectedNode.label,
+        required: true,
+        requiredMessage: "Il nome elemento non puo essere vuoto.",
+      });
       if (nextLabel == null) {
         return;
       }
 
-      const normalized = nextLabel.trim();
-      if (!normalized || normalized === selectedNode.label) {
+      if (nextLabel === selectedNode.label) {
         return;
       }
 
-      handleRenameNode(selectedNode.id, normalized);
+      handleRenameNode(selectedNode.id, nextLabel);
       setStatus("Elemento rinominato.");
       return;
     }
@@ -1492,22 +1640,22 @@ export default function App() {
       selectedEdge.type === "connector" || selectedEdge.type === "attribute"
         ? selectedEdge.cardinality ?? ""
         : selectedEdge.label;
-    const nextValue = window.prompt(promptLabel, currentValue);
+    const nextValue = await requestPromptDialog({
+      title: "Aggiorna collegamento",
+      label: promptLabel,
+      initialValue: currentValue,
+      required: selectedEdge.type === "connector",
+      requiredMessage: "La cardinalita del collegamento non puo essere vuota.",
+    });
     if (nextValue == null) {
       return;
     }
 
-    const normalized = nextValue.trim();
-    if (selectedEdge.type === "connector" && !normalized) {
-      setStatusError("La cardinalita del collegamento non puo essere vuota.");
+    if (nextValue === currentValue.trim()) {
       return;
     }
 
-    if (normalized === currentValue) {
-      return;
-    }
-
-    handleRenameEdge(selectedEdge.id, normalized);
+    handleRenameEdge(selectedEdge.id, nextValue);
     setStatus("Collegamento aggiornato.");
   }
 
@@ -1634,16 +1782,16 @@ export default function App() {
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
   }
 
-  function handleLoadRequest() {
-    if (!confirmDiscardChanges("caricare un file JSON")) {
+  async function handleLoadRequest() {
+    if (!(await confirmDiscardChanges("caricare un file JSON"))) {
       return;
     }
 
     jsonFileInputRef.current?.click();
   }
 
-  function handleLoadErsRequest() {
-    if (!confirmDiscardChanges("caricare un file ERS")) {
+  async function handleLoadErsRequest() {
+    if (!(await confirmDiscardChanges("caricare un file ERS"))) {
       return;
     }
 
@@ -1917,6 +2065,83 @@ export default function App() {
         accept=".ers,text/plain"
         onChange={handleLoadErsFile}
       />
+
+      {confirmDialog ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => closeConfirmDialog(false)}>
+          <div
+            className="help-modal action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="confirm-dialog-title">{confirmDialog.title}</h2>
+            </div>
+
+            <div className="action-modal-content">
+              <p>{confirmDialog.message}</p>
+              <div className="action-modal-actions">
+                <button type="button" className="header-button" onClick={() => closeConfirmDialog(false)}>
+                  {confirmDialog.cancelLabel}
+                </button>
+                <button type="button" className="mode-button active" onClick={() => closeConfirmDialog(true)}>
+                  {confirmDialog.confirmLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {promptDialog ? (
+        <div className="help-modal-backdrop" role="presentation" onClick={() => closePromptDialog(null)}>
+          <div
+            className="help-modal action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prompt-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-head">
+              <h2 id="prompt-dialog-title">{promptDialog.title}</h2>
+            </div>
+
+            <form
+              className="action-modal-content"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitPromptDialog();
+              }}
+            >
+              <label className="field action-modal-field">
+                <span>{promptDialog.label}</span>
+                <input
+                  ref={promptInputRef}
+                  value={promptValue}
+                  placeholder={promptDialog.placeholder}
+                  onChange={(event) => {
+                    setPromptValue(event.target.value);
+                    if (promptError) {
+                      setPromptError("");
+                    }
+                  }}
+                />
+              </label>
+              {promptError ? <p className="action-modal-error">{promptError}</p> : null}
+
+              <div className="action-modal-actions">
+                <button type="button" className="header-button" onClick={() => closePromptDialog(null)}>
+                  {promptDialog.cancelLabel}
+                </button>
+                <button type="submit" className="mode-button active">
+                  {promptDialog.confirmLabel}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {introOpen ? (
         <div className="intro-modal-backdrop" role="presentation" onClick={() => setIntroOpen(false)}>
