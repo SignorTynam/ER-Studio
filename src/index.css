@@ -4782,78 +4782,119 @@ summary:focus-visible {
   padding: 14px;
 }
 
-.workspace-notice-center {
-  padding: 10px 14px 0;
+.workspace-toast-center {
+  position: fixed;
+  right: 0;
+  bottom: 22px;
+  left: 0;
+  z-index: 12;
+  display: flex;
+  justify-content: center;
+  padding: 0 14px;
+  pointer-events: none;
 }
 
-.workspace-notice-stack {
+.workspace-toast-stack {
   display: flex;
+  width: min(680px, 100%);
   flex-direction: column;
   gap: 10px;
 }
 
-.workspace-notice {
+.workspace-toast {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--studio-line);
   border-radius: 18px;
-  background: var(--studio-surface-strong);
-  box-shadow: 0 12px 24px rgba(35, 44, 40, 0.08);
+  box-shadow: 0 18px 34px rgba(35, 44, 40, 0.14);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+  animation: workspace-toast-enter 180ms ease-out;
 }
 
-.workspace-notice-main {
+.workspace-toast-body {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
-.workspace-notice-main strong {
-  font-size: 0.82rem;
+.workspace-toast-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 0.24rem 0.56rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.workspace-notice-main p {
+.workspace-toast-body p {
   margin: 0;
+  font-size: 0.96rem;
   line-height: 1.45;
 }
 
-.workspace-notice-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.workspace-toast-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.48);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.workspace-notice-actions button {
-  border: 1px solid currentColor;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.84rem;
+.workspace-toast-close:hover {
+  background: rgba(255, 255, 255, 0.72);
 }
 
-.workspace-notice-success {
-  border-color: rgba(79, 107, 100, 0.24);
-  background: linear-gradient(180deg, #f8fbf8 0%, #eef5ef 100%);
+.workspace-toast-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
-.workspace-notice-success strong,
-.workspace-notice-success button {
-  color: var(--studio-accent-strong);
+.workspace-toast-warning {
+  border-color: rgba(182, 127, 67, 0.28);
+  background: linear-gradient(180deg, rgba(255, 249, 240, 0.94) 0%, rgba(247, 236, 216, 0.96) 100%);
+  color: #6e4a23;
 }
 
-.workspace-notice-error {
-  border-color: rgba(178, 77, 52, 0.28);
-  background: linear-gradient(180deg, #fff8f4 0%, #f8ece4 100%);
+.workspace-toast-warning .workspace-toast-badge {
+  background: rgba(182, 127, 67, 0.14);
+  color: var(--diagram-warning);
 }
 
-.workspace-notice-error strong,
-.workspace-notice-error button {
+.workspace-toast-error {
+  border-color: rgba(178, 77, 52, 0.3);
+  background: linear-gradient(180deg, rgba(255, 247, 243, 0.96) 0%, rgba(249, 233, 225, 0.98) 100%);
+  color: #7d3928;
+}
+
+.workspace-toast-error .workspace-toast-badge {
+  background: rgba(178, 77, 52, 0.12);
   color: var(--diagram-error);
+}
+
+@keyframes workspace-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .toolbar-panel,
@@ -5233,11 +5274,6 @@ summary:focus-visible {
 
   .workspace-shell {
     grid-template-columns: 1fr;
-  }
-
-  .workspace-notice {
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .code-mode-error-inline {
@@ -5901,12 +5937,20 @@ summary:focus-visible {
   font-size: 0.94rem;
 }
 
-.workspace-notice-center {
-  padding: 8px 12px 0;
-}
+@media (max-width: 720px) {
+  .workspace-toast-center {
+    bottom: 14px;
+    padding: 0 8px;
+  }
 
-.workspace-notice {
-  border-radius: 16px;
+  .workspace-toast {
+    border-radius: 16px;
+    padding: 11px 12px;
+  }
+
+  .workspace-toast-body p {
+    font-size: 0.92rem;
+  }
 }
 
 @media (max-width: 1480px) {

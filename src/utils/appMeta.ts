@@ -16,6 +16,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Refactor geometria connector: anchor logico spostato al centro del bounding box per il calcolo di direzione, lato dominante e routing iniziale.",
       "Routing ortogonale reso piu stabile: i trunk paralleli si spostano senza cambiare lato di uscita o ingresso dei nodi.",
       "Clipping finale sul bordo separato dalla logica di routing, con linee piu bilanciate durante drag, move e resize.",
+      "Toast workspace rifatti in overlay: non spostano il layout, si chiudono da soli e sono riservati ad avvisi ed errori.",
     ],
   },
   {

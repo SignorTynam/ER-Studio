@@ -46,17 +46,19 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 interface WorkspaceNotice {
   id: number;
-  title: string;
   message: string;
-  tone: "success" | "error";
-  actionLabel?: string;
-  onAction?: () => void;
+  tone: "warning" | "error";
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
 type WorkspaceView = "diagram" | "split";
 
-const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
+const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
+const WARNING_PATTERNS = [/gia presente/i, /^nessun/i, /^nessuna/i, /seleziona almeno/i, /apri la vista/i, /gia allineati/i, /non disponibile/i];
+const NOTICE_DURATION_MS = {
+  warning: 4400,
+  error: 6200,
+} as const;
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
 
@@ -255,13 +257,14 @@ export default function App() {
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
-  const historyRef = useRef(history);
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
   const lastSavedDiagramRef = useRef(serializeDiagram(initialDiagramRef.current));
   const lastSavedCodeRef = useRef(initialSerializedCode);
   const hasUnsavedChangesRef = useRef(false);
+  const nextNoticeIdRef = useRef(1);
+  const noticeTimeoutsRef = useRef(new Map<number, number>());
 
   const issues = validateDiagram(history.present);
   const selectedNode =
@@ -276,7 +279,6 @@ export default function App() {
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
   const effectiveInspectorCollapsed = focusMode || (hasSelection ? inspectorCollapsed : !inspectorPeekOpen);
-  historyRef.current = history;
 
   useEffect(() => {
     if (!statusMessage || statusMessage.startsWith("Sorgente")) {
@@ -344,68 +346,74 @@ export default function App() {
     setInspectorPeekOpen(false);
   }, [focusMode]);
 
-  function dismissNotice(noticeId: number) {
-    setNotices((current) => current.filter((notice) => notice.id !== noticeId));
-  }
+  useEffect(() => {
+    return () => {
+      noticeTimeoutsRef.current.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      noticeTimeoutsRef.current.clear();
+    };
+  }, []);
 
-  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration = notice.tone === "error" ? 0 : 5200) {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setNotices((current) => [{ id, ...notice }, ...current.filter((item) => item.message !== notice.message).slice(0, 2)]);
-
-    if (duration > 0) {
-      window.setTimeout(() => {
-        dismissNotice(id);
-      }, duration);
-    }
-  }
-
-  function showErrorNotice(message: string) {
-    showNotice(
-      {
-        title: "Errore",
-        message,
-        tone: "error",
-      },
-    );
-  }
-
-  function showSuccessNotice(message: string) {
-    showNotice({
-      title: "Operazione completata",
-      message,
-      tone: "success",
-    });
-  }
-
-  function showUndoNotice(message: string, undoStatus = "Operazione annullata.") {
-    showNotice(
-      {
-        title: "Operazione completata",
-        message,
-        tone: "success",
-        actionLabel: "Annulla",
-        onAction: () => {
-          historyRef.current.undo();
-          setSelection({ nodeIds: [], edgeIds: [] });
-          setStatus(undoStatus);
-        },
-      },
-      7200,
-    );
-  }
-
-  function handleNoticeAction(noticeId: number) {
-    const notice = notices.find((item) => item.id === noticeId);
-    if (!notice?.onAction) {
+  function clearNoticeTimer(noticeId: number) {
+    const timeoutId = noticeTimeoutsRef.current.get(noticeId);
+    if (timeoutId === undefined) {
       return;
     }
 
-    notice.onAction();
-    dismissNotice(noticeId);
+    window.clearTimeout(timeoutId);
+    noticeTimeoutsRef.current.delete(noticeId);
   }
 
-  function isErrorMessage(message: string): boolean {
-    return ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  function dismissNotice(noticeId: number) {
+    clearNoticeTimer(noticeId);
+    setNotices((current) => current.filter((notice) => notice.id !== noticeId));
+  }
+
+  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration = NOTICE_DURATION_MS[notice.tone]) {
+    const id = nextNoticeIdRef.current++;
+
+    setNotices((current) => {
+      const retained = current.filter((item) => item.message !== notice.message).slice(0, 1);
+      const removed = current.filter((item) => !retained.some((kept) => kept.id === item.id));
+      removed.forEach((item) => clearNoticeTimer(item.id));
+      return [{ id, ...notice }, ...retained];
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      dismissNotice(id);
+    }, duration);
+    noticeTimeoutsRef.current.set(id, timeoutId);
+  }
+
+  function showErrorNotice(message: string) {
+    showNotice({
+      message,
+      tone: "error",
+    });
+  }
+
+  function showWarningNotice(message: string) {
+    showNotice({
+      message,
+      tone: "warning",
+    });
+  }
+
+  function getNoticeTone(message: string): WorkspaceNotice["tone"] | null {
+    if (!message.trim()) {
+      return null;
+    }
+
+    if (ERROR_PATTERNS.some((pattern) => pattern.test(message))) {
+      return "error";
+    }
+
+    if (WARNING_PATTERNS.some((pattern) => pattern.test(message))) {
+      return "warning";
+    }
+
+    return null;
   }
 
   function markDocumentBaseline(diagram: DiagramDocument) {
@@ -464,6 +472,11 @@ export default function App() {
     setStatusMessage(message);
   }
 
+  function setStatusWarning(message: string) {
+    setStatusMessage(message);
+    showWarningNotice(message);
+  }
+
   function setStatusError(message: string) {
     setStatusMessage(message);
     showErrorNotice(message);
@@ -471,8 +484,14 @@ export default function App() {
 
   function handleCanvasStatusMessage(message: string) {
     setStatusMessage(message);
-    if (message && isErrorMessage(message)) {
+    const tone = getNoticeTone(message);
+    if (tone === "error") {
       showErrorNotice(message);
+      return;
+    }
+
+    if (tone === "warning") {
+      showWarningNotice(message);
     }
   }
 
@@ -525,7 +544,6 @@ export default function App() {
   function applyWorkspaceDocument(
     nextDiagram: DiagramDocument,
     status: string,
-    noticeMessage: string,
     nextView?: WorkspaceView,
   ) {
     history.commit(nextDiagram, history.present);
@@ -538,7 +556,6 @@ export default function App() {
       setWorkspaceView(nextView);
     }
     setStatus(status);
-    showUndoNotice(noticeMessage);
   }
 
   function updateCodeDraft(nextCode: string) {
@@ -649,7 +666,7 @@ export default function App() {
         if (nextTool) {
           event.preventDefault();
           if (mode === "view" && nextTool !== "select" && nextTool !== "move") {
-            setStatusError("Strumento non disponibile in modalita visualizzazione.");
+            setStatusWarning("Strumento non disponibile in modalita visualizzazione.");
             return;
           }
 
@@ -719,7 +736,6 @@ export default function App() {
     applyWorkspaceDocument(
       createEmptyDiagram("Nuovo diagramma"),
       "Nuovo diagramma creato.",
-      "Nuovo diagramma creato. Puoi annullare se vuoi ripristinare il lavoro precedente.",
     );
   }
 
@@ -731,7 +747,6 @@ export default function App() {
     applyWorkspaceDocument(
       createExampleDiagram(),
       "Esempio Chen caricato.",
-      "Esempio Chen caricato. Puoi annullare per tornare al diagramma precedente.",
     );
   }
 
@@ -902,11 +917,6 @@ export default function App() {
     setSelection({ nodeIds: [nextAttribute.id], edgeIds: [] });
     setTool("select");
     setStatus(`Attributo collegato a ${hostNode.label}.`);
-    showUndoNotice(
-      hostNode.type === "attribute"
-        ? `Sotto-attributo creato da ${hostNode.label}.`
-        : `Attributo creato per ${hostNode.label}.`,
-    );
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -1154,7 +1164,6 @@ export default function App() {
         commitDiagram(nextDiagram);
         setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
         setStatus("Identificatore esterno rimosso.");
-        showUndoNotice("Identificatore esterno rimosso.");
         return;
       }
     }
@@ -1163,7 +1172,6 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Selezione eliminata.");
-    showUndoNotice("Selezione eliminata.");
   }
 
   function handleDeleteNodeById(nodeId: string) {
@@ -1175,7 +1183,6 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Elemento eliminato.");
-    showUndoNotice("Elemento eliminato.");
   }
 
   function handleDeleteEdgeById(edgeId: string) {
@@ -1187,7 +1194,6 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setStatus("Collegamento eliminato.");
-    showUndoNotice("Collegamento eliminato.");
   }
 
   function handleClearExternalIdentifier(relationshipId: string) {
@@ -1197,7 +1203,7 @@ export default function App() {
       relationshipNode.type !== "relationship" ||
       relationshipNode.isExternalIdentifier !== true
     ) {
-      setStatusError("Nessun identificatore esterno da rimuovere sulla relazione selezionata.");
+      setStatusWarning("Nessun identificatore esterno da rimuovere sulla relazione selezionata.");
       return;
     }
 
@@ -1205,7 +1211,6 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [relationshipId], edgeIds: [] });
     setStatus("Identificatore esterno rimosso.");
-    showUndoNotice("Identificatore esterno rimosso.");
   }
 
   function handleDuplicateSelection() {
@@ -1221,7 +1226,6 @@ export default function App() {
     commitDiagram(duplicated.diagram);
     setSelection(duplicated.selection);
     setStatus("Selezione duplicata.");
-    showUndoNotice("Selezione duplicata.");
   }
 
   function handleAlignSelection(axis: "left" | "center" | "top" | "middle") {
@@ -1230,19 +1234,18 @@ export default function App() {
     }
 
     if (selection.nodeIds.length < 2) {
-      setStatus("Seleziona almeno due nodi per allineare.");
+      setStatusWarning("Seleziona almeno due nodi per allineare.");
       return;
     }
 
     const nextDiagram = alignNodes(history.present, selection.nodeIds, axis);
     if (nextDiagram === history.present) {
-      setStatus("Nodi gia allineati su questo asse.");
+      setStatusWarning("Nodi gia allineati su questo asse.");
       return;
     }
 
     commitDiagram(nextDiagram);
     setStatus("Allineamento applicato.");
-    showUndoNotice("Allineamento applicato.");
   }
 
   function handleSaveJson() {
@@ -1256,7 +1259,6 @@ export default function App() {
       markCodeSaved(serializeDiagramToErs(history.present));
     }
     setStatus("Diagramma salvato in JSON.");
-    showSuccessNotice("Diagramma JSON esportato con successo.");
   }
 
   function handleSaveErs() {
@@ -1267,7 +1269,6 @@ export default function App() {
       markDiagramSaved(history.present);
     }
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
-    showSuccessNotice(codeDirtyRef.current ? "Bozza ERS esportata con successo." : "File ERS esportato con successo.");
   }
 
   function handleLoadRequest() {
@@ -1298,7 +1299,6 @@ export default function App() {
       applyWorkspaceDocument(
         parsed,
         "Diagramma caricato.",
-        `Import completato da ${file.name}. Puoi annullare per ripristinare il diagramma precedente.`,
       );
     } catch (error) {
       console.error(error);
@@ -1320,7 +1320,6 @@ export default function App() {
       applyWorkspaceDocument(
         parsed,
         "Codice ERS caricato.",
-        `Import completato da ${file.name}. Puoi annullare per ripristinare il lavoro precedente.`,
         "split",
       );
     } catch (error) {
@@ -1336,19 +1335,17 @@ export default function App() {
   function handleResetCodeFromDiagram() {
     syncCodeDraftWithDiagram(history.present);
     setStatus("Codice ERS rigenerato dal diagramma.");
-    showSuccessNotice("Sorgente ERS rigenerato dal diagramma corrente.");
   }
 
   async function handleExportPng() {
     if (!svgRef.current) {
-      setStatus("Apri la vista Diagramma o Affiancata per esportare il PNG.");
+      setStatusWarning("Apri la vista Diagramma o Affiancata per esportare il PNG.");
       return;
     }
 
     try {
       await downloadPng(svgRef.current, "chen-er-diagram.png");
       setStatus("PNG esportato.");
-      showSuccessNotice("PNG esportato con successo.");
     } catch (error) {
       console.error(error);
       setStatusError("Esportazione PNG non riuscita.");
@@ -1357,13 +1354,12 @@ export default function App() {
 
   function handleExportSvg() {
     if (!svgRef.current) {
-      setStatus("Apri la vista Diagramma o Affiancata per esportare l'SVG.");
+      setStatusWarning("Apri la vista Diagramma o Affiancata per esportare l'SVG.");
       return;
     }
 
     downloadSvg(svgRef.current, "chen-er-diagram.svg");
     setStatus("SVG esportato.");
-    showSuccessNotice("SVG esportato con successo.");
   }
 
   if (surface === "landing") {
@@ -1433,32 +1429,30 @@ export default function App() {
 
       <div className="app-workspace-region">
         {notices.length > 0 ? (
-          <section className="workspace-notice-center" aria-live="assertive" aria-atomic="false">
-            <div className="workspace-notice-stack">
+          <section className="workspace-toast-center" aria-live="polite" aria-atomic="false">
+            <div className="workspace-toast-stack">
               {notices.map((notice) => (
                 <article
                   key={notice.id}
                   className={
                     notice.tone === "error"
-                      ? "workspace-notice workspace-notice-error"
-                      : "workspace-notice workspace-notice-success"
+                      ? "workspace-toast workspace-toast-error"
+                      : "workspace-toast workspace-toast-warning"
                   }
                   role={notice.tone === "error" ? "alert" : "status"}
                 >
-                  <div className="workspace-notice-main">
-                    <strong>{notice.title}</strong>
+                  <div className="workspace-toast-body">
+                    <span className="workspace-toast-badge">{notice.tone === "error" ? "Errore" : "Avviso"}</span>
                     <p>{notice.message}</p>
                   </div>
-                  <div className="workspace-notice-actions">
-                    {notice.onAction && notice.actionLabel ? (
-                      <button type="button" onClick={() => handleNoticeAction(notice.id)}>
-                        {notice.actionLabel}
-                      </button>
-                    ) : null}
-                    <button type="button" onClick={() => dismissNotice(notice.id)} aria-label="Chiudi notifica">
-                      Chiudi
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="workspace-toast-close"
+                    onClick={() => dismissNotice(notice.id)}
+                    aria-label="Chiudi toast"
+                  >
+                    x
+                  </button>
                 </article>
               ))}
             </div>
@@ -1715,7 +1709,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Validazioni ed Errori</summary>
                 <ul className="help-list">
-                  <li>Gli errori critici compaiono nel centro notifiche sotto l'header e vengono evidenziati direttamente su nodi e collegamenti.</li>
+                  <li>Avvisi ed errori operativi compaiono come toast flottanti in overlay, senza spostare il layout, e i problemi del modello restano evidenziati su nodi e collegamenti.</li>
                 </ul>
               </details>
 
