@@ -36,8 +36,8 @@ const WORKSPACE_MODES = [
     text: "Apri la vista affiancata quando stai scrivendo e vuoi vedere subito come il parser traduce le righe nel canvas.",
   },
   {
-    title: "Modalita codice per la scrittura continua",
-    text: "Passa alla modalita codice quando il modello e abbastanza stabile e vuoi lavorare piu velocemente da tastiera.",
+    title: "Editor ERS nella vista affiancata",
+    text: "Usa il pannello ERS affiancato quando il modello e abbastanza stabile e vuoi lavorare piu velocemente da tastiera.",
   },
 ];
 
@@ -136,7 +136,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             Torna alla pagina iniziale
           </button>
           <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-            Apri la modalita codice
+            Apri la vista affiancata
           </button>
         </div>
       </header>
@@ -147,14 +147,14 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <p className="landing-hero-eyebrow">Tutorial operativo dedicato</p>
             <h1>Scrivi ERS con un flusso serio: tastiera, parser, canvas, verifica.</h1>
             <p className="tutorial-hero-lead">
-              Questa pagina spiega come usare davvero la modalita codice di {props.appTitle}: cosa scrivere prima,
+              Questa pagina spiega come usare davvero l'editor ERS di {props.appTitle}: cosa scrivere prima,
               quando passare alla vista affiancata, come modellare attributi composti, e quali errori aspettarti mentre il parser
               mantiene l&apos;ultimo stato valido del diagramma.
             </p>
 
             <div className="tutorial-hero-actions">
               <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-                Entra nella modalita codice
+                Apri la vista affiancata
               </button>
               <button type="button" className="landing-secondary-link" onClick={props.onOpenStudio}>
                 Apri Studio completo
@@ -201,7 +201,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <span>Flusso di lavoro</span>
             <h2>Il percorso corretto e scrivere in ordine strutturale, non riga per riga a caso.</h2>
             <p>
-              La modalita codice rende veloce la modellazione solo se mantieni una disciplina minima: contenitore prima
+              L'editor ERS rende veloce la modellazione solo se mantieni una disciplina minima: contenitore prima
               dei figli, relazioni leggibili e controlli visivi nella vista affiancata quando serve.
             </p>
           </div>
@@ -293,11 +293,11 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               <span className="landing-kicker">Quando usare questa pagina</span>
               <h3>Prima di una revisione, prima di importare un .ers, o quando passi dal canvas al testo.</h3>
               <p>
-                La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente la modalita codice
+                La pagina tutorial serve come riferimento stabile: puoi leggerla, poi aprire direttamente la vista affiancata
                 senza perdere il contesto del flusso consigliato.
               </p>
               <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-                Vai al file .ers
+                Apri ERS affiancato
               </button>
             </article>
           </div>
@@ -306,7 +306,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <section className="tutorial-final-cta">
           <div>
             <span className="landing-kicker">Pronto a scrivere</span>
-            <h2>Apri lo spazio di lavoro nel punto giusto: modalita codice se vuoi velocita, studio se vuoi controllo completo.</h2>
+            <h2>Apri lo spazio di lavoro nel punto giusto: vista affiancata se vuoi ERS, studio se vuoi controllo completo.</h2>
           </div>
 
           <div className="tutorial-final-actions">
@@ -314,7 +314,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               Studio completo
             </button>
             <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
-              Apri la modalita codice
+              Apri la vista affiancata
             </button>
           </div>
         </section>

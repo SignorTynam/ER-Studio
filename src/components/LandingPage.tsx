@@ -43,7 +43,7 @@ const WORKFLOW_STEPS = [
     step: "02",
     title: "Lavora con vista e modalita giuste",
     text:
-      "Passi velocemente da Diagramma, Affiancata e Codice, senza perdere il contesto del progetto corrente.",
+      "Passi velocemente da Diagramma e Affiancata, senza perdere il contesto del progetto corrente.",
   },
   {
     step: "03",

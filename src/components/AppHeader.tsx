@@ -7,14 +7,14 @@ interface AppHeaderProps {
   appVersion: string;
   diagramName: string;
   mode: EditorMode;
-  workspaceView: "diagram" | "split" | "code";
+  workspaceView: "diagram" | "split";
   canUndo: boolean;
   canRedo: boolean;
   focusMode: boolean;
   toolRailCollapsed: boolean;
   inspectorCollapsed: boolean;
   onModeChange: (mode: EditorMode) => void;
-  onWorkspaceViewChange: (view: "diagram" | "split" | "code") => void;
+  onWorkspaceViewChange: (view: "diagram" | "split") => void;
   onNew: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -91,8 +91,6 @@ export function AppHeader(props: AppHeaderProps) {
     }
   }
 
-  const showsCanvasWorkspaceControls = props.workspaceView !== "code";
-
   return (
     <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
       <div className="app-title-block">
@@ -121,13 +119,6 @@ export function AppHeader(props: AppHeaderProps) {
               onClick={() => props.onWorkspaceViewChange("split")}
             >
               Affiancata
-            </button>
-            <button
-              className={props.workspaceView === "code" ? "mode-button active" : "mode-button"}
-              type="button"
-              onClick={() => props.onWorkspaceViewChange("code")}
-            >
-              ERS
             </button>
           </div>
         </div>
@@ -175,20 +166,18 @@ export function AppHeader(props: AppHeaderProps) {
             >
               Ripeti
             </button>
-            {showsCanvasWorkspaceControls ? (
-              <button
-                type="button"
-                className={
-                  props.focusMode
-                    ? "header-button header-quick-button active"
-                    : "header-button header-quick-button"
-                }
-                onClick={props.onToggleFocusMode}
-                title={props.focusMode ? "Esci dalla modalita focus" : "Attiva modalita focus"}
-              >
-                {props.focusMode ? "Esci focus" : "Focus"}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className={
+                props.focusMode
+                  ? "header-button header-quick-button active"
+                  : "header-button header-quick-button"
+              }
+              onClick={props.onToggleFocusMode}
+              title={props.focusMode ? "Esci dalla modalita focus" : "Attiva modalita focus"}
+            >
+              {props.focusMode ? "Esci focus" : "Focus"}
+            </button>
           </div>
         </div>
 
@@ -198,25 +187,23 @@ export function AppHeader(props: AppHeaderProps) {
             <details className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
               <summary>Menu</summary>
               <div className="nav-menu nav-menu-wide">
-                {showsCanvasWorkspaceControls ? (
-                  <div className="nav-menu-section">
-                    <div className="nav-menu-label">Workspace</div>
-                    <button
-                      type="button"
-                      onClick={(event) => runMenuAction(event, props.onToggleToolRail)}
-                      disabled={props.focusMode}
-                    >
-                      {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => runMenuAction(event, props.onToggleInspector)}
-                      disabled={props.focusMode}
-                    >
-                      {props.inspectorCollapsed ? "Apri contesto" : "Comprimi contesto"}
-                    </button>
-                  </div>
-                ) : null}
+                <div className="nav-menu-section">
+                  <div className="nav-menu-label">Workspace</div>
+                  <button
+                    type="button"
+                    onClick={(event) => runMenuAction(event, props.onToggleToolRail)}
+                    disabled={props.focusMode}
+                  >
+                    {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => runMenuAction(event, props.onToggleInspector)}
+                    disabled={props.focusMode}
+                  >
+                    {props.inspectorCollapsed ? "Apri contesto" : "Comprimi contesto"}
+                  </button>
+                </div>
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">File</div>

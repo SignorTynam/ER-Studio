@@ -5422,14 +5422,24 @@ summary:focus-visible {
 }
 
 .nav-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  z-index: 40;
+  width: min(320px, calc(100vw - 20px));
   min-width: 210px;
+  max-height: min(72dvh, calc(100dvh - 120px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 16px;
 }
 
 .nav-menu-wide {
   display: flex;
   flex-direction: column;
-  min-width: 248px;
+  width: 100%;
+  min-width: 0;
   padding: 10px;
   gap: 10px;
 }
@@ -5848,12 +5858,23 @@ summary:focus-visible {
 
   .header-utility-bar {
     justify-content: space-between;
+    align-items: flex-start;
   }
 
   .header-control-group,
   .header-control-group-actions,
   .header-control-group-menu {
     align-items: flex-start;
+  }
+
+  .header-control-group-menu {
+    margin-left: auto;
+  }
+
+  .header-nav .nav-menu {
+    right: 0;
+    width: min(94vw, 360px);
+    max-height: min(70dvh, calc(100dvh - 130px));
   }
 
   .workspace-shell {

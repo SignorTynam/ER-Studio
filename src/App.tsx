@@ -54,7 +54,7 @@ interface WorkspaceNotice {
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
-type WorkspaceView = "diagram" | "split" | "code";
+type WorkspaceView = "diagram" | "split";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
@@ -450,7 +450,7 @@ export default function App() {
   }
 
   function openCodeTutorialSurface() {
-    if (surface === "studio" && !confirmDiscardChanges("aprire la guida della modalita codice")) {
+    if (surface === "studio" && !confirmDiscardChanges("aprire la guida ERS")) {
       return;
     }
 
@@ -606,7 +606,7 @@ export default function App() {
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (workspaceView === "code" || workspaceView === "split") {
+        if (workspaceView === "split") {
           handleSaveErs();
         } else {
           handleSaveJson();
@@ -707,10 +707,6 @@ export default function App() {
     if (nextView === "split") {
       setInspectorCollapsed(true);
       setInspectorPeekOpen(false);
-    }
-
-    if (nextView === "code") {
-      setFocusMode(false);
     }
   }
 
@@ -1324,7 +1320,7 @@ export default function App() {
         parsed,
         "Codice ERS caricato.",
         `Import completato da ${file.name}. Puoi annullare per ripristinare il lavoro precedente.`,
-        "code",
+        "split",
       );
     } catch (error) {
       console.error(error);
@@ -1388,7 +1384,7 @@ export default function App() {
         appVersion={APP_VERSION}
         onBackHome={openLandingSurface}
         onOpenStudio={() => openStudioSurface("diagram")}
-        onOpenCodeStudio={() => openStudioSurface("code")}
+        onOpenCodeStudio={() => openStudioSurface("split")}
       />
     );
   }
@@ -1469,7 +1465,6 @@ export default function App() {
         <div
           className={[
             "workspace-shell",
-            workspaceView === "code" ? "workspace-shell-code" : "",
             effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
             effectiveInspectorCollapsed ? "inspector-collapsed" : "",
             focusMode ? "workspace-shell-focus" : "",
@@ -1478,64 +1473,58 @@ export default function App() {
             .filter(Boolean)
             .join(" ")}
         >
-          {workspaceView !== "code" ? (
-            <Toolbar
-              activeTool={tool}
-              mode={mode}
-              collapsed={effectiveToolbarCollapsed}
-              canUndo={history.canUndo}
-              canRedo={history.canRedo}
-              selectionItemCount={selectionItemCount}
-              selectedNode={selectedNode}
-              selectedEdge={selectedEdge}
-              onToolChange={setTool}
-              onUndo={history.undo}
-              onRedo={history.redo}
-              onDuplicateSelection={handleDuplicateSelection}
-              onDeleteSelection={handleDeleteSelection}
-              onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-              onRenameSelection={handleRenameSelectionQuick}
-              onToggleCollapse={handleToggleToolRail}
-            />
-          ) : null}
+          <Toolbar
+            activeTool={tool}
+            mode={mode}
+            collapsed={effectiveToolbarCollapsed}
+            canUndo={history.canUndo}
+            canRedo={history.canRedo}
+            selectionItemCount={selectionItemCount}
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            onToolChange={setTool}
+            onUndo={history.undo}
+            onRedo={history.redo}
+            onDuplicateSelection={handleDuplicateSelection}
+            onDeleteSelection={handleDeleteSelection}
+            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+            onRenameSelection={handleRenameSelectionQuick}
+            onToggleCollapse={handleToggleToolRail}
+          />
 
           <div
             className={
               workspaceView === "split"
                 ? "workspace-main split"
-                : workspaceView === "code"
-                  ? "workspace-main code-only"
-                  : "workspace-main diagram-only"
+                : "workspace-main diagram-only"
             }
           >
-            {workspaceView !== "code" ? (
-              <DiagramCanvas
-                diagram={history.present}
-                selection={selection}
-                tool={tool}
-                mode={mode}
-                viewport={viewport}
-                issues={issues}
-                statusMessage={statusMessage}
-                svgRef={svgRef}
-                onViewportChange={setViewport}
-                onSelectionChange={setSelection}
-                onPreviewDiagram={history.setPresent}
-                onCommitDiagram={commitDiagram}
-                onCreateNode={handleCreateNode}
-                onCreateEdge={handleCreateEdge}
-                onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
-                onDeleteNode={handleDeleteNodeById}
-                onDeleteEdge={handleDeleteEdgeById}
-                onDeleteSelection={handleDeleteSelection}
-                onDeleteExternalIdentifier={handleClearExternalIdentifier}
-                onRenameNode={handleRenameNode}
-                onRenameEdge={handleRenameEdge}
-                onStatusMessageChange={handleCanvasStatusMessage}
-              />
-            ) : null}
+            <DiagramCanvas
+              diagram={history.present}
+              selection={selection}
+              tool={tool}
+              mode={mode}
+              viewport={viewport}
+              issues={issues}
+              statusMessage={statusMessage}
+              svgRef={svgRef}
+              onViewportChange={setViewport}
+              onSelectionChange={setSelection}
+              onPreviewDiagram={history.setPresent}
+              onCommitDiagram={commitDiagram}
+              onCreateNode={handleCreateNode}
+              onCreateEdge={handleCreateEdge}
+              onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+              onDeleteNode={handleDeleteNodeById}
+              onDeleteEdge={handleDeleteEdgeById}
+              onDeleteSelection={handleDeleteSelection}
+              onDeleteExternalIdentifier={handleClearExternalIdentifier}
+              onRenameNode={handleRenameNode}
+              onRenameEdge={handleRenameEdge}
+              onStatusMessageChange={handleCanvasStatusMessage}
+            />
 
-            {workspaceView !== "diagram" ? (
+            {workspaceView === "split" ? (
               <CodeModePanel
                 code={codeDraft}
                 dirty={codeDirty}
@@ -1544,7 +1533,7 @@ export default function App() {
                 nodeCount={history.present.nodes.length}
                 edgeCount={history.present.edges.length}
                 issueCount={issues.length}
-                layout={workspaceView === "split" ? "split" : "code"}
+                layout="split"
                 onCodeChange={updateCodeDraft}
                 onReset={handleResetCodeFromDiagram}
                 onDownload={handleSaveErs}
@@ -1554,25 +1543,23 @@ export default function App() {
             ) : null}
           </div>
 
-          {workspaceView !== "code" ? (
-            <InspectorPanel
-              diagram={history.present}
-              selection={selection}
-              mode={mode}
-              issues={issues}
-              collapsed={effectiveInspectorCollapsed}
-              onNodeChange={handleNodeChange}
-              onNodesChange={handleNodesChange}
-              onEdgeChange={handleEdgeChange}
-              onClearExternalIdentifier={handleClearExternalIdentifier}
-              onDeleteSelection={handleDeleteSelection}
-              onDuplicateSelection={handleDuplicateSelection}
-              onAlign={handleAlignSelection}
-              onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-              onRenameSelection={handleRenameSelectionQuick}
-              onToggleCollapse={handleToggleInspector}
-            />
-          ) : null}
+          <InspectorPanel
+            diagram={history.present}
+            selection={selection}
+            mode={mode}
+            issues={issues}
+            collapsed={effectiveInspectorCollapsed}
+            onNodeChange={handleNodeChange}
+            onNodesChange={handleNodesChange}
+            onEdgeChange={handleEdgeChange}
+            onClearExternalIdentifier={handleClearExternalIdentifier}
+            onDeleteSelection={handleDeleteSelection}
+            onDuplicateSelection={handleDuplicateSelection}
+            onAlign={handleAlignSelection}
+            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+            onRenameSelection={handleRenameSelectionQuick}
+            onToggleCollapse={handleToggleInspector}
+          />
         </div>
       </div>
 
@@ -1715,7 +1702,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Modalita codice e sincronizzazione live</summary>
                 <ul className="help-list">
-                  <li>In vista Codice o Affiancata, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
+                  <li>In vista Affiancata, il codice ERS viene validato in tempo reale e il diagramma si aggiorna automaticamente quando la sintassi e valida.</li>
                   <li>Se il codice e incompleto o non valido, viene mostrato l'errore nel pannello senza alterare l'ultimo stato valido del diagramma.</li>
                   <li>Usa Rigenera dal diagramma per riallineare rapidamente il sorgente ERS allo stato corrente del canvas.</li>
                 </ul>
