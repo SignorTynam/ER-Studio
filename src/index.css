@@ -1060,7 +1060,8 @@ button:disabled {
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
   max-height: 100%;
   overscroll-behavior: contain;
@@ -1069,6 +1070,7 @@ button:disabled {
 
 .inspector-panel > * {
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .inspector-panel.collapsed {
@@ -1353,6 +1355,12 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.action-grid button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
 }
 
 .action-hint {
