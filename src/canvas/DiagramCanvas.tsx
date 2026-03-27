@@ -1914,8 +1914,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
-  const trimmedStatusMessage = props.statusMessage.trim();
-
   return (
     <div
       ref={containerRef}
@@ -2222,12 +2220,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             />
           )}
         </form>
-      ) : null}
-
-      {trimmedStatusMessage ? (
-        <div className="canvas-status-bar">
-          <span>{trimmedStatusMessage}</span>
-        </div>
       ) : null}
     </div>
   );
