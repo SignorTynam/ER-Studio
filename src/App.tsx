@@ -49,6 +49,7 @@ interface WorkspaceNotice {
   id: number;
   message: string;
   tone: "warning" | "error";
+  sticky?: boolean;
 }
 
 type AppSurface = "landing" | "studio" | "code-tutorial";
@@ -72,8 +73,18 @@ const NOTICE_DURATION_MS = {
   warning: 4400,
   error: 6200,
 } as const;
+const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
+
+function isSourceSelectionPendingMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized.startsWith("sorgente selezionata:") &&
+    normalized.includes("seleziona la destinazione") &&
+    normalized.includes("premi esc per annullare")
+  );
+}
 
 function sanitizeFileNameBase(value: string): string {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "diagramma-er";
@@ -294,7 +305,7 @@ export default function App() {
   const effectiveInspectorCollapsed = focusMode || (hasSelection ? inspectorCollapsed : !inspectorPeekOpen);
 
   useEffect(() => {
-    if (!statusMessage || statusMessage.startsWith("Sorgente")) {
+    if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
       return;
     }
 
@@ -383,20 +394,34 @@ export default function App() {
     setNotices((current) => current.filter((notice) => notice.id !== noticeId));
   }
 
-  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration = NOTICE_DURATION_MS[notice.tone]) {
+  function dismissStickyNotices() {
+    setNotices((current) => {
+      const stickyNotices = current.filter((notice) => notice.sticky);
+      if (stickyNotices.length === 0) {
+        return current;
+      }
+
+      stickyNotices.forEach((notice) => clearNoticeTimer(notice.id));
+      return current.filter((notice) => !notice.sticky);
+    });
+  }
+
+  function showNotice(notice: Omit<WorkspaceNotice, "id">, duration: number | null = NOTICE_DURATION_MS[notice.tone]) {
     const id = nextNoticeIdRef.current++;
 
     setNotices((current) => {
-      const retained = current.filter((item) => item.message !== notice.message).slice(0, 1);
+      const retained = current.filter((item) => item.message !== notice.message && !item.sticky).slice(0, 1);
       const removed = current.filter((item) => !retained.some((kept) => kept.id === item.id));
       removed.forEach((item) => clearNoticeTimer(item.id));
       return [{ id, ...notice }, ...retained];
     });
 
-    const timeoutId = window.setTimeout(() => {
-      dismissNotice(id);
-    }, duration);
-    noticeTimeoutsRef.current.set(id, timeoutId);
+    if (duration !== null) {
+      const timeoutId = window.setTimeout(() => {
+        dismissNotice(id);
+      }, duration);
+      noticeTimeoutsRef.current.set(id, timeoutId);
+    }
   }
 
   function showErrorNotice(message: string) {
@@ -407,10 +432,15 @@ export default function App() {
   }
 
   function showWarningNotice(message: string) {
-    showNotice({
-      message,
-      tone: "warning",
-    });
+    const sticky = isSourceSelectionPendingMessage(message);
+    showNotice(
+      {
+        message,
+        tone: "warning",
+        sticky,
+      },
+      sticky ? null : NOTICE_DURATION_MS.warning,
+    );
   }
 
   function getNoticeTone(message: string): WorkspaceNotice["tone"] | null {
@@ -483,6 +513,11 @@ export default function App() {
 
   function setStatus(message: string) {
     setStatusMessage(message);
+    if (!message.trim()) {
+      dismissStickyNotices();
+      return;
+    }
+
     const tone = getNoticeTone(message);
     if (tone === "error") {
       showErrorNotice(message);
@@ -491,6 +526,17 @@ export default function App() {
 
     if (tone === "warning") {
       showWarningNotice(message);
+      return;
+    }
+
+    if (notices.some((notice) => notice.sticky)) {
+      showNotice(
+        {
+          message,
+          tone: "warning",
+        },
+        STATUS_FOLLOWUP_NOTICE_MS,
+      );
     }
   }
 
