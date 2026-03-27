@@ -44,7 +44,6 @@ import {
 } from "../utils/cardinality";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
-const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
 const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
 
@@ -2013,52 +2012,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 ))
             : null}
 
-          {interaction.kind === "drag" && selectionBounds ? (
-            <g pointerEvents="none">
-              <rect
-                x={selectionBounds.x - 18}
-                y={selectionBounds.y - 18}
-                width={selectionBounds.width + 36}
-                height={selectionBounds.height + 36}
-                rx={18}
-                ry={18}
-                fill="rgba(255, 253, 250, 0.72)"
-                stroke={DIAGRAM_STROKE}
-                strokeWidth={3.2}
-              />
-              <rect
-                x={selectionBounds.x - 8}
-                y={selectionBounds.y - 8}
-                width={selectionBounds.width + 16}
-                height={selectionBounds.height + 16}
-                rx={14}
-                ry={14}
-                fill="none"
-                stroke="var(--diagram-drag)"
-                strokeWidth={1.7}
-                strokeDasharray="10 8"
-                opacity={0.7}
-              />
-            </g>
-          ) : null}
-
-          {interaction.kind === "drag" && dragOriginBounds ? (
-            <rect
-              x={dragOriginBounds.x - 10}
-              y={dragOriginBounds.y - 10}
-              width={dragOriginBounds.width + 20}
-              height={dragOriginBounds.height + 20}
-              rx={14}
-              ry={14}
-              fill="none"
-              stroke="var(--diagram-drag)"
-              strokeDasharray="10 8"
-              strokeWidth={1.6}
-              opacity={0.46}
-              pointerEvents="none"
-            />
-          ) : null}
-
           {props.diagram.edges.map((edge) => {
             const sourceNode = nodeMap.get(edge.sourceId);
             const targetNode = nodeMap.get(edge.targetId);
@@ -2185,18 +2138,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             })()
           ))}
 
-          {interaction.kind !== "drag" && selectionBounds ? (
-            <rect
-              x={selectionBounds.x - 8}
-              y={selectionBounds.y - 8}
-              width={selectionBounds.width + 16}
-              height={selectionBounds.height + 16}
-              fill="none"
-              stroke={DIAGRAM_SELECTION}
-              strokeDasharray="6 4"
-            />
-          ) : null}
-
           {marqueeBounds ? (
             <rect
               x={marqueeBounds.x}
@@ -2204,8 +2145,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               width={marqueeBounds.width}
               height={marqueeBounds.height}
               fill={DIAGRAM_SELECTION_FILL}
-              stroke={DIAGRAM_SELECTION}
-              strokeDasharray="6 4"
+              stroke={DIAGRAM_FOCUS}
+              strokeWidth={1.2}
+              opacity={0.55}
             />
           ) : null}
         </g>

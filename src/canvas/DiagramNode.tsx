@@ -3,7 +3,6 @@ import type { DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
-const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
 const DIAGRAM_PENDING = "var(--diagram-pending)";
 const DIAGRAM_DRAG = "var(--diagram-drag)";
@@ -129,14 +128,15 @@ export function DiagramNodeView(props: DiagramNodeProps) {
   const { node } = props;
   const isGhost = props.ghost === true;
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
+  const selectedStrokeColor = !isGhost && props.selected && !props.validationLevel ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeCount = props.validationCount;
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
   const baseDash = isGhost ? "10 8" : undefined;
   const baseOpacity = isGhost ? 0.6 : 1;
   const labelOpacity = isGhost ? 0.74 : 1;
-  const shapeStrokeWidth = isGhost ? 1.8 : props.selected || props.pending || props.dragging ? 2.6 : 2;
-  const weakShapeStrokeWidth = isGhost ? 1.6 : props.selected || props.pending || props.dragging ? 2.2 : 1.8;
+  const shapeStrokeWidth = isGhost ? 1.8 : props.pending || props.dragging ? 2.4 : 2;
+  const weakShapeStrokeWidth = isGhost ? 1.6 : props.pending || props.dragging ? 2.1 : 1.8;
   const groupClassName = isGhost ? "diagram-node ghost" : props.selected ? "diagram-node selected" : "diagram-node";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";
@@ -175,8 +175,8 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             height={node.height + 20}
             fill="none"
             stroke={DIAGRAM_FOCUS}
-            strokeWidth={2}
-            strokeDasharray="8 6"
+            strokeWidth={1.8}
+            opacity={0.62}
           />
         ) : null}
         <rect
@@ -185,7 +185,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           width={node.width}
           height={node.height}
           fill={baseFill}
-          stroke={strokeColor}
+          stroke={selectedStrokeColor}
           strokeWidth={shapeStrokeWidth}
           strokeDasharray={baseDash}
           opacity={baseOpacity}
@@ -253,14 +253,14 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             points={`${cx},${node.y - 10} ${node.x + node.width + 10},${cy} ${cx},${node.y + node.height + 10} ${node.x - 10},${cy}`}
             fill="none"
             stroke={DIAGRAM_FOCUS}
-            strokeWidth={2}
-            strokeDasharray="8 6"
+            strokeWidth={1.8}
+            opacity={0.62}
           />
         ) : null}
         <polygon
           points={points}
           fill={baseFill}
-          stroke={strokeColor}
+          stroke={selectedStrokeColor}
           strokeWidth={shapeStrokeWidth}
           strokeDasharray={baseDash}
           opacity={baseOpacity}
@@ -313,19 +313,8 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             height={node.height + 20}
             fill="none"
             stroke={DIAGRAM_FOCUS}
-            strokeWidth={2}
-            strokeDasharray="8 6"
-          />
-        ) : null}
-        {!isGhost && props.selected ? (
-          <rect
-            x={node.x - 4}
-            y={node.y - 4}
-            width={node.width + 8}
-            height={node.height + 8}
-            fill="none"
-            stroke={DIAGRAM_SELECTION}
-            strokeDasharray="4 3"
+            strokeWidth={1.8}
+            opacity={0.62}
           />
         ) : null}
         {isMultivalued ? (
@@ -422,24 +411,13 @@ export function DiagramNodeView(props: DiagramNodeProps) {
           height={node.height + 18}
           fill="none"
           stroke={DIAGRAM_FOCUS}
-          strokeWidth={2}
-          strokeDasharray="8 6"
+          strokeWidth={1.8}
+          opacity={0.62}
         />
       ) : null}
       <text x={node.x} y={node.y + node.height} className="free-text-label" fill={strokeColor} opacity={labelOpacity}>
         {node.label}
       </text>
-      {!isGhost && props.selected ? (
-        <rect
-          x={node.x - 4}
-          y={node.y - 4}
-          width={node.width + 8}
-          height={node.height + 8}
-          fill="none"
-          stroke={DIAGRAM_SELECTION}
-          strokeDasharray="4 3"
-        />
-      ) : null}
       {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount) : null}
     </g>
   );

@@ -144,6 +144,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           ? props.edge.label
           : "";
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
+  const selectedStrokeColor = !isGhost && props.selected && !props.validationLevel ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeY = geometry.labelPoint.y - (inheritanceConstraintLabel ? 28 : 16);
   const baseOpacity = isGhost ? 0.58 : 1;
@@ -183,10 +184,10 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           d={pathData}
           fill="none"
           stroke={DIAGRAM_FOCUS}
-          strokeWidth={5}
+          strokeWidth={3.6}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray="10 8"
+          opacity={0.62}
         />
       ) : null}
       {secondaryPathData ? (
@@ -204,8 +205,8 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       <path
         d={pathData}
         fill="none"
-        stroke={strokeColor}
-        strokeWidth={isGhost ? 1.8 : props.selected || props.dragging ? 2.8 : 2}
+        stroke={selectedStrokeColor}
+        strokeWidth={isGhost ? 1.8 : props.dragging ? 2.6 : 2}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeDasharray={primaryDashArray}
