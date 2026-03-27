@@ -36,6 +36,7 @@ import {
 import { createExampleDiagram } from "./utils/example";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
+import { GRID_SIZE, snapValue } from "./utils/geometry";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
 
@@ -78,6 +79,11 @@ const NOTICE_DURATION_MS = {
 } as const;
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
+const ATTRIBUTE_CREATION_HORIZONTAL_OFFSET = 140;
+const ATTRIBUTE_CREATION_STACK_GAP = 28;
+const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
+const COMPOSITE_CHILD_VERTICAL_GAP = 80;
+const COMPOSITE_CHILD_VERTICAL_STEP = 44;
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
 const TOOLBAR_COLLAPSED_WIDTH = 62;
 const INSPECTOR_COLLAPSED_WIDTH = 56;
@@ -270,6 +276,90 @@ function findRelationshipBetweenEntities(
   }
 
   return undefined;
+}
+
+type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
+type AttributeNodeDraft = Extract<DiagramNode, { type: "attribute" }>;
+
+function findDirectHostedAttributes(
+  diagram: DiagramDocument,
+  hostId: string,
+): AttributeNodeDraft[] {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+
+  return diagram.edges.flatMap((edge) => {
+    if (edge.type !== "attribute") {
+      return [];
+    }
+
+    const candidateId =
+      edge.sourceId === hostId
+        ? edge.targetId
+        : edge.targetId === hostId
+          ? edge.sourceId
+          : undefined;
+
+    if (!candidateId) {
+      return [];
+    }
+
+    const candidateNode = nodeById.get(candidateId);
+    return candidateNode?.type === "attribute" ? [candidateNode] : [];
+  });
+}
+
+function getNextAttributePosition(
+  diagram: DiagramDocument,
+  hostNode: AttributeCreationHost,
+  nextAttribute: AttributeNodeDraft,
+): Point {
+  const hostedAttributes = findDirectHostedAttributes(diagram, hostNode.id);
+
+  if (hostNode.type === "attribute") {
+    const hostWidth = Math.max(hostNode.width, COMPOSITE_ATTRIBUTE_MIN_SIZE.width);
+    const hostHeight = Math.max(hostNode.height, COMPOSITE_ATTRIBUTE_MIN_SIZE.height);
+    const compositeIndex = hostedAttributes.length;
+
+    return {
+      x: snapValue(
+        hostNode.x + hostWidth / 2 - nextAttribute.width / 2 + compositeIndex * COMPOSITE_CHILD_HORIZONTAL_STEP,
+        GRID_SIZE,
+      ),
+      y: snapValue(
+        hostNode.y + hostHeight + COMPOSITE_CHILD_VERTICAL_GAP + compositeIndex * COMPOSITE_CHILD_VERTICAL_STEP,
+        GRID_SIZE,
+      ),
+    };
+  }
+
+  const regularAttributes = hostedAttributes.filter(
+    (attribute) => attribute.isIdentifier !== true && attribute.isCompositeInternal !== true,
+  );
+  const hostCenterX = hostNode.x + hostNode.width / 2;
+  const leftAttributes = regularAttributes.filter(
+    (attribute) => attribute.x + attribute.width / 2 < hostCenterX,
+  );
+  const rightAttributes = regularAttributes.filter(
+    (attribute) => attribute.x + attribute.width / 2 >= hostCenterX,
+  );
+  const useLeftSide = leftAttributes.length > 0 && rightAttributes.length === 0;
+  const sideAttributes = useLeftSide ? leftAttributes : rightAttributes;
+  const baseY = hostNode.y + hostNode.height / 2 - nextAttribute.height / 2;
+  const nextY =
+    sideAttributes.length === 0
+      ? baseY
+      : Math.max(...sideAttributes.map((attribute) => attribute.y + attribute.height)) +
+        ATTRIBUTE_CREATION_STACK_GAP;
+
+  return {
+    x: snapValue(
+      useLeftSide
+        ? hostNode.x - ATTRIBUTE_CREATION_HORIZONTAL_OFFSET - nextAttribute.width / 2
+        : hostNode.x + hostNode.width + ATTRIBUTE_CREATION_HORIZONTAL_OFFSET - nextAttribute.width / 2,
+      GRID_SIZE,
+    ),
+    y: snapValue(nextY, GRID_SIZE),
+  };
 }
 
 export default function App() {
@@ -1184,10 +1274,11 @@ export default function App() {
       return;
     }
 
-    const nextAttribute = createNode("attribute", {
-      x: hostNode.x + hostNode.width + 140,
-      y: hostNode.y + hostNode.height / 2 + (hostNode.type === "attribute" ? 56 : 0),
-    }) as Extract<DiagramNode, { type: "attribute" }>;
+    const draftAttribute = createNode("attribute", { x: 0, y: 0 }) as Extract<DiagramNode, { type: "attribute" }>;
+    const nextAttribute = {
+      ...draftAttribute,
+      ...getNextAttributePosition(history.present, hostNode, draftAttribute),
+    };
     const nextEdge = createEdge("attribute", nextAttribute.id, hostNode.id);
     const nextDiagramBase: DiagramDocument = {
       ...history.present,
