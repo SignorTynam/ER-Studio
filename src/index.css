@@ -5314,10 +5314,12 @@ summary:focus-visible {
 /* Canvas-first workspace refresh */
 :root {
   --workspace-gap: 6px;
-  --tool-rail-expanded: 120px;
+  --tool-rail-expanded: 196px;
   --tool-rail-collapsed: 62px;
-  --inspector-expanded: 264px;
+  --inspector-expanded: 320px;
   --inspector-collapsed: 56px;
+  --toolbar-resizer-width: 0px;
+  --inspector-resizer-width: 0px;
 }
 
 .app-shell {
@@ -5556,7 +5558,12 @@ summary:focus-visible {
   --inspector-width: var(--inspector-expanded);
   flex: 1 1 auto;
   position: relative;
-  grid-template-columns: var(--toolbar-width) minmax(0, 1fr) var(--inspector-width);
+  grid-template-columns:
+    var(--toolbar-width)
+    var(--toolbar-resizer-width)
+    minmax(0, 1fr)
+    var(--inspector-resizer-width)
+    var(--inspector-width);
   gap: var(--workspace-gap);
   padding: 2px 3px 3px;
   width: 100%;
@@ -5598,7 +5605,8 @@ summary:focus-visible {
 }
 
 .workspace-shell.workspace-shell-focus > .toolbar-panel,
-.workspace-shell.workspace-shell-focus > .inspector-panel {
+.workspace-shell.workspace-shell-focus > .inspector-panel,
+.workspace-shell.workspace-shell-focus > .workspace-resizer {
   opacity: 0;
   pointer-events: none;
   width: 0;
@@ -5607,6 +5615,49 @@ summary:focus-visible {
   border-width: 0;
   transform: translateX(-10px);
   box-shadow: none;
+}
+
+.workspace-resizer {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.workspace-resizer::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(42, 39, 31, 0.08);
+  transform: translateX(-50%);
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.workspace-resizer-active:hover::before,
+.workspace-resizer-active:focus-visible::before {
+  background: rgba(79, 107, 100, 0.42);
+  box-shadow: 0 0 0 3px rgba(79, 107, 100, 0.14);
+}
+
+.workspace-resizer:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.workspace-resizer:disabled::before {
+  opacity: 0;
+}
+
+body.workspace-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .workspace-main {
@@ -6025,7 +6076,12 @@ summary:focus-visible {
 
 @media (max-width: 1240px) {
   .workspace-shell {
-    grid-template-columns: var(--toolbar-width) minmax(0, 1fr) var(--inspector-width);
+    grid-template-columns:
+      var(--toolbar-width)
+      var(--toolbar-resizer-width)
+      minmax(0, 1fr)
+      var(--inspector-resizer-width)
+      var(--inspector-width);
   }
 
   .workspace-main.split {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodeModePanel } from "./components/CodeModePanel";
@@ -79,6 +79,17 @@ const NOTICE_DURATION_MS = {
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
 const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
+const TOOLBAR_COLLAPSED_WIDTH = 62;
+const INSPECTOR_COLLAPSED_WIDTH = 56;
+const IDLE_INSPECTOR_COLLAPSED_WIDTH = 34;
+const IDLE_SPLIT_INSPECTOR_COLLAPSED_WIDTH = 24;
+const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 216 : 196;
+const DEFAULT_INSPECTOR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 344 : 320;
+const MIN_TOOLBAR_WIDTH = 180;
+const MAX_TOOLBAR_WIDTH = 320;
+const MIN_INSPECTOR_WIDTH = 288;
+const MAX_INSPECTOR_WIDTH = 440;
+const RESIZER_WIDTH = 12;
 
 function isSourceSelectionPendingMessage(message: string): boolean {
   const normalized = message.trim().toLowerCase();
@@ -94,6 +105,10 @@ function sanitizeFileNameBase(value: string): string {
 }
 
 const DEFAULT_ATTRIBUTE_SIZE = { width: 170, height: 72 };
+
+function clampValue(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function downloadTextFile(content: string, fileName: string, mimeType = "text/plain;charset=utf-8") {
   const blob = new Blob([content], { type: mimeType });
@@ -275,11 +290,13 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(true);
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
   const [inspectorPeekOpen, setInspectorPeekOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
+  const [toolbarWidth, setToolbarWidth] = useState(DEFAULT_TOOLBAR_WIDTH);
+  const [inspectorWidth, setInspectorWidth] = useState(DEFAULT_INSPECTOR_WIDTH);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -292,6 +309,11 @@ export default function App() {
   const hasUnsavedChangesRef = useRef(false);
   const nextNoticeIdRef = useRef(1);
   const noticeTimeoutsRef = useRef(new Map<number, number>());
+  const panelResizeRef = useRef<{
+    panel: "toolbar" | "inspector";
+    startClientX: number;
+    startWidth: number;
+  } | null>(null);
 
   const issues = validateDiagram(history.present);
   const selectedNode =
@@ -322,6 +344,34 @@ export default function App() {
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
   const effectiveInspectorCollapsed = focusMode || (hasSelection ? inspectorCollapsed : !inspectorPeekOpen);
+  const toolbarResizeBounds = {
+    min: MIN_TOOLBAR_WIDTH,
+    max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
+  };
+  const inspectorResizeBounds = {
+    min: MIN_INSPECTOR_WIDTH,
+    max: clampValue(Math.floor(windowWidth * 0.34), 320, MAX_INSPECTOR_WIDTH),
+  };
+  const visibleToolbarWidth = focusMode
+    ? 0
+    : effectiveToolbarCollapsed
+      ? TOOLBAR_COLLAPSED_WIDTH
+      : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
+  const visibleInspectorWidth = focusMode
+    ? 0
+    : effectiveInspectorCollapsed
+      ? workspaceView === "split" && !hasSelection
+        ? IDLE_SPLIT_INSPECTOR_COLLAPSED_WIDTH
+        : hasSelection
+          ? INSPECTOR_COLLAPSED_WIDTH
+          : IDLE_INSPECTOR_COLLAPSED_WIDTH
+      : clampValue(inspectorWidth, inspectorResizeBounds.min, inspectorResizeBounds.max);
+  const workspaceShellStyle = {
+    "--toolbar-width": `${visibleToolbarWidth}px`,
+    "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
+    "--inspector-resizer-width": !focusMode && !effectiveInspectorCollapsed ? `${RESIZER_WIDTH}px` : "0px",
+    "--inspector-width": `${visibleInspectorWidth}px`,
+  } as CSSProperties;
 
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
@@ -385,6 +435,11 @@ export default function App() {
   }, [windowWidth]);
 
   useEffect(() => {
+    setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
+    setInspectorWidth((current) => clampValue(current, inspectorResizeBounds.min, inspectorResizeBounds.max));
+  }, [toolbarResizeBounds.max, toolbarResizeBounds.min, inspectorResizeBounds.max, inspectorResizeBounds.min]);
+
+  useEffect(() => {
     if (hasSelection) {
       setInspectorPeekOpen(false);
     }
@@ -397,6 +452,50 @@ export default function App() {
 
     setInspectorPeekOpen(false);
   }, [focusMode]);
+
+  useEffect(() => {
+    function handleResizePointerMove(event: PointerEvent) {
+      const currentResize = panelResizeRef.current;
+      if (!currentResize) {
+        return;
+      }
+
+      if (currentResize.panel === "toolbar") {
+        const nextWidth = clampValue(
+          currentResize.startWidth + (event.clientX - currentResize.startClientX),
+          toolbarResizeBounds.min,
+          toolbarResizeBounds.max,
+        );
+        setToolbarWidth(nextWidth);
+        return;
+      }
+
+      const nextWidth = clampValue(
+        currentResize.startWidth + (currentResize.startClientX - event.clientX),
+        inspectorResizeBounds.min,
+        inspectorResizeBounds.max,
+      );
+      setInspectorWidth(nextWidth);
+    }
+
+    function stopResize() {
+      if (!panelResizeRef.current) {
+        return;
+      }
+
+      panelResizeRef.current = null;
+      document.body.classList.remove("workspace-resizing");
+    }
+
+    window.addEventListener("pointermove", handleResizePointerMove);
+    window.addEventListener("pointerup", stopResize);
+
+    return () => {
+      window.removeEventListener("pointermove", handleResizePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      document.body.classList.remove("workspace-resizing");
+    };
+  }, [toolbarResizeBounds.max, toolbarResizeBounds.min, inspectorResizeBounds.max, inspectorResizeBounds.min]);
 
   useEffect(() => {
     return () => {
@@ -682,6 +781,32 @@ export default function App() {
       setStatus(next ? "Modalita focus attiva: il canvas diventa protagonista." : "Modalita focus disattivata.");
       return next;
     });
+  }
+
+  function handlePanelResizeStart(
+    panel: "toolbar" | "inspector",
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    panelResizeRef.current = {
+      panel,
+      startClientX: event.clientX,
+      startWidth: panel === "toolbar" ? toolbarWidth : inspectorWidth,
+    };
+    document.body.classList.add("workspace-resizing");
+  }
+
+  function resetPanelWidth(panel: "toolbar" | "inspector") {
+    if (panel === "toolbar") {
+      setToolbarWidth(clampValue(DEFAULT_TOOLBAR_WIDTH, toolbarResizeBounds.min, toolbarResizeBounds.max));
+      return;
+    }
+
+    setInspectorWidth(clampValue(DEFAULT_INSPECTOR_WIDTH, inspectorResizeBounds.min, inspectorResizeBounds.max));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -1630,6 +1755,7 @@ export default function App() {
           ]
             .filter(Boolean)
             .join(" ")}
+          style={workspaceShellStyle}
         >
           <Toolbar
             activeTool={tool}
@@ -1648,6 +1774,20 @@ export default function App() {
             onCreateAttributeForSelection={handleCreateAttributeFromSelection}
             onRenameSelection={handleRenameSelectionQuick}
             onToggleCollapse={handleToggleToolRail}
+          />
+
+          <button
+            type="button"
+            className={
+              !focusMode && !effectiveToolbarCollapsed
+                ? "workspace-resizer workspace-resizer-active"
+                : "workspace-resizer"
+            }
+            onPointerDown={(event) => handlePanelResizeStart("toolbar", event)}
+            onDoubleClick={() => resetPanelWidth("toolbar")}
+            aria-label="Ridimensiona pannello strumenti"
+            title="Trascina per allargare o ridurre il pannello strumenti"
+            disabled={focusMode || effectiveToolbarCollapsed}
           />
 
           <div
@@ -1700,6 +1840,20 @@ export default function App() {
               />
             ) : null}
           </div>
+
+          <button
+            type="button"
+            className={
+              !focusMode && !effectiveInspectorCollapsed
+                ? "workspace-resizer workspace-resizer-active"
+                : "workspace-resizer"
+            }
+            onPointerDown={(event) => handlePanelResizeStart("inspector", event)}
+            onDoubleClick={() => resetPanelWidth("inspector")}
+            aria-label="Ridimensiona inspector"
+            title="Trascina per allargare o ridurre l'inspector"
+            disabled={focusMode || effectiveInspectorCollapsed}
+          />
 
           <InspectorPanel
             diagram={history.present}
