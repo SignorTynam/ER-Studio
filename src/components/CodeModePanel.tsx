@@ -25,7 +25,7 @@ const TOKEN_PATTERN =
   /#.*$|\/\/.*$|"(?:\\.|[^"\\])*"|->|\b(?:diagram|entity|relationship|relation|attribute|identifier|composite|multivalued|inheritance|connect|external|text|weak|label|card|style|offset|disjoint|overlap|total|partial|from|to|target|targetEntity|targetAttribute|sourceAttribute|compositeInternal)\b|\((?:0|1),(?:1|N)\)|[{}]/g;
 
 function parseErrorLine(error: string): number | null {
-  const match = error.match(/ERS linea (\d+)/i);
+  const match = error.match(/Linea (\d+)/i);
   return match ? Number(match[1]) : null;
 }
 
