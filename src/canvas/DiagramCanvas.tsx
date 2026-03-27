@@ -44,7 +44,6 @@ import {
 } from "../utils/cardinality";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
-const DIAGRAM_GRID = "var(--diagram-grid)";
 const DIAGRAM_SELECTION = "var(--diagram-selection-stroke)";
 const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
@@ -1916,9 +1915,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     >
       <svg ref={props.svgRef} className="diagram-canvas">
         <defs>
-          <pattern id="canvas-grid" width={GRID_SIZE} height={GRID_SIZE} patternUnits="userSpaceOnUse">
-            <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke={DIAGRAM_GRID} strokeWidth="1" />
-          </pattern>
           <marker
             id="arrowhead"
             markerWidth="12"
@@ -1938,7 +1934,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             y={-WORLD_EXTENT / 2}
             width={WORLD_EXTENT}
             height={WORLD_EXTENT}
-            fill="url(#canvas-grid)"
+            fill="var(--diagram-canvas-fill)"
             onPointerDown={handleCanvasPointerDown}
           />
 

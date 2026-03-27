@@ -3666,6 +3666,7 @@ summary:focus-visible {
   --diagram-node-fill: #fffdfa;
   --diagram-stroke: #31413e;
   --diagram-text: #22302c;
+  --diagram-canvas-fill: #f6f8f5;
   --diagram-grid: rgba(79, 107, 100, 0.12);
   --diagram-selection-stroke: #70847d;
   --diagram-selection-fill: rgba(79, 107, 100, 0.09);
@@ -5253,9 +5254,15 @@ summary:focus-visible {
 }
 
 .app-shell {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.4), transparent 26%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(223, 217, 204, 0.08) 100%);
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .app-shell.focus-mode .app-header {
@@ -5370,7 +5377,11 @@ summary:focus-visible {
   position: relative;
   grid-template-columns: var(--toolbar-width) minmax(0, 1fr) var(--inspector-width);
   gap: var(--workspace-gap);
-  padding: 10px 12px 12px;
+  padding: 4px 6px 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .workspace-shell.toolbar-collapsed {
@@ -5526,14 +5537,14 @@ summary:focus-visible {
 }
 
 .canvas-panel {
-  background:
-    radial-gradient(circle at top center, rgba(255, 255, 255, 0.46), transparent 30%),
-    linear-gradient(180deg, #f8faf6 0%, #f1f4ee 100%);
+  background: var(--diagram-canvas-fill);
   border-color: rgba(42, 39, 31, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 10px 22px rgba(47, 42, 31, 0.05);
 }
 
 .diagram-canvas {
-  background: transparent;
+  background: var(--diagram-canvas-fill);
 }
 
 .canvas-panel::after {
@@ -5543,6 +5554,37 @@ summary:focus-visible {
   pointer-events: none;
   border-radius: inherit;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+@media (min-width: 961px) {
+  .app-header {
+    padding: 8px 10px;
+  }
+
+  .workspace-shell {
+    --workspace-gap: 4px;
+    padding: 4px;
+  }
+
+  .workspace-shell.workspace-shell-focus {
+    padding-inline: 4px;
+  }
+
+  .toolbar-panel,
+  .inspector-panel,
+  .code-mode-panel {
+    border-radius: 16px;
+  }
+
+  .canvas-panel {
+    border-radius: 10px;
+  }
+
+  .canvas-status-bar {
+    right: 12px;
+    bottom: 12px;
+    max-width: min(460px, calc(100% - 24px));
+  }
 }
 
 .canvas-viewport-hud {
