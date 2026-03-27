@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.4.3";
+export const APP_VERSION = "2.5";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,17 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.5",
+    date: "2026-03-27",
+    updates: [
+      "Toast workspace unificati in overlay: non spostano piu il layout e sostituiscono i vecchi messaggi inline nel canvas.",
+      "Esteso il flusso notifiche ai messaggi guidati di collegamento, alle rimozioni/eliminazioni e ai warning selezionati dall'inspector.",
+      "Lista validazioni resa attivabile: cliccando un warning o un errore nell'inspector viene mostrato subito il relativo toast.",
+      "Menu Workspace corretto come pannello floating ancorato al pulsante, senza clipping o testi schiacciati nell'header.",
+      "Workspace laterale migliorato: rail strumenti piu largo di default e pannelli laterali ridimensionabili con drag handle e reset rapido.",
+    ],
+  },
   {
     version: "2.4.3",
     date: "2026-03-27",
