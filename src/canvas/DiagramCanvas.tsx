@@ -26,6 +26,7 @@ import {
   worldPointFromClient,
 } from "../utils/geometry";
 import type {
+  Bounds,
   DiagramDocument,
   EdgeKind,
   DiagramEdge,
@@ -142,6 +143,36 @@ interface DiagramCanvasProps {
   onRenameNode: (nodeId: string, label: string) => void;
   onRenameEdge: (edgeId: string, label: string) => void;
   onStatusMessageChange: (message: string) => void;
+}
+
+const VIEWPORT_PADDING = 140;
+
+function expandBounds(bounds: Bounds, padding: number): Bounds {
+  return {
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    width: bounds.width + padding * 2,
+    height: bounds.height + padding * 2,
+  };
+}
+
+function viewportForBounds(bounds: Bounds, rect: DOMRect, zoom: number): Viewport {
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+
+  return {
+    zoom,
+    x: rect.width / 2 - centerX * zoom,
+    y: rect.height / 2 - centerY * zoom,
+  };
+}
+
+function getBoundsForViewport(nodes: DiagramNode[]): Bounds | null {
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  return getSelectionBounds(nodes);
 }
 
 function addToSelection(selection: SelectionState, nodeId: string): SelectionState {
@@ -954,6 +985,119 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
   }
 
+  function getViewportRect(): DOMRect | null {
+    if (!containerRef.current) {
+      return null;
+    }
+
+    return containerRef.current.getBoundingClientRect();
+  }
+
+  function getViewportTargetBounds(): Bounds | null {
+    const selectedNodes = props.diagram.nodes.filter((node) => props.selection.nodeIds.includes(node.id));
+    const selectionBounds = getBoundsForViewport(selectedNodes);
+
+    if (selectionBounds) {
+      return selectionBounds;
+    }
+
+    const primaryNodes = props.diagram.nodes.filter((node) => node.type !== "text");
+    return getBoundsForViewport(primaryNodes) ?? getBoundsForViewport(props.diagram.nodes);
+  }
+
+  function setViewportFromBounds(bounds: Bounds, zoom: number) {
+    const rect = getViewportRect();
+    if (!rect) {
+      return;
+    }
+
+    props.onViewportChange(viewportForBounds(bounds, rect, zoom));
+  }
+
+  function fitToContent() {
+    const rect = getViewportRect();
+    const bounds = getViewportTargetBounds();
+
+    if (!rect) {
+      return;
+    }
+
+    if (!bounds) {
+      props.onViewportChange({
+        x: rect.width / 2,
+        y: rect.height / 2,
+        zoom: 1,
+      });
+      props.onStatusMessageChange("Viewport centrata.");
+      return;
+    }
+
+    const paddedBounds = expandBounds(bounds, VIEWPORT_PADDING);
+    const widthZoom = rect.width / Math.max(paddedBounds.width, 220);
+    const heightZoom = rect.height / Math.max(paddedBounds.height, 200);
+    const nextZoom = clampZoom(Math.min(widthZoom, heightZoom));
+
+    props.onViewportChange(viewportForBounds(bounds, rect, nextZoom));
+    props.onStatusMessageChange(
+      props.selection.nodeIds.length > 0 ? "Selezione adattata al canvas." : "Diagramma adattato al canvas.",
+    );
+  }
+
+  function centerDiagram() {
+    const bounds = getViewportTargetBounds();
+
+    if (!bounds) {
+      return;
+    }
+
+    setViewportFromBounds(bounds, props.viewport.zoom);
+    props.onStatusMessageChange(
+      props.selection.nodeIds.length > 0 ? "Selezione centrata." : "Diagramma centrato nel canvas.",
+    );
+  }
+
+  function resetViewport() {
+    const bounds = getViewportTargetBounds();
+    const rect = getViewportRect();
+
+    if (!rect) {
+      return;
+    }
+
+    if (!bounds) {
+      props.onViewportChange({
+        x: rect.width / 2,
+        y: rect.height / 2,
+        zoom: 1,
+      });
+      props.onStatusMessageChange("Viewport ripristinata.");
+      return;
+    }
+
+    props.onViewportChange(viewportForBounds(bounds, rect, 1));
+    props.onStatusMessageChange("Viewport ripristinata.");
+  }
+
+  function zoomAroundCanvasCenter(multiplier: number) {
+    const rect = getViewportRect();
+    if (!rect) {
+      return;
+    }
+
+    const canvasCenterX = rect.width / 2;
+    const canvasCenterY = rect.height / 2;
+    const worldX = (canvasCenterX - props.viewport.x) / props.viewport.zoom;
+    const worldY = (canvasCenterY - props.viewport.y) / props.viewport.zoom;
+    const nextZoom = clampZoom(props.viewport.zoom * multiplier);
+
+    props.onViewportChange({
+      zoom: nextZoom,
+      x: canvasCenterX - worldX * nextZoom,
+      y: canvasCenterY - worldY * nextZoom,
+    });
+    props.onStatusMessageChange(`Zoom ${Math.round(nextZoom * 100)}%.`);
+  }
+
   function openInlineEditorForSelection() {
     if (props.mode !== "edit" || props.tool !== "select") {
       return;
@@ -1032,6 +1176,41 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleCanvasKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (inlineEdit) {
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      event.stopPropagation();
+      centerDiagram();
+      return;
+    }
+
+    if (event.key === "0") {
+      event.preventDefault();
+      event.stopPropagation();
+      resetViewport();
+      return;
+    }
+
+    if (event.key === "9") {
+      event.preventDefault();
+      event.stopPropagation();
+      fitToContent();
+      return;
+    }
+
+    if (event.key === "=" || event.key === "+") {
+      event.preventDefault();
+      event.stopPropagation();
+      zoomAroundCanvasCenter(1.14);
+      return;
+    }
+
+    if (event.key === "-") {
+      event.preventDefault();
+      event.stopPropagation();
+      zoomAroundCanvasCenter(1 / 1.14);
       return;
     }
 
@@ -1573,7 +1752,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const rect = containerRef.current.getBoundingClientRect();
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
-    const nextZoom = clampZoom(props.viewport.zoom * (event.deltaY > 0 ? 0.92 : 1.08));
+    const deltaScale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? rect.height : 1;
+    const zoomFactor = Math.exp((-event.deltaY * deltaScale) / 720);
+    const nextZoom = clampZoom(props.viewport.zoom * zoomFactor);
+
+    if (Math.abs(nextZoom - props.viewport.zoom) < 0.001) {
+      return;
+    }
 
     const worldX = (cursorX - props.viewport.x) / props.viewport.zoom;
     const worldY = (cursorY - props.viewport.y) / props.viewport.zoom;
@@ -2007,6 +2192,35 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ) : null}
         </g>
       </svg>
+
+      <div className="canvas-viewport-hud" aria-label="Controlli viewport">
+        <div className="canvas-hud-cluster">
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1 / 1.14)}>
+            -
+          </button>
+          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport}>
+            {Math.round(props.viewport.zoom * 100)}%
+          </button>
+          <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1.14)}>
+            +
+          </button>
+        </div>
+        <div className="canvas-hud-cluster">
+          <button type="button" className="canvas-hud-button" onClick={fitToContent}>
+            {props.selection.nodeIds.length > 0 ? "Adatta sel." : "Adatta"}
+          </button>
+          <button type="button" className="canvas-hud-button" onClick={centerDiagram}>
+            Centra
+          </button>
+          <button type="button" className="canvas-hud-button" onClick={resetViewport}>
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <div className="canvas-pan-hint" aria-hidden="true">
+        Spazio + drag per pan, 9 adatta, 0 reset.
+      </div>
 
       {inlineEdit && editorStyle ? (
         <form

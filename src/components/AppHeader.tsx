@@ -10,6 +10,9 @@ interface AppHeaderProps {
   workspaceView: "diagram" | "split" | "code";
   canUndo: boolean;
   canRedo: boolean;
+  focusMode: boolean;
+  toolRailCollapsed: boolean;
+  inspectorCollapsed: boolean;
   onModeChange: (mode: EditorMode) => void;
   onWorkspaceViewChange: (view: "diagram" | "split" | "code") => void;
   onNew: () => void;
@@ -24,6 +27,9 @@ interface AppHeaderProps {
   onExample: () => void;
   onAbout: () => void;
   onWhatsNew: () => void;
+  onToggleFocusMode: () => void;
+  onToggleToolRail: () => void;
+  onToggleInspector: () => void;
   onHome?: () => void;
 }
 
@@ -85,8 +91,10 @@ export function AppHeader(props: AppHeaderProps) {
     }
   }
 
+  const showsCanvasWorkspaceControls = props.workspaceView !== "code";
+
   return (
-    <header className="app-header">
+    <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
       <div className="app-title-block">
         <div className="app-eyebrow">ER workspace</div>
         <div className="app-title-inline">
@@ -139,67 +147,132 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
       </div>
 
-      <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
-        {props.onHome ? (
-          <button type="button" className="header-button" onClick={props.onHome}>
-            Home
+      <div className="header-utility-bar">
+        <div className="header-quick-actions" role="group" aria-label="Azioni rapide workspace">
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onUndo}
+            disabled={!props.canUndo}
+            title="Annulla"
+          >
+            Annulla
           </button>
-        ) : null}
+          <button
+            type="button"
+            className="header-button header-quick-button"
+            onClick={props.onRedo}
+            disabled={!props.canRedo}
+            title="Ripeti"
+          >
+            Ripeti
+          </button>
+          {showsCanvasWorkspaceControls ? (
+            <button
+              type="button"
+              className={
+                props.toolRailCollapsed
+                  ? "header-button header-quick-button"
+                  : "header-button header-quick-button active"
+              }
+              onClick={props.onToggleToolRail}
+              disabled={props.focusMode}
+              title={props.toolRailCollapsed ? "Espandi rail strumenti" : "Comprimi rail strumenti"}
+            >
+              Strumenti
+            </button>
+          ) : null}
+          {showsCanvasWorkspaceControls ? (
+            <button
+              type="button"
+              className={
+                props.focusMode
+                  ? "header-button header-quick-button active"
+                  : "header-button header-quick-button"
+              }
+              onClick={props.onToggleFocusMode}
+              title={props.focusMode ? "Esci dalla modalita focus" : "Attiva modalita focus"}
+            >
+              {props.focusMode ? "Esci focus" : "Focus"}
+            </button>
+          ) : null}
+          {showsCanvasWorkspaceControls ? (
+            <button
+              type="button"
+              className={
+                props.inspectorCollapsed
+                  ? "header-button header-quick-button"
+                  : "header-button header-quick-button active"
+              }
+              onClick={props.onToggleInspector}
+              disabled={props.focusMode}
+              title={
+                props.inspectorCollapsed
+                  ? "Apri inspector contestuale"
+                  : "Comprimi inspector contestuale"
+              }
+            >
+              Contesto
+            </button>
+          ) : null}
+        </div>
 
-        <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>File</summary>
-          <div className="nav-menu">
-            <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
-              Nuovo diagramma
+        <nav ref={navRef} className="header-nav" aria-label="Azioni principali">
+          {props.onHome ? (
+            <button type="button" className="header-button" onClick={props.onHome}>
+              Home
             </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onLoad)}>
-              Carica JSON
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
-              Carica ERS
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onSave)}>
-              Salva JSON
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
-              Scarica ERS
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onExample)}>
-              Carica esempio
-            </button>
-          </div>
-        </details>
+          ) : null}
 
-        <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>Esporta</summary>
-          <div className="nav-menu">
-            <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
-              PNG
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
-              SVG
-            </button>
-          </div>
-        </details>
+          <details className="nav-group" onToggle={handleGroupToggle}>
+            <summary>File</summary>
+            <div className="nav-menu">
+              <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
+                Nuovo diagramma
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onLoad)}>
+                Carica JSON
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
+                Carica ERS
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onSave)}>
+                Salva JSON
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
+                Scarica ERS
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onExample)}>
+                Carica esempio
+              </button>
+            </div>
+          </details>
 
-        <details className="nav-group" onToggle={handleGroupToggle}>
-          <summary>Guida</summary>
-          <div className="nav-menu">
-            <button type="button" onClick={(event) => runMenuAction(event, props.onUndo)} disabled={!props.canUndo}>
-              Annulla
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onRedo)} disabled={!props.canRedo}>
-              Ripeti
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
-              Informazioni
-            </button>
-            <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
-              Novita
-            </button>
-          </div>
-        </details>
-      </nav>
+          <details className="nav-group" onToggle={handleGroupToggle}>
+            <summary>Esporta</summary>
+            <div className="nav-menu">
+              <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
+                PNG
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onExportSvg)}>
+                SVG
+              </button>
+            </div>
+          </details>
+
+          <details className="nav-group" onToggle={handleGroupToggle}>
+            <summary>Guida</summary>
+            <div className="nav-menu">
+              <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
+                Informazioni
+              </button>
+              <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
+                Novita
+              </button>
+            </div>
+          </details>
+        </nav>
+      </div>
     </header>
   );
 }

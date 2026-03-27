@@ -58,6 +58,7 @@ type WorkspaceView = "diagram" | "split" | "code";
 
 const ERROR_PATTERNS = [/errore/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscito/i, /gia presente/i];
 const COMPOSITE_ATTRIBUTE_MIN_SIZE = { width: 220, height: 110 };
+const INITIAL_WINDOW_WIDTH = typeof window === "undefined" ? 1440 : window.innerWidth;
 
 function sanitizeFileNameBase(value: string): string {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "diagramma-er";
@@ -245,8 +246,11 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1560);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
+  const [inspectorPeekOpen, setInspectorPeekOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -269,6 +273,9 @@ export default function App() {
       ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
       : undefined;
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
+  const hasSelection = selectionItemCount > 0;
+  const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
+  const effectiveInspectorCollapsed = focusMode || (hasSelection ? inspectorCollapsed : !inspectorPeekOpen);
   historyRef.current = history;
 
   useEffect(() => {
@@ -302,6 +309,40 @@ export default function App() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowWidth(window.innerWidth);
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (windowWidth < 1460) {
+      setToolbarCollapsed(true);
+    }
+
+    if (windowWidth < 1240) {
+      setInspectorCollapsed(true);
+      setInspectorPeekOpen(false);
+    }
+  }, [windowWidth]);
+
+  useEffect(() => {
+    if (hasSelection) {
+      setInspectorPeekOpen(false);
+    }
+  }, [hasSelection]);
+
+  useEffect(() => {
+    if (!focusMode) {
+      return;
+    }
+
+    setInspectorPeekOpen(false);
+  }, [focusMode]);
 
   function dismissNotice(noticeId: number) {
     setNotices((current) => current.filter((notice) => notice.id !== noticeId));
@@ -435,6 +476,39 @@ export default function App() {
     }
   }
 
+  function handleToggleToolRail() {
+    setToolbarCollapsed((current) => {
+      const next = !current;
+      setStatus(next ? "Rail strumenti compresso." : "Rail strumenti espanso.");
+      return next;
+    });
+  }
+
+  function handleToggleInspector() {
+    if (!hasSelection) {
+      setInspectorPeekOpen((current) => {
+        const next = !current;
+        setStatus(next ? "Inspector aperto in modalita panoramica." : "Inspector contestuale ridotto.");
+        return next;
+      });
+      return;
+    }
+
+    setInspectorCollapsed((current) => {
+      const next = !current;
+      setStatus(next ? "Inspector contestuale compresso." : "Inspector contestuale espanso.");
+      return next;
+    });
+  }
+
+  function handleToggleFocusMode() {
+    setFocusMode((current) => {
+      const next = !current;
+      setStatus(next ? "Modalita focus attiva: il canvas diventa protagonista." : "Modalita focus disattivata.");
+      return next;
+    });
+  }
+
   function replaceCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     codeDirtyRef.current = false;
@@ -546,6 +620,12 @@ export default function App() {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key === ".") {
+        event.preventDefault();
+        handleToggleFocusMode();
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) {
@@ -626,6 +706,11 @@ export default function App() {
     setWorkspaceView(nextView);
     if (nextView === "split") {
       setInspectorCollapsed(true);
+      setInspectorPeekOpen(false);
+    }
+
+    if (nextView === "code") {
+      setFocusMode(false);
     }
   }
 
@@ -1309,7 +1394,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={focusMode ? "app-shell focus-mode" : "app-shell"}>
       <AppHeader
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
@@ -1318,6 +1403,9 @@ export default function App() {
         workspaceView={workspaceView}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
+        focusMode={focusMode}
+        toolRailCollapsed={effectiveToolbarCollapsed}
+        inspectorCollapsed={effectiveInspectorCollapsed}
         onModeChange={handleModeChange}
         onWorkspaceViewChange={handleWorkspaceViewChange}
         onNew={handleNewDiagram}
@@ -1338,6 +1426,9 @@ export default function App() {
           setAboutOpen(false);
           setWhatsNewOpen(true);
         }}
+        onToggleFocusMode={handleToggleFocusMode}
+        onToggleToolRail={handleToggleToolRail}
+        onToggleInspector={handleToggleInspector}
         onHome={openLandingSurface}
       />
 
@@ -1378,8 +1469,10 @@ export default function App() {
         className={[
           "workspace-shell",
           workspaceView === "code" ? "workspace-shell-code" : "",
-          toolbarCollapsed ? "toolbar-collapsed" : "",
-          inspectorCollapsed ? "inspector-collapsed" : "",
+          effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
+          effectiveInspectorCollapsed ? "inspector-collapsed" : "",
+          focusMode ? "workspace-shell-focus" : "",
+          hasSelection ? "workspace-has-selection" : "workspace-idle",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -1388,7 +1481,7 @@ export default function App() {
           <Toolbar
             activeTool={tool}
             mode={mode}
-            collapsed={toolbarCollapsed}
+            collapsed={effectiveToolbarCollapsed}
             canUndo={history.canUndo}
             canRedo={history.canRedo}
             selectionItemCount={selectionItemCount}
@@ -1401,7 +1494,7 @@ export default function App() {
             onDeleteSelection={handleDeleteSelection}
             onCreateAttributeForSelection={handleCreateAttributeFromSelection}
             onRenameSelection={handleRenameSelectionQuick}
-            onToggleCollapse={() => setToolbarCollapsed((current) => !current)}
+            onToggleCollapse={handleToggleToolRail}
           />
         ) : null}
 
@@ -1466,7 +1559,7 @@ export default function App() {
             selection={selection}
             mode={mode}
             issues={issues}
-            collapsed={inspectorCollapsed}
+            collapsed={effectiveInspectorCollapsed}
             onNodeChange={handleNodeChange}
             onNodesChange={handleNodesChange}
             onEdgeChange={handleEdgeChange}
@@ -1476,7 +1569,7 @@ export default function App() {
             onAlign={handleAlignSelection}
             onCreateAttributeForSelection={handleCreateAttributeFromSelection}
             onRenameSelection={handleRenameSelectionQuick}
-            onToggleCollapse={() => setInspectorCollapsed((current) => !current)}
+            onToggleCollapse={handleToggleInspector}
           />
         ) : null}
       </div>
