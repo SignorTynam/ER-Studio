@@ -156,6 +156,27 @@ function intersectEllipseBounds(node: DiagramNode, toward: Point): Point {
   };
 }
 
+function intersectSimpleAttributeIndicator(node: Extract<DiagramNode, { type: "attribute" }>, toward: Point): Point {
+  const indicatorCenter = {
+    x: node.x + 10,
+    y: node.y + node.height / 2,
+  };
+  const indicatorRadius = 7;
+  const deltaX = toward.x - indicatorCenter.x;
+  const deltaY = toward.y - indicatorCenter.y;
+  const distance = Math.hypot(deltaX, deltaY);
+
+  if (distance <= 0.001) {
+    return indicatorCenter;
+  }
+
+  const scale = indicatorRadius / distance;
+  return {
+    x: indicatorCenter.x + deltaX * scale,
+    y: indicatorCenter.y + deltaY * scale,
+  };
+}
+
 function intersectDiamondBounds(node: DiagramNode, toward: Point): Point {
   const logicalAnchor = getNodeLogicalAnchor(node);
   const halfWidth = node.width / 2;
@@ -183,11 +204,14 @@ export function clipPointToNodePerimeter(node: DiagramNode, toward: Point): Poin
     return intersectDiamondBounds(node, toward);
   }
 
-  if (node.type === "attribute" && usesCompositeAttributeShape(node)) {
-    return intersectEllipseBounds(node, toward);
+  if (node.type === "attribute") {
+    if (usesCompositeAttributeShape(node)) {
+      return intersectEllipseBounds(node, toward);
+    }
+
+    return intersectSimpleAttributeIndicator(node, toward);
   }
 
-  // Simple attributes are rendered as indicator + label, so the bounding box is the most stable visual clip area.
   return intersectRectBounds(node, toward);
 }
 
