@@ -594,32 +594,34 @@ export function InspectorPanel(props: InspectorPanelProps) {
           : "inspector-panel inspector-panel-context"
       }
     >
-      <div className="panel-head-row">
-        <div>
-          <div className="panel-heading">{heading.title}</div>
-          <p className="panel-subheading">{heading.subtitle}</p>
-        </div>
-        {!isEmbedded ? (
-          <button
-            type="button"
-            className="panel-toggle"
-            onClick={props.onToggleCollapse}
-            aria-label="Comprimi pannello contesto"
-            title="Comprimi"
-          >
-            {">"}
-          </button>
-        ) : null}
-      </div>
+      {!isEmbedded ? (
+        <>
+          <div className="panel-head-row">
+            <div>
+              <div className="panel-heading">{heading.title}</div>
+              <p className="panel-subheading">{heading.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              className="panel-toggle"
+              onClick={props.onToggleCollapse}
+              aria-label="Comprimi pannello contesto"
+              title="Comprimi"
+            >
+              {">"}
+            </button>
+          </div>
 
-      <section className="context-card context-card-hero">
-        <div className="context-card-title">{selectionCount === 0 ? "Nessuna selezione attiva" : `${selectionCount} elementi attivi`}</div>
-        <p className="context-card-subtitle">
-          {selectionCount === 0
-            ? "Usa il rail a sinistra per creare entita o associazioni, poi seleziona l'elemento da rifinire."
-            : "Le azioni e i campi qui sotto sono limitati al contesto corrente."}
-        </p>
-      </section>
+          <section className="context-card context-card-hero">
+            <div className="context-card-title">{selectionCount === 0 ? "Nessuna selezione attiva" : `${selectionCount} elementi attivi`}</div>
+            <p className="context-card-subtitle">
+              {selectionCount === 0
+                ? "Usa il rail a sinistra per creare entita o associazioni, poi seleziona l'elemento da rifinire."
+                : "Le azioni e i campi qui sotto sono limitati al contesto corrente."}
+            </p>
+          </section>
+        </>
+      ) : null}
 
       {selectedNode ? renderNodeContext(selectedNode) : null}
       {selectedEdge ? renderEdgeContext(selectedEdge) : null}

@@ -187,34 +187,6 @@ function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge,
   return "Canvas";
 }
 
-function getContextDescription(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge, selectionItemCount?: number) {
-  if (selectedNode?.type === "entity") {
-    return "Mostra azioni rapide e impostazioni dedicate all'entita corrente.";
-  }
-
-  if (selectedNode?.type === "relationship") {
-    return "Lavora sull'associazione e aggiungi solo gli attributi collegati a questa relazione.";
-  }
-
-  if (selectedNode?.type === "attribute") {
-    return "Vedi solo le opzioni dell'attributo attivo e, se serve, crea un sotto-attributo.";
-  }
-
-  if (selectedNode?.type === "text") {
-    return "Modifica il contenuto testuale senza rumore visivo aggiuntivo.";
-  }
-
-  if (selectedEdge) {
-    return "Configura solo il collegamento attivo.";
-  }
-
-  if ((selectionItemCount ?? 0) > 1) {
-    return "Azioni di gruppo per riallineare o pulire la selezione.";
-  }
-
-  return "Pochi strumenti visibili: scegli un elemento e poi lavora nel suo contesto.";
-}
-
 export function Toolbar(props: ToolbarProps) {
   const availableTools = PRIMARY_TOOLS.reduce<typeof TOOL_DEFINITIONS>((result, tool) => {
     const match = TOOL_DEFINITIONS.find((item) => item.tool === tool);
@@ -228,12 +200,9 @@ export function Toolbar(props: ToolbarProps) {
   return (
     <aside className={props.collapsed ? "toolbar-panel collapsed" : "toolbar-panel"}>
       <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
-        {!props.collapsed ? (
+        {!props.collapsed && !showContextOnly ? (
           <div>
             <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount)}</div>
-            <p className="panel-subheading">
-              {getContextDescription(props.selectedNode, props.selectedEdge, props.selectionItemCount)}
-            </p>
           </div>
         ) : null}
         <button

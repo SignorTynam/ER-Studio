@@ -5832,9 +5832,39 @@ body.workspace-resizing {
   height: auto;
   max-height: none;
   min-height: 0;
-  padding: 10px;
-  border-radius: 14px;
+  padding: 0;
+  border-radius: 0;
   box-shadow: none;
+  border: 0;
+  background: transparent;
+  gap: 12px;
+}
+
+.toolbar-panel .inspector-panel-embedded .context-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.toolbar-panel .inspector-panel-embedded .context-card + .context-card {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--studio-line);
+}
+
+.toolbar-panel .inspector-panel-embedded .checkbox-field {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.toolbar-panel .inspector-panel-embedded .context-card-subtitle,
+.toolbar-panel .inspector-panel-embedded .context-card-list,
+.toolbar-panel .inspector-panel-embedded .panel-subheading {
+  display: none;
 }
 
 .workspace-shell.workspace-shell-split .inspector-panel.collapsed {
