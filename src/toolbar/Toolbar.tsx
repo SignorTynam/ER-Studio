@@ -23,6 +23,14 @@ interface ToolbarProps {
 }
 
 function ToolIcon({ tool }: { tool: ToolKind }) {
+  if (tool === "select") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <path d="M5 4l7.6 14.8 1.8-5.4 5.6-1.9L5 4z" fill="currentColor" />
+      </svg>
+    );
+  }
+
   if (tool === "move") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -190,7 +198,13 @@ function getContextDescription(selectedNode?: DiagramNode, selectedEdge?: Diagra
 }
 
 export function Toolbar(props: ToolbarProps) {
-  const availableTools = TOOL_DEFINITIONS.filter((item) => PRIMARY_TOOLS.includes(item.tool));
+  const availableTools = PRIMARY_TOOLS.reduce<typeof TOOL_DEFINITIONS>((result, tool) => {
+    const match = TOOL_DEFINITIONS.find((item) => item.tool === tool);
+    if (match) {
+      result.push(match);
+    }
+    return result;
+  }, []);
   const canEditSelection = props.mode !== "view" && props.selectionItemCount > 0;
   const canCreateAttribute =
     props.mode !== "view" &&

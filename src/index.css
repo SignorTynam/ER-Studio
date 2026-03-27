@@ -5254,6 +5254,8 @@ summary:focus-visible {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   position: fixed;
   inset: 0;
   height: 100dvh;
@@ -5264,6 +5266,14 @@ summary:focus-visible {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(223, 217, 204, 0.08) 100%);
   overflow: clip;
   isolation: isolate;
+}
+
+.app-workspace-region {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
 }
 
 .app-shell.focus-mode .app-header {
@@ -5306,8 +5316,24 @@ summary:focus-visible {
 }
 
 .header-switches {
+  align-items: flex-end;
   justify-content: center;
   gap: 8px;
+}
+
+.header-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.header-group-label {
+  padding-inline: 4px;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(42, 39, 31, 0.46);
 }
 
 .mode-switch {
@@ -5337,9 +5363,9 @@ summary:focus-visible {
 .header-utility-bar {
   grid-area: utility;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 10px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -5354,6 +5380,11 @@ summary:focus-visible {
 
 .header-nav {
   justify-content: flex-end;
+}
+
+.header-control-group-actions,
+.header-control-group-menu {
+  align-items: flex-end;
 }
 
 .header-button,
@@ -5394,6 +5425,8 @@ summary:focus-visible {
 }
 
 .nav-menu-wide {
+  display: flex;
+  flex-direction: column;
   min-width: 248px;
   padding: 10px;
   gap: 10px;
@@ -5424,15 +5457,21 @@ summary:focus-visible {
 .workspace-shell {
   --toolbar-width: var(--tool-rail-expanded);
   --inspector-width: var(--inspector-expanded);
+  flex: 1 1 auto;
   position: relative;
   grid-template-columns: var(--toolbar-width) minmax(0, 1fr) var(--inspector-width);
   gap: var(--workspace-gap);
   padding: 2px 3px 3px;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.workspace-shell > * {
+  min-height: 0;
+  height: 100%;
 }
 
 .workspace-shell.toolbar-collapsed {
@@ -5444,7 +5483,7 @@ summary:focus-visible {
 }
 
 .workspace-shell.workspace-idle.inspector-collapsed {
-  --inspector-width: 46px;
+  --inspector-width: 34px;
 }
 
 .workspace-shell.workspace-shell-focus {
@@ -5466,9 +5505,16 @@ summary:focus-visible {
 }
 
 .workspace-main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.workspace-main > * {
+  min-height: 0;
+  height: 100%;
 }
 
 .workspace-main.split {
@@ -5480,6 +5526,8 @@ summary:focus-visible {
 .inspector-panel,
 .code-mode-panel,
 .canvas-panel {
+  height: 100%;
+  min-height: 0;
   border-radius: 16px;
   box-shadow: 0 8px 20px rgba(47, 42, 31, 0.05);
 }
@@ -5559,6 +5607,18 @@ summary:focus-visible {
   padding-inline: 6px;
 }
 
+.toolbar-panel.collapsed .tool-button.active {
+  background: rgba(79, 107, 100, 0.14);
+  color: var(--studio-ink);
+  border-color: rgba(79, 107, 100, 0.18);
+  box-shadow: none;
+}
+
+.toolbar-panel.collapsed .tool-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .inspector-panel,
 .inspector-panel-context {
   padding: 10px;
@@ -5570,9 +5630,19 @@ summary:focus-visible {
 }
 
 .inspector-panel-idle {
-  background: rgba(252, 250, 245, 0.32);
-  border-color: rgba(42, 39, 31, 0.04);
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
+  border-color: transparent;
   box-shadow: none;
+}
+
+.inspector-panel-idle .panel-toggle {
+  min-width: 30px;
+  min-height: 42px;
+  border-radius: 999px;
+  background: rgba(252, 250, 245, 0.54);
+  border-color: rgba(42, 39, 31, 0.05);
 }
 
 .inspector-compact-stack {
@@ -5713,8 +5783,8 @@ summary:focus-visible {
   bottom: 16px;
   left: auto;
   max-width: min(320px, calc(100% - 32px));
-  padding: 6px 8px;
-  gap: 6px;
+  padding: 5px 7px;
+  gap: 4px;
   border-radius: 16px;
   border-color: rgba(42, 39, 31, 0.08);
   background: rgba(249, 251, 247, 0.74);
@@ -5746,6 +5816,10 @@ summary:focus-visible {
     justify-content: flex-start;
   }
 
+  .header-utility-bar {
+    justify-content: space-between;
+  }
+
   .workspace-shell {
     --inspector-width: 272px;
   }
@@ -5772,6 +5846,12 @@ summary:focus-visible {
 
   .header-utility-bar {
     justify-content: space-between;
+  }
+
+  .header-control-group,
+  .header-control-group-actions,
+  .header-control-group-menu {
+    align-items: flex-start;
   }
 
   .workspace-shell {

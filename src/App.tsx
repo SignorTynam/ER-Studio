@@ -1432,146 +1432,148 @@ export default function App() {
         onHome={openLandingSurface}
       />
 
-      {notices.length > 0 ? (
-        <section className="workspace-notice-center" aria-live="assertive" aria-atomic="false">
-          <div className="workspace-notice-stack">
-            {notices.map((notice) => (
-              <article
-                key={notice.id}
-                className={
-                  notice.tone === "error"
-                    ? "workspace-notice workspace-notice-error"
-                    : "workspace-notice workspace-notice-success"
-                }
-                role={notice.tone === "error" ? "alert" : "status"}
-              >
-                <div className="workspace-notice-main">
-                  <strong>{notice.title}</strong>
-                  <p>{notice.message}</p>
-                </div>
-                <div className="workspace-notice-actions">
-                  {notice.onAction && notice.actionLabel ? (
-                    <button type="button" onClick={() => handleNoticeAction(notice.id)}>
-                      {notice.actionLabel}
+      <div className="app-workspace-region">
+        {notices.length > 0 ? (
+          <section className="workspace-notice-center" aria-live="assertive" aria-atomic="false">
+            <div className="workspace-notice-stack">
+              {notices.map((notice) => (
+                <article
+                  key={notice.id}
+                  className={
+                    notice.tone === "error"
+                      ? "workspace-notice workspace-notice-error"
+                      : "workspace-notice workspace-notice-success"
+                  }
+                  role={notice.tone === "error" ? "alert" : "status"}
+                >
+                  <div className="workspace-notice-main">
+                    <strong>{notice.title}</strong>
+                    <p>{notice.message}</p>
+                  </div>
+                  <div className="workspace-notice-actions">
+                    {notice.onAction && notice.actionLabel ? (
+                      <button type="button" onClick={() => handleNoticeAction(notice.id)}>
+                        {notice.actionLabel}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => dismissNotice(notice.id)} aria-label="Chiudi notifica">
+                      Chiudi
                     </button>
-                  ) : null}
-                  <button type="button" onClick={() => dismissNotice(notice.id)} aria-label="Chiudi notifica">
-                    Chiudi
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <div
-        className={[
-          "workspace-shell",
-          workspaceView === "code" ? "workspace-shell-code" : "",
-          effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
-          effectiveInspectorCollapsed ? "inspector-collapsed" : "",
-          focusMode ? "workspace-shell-focus" : "",
-          hasSelection ? "workspace-has-selection" : "workspace-idle",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {workspaceView !== "code" ? (
-          <Toolbar
-            activeTool={tool}
-            mode={mode}
-            collapsed={effectiveToolbarCollapsed}
-            canUndo={history.canUndo}
-            canRedo={history.canRedo}
-            selectionItemCount={selectionItemCount}
-            selectedNode={selectedNode}
-            selectedEdge={selectedEdge}
-            onToolChange={setTool}
-            onUndo={history.undo}
-            onRedo={history.redo}
-            onDuplicateSelection={handleDuplicateSelection}
-            onDeleteSelection={handleDeleteSelection}
-            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-            onRenameSelection={handleRenameSelectionQuick}
-            onToggleCollapse={handleToggleToolRail}
-          />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         <div
-          className={
-            workspaceView === "split"
-              ? "workspace-main split"
-              : workspaceView === "code"
-                ? "workspace-main code-only"
-                : "workspace-main diagram-only"
-          }
+          className={[
+            "workspace-shell",
+            workspaceView === "code" ? "workspace-shell-code" : "",
+            effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
+            effectiveInspectorCollapsed ? "inspector-collapsed" : "",
+            focusMode ? "workspace-shell-focus" : "",
+            hasSelection ? "workspace-has-selection" : "workspace-idle",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
           {workspaceView !== "code" ? (
-            <DiagramCanvas
-              diagram={history.present}
-              selection={selection}
-              tool={tool}
+            <Toolbar
+              activeTool={tool}
               mode={mode}
-              viewport={viewport}
-              issues={issues}
-              statusMessage={statusMessage}
-              svgRef={svgRef}
-              onViewportChange={setViewport}
-              onSelectionChange={setSelection}
-              onPreviewDiagram={history.setPresent}
-              onCommitDiagram={commitDiagram}
-              onCreateNode={handleCreateNode}
-              onCreateEdge={handleCreateEdge}
-              onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
-              onDeleteNode={handleDeleteNodeById}
-              onDeleteEdge={handleDeleteEdgeById}
+              collapsed={effectiveToolbarCollapsed}
+              canUndo={history.canUndo}
+              canRedo={history.canRedo}
+              selectionItemCount={selectionItemCount}
+              selectedNode={selectedNode}
+              selectedEdge={selectedEdge}
+              onToolChange={setTool}
+              onUndo={history.undo}
+              onRedo={history.redo}
+              onDuplicateSelection={handleDuplicateSelection}
               onDeleteSelection={handleDeleteSelection}
-              onDeleteExternalIdentifier={handleClearExternalIdentifier}
-              onRenameNode={handleRenameNode}
-              onRenameEdge={handleRenameEdge}
-              onStatusMessageChange={handleCanvasStatusMessage}
+              onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+              onRenameSelection={handleRenameSelectionQuick}
+              onToggleCollapse={handleToggleToolRail}
             />
           ) : null}
 
-          {workspaceView !== "diagram" ? (
-            <CodeModePanel
-              code={codeDraft}
-              dirty={codeDirty}
-              parseError={codeError}
-              diagramName={history.present.meta.name}
-              nodeCount={history.present.nodes.length}
-              edgeCount={history.present.edges.length}
-              issueCount={issues.length}
-              layout={workspaceView === "split" ? "split" : "code"}
-              onCodeChange={updateCodeDraft}
-              onReset={handleResetCodeFromDiagram}
-              onDownload={handleSaveErs}
-              onLoad={handleLoadErsRequest}
-              onOpenTutorial={openCodeTutorialSurface}
+          <div
+            className={
+              workspaceView === "split"
+                ? "workspace-main split"
+                : workspaceView === "code"
+                  ? "workspace-main code-only"
+                  : "workspace-main diagram-only"
+            }
+          >
+            {workspaceView !== "code" ? (
+              <DiagramCanvas
+                diagram={history.present}
+                selection={selection}
+                tool={tool}
+                mode={mode}
+                viewport={viewport}
+                issues={issues}
+                statusMessage={statusMessage}
+                svgRef={svgRef}
+                onViewportChange={setViewport}
+                onSelectionChange={setSelection}
+                onPreviewDiagram={history.setPresent}
+                onCommitDiagram={commitDiagram}
+                onCreateNode={handleCreateNode}
+                onCreateEdge={handleCreateEdge}
+                onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+                onDeleteNode={handleDeleteNodeById}
+                onDeleteEdge={handleDeleteEdgeById}
+                onDeleteSelection={handleDeleteSelection}
+                onDeleteExternalIdentifier={handleClearExternalIdentifier}
+                onRenameNode={handleRenameNode}
+                onRenameEdge={handleRenameEdge}
+                onStatusMessageChange={handleCanvasStatusMessage}
+              />
+            ) : null}
+
+            {workspaceView !== "diagram" ? (
+              <CodeModePanel
+                code={codeDraft}
+                dirty={codeDirty}
+                parseError={codeError}
+                diagramName={history.present.meta.name}
+                nodeCount={history.present.nodes.length}
+                edgeCount={history.present.edges.length}
+                issueCount={issues.length}
+                layout={workspaceView === "split" ? "split" : "code"}
+                onCodeChange={updateCodeDraft}
+                onReset={handleResetCodeFromDiagram}
+                onDownload={handleSaveErs}
+                onLoad={handleLoadErsRequest}
+                onOpenTutorial={openCodeTutorialSurface}
+              />
+            ) : null}
+          </div>
+
+          {workspaceView !== "code" ? (
+            <InspectorPanel
+              diagram={history.present}
+              selection={selection}
+              mode={mode}
+              issues={issues}
+              collapsed={effectiveInspectorCollapsed}
+              onNodeChange={handleNodeChange}
+              onNodesChange={handleNodesChange}
+              onEdgeChange={handleEdgeChange}
+              onClearExternalIdentifier={handleClearExternalIdentifier}
+              onDeleteSelection={handleDeleteSelection}
+              onDuplicateSelection={handleDuplicateSelection}
+              onAlign={handleAlignSelection}
+              onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+              onRenameSelection={handleRenameSelectionQuick}
+              onToggleCollapse={handleToggleInspector}
             />
           ) : null}
         </div>
-
-        {workspaceView !== "code" ? (
-          <InspectorPanel
-            diagram={history.present}
-            selection={selection}
-            mode={mode}
-            issues={issues}
-            collapsed={effectiveInspectorCollapsed}
-            onNodeChange={handleNodeChange}
-            onNodesChange={handleNodesChange}
-            onEdgeChange={handleEdgeChange}
-            onClearExternalIdentifier={handleClearExternalIdentifier}
-            onDeleteSelection={handleDeleteSelection}
-            onDuplicateSelection={handleDuplicateSelection}
-            onAlign={handleAlignSelection}
-            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-            onRenameSelection={handleRenameSelectionQuick}
-            onToggleCollapse={handleToggleInspector}
-          />
-        ) : null}
       </div>
 
       <input

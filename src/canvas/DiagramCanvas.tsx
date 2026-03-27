@@ -1915,7 +1915,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
-  const modeLabel = props.mode === "edit" ? "Modifica" : "Lettura";
+  const trimmedStatusMessage = props.statusMessage.trim();
 
   return (
     <div
@@ -2282,10 +2282,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         </form>
       ) : null}
 
-      <div className="canvas-status-bar">
-        <span>{modeLabel}</span>
-        {props.statusMessage ? <span>{props.statusMessage}</span> : null}
-      </div>
+      {trimmedStatusMessage ? (
+        <div className="canvas-status-bar">
+          <span>{trimmedStatusMessage}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
