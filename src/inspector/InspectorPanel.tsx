@@ -154,12 +154,30 @@ export function InspectorPanel(props: InspectorPanelProps) {
     eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
+  const isIdleContext = selectionCount === 0 && props.issues.length === 0;
 
   if (props.collapsed) {
+    if (isIdleContext) {
+      return (
+        <aside className="inspector-panel collapsed inspector-panel-idle">
+          <div className="panel-head-row panel-head-row-compact">
+            <button
+              type="button"
+              className="panel-toggle"
+              onClick={props.onToggleCollapse}
+              aria-label="Espandi pannello contesto"
+              title="Espandi"
+            >
+              {"<"}
+            </button>
+          </div>
+        </aside>
+      );
+    }
+
     return (
       <aside className="inspector-panel collapsed">
-        <div className="panel-head-row">
-          <div className="panel-heading">Contesto</div>
+        <div className="panel-head-row panel-head-row-compact">
           <button
             type="button"
             className="panel-toggle"

@@ -246,7 +246,7 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState("");
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1560);
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(true);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
   const [inspectorPeekOpen, setInspectorPeekOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);

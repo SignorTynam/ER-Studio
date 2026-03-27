@@ -203,15 +203,15 @@ export function Toolbar(props: ToolbarProps) {
 
   return (
     <aside className={props.collapsed ? "toolbar-panel collapsed" : "toolbar-panel"}>
-      <div className="panel-head-row">
-        <div>
-          <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount)}</div>
-          {!props.collapsed ? (
+      <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
+        {!props.collapsed ? (
+          <div>
+            <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount)}</div>
             <p className="panel-subheading">
               {getContextDescription(props.selectedNode, props.selectedEdge, props.selectionItemCount)}
             </p>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <button
           type="button"
           className="panel-toggle"

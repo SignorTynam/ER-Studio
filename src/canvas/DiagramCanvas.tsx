@@ -364,6 +364,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const [focusedTarget, setFocusedTarget] = useState<FocusTarget>(null);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [showPanHint, setShowPanHint] = useState(true);
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
   const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
@@ -919,6 +920,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }, []);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setShowPanHint(false);
+    }, 4200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
     if (props.tool !== "connector" && props.tool !== "inheritance") {
       setPendingConnectionSource(null);
       setConnectionPreviewPoint(null);
@@ -955,7 +966,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
   }, [focusedTarget, props.diagram.edges, props.diagram.nodes]);
 
+  function dismissPanHint() {
+    setShowPanHint(false);
+  }
+
   function beginPanInteraction(pointerId: number, clientX: number, clientY: number) {
+    dismissPanHint();
     setInteraction({
       kind: "pan",
       pointerId,
@@ -1014,6 +1030,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function fitToContent() {
+    dismissPanHint();
     const rect = getViewportRect();
     const bounds = getViewportTargetBounds();
 
@@ -1043,6 +1060,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function centerDiagram() {
+    dismissPanHint();
     const bounds = getViewportTargetBounds();
 
     if (!bounds) {
@@ -1056,6 +1074,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function resetViewport() {
+    dismissPanHint();
     const bounds = getViewportTargetBounds();
     const rect = getViewportRect();
 
@@ -1078,6 +1097,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function zoomAroundCanvasCenter(multiplier: number) {
+    dismissPanHint();
     const rect = getViewportRect();
     if (!rect) {
       return;
@@ -1743,6 +1763,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
     event.preventDefault();
+    dismissPanHint();
 
     if (!containerRef.current) {
       return;
@@ -1894,6 +1915,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
+  const modeLabel = props.mode === "edit" ? "Modifica" : "Lettura";
 
   return (
     <div
@@ -2190,7 +2212,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       </svg>
 
       <div className="canvas-viewport-hud" aria-label="Controlli viewport">
-        <div className="canvas-hud-cluster">
+        <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1 / 1.14)}>
             -
           </button>
@@ -2200,8 +2222,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCanvasCenter(1.14)}>
             +
           </button>
-        </div>
-        <div className="canvas-hud-cluster">
           <button type="button" className="canvas-hud-button" onClick={fitToContent}>
             {props.selection.nodeIds.length > 0 ? "Adatta sel." : "Adatta"}
           </button>
@@ -2214,9 +2234,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         </div>
       </div>
 
-      <div className="canvas-pan-hint" aria-hidden="true">
-        Spazio + drag per pan, 9 adatta, 0 reset.
-      </div>
+      {showPanHint ? (
+        <div className="canvas-pan-hint" aria-hidden="true">
+          Spazio + drag per pan, 9 adatta, 0 reset.
+        </div>
+      ) : null}
 
       {inlineEdit && editorStyle ? (
         <form
@@ -2261,9 +2283,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       ) : null}
 
       <div className="canvas-status-bar">
-        <span>{props.mode === "edit" ? "Modalita modifica" : "Modalita visualizzazione"}</span>
-        <span>Zoom {Math.round(props.viewport.zoom * 100)}%</span>
-        <span>Snap {GRID_SIZE}px</span>
+        <span>{modeLabel}</span>
         {props.statusMessage ? <span>{props.statusMessage}</span> : null}
       </div>
     </div>
