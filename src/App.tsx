@@ -442,7 +442,7 @@ function getNextAttributePosition(
 export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
-  const initialLogicalModelRef = useRef<LogicalModel>(createEmptyLogicalModel("logical-model"));
+  const initialLogicalModelRef = useRef<LogicalModel>(createEmptyLogicalModel("modello-logico"));
   const logicalHistory = useHistory<LogicalModel>(initialLogicalModelRef.current);
   const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
   const [surface, setSurface] = useState<AppSurface>("studio");
@@ -1286,9 +1286,9 @@ export default function App() {
 
     const warningCount = normalized.issues.length;
     if (warningCount > 0) {
-      setStatusWarning(`Logical model generated with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`);
+      setStatusWarning(`Modello logico generato con ${warningCount} avvis${warningCount === 1 ? "o" : "i"}.`);
     } else {
-      setStatus("Logical model generated.");
+      setStatus("Modello logico generato.");
     }
   }
 
@@ -1305,11 +1305,11 @@ export default function App() {
     setDiagramView(nextView);
     if (nextView === "er") {
       setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-      setStatus("ER view attiva.");
+      setStatus("Vista ER attiva.");
     } else if (logicalOutOfDate) {
       setSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
-      setStatusWarning("Logical view is out of date. Use Regenerate to sync with current ER model.");
+      setStatusWarning("La vista logica non e aggiornata. Usa Rigenera per allinearla al modello ER.");
     } else {
       setSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
@@ -1331,7 +1331,7 @@ export default function App() {
 
     const nextModel = autoLayoutLogicalModel(logicalHistory.present);
     commitLogicalModel(nextModel, logicalHistory.present);
-    setStatus("Logical layout updated.");
+    setStatus("Layout logico aggiornato.");
   }
 
   function handleLogicalFit() {
@@ -2245,10 +2245,10 @@ export default function App() {
             <div className="workspace-main logical-main">
               {!logicalGenerated ? (
                 <section className="logical-empty-state">
-                  <h2>Logical View</h2>
-                  <p>Generate the relational model from your ER diagram to inspect tables, PKs, FKs and references.</p>
+                  <h2>Vista Logica</h2>
+                  <p>Genera il modello relazionale dal diagramma ER per analizzare tabelle, PK, FK e riferimenti.</p>
                   <button type="button" className="mode-button active" onClick={handleGenerateLogicalModel}>
-                    Generate Logical Model
+                    Genera modello logico
                   </button>
                 </section>
               ) : (
@@ -2256,9 +2256,9 @@ export default function App() {
                   <section className="logical-canvas-region">
                     {logicalOutOfDate ? (
                       <div className="logical-stale-banner" role="status">
-                        <span>ER model changed. Logical view is out of date.</span>
+                        <span>Il modello ER e cambiato. La vista logica non e aggiornata.</span>
                         <button type="button" onClick={handleGenerateLogicalModel}>
-                          Regenerate
+                          Rigenera
                         </button>
                       </div>
                     ) : null}

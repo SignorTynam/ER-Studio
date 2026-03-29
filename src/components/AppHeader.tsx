@@ -155,7 +155,7 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
       <div className="app-title-block">
-        <div className="app-eyebrow">ER workspace</div>
+        <div className="app-eyebrow">Workspace ER</div>
         <div className="app-title-inline">
           <h1>{props.appTitle}</h1>
           <div className="app-version-pill">v{props.appVersion}</div>
@@ -179,7 +179,7 @@ export function AppHeader(props: AppHeaderProps) {
               type="button"
               onClick={() => props.onDiagramViewChange("logical")}
             >
-              Logical
+              Logica
             </button>
           </div>
         </div>
@@ -245,7 +245,7 @@ export function AppHeader(props: AppHeaderProps) {
                   onClick={props.onAutoLayoutLogical}
                   title="Organizza automaticamente le tabelle"
                 >
-                  Auto layout
+                  Layout auto
                 </button>
                 <button
                   type="button"
@@ -253,7 +253,7 @@ export function AppHeader(props: AppHeaderProps) {
                   onClick={props.onFitLogical}
                   title="Adatta il modello logico al viewport"
                 >
-                  Fit
+                  Adatta
                 </button>
               </>
             ) : null}

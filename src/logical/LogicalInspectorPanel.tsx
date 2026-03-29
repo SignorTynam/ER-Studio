@@ -41,7 +41,7 @@ function getColumnRoleLabel(isPk: boolean, isFk: boolean): string {
     return "FK";
   }
 
-  return "Column";
+  return "Colonna";
 }
 
 export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
@@ -53,17 +53,17 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
     : undefined;
 
   return (
-    <aside className="logical-inspector" aria-label="Logical model inspector">
+    <aside className="logical-inspector" aria-label="Inspector modello logico">
       <header className="logical-inspector-header">
-        <h2>Inspector</h2>
-        <p>Logical view is generated from the ER model. Some edits may remain logical-only.</p>
+        <h2>Ispettore</h2>
+        <p>La vista logica e generata dal modello ER. Alcune modifiche restano solo nella vista logica.</p>
       </header>
 
       {selectedTable ? (
         <section className="logical-inspector-section">
-          <h3>Table</h3>
+          <h3>Tabella</h3>
           <label className="field">
-            <span>Name</span>
+            <span>Nome</span>
             <input
               value={selectedTable.name}
               onChange={(event) => props.onRenameTable(selectedTable.id, event.target.value)}
@@ -92,16 +92,16 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
         </section>
       ) : (
         <section className="logical-inspector-section">
-          <h3>No selection</h3>
-          <p>Select a table, column, or relation to inspect details.</p>
+          <h3>Nessuna selezione</h3>
+          <p>Seleziona una tabella, una colonna o un collegamento per vedere i dettagli.</p>
         </section>
       )}
 
       {selectedColumn && selectedTable ? (
         <section className="logical-inspector-section">
-          <h3>Column</h3>
+          <h3>Colonna</h3>
           <label className="field">
-            <span>Column name</span>
+            <span>Nome colonna</span>
             <input
               value={selectedColumn.name}
               onChange={(event) => props.onRenameColumn(selectedTable.id, selectedColumn.id, event.target.value)}
@@ -109,13 +109,13 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
           </label>
 
           <div className="logical-key-grid" role="list">
-            <div role="listitem">Role: {getColumnRoleLabel(selectedColumn.isPrimaryKey, selectedColumn.isForeignKey)}</div>
-            <div role="listitem">Nullable: {selectedColumn.isNullable ? "Yes" : "No"}</div>
+            <div role="listitem">Ruolo: {getColumnRoleLabel(selectedColumn.isPrimaryKey, selectedColumn.isForeignKey)}</div>
+            <div role="listitem">Nullabile: {selectedColumn.isNullable ? "Si" : "No"}</div>
           </div>
 
           {selectedColumn.references.length > 0 ? (
             <div className="logical-reference-list">
-              <strong>References</strong>
+              <strong>Riferimenti</strong>
               {selectedColumn.references.map((reference) => {
                 const targetTable = props.model.tables.find((table) => table.id === reference.targetTableId);
                 const targetColumn = targetTable?.columns.find((column) => column.id === reference.targetColumnId);
@@ -132,7 +132,7 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
                       })
                     }
                   >
-                    {targetTable?.name ?? "Unknown"}.{targetColumn?.name ?? "?"}
+                    {targetTable?.name ?? "Sconosciuta"}.{targetColumn?.name ?? "?"}
                   </button>
                 );
               })}
@@ -143,7 +143,7 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
 
       {selectedFk && selectedEdge ? (
         <section className="logical-inspector-section">
-          <h3>Foreign key</h3>
+          <h3>Chiave esterna</h3>
           <p>{selectedFk.name}</p>
           <p>
             {props.model.tables.find((table) => table.id === selectedEdge.fromTableId)?.name}
@@ -155,7 +155,7 @@ export function LogicalInspectorPanel(props: LogicalInspectorPanelProps) {
 
       {props.model.issues.length > 0 ? (
         <section className="logical-inspector-section">
-          <h3>Warnings</h3>
+          <h3>Avvisi</h3>
           <div className="logical-warning-list">
             {props.model.issues.map((issue) => {
               const table = issue.tableId ? props.model.tables.find((candidate) => candidate.id === issue.tableId) : undefined;

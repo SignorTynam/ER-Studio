@@ -60,34 +60,12 @@ function normalizeSpaces(value: string): string {
 
 function normalizeTableName(label: string): string {
   const cleaned = normalizeSpaces(label);
-  const ascii = toAscii(cleaned).replace(/[^a-zA-Z0-9_\s-]+/g, "");
-  const collapsed = ascii.replace(/[\s-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-
-  if (!collapsed) {
-    return "table";
-  }
-
-  if (/^\d/.test(collapsed)) {
-    return `t_${collapsed}`;
-  }
-
-  return collapsed;
+  return cleaned || "Tabella";
 }
 
 function normalizeColumnName(label: string): string {
   const cleaned = normalizeSpaces(label);
-  const ascii = toAscii(cleaned).toLowerCase().replace(/[^a-zA-Z0-9_\s-]+/g, "");
-  const collapsed = ascii.replace(/[\s-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-
-  if (!collapsed) {
-    return "column";
-  }
-
-  if (/^\d/.test(collapsed)) {
-    return `c_${collapsed}`;
-  }
-
-  return collapsed;
+  return cleaned || "Colonna";
 }
 
 function sortByLabel<T extends { id: string; label: string }>(items: T[]): T[] {
@@ -102,7 +80,7 @@ function sortByLabel<T extends { id: string; label: string }>(items: T[]): T[] {
 }
 
 function canonicalKey(value: string): string {
-  return value.toLowerCase();
+  return toAscii(normalizeSpaces(value)).toLowerCase();
 }
 
 function allocateUniqueName(
@@ -115,7 +93,7 @@ function allocateUniqueName(
 
   while (used.has(canonicalKey(candidate))) {
     collided = true;
-    candidate = `${preferredName}_${suffix}`;
+    candidate = `${preferredName} (${suffix})`;
     suffix += 1;
   }
 
@@ -328,7 +306,7 @@ function createLogicalTable(
     issueRelationshipId?: string;
   },
 ): LogicalTable {
-  const normalizedName = normalizeTableName(options.name || "table");
+  const normalizedName = normalizeTableName(options.name || "Tabella");
   const unique = allocateUniqueName(context.usedTableNames, normalizedName);
 
   const table: LogicalTable = {
@@ -352,7 +330,7 @@ function createLogicalTable(
     pushIssue(
       context,
       "TABLE_NAME_COLLISION",
-      `Name collision on table "${normalizedName}". Generated "${table.name}" to keep names unique.`,
+      `Collisione nome tabella "${normalizedName}". Rinominata in "${table.name}" per mantenere l'unicita.`,
       "warning",
       {
         tableId: table.id,
@@ -379,10 +357,10 @@ function addColumn(
 ): LogicalColumn {
   const table = context.tableById.get(tableId);
   if (!table) {
-    throw new Error(`Logical table not found: ${tableId}`);
+    throw new Error(`Tabella logica non trovata: ${tableId}`);
   }
 
-  const normalizedBaseName = normalizeColumnName(options.baseName || "column");
+  const normalizedBaseName = normalizeColumnName(options.baseName || "Colonna");
   const used = context.usedColumnNamesByTable.get(tableId) as Set<string>;
   const unique = allocateUniqueName(used, normalizedBaseName);
 
@@ -404,7 +382,7 @@ function addColumn(
     pushIssue(
       context,
       "COLUMN_NAME_COLLISION",
-      `Column name collision in table "${table.name}". Generated "${column.name}" for uniqueness.`,
+      `Collisione nome colonna nella tabella "${table.name}". Rinominata in "${column.name}" per mantenere l'unicita.`,
       "warning",
       {
         tableId,
@@ -423,24 +401,13 @@ function ensurePrimaryKey(context: MappingContext, table: LogicalTable): void {
     return;
   }
 
-  const generatedPrimaryKey = addColumn(context, table.id, {
-    baseName: `${normalizeColumnName(table.name)}_id`,
-    isPrimaryKey: true,
-    isForeignKey: false,
-    isNullable: false,
-    isGenerated: true,
-  });
-
-  table.columns = [generatedPrimaryKey, ...table.columns.filter((column) => column.id !== generatedPrimaryKey.id)];
-
   pushIssue(
     context,
     "ENTITY_WITHOUT_PK",
-    `Table "${table.name}" has no explicit identifier in ER. Generated primary key "${generatedPrimaryKey.name}".`,
+    `La tabella "${table.name}" non ha identificatori nell'ER: nessuna PK e stata generata automaticamente.`,
     "warning",
     {
       tableId: table.id,
-      columnId: generatedPrimaryKey.id,
       relationshipId: table.sourceRelationshipId,
     },
   );
@@ -465,6 +432,10 @@ function buildForeignKeyColumnBase(
   return `${tableBase}_${targetColumnBase}`;
 }
 
+function getPrimaryKeyColumns(table: LogicalTable): LogicalColumn[] {
+  return table.columns.filter((column) => column.isPrimaryKey);
+}
+
 function addForeignKey(
   context: MappingContext,
   options: {
@@ -475,19 +446,30 @@ function addForeignKey(
     unique?: boolean;
     includeInPrimaryKey?: boolean;
   },
-): LogicalForeignKey {
+): LogicalForeignKey | null {
   const fromTable = context.tableById.get(options.fromTableId);
   const toTable = context.tableById.get(options.toTableId);
 
   if (!fromTable || !toTable) {
-    throw new Error("Cannot build foreign key: missing table.");
+    throw new Error("Impossibile creare la chiave esterna: tabella mancante.");
   }
 
-  const targetPkColumns = toTable.columns.filter((column) => column.isPrimaryKey);
-  const targetColumns = targetPkColumns.length > 0 ? targetPkColumns : toTable.columns.slice(0, 1);
+  const targetColumns = getPrimaryKeyColumns(toTable);
+  if (targetColumns.length === 0) {
+    pushIssue(
+      context,
+      "AMBIGUOUS_MAPPING",
+      `Impossibile creare FK ${fromTable.name} -> ${toTable.name}: la tabella di destinazione non ha PK definita nell'ER.`,
+      "warning",
+      {
+        tableId: fromTable.id,
+        relationshipId: options.sourceRelationshipId,
+      },
+    );
+    return null;
+  }
 
   const fkId = `fk-${context.fkSequence++}`;
-  const createdColumns: LogicalColumn[] = [];
   const mappings: Array<{ fromColumnId: string; toColumnId: string }> = [];
 
   targetColumns.forEach((targetColumn) => {
@@ -505,21 +487,20 @@ function addForeignKey(
       targetColumnId: targetColumn.id,
     });
 
-    createdColumns.push(createdColumn);
     mappings.push({
       fromColumnId: createdColumn.id,
       toColumnId: targetColumn.id,
     });
   });
 
-  const fkNameBase = `fk_${normalizeColumnName(fromTable.name)}_${normalizeColumnName(toTable.name)}`;
+  const fkNameBase = `fk ${fromTable.name} -> ${toTable.name}`;
   const fkName = allocateUniqueName(context.usedFkNames, fkNameBase);
 
   if (fkName.collided) {
     pushIssue(
       context,
       "FK_NAME_COLLISION",
-      `Foreign key name collision for relation ${fromTable.name} -> ${toTable.name}. Generated "${fkName.value}".`,
+      `Collisione nome FK nella relazione ${fromTable.name} -> ${toTable.name}. Rinominata in "${fkName.value}".`,
       "warning",
       {
         tableId: fromTable.id,
@@ -562,7 +543,7 @@ function addRelationshipAttributes(
       pushIssue(
         context,
         "MULTIVALUED_ATTRIBUTE",
-        `Multivalued relationship attribute "${attribute.label}" is mapped as a regular column in table "${context.tableById.get(tableId)?.name ?? tableId}".`,
+        `L'attributo multivalore di relazione "${attribute.label}" e mappato come colonna semplice nella tabella "${context.tableById.get(tableId)?.name ?? tableId}".`,
         "warning",
         {
           tableId,
@@ -610,9 +591,8 @@ function createAssociativeMapping(
   relationshipAttributes: Extract<DiagramNode, { type: "attribute" }>[],
   reason: "unsupported-arity" | "ambiguous-cardinality" | "many-to-many",
 ): void {
-  const suffix = reason === "many-to-many" ? "" : reason === "unsupported-arity" ? "_assoc" : "_mapping";
   const table = createLogicalTable(context, {
-    name: `${relationship.label}${suffix}`,
+    name: relationship.label,
     kind: "associative",
     sourceRelationshipId: relationship.id,
     issueRelationshipId: relationship.id,
@@ -624,7 +604,7 @@ function createAssociativeMapping(
       toTableId: participant.tableId,
       sourceRelationshipId: relationship.id,
       required: participant.cardinality.isTotal,
-      includeInPrimaryKey: true,
+      includeInPrimaryKey: reason === "many-to-many",
     });
   });
 
@@ -635,7 +615,7 @@ function createAssociativeMapping(
     pushIssue(
       context,
       "RELATIONSHIP_UNSUPPORTED_ARITY",
-      `Relationship "${relationship.label}" involves ${participants.length} entities. Generated associative table "${table.name}".`,
+      `La relazione "${relationship.label}" coinvolge ${participants.length} entita: generata tabella associativa "${table.name}".`,
       "warning",
       {
         tableId: table.id,
@@ -648,7 +628,7 @@ function createAssociativeMapping(
     pushIssue(
       context,
       "RELATIONSHIP_WITHOUT_CARDINALITY",
-      `Relationship "${relationship.label}" has incomplete cardinality. Generated associative table "${table.name}" as fallback mapping.`,
+      `La relazione "${relationship.label}" ha cardinalita incomplete: usata tabella associativa "${table.name}" come ripiego.`,
       "warning",
       {
         tableId: table.id,
@@ -683,7 +663,7 @@ function chooseOwnerForOneToOne(
   pushIssue(
     context,
     "AMBIGUOUS_MAPPING",
-    `One-to-one relationship "${relationshipId}" is ambiguous. Applied stable rule: FK on "${context.tableById.get(owner.tableId)?.name}".`,
+    `Relazione 1:1 "${relationshipId}" ambigua: applicata regola stabile con FK su "${context.tableById.get(owner.tableId)?.name}".`,
     "warning",
     {
       tableId: owner.tableId,
@@ -697,7 +677,7 @@ function chooseOwnerForOneToOne(
 function mapRelationship(
   context: MappingContext,
   relationship: Extract<DiagramNode, { type: "relationship" }>,
-  ownerAttributesByNodeId: Map<string, Extract<DiagramNode, { type: "attribute" }>[]> ,
+  ownerAttributesByNodeId: Map<string, Extract<DiagramNode, { type: "attribute" }>[]>,
 ): void {
   const connectors = context.diagram.edges.filter(
     (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
@@ -750,7 +730,7 @@ function mapRelationship(
     pushIssue(
       context,
       "RELATIONSHIP_WITHOUT_PARTICIPANTS",
-      `Relationship "${relationship.label}" is not connected to entities. Mapping skipped.`,
+      `La relazione "${relationship.label}" non e collegata ad alcuna entita: mapping saltato.`,
       "warning",
       {
         relationshipId: relationship.id,
@@ -791,7 +771,7 @@ function mapRelationship(
     return;
   }
 
-  const oneToOne = chooseOwnerForOneToOne(participants, context, relationship.id);
+  const oneToOne = chooseOwnerForOneToOne(participants, context, relationship.label);
   addForeignKey(context, {
     fromTableId: oneToOne.owner.tableId,
     toTableId: oneToOne.referenced.tableId,
@@ -814,7 +794,7 @@ export function buildLogicalSourceSignature(diagram: DiagramDocument): string {
   });
 }
 
-export function createEmptyLogicalModel(name = "Logical model"): LogicalModel {
+export function createEmptyLogicalModel(name = "Modello logico"): LogicalModel {
   return {
     meta: {
       name,
@@ -852,7 +832,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
         pushIssue(
           context,
           "MULTIVALUED_ATTRIBUTE",
-          `Multivalued attribute "${attribute.label}" is mapped as a regular column in table "${table.name}".`,
+          `L'attributo multivalore "${attribute.label}" e mappato come colonna semplice nella tabella "${table.name}".`,
           "warning",
           {
             tableId: table.id,
@@ -883,7 +863,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
 
   const model: LogicalModel = {
     meta: {
-      name: `${normalizeTableName(diagram.meta.name)}_logical`,
+      name: `${normalizeTableName(diagram.meta.name)} (logico)`,
       generatedAt: new Date().toISOString(),
       sourceDiagramVersion: diagram.meta.version,
       sourceSignature: buildLogicalSourceSignature(diagram),

@@ -736,7 +736,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
       onPointerLeave={handlePointerUp}
       onWheel={handleCanvasWheel}
     >
-      <svg className="logical-canvas" role="img" aria-label="Logical schema canvas">
+      <svg className="logical-canvas" role="img" aria-label="Canvas schema logico">
         <defs>
           <marker
             id="logical-arrow"
@@ -821,7 +821,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
                 <g
                   tabIndex={0}
                   role="button"
-                  aria-label={`Table ${table.name}`}
+                  aria-label={`Tabella ${table.name}`}
                   onFocus={() => props.onSelectionChange({ tableId: table.id, columnId: null, edgeId: null })}
                   onBlur={(event: ReactFocusEvent<SVGGElement>) => {
                     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -930,7 +930,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
         </g>
       </svg>
 
-      <div className="canvas-viewport-hud" aria-label="Logical viewport controls">
+      <div className="canvas-viewport-hud" aria-label="Controlli viewport logico">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1 / 1.14)}>
             -
@@ -942,10 +942,10 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
             +
           </button>
           <button type="button" className="canvas-hud-button" onClick={fitToContent}>
-            Fit
+            Adatta
           </button>
           <button type="button" className="canvas-hud-button" onClick={centerContent}>
-            Center
+            Centra
           </button>
         </div>
       </div>
