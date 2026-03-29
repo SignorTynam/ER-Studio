@@ -133,7 +133,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
         <div className="tutorial-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
           <button type="button" className="landing-secondary-link" onClick={props.onBackHome}>
-            Torna alla pagina iniziale
+            Torna al workspace
           </button>
           <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>
             Apri la vista affiancata

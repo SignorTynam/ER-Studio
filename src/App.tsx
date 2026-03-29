@@ -432,7 +432,7 @@ export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
   const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
-  const [surface, setSurface] = useState<AppSurface>("landing");
+  const [surface, setSurface] = useState<AppSurface>("studio");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
@@ -1889,7 +1889,7 @@ export default function App() {
       <CodeModeTutorialPage
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
-        onBackHome={openLandingSurface}
+        onBackHome={openStudioSurface}
         onOpenStudio={openStudioSurface}
         onOpenCodeStudio={openStudioSurface}
       />
@@ -1930,7 +1930,6 @@ export default function App() {
         }}
         onToggleFocusMode={handleToggleFocusMode}
         onToggleToolRail={handleToggleToolRail}
-        onHome={openLandingSurface}
       />
 
       <div className="app-workspace-region">
