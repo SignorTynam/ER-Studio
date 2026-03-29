@@ -144,6 +144,25 @@ interface DiagramCanvasProps {
 }
 
 const VIEWPORT_PADDING = 140;
+const COMPOSITE_INTERNAL_OFFSET = 56;
+const COMPOSITE_INTERNAL_VERTICAL_BULGE = 14;
+const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 24;
+const COMPOSITE_INTERNAL_MARKER_OFFSET = 24;
+
+interface CompositeGroupPoint {
+  attributeCenter: Point;
+  edgeStart: Point;
+  edgeEnd: Point;
+}
+
+interface CompositeIdentifierLayout {
+  hostId: string;
+  orientation: "vertical" | "horizontal";
+  path: string;
+  junctions: Point[];
+  markerStemFrom: Point;
+  marker: Point;
+}
 
 function expandBounds(bounds: Bounds, padding: number): Bounds {
   return {
@@ -313,6 +332,80 @@ function segmentsIntersect(a1: Point, a2: Point, b1: Point, b2: Point): boolean 
   return false;
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function projectOnVerticalAxis(axisX: number, start: Point, end: Point): Point {
+  const deltaX = end.x - start.x;
+  if (Math.abs(deltaX) <= 0.001) {
+    return {
+      x: start.x,
+      y: (start.y + end.y) / 2,
+    };
+  }
+
+  const rawT = (axisX - start.x) / deltaX;
+  const projectedT = rawT >= 0.08 && rawT <= 0.92 ? rawT : clampNumber(rawT, 0.18, 0.82);
+
+  return {
+    x: start.x + deltaX * projectedT,
+    y: start.y + (end.y - start.y) * projectedT,
+  };
+}
+
+function projectOnHorizontalAxis(axisY: number, start: Point, end: Point): Point {
+  const deltaY = end.y - start.y;
+  if (Math.abs(deltaY) <= 0.001) {
+    return {
+      x: (start.x + end.x) / 2,
+      y: start.y,
+    };
+  }
+
+  const rawT = (axisY - start.y) / deltaY;
+  const projectedT = rawT >= 0.08 && rawT <= 0.92 ? rawT : clampNumber(rawT, 0.18, 0.82);
+
+  return {
+    x: start.x + (end.x - start.x) * projectedT,
+    y: start.y + deltaY * projectedT,
+  };
+}
+
+function buildCompositePath(points: Point[], orientation: "vertical" | "horizontal", bulge: number): string {
+  if (points.length === 0) {
+    return "";
+  }
+
+  if (points.length === 1) {
+    return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  }
+
+  const commands = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`];
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+
+    if (orientation === "vertical") {
+      const controlX = ((previous.x + current.x) / 2) + bulge;
+      const controlY = (previous.y + current.y) / 2;
+      commands.push(
+        `Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
+      );
+      continue;
+    }
+
+    const controlX = (previous.x + current.x) / 2;
+    const controlY = ((previous.y + current.y) / 2) + bulge;
+    commands.push(
+      `Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
+    );
+  }
+
+  return commands.join(" ");
+}
+
 export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
@@ -329,11 +422,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
-  const compositeGroups = new Map<string, { host: DiagramNode; attributeCenters: Point[] }>();
-  const compositeIdentifierLayouts: Array<
-    | { hostId: string; orientation: "vertical"; x: number; y1: number; y2: number; marker: Point }
-    | { hostId: string; orientation: "horizontal"; y: number; x1: number; x2: number; marker: Point }
-  > = [];
+  const compositeGroups = new Map<string, { host: DiagramNode; points: CompositeGroupPoint[] }>();
+  const compositeIdentifierLayouts: CompositeIdentifierLayout[] = [];
   const externalIdentifierLayouts: Array<{
     relationshipId: string;
     marker: Point;
@@ -411,8 +501,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       attributeNode.isCompositeInternal === true &&
       hostNode.type === "entity"
     ) {
-      const group = compositeGroups.get(hostNode.id) ?? { host: hostNode, attributeCenters: [] };
-      group.attributeCenters.push(attributeCenter);
+      const edgePoints = edgeGeometryMap.get(edge.id);
+      const group = compositeGroups.get(hostNode.id) ?? { host: hostNode, points: [] };
+      group.points.push({
+        attributeCenter,
+        edgeStart: edgePoints?.[0] ?? attributeCenter,
+        edgeEnd: edgePoints?.[edgePoints.length - 1] ?? getNodeAnchor(hostNode, attributeCenter, "attribute", "target"),
+      });
       compositeGroups.set(hostNode.id, group);
     }
 
@@ -423,19 +518,22 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   });
 
   compositeGroups.forEach((group, hostId) => {
-    if (group.attributeCenters.length < 2) {
+    if (group.points.length < 2) {
       return;
     }
 
     const host = group.host;
     const hostCenter = getNodeCenter(host);
-    const avg = group.attributeCenters.reduce(
-      (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
+    const avg = group.points.reduce(
+      (sum, point) => ({
+        x: sum.x + point.attributeCenter.x,
+        y: sum.y + point.attributeCenter.y,
+      }),
       { x: 0, y: 0 },
     );
     const averageCenter = {
-      x: avg.x / group.attributeCenters.length,
-      y: avg.y / group.attributeCenters.length,
+      x: avg.x / group.points.length,
+      y: avg.y / group.points.length,
     };
 
     const horizontalBias = Math.abs(averageCenter.x - hostCenter.x) >= Math.abs(averageCenter.y - hostCenter.y);
@@ -443,36 +541,64 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (horizontalBias) {
       const onLeft = averageCenter.x < hostCenter.x;
       const hostSideX = onLeft ? host.x : host.x + host.width;
-      const x = onLeft ? hostSideX - 36 : hostSideX + 36;
-      const minY = Math.min(...group.attributeCenters.map((point) => point.y));
-      const maxY = Math.max(...group.attributeCenters.map((point) => point.y));
-      const markerY = maxY + 26;
+      const axisX = onLeft ? hostSideX - COMPOSITE_INTERNAL_OFFSET : hostSideX + COMPOSITE_INTERNAL_OFFSET;
+      const junctions = group.points
+        .map((point) => projectOnVerticalAxis(axisX, point.edgeStart, point.edgeEnd))
+        .sort((first, second) => first.y - second.y);
+      const markerStemFrom = junctions[junctions.length - 1];
+
+      if (junctions.length < 2 || !markerStemFrom) {
+        return;
+      }
+
+      const path = buildCompositePath(
+        junctions,
+        "vertical",
+        onLeft ? -COMPOSITE_INTERNAL_VERTICAL_BULGE : COMPOSITE_INTERNAL_VERTICAL_BULGE,
+      );
 
       compositeIdentifierLayouts.push({
         hostId,
         orientation: "vertical",
-        x,
-        y1: minY - 8,
-        y2: markerY - 10,
-        marker: { x, y: markerY },
+        path,
+        junctions,
+        markerStemFrom,
+        marker: {
+          x: markerStemFrom.x,
+          y: markerStemFrom.y + COMPOSITE_INTERNAL_MARKER_OFFSET,
+        },
       });
       return;
     }
 
     const onTop = averageCenter.y < hostCenter.y;
     const hostSideY = onTop ? host.y : host.y + host.height;
-    const y = onTop ? hostSideY - 36 : hostSideY + 36;
-    const minX = Math.min(...group.attributeCenters.map((point) => point.x));
-    const maxX = Math.max(...group.attributeCenters.map((point) => point.x));
-    const markerX = maxX + 26;
+    const axisY = onTop ? hostSideY - COMPOSITE_INTERNAL_OFFSET : hostSideY + COMPOSITE_INTERNAL_OFFSET;
+    const junctions = group.points
+      .map((point) => projectOnHorizontalAxis(axisY, point.edgeStart, point.edgeEnd))
+      .sort((first, second) => first.x - second.x);
+    const markerStemFrom = junctions[0];
+
+    if (junctions.length < 2 || !markerStemFrom) {
+      return;
+    }
+
+    const path = buildCompositePath(
+      junctions,
+      "horizontal",
+      onTop ? -COMPOSITE_INTERNAL_HORIZONTAL_BULGE : COMPOSITE_INTERNAL_HORIZONTAL_BULGE,
+    );
 
     compositeIdentifierLayouts.push({
       hostId,
       orientation: "horizontal",
-      y,
-      x1: minX - 8,
-      x2: markerX - 10,
-      marker: { x: markerX, y },
+      path,
+      junctions,
+      markerStemFrom,
+      marker: {
+        x: markerStemFrom.x,
+        y: markerStemFrom.y + (onTop ? COMPOSITE_INTERNAL_MARKER_OFFSET : -COMPOSITE_INTERNAL_MARKER_OFFSET),
+      },
     });
   });
 
@@ -2046,19 +2172,35 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
           {compositeIdentifierLayouts.map((layout) => (
             <g key={`composite-id-${layout.hostId}`} className="composite-identifier" pointerEvents="none">
-              {layout.orientation === "vertical" ? (
-                <line x1={layout.x} y1={layout.y1} x2={layout.x} y2={layout.y2} stroke={DIAGRAM_STROKE} strokeWidth={2} />
-              ) : (
-                <line x1={layout.x1} y1={layout.y} x2={layout.x2} y2={layout.y} stroke={DIAGRAM_STROKE} strokeWidth={2} />
-              )}
-              <circle cx={layout.marker.x} cy={layout.marker.y} r={8} fill={DIAGRAM_STROKE} stroke={DIAGRAM_STROKE} strokeWidth={2} />
-              <circle
-                cx={layout.marker.x}
-                cy={layout.marker.y}
-                r={12}
-                fill="transparent"
-                onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.hostId)}
+              <path
+                d={layout.path}
+                fill="none"
+                stroke={DIAGRAM_STROKE}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
+              {layout.junctions.map((junction, index) => (
+                <circle
+                  key={`composite-id-junction-${layout.hostId}-${index}`}
+                  cx={junction.x}
+                  cy={junction.y}
+                  r={6}
+                  fill={DIAGRAM_STROKE}
+                  stroke={DIAGRAM_STROKE}
+                  strokeWidth={1.5}
+                />
+              ))}
+              <line
+                x1={layout.markerStemFrom.x}
+                y1={layout.markerStemFrom.y}
+                x2={layout.marker.x}
+                y2={layout.marker.y}
+                stroke={DIAGRAM_STROKE}
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+              <circle cx={layout.marker.x} cy={layout.marker.y} r={8.5} fill={DIAGRAM_STROKE} stroke={DIAGRAM_STROKE} strokeWidth={2} />
             </g>
           ))}
 

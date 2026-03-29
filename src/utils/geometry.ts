@@ -462,16 +462,15 @@ export function getEdgeGeometry(
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
   const laneCount = laneInfo?.laneCount ?? 1;
-  const laneOffset =
-    edge.type === "attribute"
-      ? getAttributeLaneOffset(edge.id)
-      : getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
+  const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
   let points: Point[];
 
   if (edge.type === "attribute") {
     const sourceIsAttribute = sourceNode.type === "attribute";
     const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
     const hostNode = sourceIsAttribute ? targetNode : sourceNode;
+    const attributeLaneOffset =
+      attributeNode.type === "attribute" && attributeNode.isCompositeInternal === true ? 0 : getAttributeLaneOffset(edge.id);
     const attributeEndpoint = buildEdgeEndpointGeometry(
       attributeNode,
       getNodeLogicalAnchor(hostNode),
@@ -480,18 +479,18 @@ export function getEdgeGeometry(
     // Attribute geometry stays normalized attribute -> host, but its direction now comes from logical centers.
     points = simplifyPoints([
       attributeEndpoint.visualAttachmentPoint,
-      getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, laneOffset),
+      getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, attributeLaneOffset),
     ]);
   } else {
     const shouldUseStraightConnector =
-      edge.type === "connector" && laneCount === 1 && laneOffset === 0;
+      edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0;
     const logicalPoints = shouldUseStraightConnector
       ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
       : buildOrthogonalPoints(
           getNodeLogicalAnchor(sourceNode),
           getNodeLogicalAnchor(targetNode),
           edge.type,
-          laneOffset,
+          connectorLaneOffset,
         );
 
     points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
