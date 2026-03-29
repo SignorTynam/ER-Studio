@@ -1293,12 +1293,12 @@ export default function App() {
   }
 
   function handleDiagramViewChange(nextView: DiagramWorkspaceView) {
-    if (nextView === "logical") {
-      setStatusWarning("La vista logica non e ancora disponibile in questa versione.");
+    if (nextView === diagramView) {
       return;
     }
 
-    if (nextView === diagramView) {
+    if (nextView === "logical" && !logicalGenerated) {
+      regenerateLogicalModel({ switchToLogical: true, preservePositions: false });
       return;
     }
 

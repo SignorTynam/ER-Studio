@@ -174,6 +174,13 @@ export function AppHeader(props: AppHeaderProps) {
             >
               ER
             </button>
+            <button
+              className={props.diagramView === "logical" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("logical")}
+            >
+              Logica
+            </button>
           </div>
         </div>
 

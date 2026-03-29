@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.5.2";
+export const APP_VERSION = "3.0.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.0.0",
+    date: "2026-03-29",
+    updates: [
+      "Vista Logica riattivata nel workspace con switch dedicato ER/Logica in testata.",
+      "Generazione automatica del modello relazionale dal diagramma ER con rendering tabelle, PK/FK e riferimenti.",
+      "Flusso operativo logico completo: rigenera modello, auto-layout e adatta al viewport direttamente dalla barra azioni.",
+    ],
+  },
   {
     version: "2.5.2",
     date: "2026-03-29",
