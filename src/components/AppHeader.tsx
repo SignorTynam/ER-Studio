@@ -2,19 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
+type DiagramWorkspaceView = "er" | "logical";
+
 interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
   diagramName: string;
+  diagramView: DiagramWorkspaceView;
   mode: EditorMode;
   canUndo: boolean;
   canRedo: boolean;
+  logicalOutOfDate: boolean;
   focusMode: boolean;
   toolRailCollapsed: boolean;
+  onDiagramViewChange: (view: DiagramWorkspaceView) => void;
   onModeChange: (mode: EditorMode) => void;
   onNew: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onGenerateLogicalModel: () => void;
+  onAutoLayoutLogical: () => void;
+  onFitLogical: () => void;
   onSave: () => void;
   onSaveErs: () => void;
   onLoad: () => void;
@@ -157,19 +165,41 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-switches">
         <div className="header-control-group">
+          <div className="header-group-label">Vista</div>
+          <div className="mode-switch mode-switch-primary" role="group" aria-label="Vista diagramma">
+            <button
+              className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("er")}
+            >
+              ER
+            </button>
+            <button
+              className={props.diagramView === "logical" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("logical")}
+            >
+              Logical
+            </button>
+          </div>
+        </div>
+
+        <div className="header-control-group">
           <div className="header-group-label">Modalita</div>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label="Modalita editor">
             <button
-              className={props.mode === "edit" ? "mode-button active" : "mode-button"}
+              className={props.mode === "edit" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("edit")}
+              disabled={props.diagramView !== "er"}
             >
               Modifica
             </button>
             <button
-              className={props.mode === "view" ? "mode-button active" : "mode-button"}
+              className={props.mode === "view" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("view")}
+              disabled={props.diagramView !== "er"}
             >
               Lettura
             </button>
@@ -199,6 +229,34 @@ export function AppHeader(props: AppHeaderProps) {
             >
               Ripeti
             </button>
+            {props.diagramView === "logical" ? (
+              <>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onGenerateLogicalModel}
+                  title={props.logicalOutOfDate ? "Rigenera modello logico aggiornato" : "Rigenera modello logico"}
+                >
+                  {props.logicalOutOfDate ? "Rigenera*" : "Rigenera"}
+                </button>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onAutoLayoutLogical}
+                  title="Organizza automaticamente le tabelle"
+                >
+                  Auto layout
+                </button>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onFitLogical}
+                  title="Adatta il modello logico al viewport"
+                >
+                  Fit
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               className={

@@ -4,6 +4,8 @@ import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { useHistory } from "./hooks/useHistory";
+import { LogicalCanvas } from "./logical/LogicalCanvas";
+import { LogicalInspectorPanel } from "./logical/LogicalInspectorPanel";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   DiagramDocument,
@@ -16,6 +18,8 @@ import type {
   ValidationIssue,
   Viewport,
 } from "./types/diagram";
+import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
+import type { LogicalModel, LogicalSelection } from "./types/logical";
 import {
   alignNodes,
   canConnect,
@@ -35,6 +39,13 @@ import { createExampleDiagram } from "./utils/example";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
+import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
+import {
+  buildLogicalSourceSignature,
+  createEmptyLogicalModel,
+  generateLogicalModel,
+  preserveLogicalTablePositions,
+} from "./utils/logicalMapping";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
 
@@ -71,6 +82,7 @@ interface PromptDialogState {
 }
 
 type AppSurface = "studio" | "code-tutorial";
+type DiagramWorkspaceView = "er" | "logical";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
 const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
@@ -430,12 +442,20 @@ function getNextAttributePosition(
 export default function App() {
   const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
+  const initialLogicalModelRef = useRef<LogicalModel>(createEmptyLogicalModel("logical-model"));
+  const logicalHistory = useHistory<LogicalModel>(initialLogicalModelRef.current);
   const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
   const [surface, setSurface] = useState<AppSurface>("studio");
+  const [diagramView, setDiagramView] = useState<DiagramWorkspaceView>("er");
   const [tool, setTool] = useState<ToolKind>("select");
   const [mode, setMode] = useState<EditorMode>("edit");
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
+  const [logicalViewport, setLogicalViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
+  const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(EMPTY_LOGICAL_SELECTION);
+  const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
+  const [logicalGenerated, setLogicalGenerated] = useState(false);
+  const [logicalSourceSignature, setLogicalSourceSignature] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -498,9 +518,13 @@ export default function App() {
               issue.targetId === selectedEdge.id,
           )
       : undefined;
+  const currentErSignature = buildLogicalSourceSignature(history.present);
+  const logicalOutOfDate = logicalGenerated && logicalSourceSignature !== currentErSignature;
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
+  const activeCanUndo = diagramView === "er" ? history.canUndo : logicalHistory.canUndo;
+  const activeCanRedo = diagramView === "er" ? history.canRedo : logicalHistory.canRedo;
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
     max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
@@ -513,6 +537,12 @@ export default function App() {
   const workspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
+    "--inspector-resizer-width": "0px",
+    "--inspector-width": "0px",
+  } as CSSProperties;
+  const logicalWorkspaceShellStyle = {
+    "--toolbar-width": "0px",
+    "--toolbar-resizer-width": "0px",
     "--inspector-resizer-width": "0px",
     "--inspector-width": "0px",
   } as CSSProperties;
@@ -1104,6 +1134,9 @@ export default function App() {
       }
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+        if (diagramView !== "er") {
+          return;
+        }
         event.preventDefault();
         handleDuplicateSelection();
         return;
@@ -1118,20 +1151,32 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) {
-          history.redo();
+          if (diagramView === "er") {
+            history.redo();
+          } else {
+            logicalHistory.redo();
+          }
         } else {
-          history.undo();
+          if (diagramView === "er") {
+            history.undo();
+          } else {
+            logicalHistory.undo();
+          }
         }
         return;
       }
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
         event.preventDefault();
-        history.redo();
+        if (diagramView === "er") {
+          history.redo();
+        } else {
+          logicalHistory.redo();
+        }
         return;
       }
 
-      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (diagramView === "er" && !event.ctrlKey && !event.metaKey && !event.altKey) {
         const shortcut = event.key.toLowerCase();
         const nextTool = TOOL_BY_SHORTCUT[shortcut];
 
@@ -1148,7 +1193,7 @@ export default function App() {
         }
       }
 
-      if (event.key === "Delete" || event.key === "Backspace") {
+      if (diagramView === "er" && (event.key === "Delete" || event.key === "Backspace")) {
         event.preventDefault();
         handleDeleteSelection();
         return;
@@ -1182,14 +1227,29 @@ export default function App() {
           return;
         }
 
-        setSelection({ nodeIds: [], edgeIds: [] });
+        if (diagramView === "er") {
+          setSelection({ nodeIds: [], edgeIds: [] });
+        } else {
+          setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+        }
         setStatus("");
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [aboutOpen, confirmDialog, history, introOpen, mode, promptDialog, selection, whatsNewOpen]);
+  }, [
+    aboutOpen,
+    confirmDialog,
+    diagramView,
+    history,
+    introOpen,
+    logicalHistory,
+    mode,
+    promptDialog,
+    selection,
+    whatsNewOpen,
+  ]);
 
   function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
     history.commit(nextDiagram, previousDiagram);
@@ -1201,6 +1261,136 @@ export default function App() {
       setTool("select");
       setStatus("");
     }
+  }
+
+  function commitLogicalModel(nextModel: LogicalModel, previousModel?: LogicalModel) {
+    logicalHistory.commit(nextModel, previousModel);
+  }
+
+  function regenerateLogicalModel(options?: { switchToLogical?: boolean; preservePositions?: boolean }) {
+    const generated = generateLogicalModel(history.present);
+    const withPreservedPositions =
+      options?.preservePositions && logicalGenerated
+        ? preserveLogicalTablePositions(generated, logicalHistory.present)
+        : generated;
+    const normalized = normalizeLogicalModelGeometry(withPreservedPositions);
+
+    logicalHistory.reset(normalized);
+    setLogicalGenerated(true);
+    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setLogicalViewport(DEFAULT_VIEWPORT);
+    setLogicalSourceSignature(currentErSignature);
+    if (options?.switchToLogical) {
+      setDiagramView("logical");
+    }
+
+    const warningCount = normalized.issues.length;
+    if (warningCount > 0) {
+      setStatusWarning(`Logical model generated with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`);
+    } else {
+      setStatus("Logical model generated.");
+    }
+  }
+
+  function handleDiagramViewChange(nextView: DiagramWorkspaceView) {
+    if (nextView === diagramView) {
+      return;
+    }
+
+    if (nextView === "logical" && !logicalGenerated) {
+      regenerateLogicalModel({ switchToLogical: true, preservePositions: false });
+      return;
+    }
+
+    setDiagramView(nextView);
+    if (nextView === "er") {
+      setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+      setStatus("ER view attiva.");
+    } else if (logicalOutOfDate) {
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setTool("select");
+      setStatusWarning("Logical view is out of date. Use Regenerate to sync with current ER model.");
+    } else {
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setTool("select");
+    }
+  }
+
+  function handleGenerateLogicalModel() {
+    regenerateLogicalModel({
+      switchToLogical: true,
+      preservePositions: true,
+    });
+  }
+
+  function handleLogicalAutoLayout() {
+    if (!logicalGenerated) {
+      regenerateLogicalModel({ switchToLogical: true, preservePositions: false });
+      return;
+    }
+
+    const nextModel = autoLayoutLogicalModel(logicalHistory.present);
+    commitLogicalModel(nextModel, logicalHistory.present);
+    setStatus("Logical layout updated.");
+  }
+
+  function handleLogicalFit() {
+    if (!logicalGenerated) {
+      return;
+    }
+
+    setLogicalFitRequestToken((current) => current + 1);
+  }
+
+  function handleLogicalTableRename(tableId: string, nextName: string) {
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const previousModel = logicalHistory.present;
+    const nextModel = normalizeLogicalModelGeometry({
+      ...previousModel,
+      tables: previousModel.tables.map((table) =>
+        table.id === tableId
+          ? {
+              ...table,
+              name: trimmed,
+            }
+          : table,
+      ),
+    });
+
+    commitLogicalModel(nextModel, previousModel);
+  }
+
+  function handleLogicalColumnRename(tableId: string, columnId: string, nextName: string) {
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const previousModel = logicalHistory.present;
+    const nextModel = normalizeLogicalModelGeometry({
+      ...previousModel,
+      tables: previousModel.tables.map((table) =>
+        table.id !== tableId
+          ? table
+          : {
+              ...table,
+              columns: table.columns.map((column) =>
+                column.id === columnId
+                  ? {
+                      ...column,
+                      name: trimmed,
+                    }
+                  : column,
+              ),
+            },
+      ),
+    });
+
+    commitLogicalModel(nextModel, previousModel);
   }
 
   async function handleNewDiagram() {
@@ -1860,6 +2050,24 @@ export default function App() {
     setStatus("SVG esportato.");
   }
 
+  function handleUndoAction() {
+    if (diagramView === "er") {
+      history.undo();
+      return;
+    }
+
+    logicalHistory.undo();
+  }
+
+  function handleRedoAction() {
+    if (diagramView === "er") {
+      history.redo();
+      return;
+    }
+
+    logicalHistory.redo();
+  }
+
   if (surface === "code-tutorial") {
     return (
       <CodeModeTutorialPage
@@ -1878,15 +2086,21 @@ export default function App() {
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
+        diagramView={diagramView}
         mode={mode}
-        canUndo={history.canUndo}
-        canRedo={history.canRedo}
+        canUndo={activeCanUndo}
+        canRedo={activeCanRedo}
+        logicalOutOfDate={logicalOutOfDate}
         focusMode={focusMode}
         toolRailCollapsed={effectiveToolbarCollapsed}
+        onDiagramViewChange={handleDiagramViewChange}
         onModeChange={handleModeChange}
         onNew={handleNewDiagram}
-        onUndo={history.undo}
-        onRedo={history.redo}
+        onUndo={handleUndoAction}
+        onRedo={handleRedoAction}
+        onGenerateLogicalModel={handleGenerateLogicalModel}
+        onAutoLayoutLogical={handleLogicalAutoLayout}
+        onFitLogical={handleLogicalFit}
         onSave={handleSaveJson}
         onSaveErs={handleSaveErs}
         onLoad={handleLoadRequest}
@@ -1947,82 +2161,133 @@ export default function App() {
         <div
           className={[
             "workspace-shell",
-            effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
+            diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
             focusMode ? "workspace-shell-focus" : "",
-            hasSelection ? "workspace-has-selection" : "workspace-idle",
+            diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
+            diagramView === "logical" ? "workspace-shell-logical" : "",
           ]
             .filter(Boolean)
             .join(" ")}
-          style={workspaceShellStyle}
+          style={diagramView === "er" ? workspaceShellStyle : logicalWorkspaceShellStyle}
         >
-          <Toolbar
-            diagram={history.present}
-            selection={selection}
-            activeTool={tool}
-            mode={mode}
-            collapsed={effectiveToolbarCollapsed}
-            canUndo={history.canUndo}
-            canRedo={history.canRedo}
-            selectionItemCount={selectionItemCount}
-            issues={issues}
-            selectedNode={selectedNode}
-            selectedEdge={selectedEdge}
-            onToolChange={setTool}
-            onUndo={history.undo}
-            onRedo={history.redo}
-            onDuplicateSelection={handleDuplicateSelection}
-            onDeleteSelection={handleDeleteSelection}
-            onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-            onRenameSelection={handleRenameSelectionQuick}
-            onNodeChange={handleNodeChange}
-            onNodesChange={handleNodesChange}
-            onEdgeChange={handleEdgeChange}
-            onClearExternalIdentifier={handleClearExternalIdentifier}
-            onAlign={handleAlignSelection}
-            onIssueSelect={handleIssueNotice}
-            onToggleCollapse={handleToggleToolRail}
-          />
+          {diagramView === "er" ? (
+            <>
+              <Toolbar
+                diagram={history.present}
+                selection={selection}
+                activeTool={tool}
+                mode={mode}
+                collapsed={effectiveToolbarCollapsed}
+                canUndo={history.canUndo}
+                canRedo={history.canRedo}
+                selectionItemCount={selectionItemCount}
+                issues={issues}
+                selectedNode={selectedNode}
+                selectedEdge={selectedEdge}
+                onToolChange={setTool}
+                onUndo={history.undo}
+                onRedo={history.redo}
+                onDuplicateSelection={handleDuplicateSelection}
+                onDeleteSelection={handleDeleteSelection}
+                onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+                onRenameSelection={handleRenameSelectionQuick}
+                onNodeChange={handleNodeChange}
+                onNodesChange={handleNodesChange}
+                onEdgeChange={handleEdgeChange}
+                onClearExternalIdentifier={handleClearExternalIdentifier}
+                onAlign={handleAlignSelection}
+                onIssueSelect={handleIssueNotice}
+                onToggleCollapse={handleToggleToolRail}
+              />
 
-          <button
-            type="button"
-            className={
-              !focusMode && !effectiveToolbarCollapsed
-                ? "workspace-resizer workspace-resizer-active"
-                : "workspace-resizer"
-            }
-            onPointerDown={(event) => handlePanelResizeStart("toolbar", event)}
-            onDoubleClick={() => resetPanelWidth("toolbar")}
-            aria-label="Ridimensiona pannello strumenti"
-            title="Trascina per allargare o ridurre il pannello strumenti"
-            disabled={focusMode || effectiveToolbarCollapsed}
-          />
+              <button
+                type="button"
+                className={
+                  !focusMode && !effectiveToolbarCollapsed
+                    ? "workspace-resizer workspace-resizer-active"
+                    : "workspace-resizer"
+                }
+                onPointerDown={(event) => handlePanelResizeStart("toolbar", event)}
+                onDoubleClick={() => resetPanelWidth("toolbar")}
+                aria-label="Ridimensiona pannello strumenti"
+                title="Trascina per allargare o ridurre il pannello strumenti"
+                disabled={focusMode || effectiveToolbarCollapsed}
+              />
 
-          <div className="workspace-main diagram-only">
-            <DiagramCanvas
-              diagram={history.present}
-              selection={selection}
-              tool={tool}
-              mode={mode}
-              viewport={viewport}
-              issues={issues}
-              statusMessage={statusMessage}
-              svgRef={svgRef}
-              onViewportChange={setViewport}
-              onSelectionChange={setSelection}
-              onPreviewDiagram={history.setPresent}
-              onCommitDiagram={commitDiagram}
-              onCreateNode={handleCreateNode}
-              onCreateEdge={handleCreateEdge}
-              onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
-              onDeleteNode={handleDeleteNodeById}
-              onDeleteEdge={handleDeleteEdgeById}
-              onDeleteSelection={handleDeleteSelection}
-              onDeleteExternalIdentifier={handleClearExternalIdentifier}
-              onRenameNode={handleRenameNode}
-              onRenameEdge={handleRenameEdge}
-              onStatusMessageChange={handleCanvasStatusMessage}
-            />
-          </div>
+              <div className="workspace-main diagram-only">
+                <DiagramCanvas
+                  diagram={history.present}
+                  selection={selection}
+                  tool={tool}
+                  mode={mode}
+                  viewport={viewport}
+                  issues={issues}
+                  statusMessage={statusMessage}
+                  svgRef={svgRef}
+                  onViewportChange={setViewport}
+                  onSelectionChange={setSelection}
+                  onPreviewDiagram={history.setPresent}
+                  onCommitDiagram={commitDiagram}
+                  onCreateNode={handleCreateNode}
+                  onCreateEdge={handleCreateEdge}
+                  onCreateExternalIdentifier={handleCreateExternalIdentifierFromSelection}
+                  onDeleteNode={handleDeleteNodeById}
+                  onDeleteEdge={handleDeleteEdgeById}
+                  onDeleteSelection={handleDeleteSelection}
+                  onDeleteExternalIdentifier={handleClearExternalIdentifier}
+                  onRenameNode={handleRenameNode}
+                  onRenameEdge={handleRenameEdge}
+                  onStatusMessageChange={handleCanvasStatusMessage}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="workspace-main logical-main">
+              {!logicalGenerated ? (
+                <section className="logical-empty-state">
+                  <h2>Logical View</h2>
+                  <p>Generate the relational model from your ER diagram to inspect tables, PKs, FKs and references.</p>
+                  <button type="button" className="mode-button active" onClick={handleGenerateLogicalModel}>
+                    Generate Logical Model
+                  </button>
+                </section>
+              ) : (
+                <div className="logical-view-layout">
+                  <section className="logical-canvas-region">
+                    {logicalOutOfDate ? (
+                      <div className="logical-stale-banner" role="status">
+                        <span>ER model changed. Logical view is out of date.</span>
+                        <button type="button" onClick={handleGenerateLogicalModel}>
+                          Regenerate
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <LogicalCanvas
+                      model={logicalHistory.present}
+                      selection={logicalSelection}
+                      viewport={logicalViewport}
+                      fitRequestToken={logicalFitRequestToken}
+                      onViewportChange={setLogicalViewport}
+                      onSelectionChange={setLogicalSelection}
+                      onPreviewModel={logicalHistory.setPresent}
+                      onCommitModel={commitLogicalModel}
+                      onRenameTable={handleLogicalTableRename}
+                      onRenameColumn={handleLogicalColumnRename}
+                    />
+                  </section>
+
+                  <LogicalInspectorPanel
+                    model={logicalHistory.present}
+                    selection={logicalSelection}
+                    onSelectionChange={setLogicalSelection}
+                    onRenameTable={handleLogicalTableRename}
+                    onRenameColumn={handleLogicalColumnRename}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
