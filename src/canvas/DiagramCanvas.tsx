@@ -144,10 +144,12 @@ interface DiagramCanvasProps {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_OFFSET = 56;
+const COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET = 56;
+const COMPOSITE_INTERNAL_TOP_AXIS_OFFSET = 30;
 const COMPOSITE_INTERNAL_VERTICAL_BULGE = 14;
-const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 24;
+const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 8;
 const COMPOSITE_INTERNAL_MARKER_OFFSET = 24;
+const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
 
 interface CompositeGroupPoint {
   attributeCenter: Point;
@@ -541,7 +543,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     if (horizontalBias) {
       const onLeft = averageCenter.x < hostCenter.x;
       const hostSideX = onLeft ? host.x : host.x + host.width;
-      const axisX = onLeft ? hostSideX - COMPOSITE_INTERNAL_OFFSET : hostSideX + COMPOSITE_INTERNAL_OFFSET;
+      const axisX = onLeft
+        ? hostSideX - COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET
+        : hostSideX + COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET;
       const junctions = group.points
         .map((point) => projectOnVerticalAxis(axisX, point.edgeStart, point.edgeEnd))
         .sort((first, second) => first.y - second.y);
@@ -573,7 +577,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     const onTop = averageCenter.y < hostCenter.y;
     const hostSideY = onTop ? host.y : host.y + host.height;
-    const axisY = onTop ? hostSideY - COMPOSITE_INTERNAL_OFFSET : hostSideY + COMPOSITE_INTERNAL_OFFSET;
+    const axisY = onTop
+      ? hostSideY - COMPOSITE_INTERNAL_TOP_AXIS_OFFSET
+      : hostSideY + COMPOSITE_INTERNAL_TOP_AXIS_OFFSET;
     const junctions = group.points
       .map((point) => projectOnHorizontalAxis(axisY, point.edgeStart, point.edgeEnd))
       .sort((first, second) => first.x - second.x);
@@ -583,11 +589,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    const path = buildCompositePath(
-      junctions,
-      "horizontal",
-      onTop ? -COMPOSITE_INTERNAL_HORIZONTAL_BULGE : COMPOSITE_INTERNAL_HORIZONTAL_BULGE,
-    );
+    const horizontalBulge =
+      junctions.length > 2
+        ? onTop
+          ? -COMPOSITE_INTERNAL_HORIZONTAL_BULGE
+          : COMPOSITE_INTERNAL_HORIZONTAL_BULGE
+        : 0;
+    const path = buildCompositePath(junctions, "horizontal", horizontalBulge);
 
     compositeIdentifierLayouts.push({
       hostId,
@@ -596,8 +604,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       junctions,
       markerStemFrom,
       marker: {
-        x: markerStemFrom.x,
-        y: markerStemFrom.y + (onTop ? COMPOSITE_INTERNAL_MARKER_OFFSET : -COMPOSITE_INTERNAL_MARKER_OFFSET),
+        x: markerStemFrom.x - COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET,
+        y: markerStemFrom.y,
       },
     });
   });
