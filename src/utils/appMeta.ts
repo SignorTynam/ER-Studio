@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "2.5.1";
+export const APP_VERSION = "2.5.2";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,15 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "2.5.2",
+    date: "2026-03-29",
+    updates: [
+      "Release allineata alla richiesta corrente: workspace centrato su diagramma ER senza introdurre la vista logica in UI.",
+      "Confermata la coerenza dell'identificatore esterno come attributo dell'entita anche nelle validazioni.",
+      "Rifinito il rendering dei marker degli identificatori esterni composti (punti e raccordi) con geometria piu pulita.",
+    ],
+  },
   {
     version: "2.5.1",
     date: "2026-03-27",
