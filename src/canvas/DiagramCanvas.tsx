@@ -153,6 +153,7 @@ const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
 const EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE = 22;
 const EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE = 24;
 const EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH = 18;
+const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
 
 interface CompositeGroupPoint {
   attributeCenter: Point;
@@ -837,19 +838,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       y: baseJunction.y + manualOffset,
     };
     const mostlyHorizontal = Math.abs(weakDelta.x) >= Math.abs(weakDelta.y);
-    const markerBase = mostlyHorizontal
-      ? {
-          x: junction.x,
-          y: junction.y - EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-        }
-      : {
-          x: junction.x + EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-          y: junction.y,
-        };
-    const marker = {
-      x: markerBase.x + markerOffsetX,
-      y: markerBase.y + markerOffsetY,
-    };
     const tailEnd = mostlyHorizontal
       ? {
           x: junction.x,
@@ -875,6 +863,23 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const frameEnd = getFrameSidePoint(frame, attributeSide, attributeJunction);
     const frameRoute = selectFrameRoute(frame, relationSide, frameStart, attributeSide, frameEnd);
     const routePoints = [junction, ...frameRoute, attributeJunction];
+    const baseNormal = {
+      x: -branchDirection.y,
+      y: branchDirection.x,
+    };
+    const towardRelation = {
+      x: junction.x - attributeJunction.x,
+      y: junction.y - attributeJunction.y,
+    };
+    const normalSign = baseNormal.x * towardRelation.x + baseNormal.y * towardRelation.y > 0 ? -1 : 1;
+    const markerBase = {
+      x: attributeJunction.x + baseNormal.x * normalSign * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
+      y: attributeJunction.y + baseNormal.y * normalSign * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
+    };
+    const marker = {
+      x: markerBase.x + markerOffsetX,
+      y: markerBase.y + markerOffsetY,
+    };
 
     externalIdentifierLayouts.push({
       relationshipId: node.id,
@@ -2224,6 +2229,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.1}
+                  />
+                ) : null}
+                {layout.attributeJunction ? (
+                  <line
+                    x1={layout.attributeJunction.x}
+                    y1={layout.attributeJunction.y}
+                    x2={layout.marker.x}
+                    y2={layout.marker.y}
+                    stroke={DIAGRAM_STROKE}
+                    strokeWidth={2}
+                    strokeLinecap="round"
                   />
                 ) : null}
                 <circle
