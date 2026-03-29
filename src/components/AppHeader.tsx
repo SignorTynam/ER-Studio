@@ -2,19 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
 
+type DiagramWorkspaceView = "er" | "logical";
+
 interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
   diagramName: string;
+  diagramView: DiagramWorkspaceView;
   mode: EditorMode;
   canUndo: boolean;
   canRedo: boolean;
+  logicalOutOfDate: boolean;
   focusMode: boolean;
   toolRailCollapsed: boolean;
+  onDiagramViewChange: (view: DiagramWorkspaceView) => void;
   onModeChange: (mode: EditorMode) => void;
   onNew: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onGenerateLogicalModel: () => void;
+  onAutoLayoutLogical: () => void;
+  onFitLogical: () => void;
   onSave: () => void;
   onSaveErs: () => void;
   onLoad: () => void;
@@ -28,7 +36,6 @@ interface AppHeaderProps {
   onWhatsNew: () => void;
   onToggleFocusMode: () => void;
   onToggleToolRail: () => void;
-  onHome?: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -148,7 +155,7 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
       <div className="app-title-block">
-        <div className="app-eyebrow">ER workspace</div>
+        <div className="app-eyebrow">Workspace ER</div>
         <div className="app-title-inline">
           <h1>{props.appTitle}</h1>
           <div className="app-version-pill">v{props.appVersion}</div>
@@ -158,19 +165,41 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-switches">
         <div className="header-control-group">
+          <div className="header-group-label">Vista</div>
+          <div className="mode-switch mode-switch-primary" role="group" aria-label="Vista diagramma">
+            <button
+              className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("er")}
+            >
+              ER
+            </button>
+            <button
+              className={props.diagramView === "logical" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("logical")}
+            >
+              Logica
+            </button>
+          </div>
+        </div>
+
+        <div className="header-control-group">
           <div className="header-group-label">Modalita</div>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label="Modalita editor">
             <button
-              className={props.mode === "edit" ? "mode-button active" : "mode-button"}
+              className={props.mode === "edit" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("edit")}
+              disabled={props.diagramView !== "er"}
             >
               Modifica
             </button>
             <button
-              className={props.mode === "view" ? "mode-button active" : "mode-button"}
+              className={props.mode === "view" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("view")}
+              disabled={props.diagramView !== "er"}
             >
               Lettura
             </button>
@@ -200,6 +229,34 @@ export function AppHeader(props: AppHeaderProps) {
             >
               Ripeti
             </button>
+            {props.diagramView === "logical" ? (
+              <>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onGenerateLogicalModel}
+                  title={props.logicalOutOfDate ? "Rigenera modello logico aggiornato" : "Rigenera modello logico"}
+                >
+                  {props.logicalOutOfDate ? "Rigenera*" : "Rigenera"}
+                </button>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onAutoLayoutLogical}
+                  title="Organizza automaticamente le tabelle"
+                >
+                  Layout auto
+                </button>
+                <button
+                  type="button"
+                  className="header-button header-quick-button"
+                  onClick={props.onFitLogical}
+                  title="Adatta il modello logico al viewport"
+                >
+                  Adatta
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               className={
@@ -249,11 +306,6 @@ export function AppHeader(props: AppHeaderProps) {
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">File</div>
-                  {props.onHome ? (
-                    <button type="button" onClick={(event) => runMenuAction(event, props.onHome as () => void)}>
-                      Home
-                    </button>
-                  ) : null}
                   <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
                     Nuovo diagramma
                   </button>
