@@ -144,11 +144,11 @@ interface DiagramCanvasProps {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET = 56;
-const COMPOSITE_INTERNAL_TOP_AXIS_OFFSET = 30;
+const COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET = 46;
+const COMPOSITE_INTERNAL_TOP_AXIS_OFFSET = 18;
 const COMPOSITE_INTERNAL_VERTICAL_BULGE = 14;
 const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 8;
-const COMPOSITE_INTERNAL_MARKER_OFFSET = 24;
+const COMPOSITE_INTERNAL_MARKER_OFFSET = 20;
 const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
 
 interface CompositeGroupPoint {
@@ -2193,10 +2193,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   key={`composite-id-junction-${layout.hostId}-${index}`}
                   cx={junction.x}
                   cy={junction.y}
-                  r={6}
+                  r={4.5}
                   fill={DIAGRAM_STROKE}
                   stroke={DIAGRAM_STROKE}
-                  strokeWidth={1.5}
+                  strokeWidth={1.2}
                 />
               ))}
               <line
