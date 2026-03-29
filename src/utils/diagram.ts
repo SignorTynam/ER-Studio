@@ -651,8 +651,15 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
         return otherNode?.type === "attribute";
       });
+      const hasExternalIdentifierAttribute = diagram.nodes.some(
+        (candidate) =>
+          candidate.type === "relationship" &&
+          candidate.isExternalIdentifier === true &&
+          candidate.externalIdentifierTargetEntityId === node.id &&
+          typeof candidate.externalIdentifierSourceAttributeId === "string",
+      );
 
-      if (!hasAttribute) {
+      if (!hasAttribute && !hasExternalIdentifierAttribute) {
         issues.push({
           id: `entity-no-attributes-${node.id}`,
           level: "warning",
