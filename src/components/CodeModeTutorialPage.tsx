@@ -1,7 +1,7 @@
 interface CodeModeTutorialPageProps {
   appTitle: string;
   appVersion: string;
-  onBackHome: () => void;
+  onBackWorkspace: () => void;
   onOpenStudio: () => void;
   onOpenCodeStudio: () => void;
 }
@@ -117,7 +117,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
     <div className="tutorial-shell">
       <header className="tutorial-header">
         <div className="tutorial-header-main">
-          <button type="button" className="tutorial-brand" onClick={props.onBackHome}>
+          <button type="button" className="tutorial-brand" onClick={props.onBackWorkspace}>
             <span className="landing-kicker">Guida alla modalita codice</span>
             <strong>{props.appTitle}</strong>
           </button>
@@ -132,7 +132,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
 
         <div className="tutorial-header-actions">
           <span className="landing-version-chip">Versione {props.appVersion}</span>
-          <button type="button" className="landing-secondary-link" onClick={props.onBackHome}>
+          <button type="button" className="landing-secondary-link" onClick={props.onBackWorkspace}>
             Torna al workspace
           </button>
           <button type="button" className="landing-primary-button" onClick={props.onOpenCodeStudio}>

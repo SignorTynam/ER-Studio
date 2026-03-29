@@ -28,7 +28,6 @@ interface AppHeaderProps {
   onWhatsNew: () => void;
   onToggleFocusMode: () => void;
   onToggleToolRail: () => void;
-  onHome?: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -249,11 +248,6 @@ export function AppHeader(props: AppHeaderProps) {
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">File</div>
-                  {props.onHome ? (
-                    <button type="button" onClick={(event) => runMenuAction(event, props.onHome as () => void)}>
-                      Home
-                    </button>
-                  ) : null}
                   <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
                     Nuovo diagramma
                   </button>

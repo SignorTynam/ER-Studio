@@ -3,7 +3,6 @@ import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } fr
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
-import { LandingPage } from "./components/LandingPage";
 import { useHistory } from "./hooks/useHistory";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
@@ -71,7 +70,7 @@ interface PromptDialogState {
   requiredMessage: string;
 }
 
-type AppSurface = "landing" | "studio" | "code-tutorial";
+type AppSurface = "studio" | "code-tutorial";
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
 const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
@@ -893,17 +892,6 @@ export default function App() {
 
   function openStudioSurface() {
     setSurface("studio");
-    setIntroOpen(false);
-  }
-
-  async function openLandingSurface() {
-    if (surface === "studio" && !(await confirmDiscardChanges("tornare alla home"))) {
-      return;
-    }
-
-    setSurface("landing");
-    setAboutOpen(false);
-    setWhatsNewOpen(false);
     setIntroOpen(false);
   }
 
@@ -1872,24 +1860,12 @@ export default function App() {
     setStatus("SVG esportato.");
   }
 
-  if (surface === "landing") {
-    return (
-      <LandingPage
-        appTitle={APP_TITLE}
-        appVersion={APP_VERSION}
-        latestRelease={APP_CHANGELOG[0]}
-        onOpenStudio={openStudioSurface}
-        onOpenCodeTutorial={openCodeTutorialSurface}
-      />
-    );
-  }
-
   if (surface === "code-tutorial") {
     return (
       <CodeModeTutorialPage
         appTitle={APP_TITLE}
         appVersion={APP_VERSION}
-        onBackHome={openStudioSurface}
+        onBackWorkspace={openStudioSurface}
         onOpenStudio={openStudioSurface}
         onOpenCodeStudio={openStudioSurface}
       />
