@@ -532,7 +532,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         issues.push({
           id: `attribute-conflict-${node.id}`,
           level: "error",
-          message: `L'attributo "${node.label}" non puo essere multivalore e identificatore allo stesso tempo.`,
+          message: `L'attributo "${node.label}" non e valido perche e segnato come multivalore e identificatore insieme; per risolvere lascia attiva una sola modalita.`,
           targetId: node.id,
           targetType: "node",
         });
@@ -586,7 +586,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         issues.push({
           id: `relationship-identifier-${node.id}`,
           level: "error",
-          message: `La relazione "${node.label}" non puo avere attributi identificatori.`,
+          message: `La relazione "${node.label}" non e valida perche contiene attributi identificatori; per risolvere rimuovi il flag identificatore dagli attributi collegati.`,
           targetId: node.id,
           targetType: "node",
         });
@@ -744,7 +744,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       issues.push({
         id: `missing-${edge.id}`,
         level: "error",
-        message: `Il collegamento "${edge.id}" punta a un elemento mancante.`,
+        message: `Il collegamento "${edge.id}" non e valido perche punta a un elemento mancante; per risolvere elimina il collegamento o ricrea l'elemento mancante.`,
         targetId: edge.id,
         targetType: "edge",
       });
@@ -755,7 +755,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       issues.push({
         id: `invalid-${edge.id}`,
         level: "error",
-        message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" non è compatibile con la sintassi Chen selezionata.`,
+        message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" non e valido perche non rispetta la sintassi Chen selezionata; per risolvere collega una coppia di elementi compatibile.`,
         targetId: edge.id,
         targetType: "edge",
       });

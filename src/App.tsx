@@ -143,6 +143,60 @@ const MAX_TOOLBAR_WIDTH = 320;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 
+function normalizeMessagePart(value: string): string {
+  return value.trim().replace(/\s+/g, " ").replace(/[;:,.!?]+$/g, "");
+}
+
+function lowerCaseFirst(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
+}
+
+function buildStructuredErrorMessage(what: string, why: string, how: string): string {
+  const normalizedWhat = normalizeMessagePart(what) || "operazione non completata";
+  const normalizedWhy = normalizeMessagePart(why) || "si e verificato un problema non specificato";
+  const normalizedHow = normalizeMessagePart(how) || "controlla i dati e riprova";
+  return `Errore: ${normalizedWhat} perche ${lowerCaseFirst(normalizedWhy)}; per risolvere ${lowerCaseFirst(normalizedHow)}.`;
+}
+
+function formatErrorFromRawMessage(message: string, fallbackHow = "controlla i dati inseriti e riprova"): string {
+  const normalizedMessage = message.trim();
+  if (!normalizedMessage) {
+    return buildStructuredErrorMessage(
+      "operazione non completata",
+      "si e verificato un problema non specificato",
+      fallbackHow,
+    );
+  }
+
+  const alreadyStructured = /^errore:\s.+\sperche\s.+;\sper risolvere\s.+\.$/i.test(normalizedMessage);
+  if (alreadyStructured) {
+    return normalizedMessage;
+  }
+
+  const isCancellationMessage =
+    CANCELLATION_PATTERNS.some((pattern) => pattern.test(normalizedMessage)) &&
+    !ERROR_PATTERNS.some((pattern) => pattern.test(normalizedMessage));
+  if (isCancellationMessage) {
+    return normalizedMessage;
+  }
+
+  const reason = normalizeMessagePart(normalizedMessage.replace(/^errore[:\s]*/i, ""));
+  return buildStructuredErrorMessage("operazione non completata", reason, fallbackHow);
+}
+
+function formatErsErrorMessage(message: string): string {
+  const reason = normalizeMessagePart(message.replace(/^errore[:\s]*/i, "")) || "codice ERS non valido";
+  return buildStructuredErrorMessage(
+    "il codice ERS non e stato applicato",
+    reason,
+    "correggi la riga indicata e riprova",
+  );
+}
+
 function isSourceSelectionPendingMessage(message: string): boolean {
   const normalized = message.trim().toLowerCase();
   return (
@@ -966,7 +1020,7 @@ export default function App() {
 
   function showErrorNotice(message: string) {
     showNotice({
-      message,
+      message: formatErrorFromRawMessage(message),
       tone: "error",
     });
   }
@@ -1179,8 +1233,9 @@ export default function App() {
   }
 
   function setStatusError(message: string) {
-    setStatusMessage(message);
-    showErrorNotice(message);
+    const normalizedError = formatErrorFromRawMessage(message);
+    setStatusMessage(normalizedError);
+    showErrorNotice(normalizedError);
   }
 
   function handleSkipOnboarding() {
@@ -1222,11 +1277,17 @@ export default function App() {
   }
 
   function handleIssueNotice(issue: ValidationIssue) {
-    setStatusMessage(issue.message);
     if (issue.level === "error") {
-      showErrorNotice(issue.message);
+      const formattedIssue = formatErrorFromRawMessage(
+        issue.message,
+        "correggi l'elemento evidenziato e valida di nuovo il diagramma",
+      );
+      setStatusMessage(formattedIssue);
+      showErrorNotice(formattedIssue);
       return;
     }
+
+    setStatusMessage(issue.message);
 
     const warningTargetSelected =
       issue.targetType === "node"
@@ -1331,7 +1392,7 @@ export default function App() {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Codice ERS non valido.";
-        setCodeError(message);
+        setCodeError(formatErsErrorMessage(message));
       }
     }, 180);
 
@@ -1675,7 +1736,14 @@ export default function App() {
     let targetNode = findNode(history.present, resolvedTargetId);
 
     if (!sourceNode || !targetNode) {
-      return { success: false, message: "Impossibile creare il collegamento: nodo mancante." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "il collegamento non e stato creato",
+          "manca il nodo sorgente o destinazione",
+          "seleziona due nodi validi e riprova",
+        ),
+      };
     }
 
     if (
@@ -1695,7 +1763,11 @@ export default function App() {
       const failureReason = getConnectionFailureReason(type, sourceNode, targetNode);
       return {
         success: false,
-        message: /^errore[:\s]/i.test(failureReason) ? failureReason : `Errore: ${failureReason}`,
+        message: buildStructuredErrorMessage(
+          "il collegamento non e stato creato",
+          normalizeMessagePart(failureReason.replace(/^errore[:\s]*/i, "")),
+          "collega solo elementi compatibili con la notazione Chen",
+        ),
       };
     }
 
@@ -1729,17 +1801,38 @@ export default function App() {
   function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
     const sourceAttribute = history.present.nodes.find((node) => node.id === sourceAttributeId);
     if (sourceAttribute?.type !== "attribute" || sourceAttribute.isIdentifier !== true) {
-      return { success: false, message: "Errore: seleziona prima un attributo identificatore sorgente." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "non hai selezionato un attributo sorgente marcato come identificatore",
+          "seleziona prima un attributo identificatore e poi il target",
+        ),
+      };
     }
 
     const sourceEntity = findEntityHostForAttribute(history.present, sourceAttributeId);
     if (!sourceEntity) {
-      return { success: false, message: "Errore: l'attributo sorgente deve appartenere a un'entita." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "l'attributo sorgente non appartiene a nessuna entita",
+          "collega l'attributo sorgente a un'entita e riprova",
+        ),
+      };
     }
 
     const targetNode = history.present.nodes.find((node) => node.id === targetId);
     if (!targetNode) {
-      return { success: false, message: "Errore: destinazione identificatore esterno non valida." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "la destinazione selezionata non e valida",
+          "seleziona un'entita o un attributo di destinazione valido",
+        ),
+      };
     }
 
     let targetEntity: DiagramNode | undefined;
@@ -1748,12 +1841,26 @@ export default function App() {
 
     if (targetNode.type === "attribute") {
       if (targetNode.isIdentifier === true) {
-        return { success: false, message: "Errore: per il composto esterno seleziona un attributo normale (non identificatore)." };
+        return {
+          success: false,
+          message: buildStructuredErrorMessage(
+            "l'identificatore esterno composto non e stato creato",
+            "l'attributo di destinazione e gia un identificatore",
+            "seleziona un attributo normale come destinazione",
+          ),
+        };
       }
 
       targetEntity = findEntityHostForAttribute(history.present, targetNode.id);
       if (!targetEntity) {
-        return { success: false, message: "Errore: l'attributo destinazione deve appartenere a un'entita." };
+        return {
+          success: false,
+          message: buildStructuredErrorMessage(
+            "l'identificatore esterno composto non e stato creato",
+            "l'attributo di destinazione non appartiene a nessuna entita",
+            "collega l'attributo target a un'entita e riprova",
+          ),
+        };
       }
 
       targetAttributeId = targetNode.id;
@@ -1762,16 +1869,37 @@ export default function App() {
       targetEntity = targetNode;
       mode = "entity";
     } else {
-      return { success: false, message: "Errore: seleziona un attributo o un'entita come destinazione." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "la destinazione non e un'entita o un attributo valido",
+          "seleziona un'entita o un attributo come target",
+        ),
+      };
     }
 
     if (targetEntity.id === sourceEntity.id) {
-      return { success: false, message: "Errore: origine e destinazione devono essere entita diverse." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "origine e destinazione appartengono alla stessa entita",
+          "scegli una destinazione su un'entita diversa",
+        ),
+      };
     }
 
     const relationship = findRelationshipBetweenEntities(history.present, sourceEntity.id, targetEntity.id);
     if (!relationship || relationship.type !== "relationship") {
-      return { success: false, message: "Errore: nessuna relazione valida tra le due entita selezionate." };
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "non esiste una relazione valida tra le due entita selezionate",
+          "crea prima la relazione tra le entita e poi riprova",
+        ),
+      };
     }
 
     const nextDiagram = updateNodeInDiagram(history.present, relationship.id, {
@@ -1859,7 +1987,13 @@ export default function App() {
       attributeLinkedToRelationship &&
       (attributePatch.isIdentifier === true || attributePatch.isCompositeInternal === true)
     ) {
-      setStatusError("Un'associazione non puo avere identificatori.");
+      setStatusError(
+        buildStructuredErrorMessage(
+          "la modifica dell'attributo non e stata applicata",
+          "un attributo collegato a un'associazione non puo diventare identificatore",
+          "rimuovi il collegamento con l'associazione o disattiva il flag identificatore",
+        ),
+      );
       return;
     }
 
@@ -1961,7 +2095,13 @@ export default function App() {
       });
 
       if (targetIds.length !== nodeIds.length) {
-        setStatusError("Alcuni attributi sono composti o collegati a un'associazione e non possono essere identificatori.");
+        setStatusError(
+          buildStructuredErrorMessage(
+            "la modifica degli attributi non e stata applicata a tutta la selezione",
+            "alcuni attributi sono composti o collegati a un'associazione e non possono essere identificatori",
+            "lascia come identificatori solo attributi semplici collegati a entita",
+          ),
+        );
       }
     }
 
@@ -1972,7 +2112,13 @@ export default function App() {
       });
 
       if (targetIds.length !== nodeIds.length) {
-        setStatusError("Gli attributi usati in un identificatore non possono diventare composti.");
+        setStatusError(
+          buildStructuredErrorMessage(
+            "la modifica degli attributi non e stata applicata a tutta la selezione",
+            "un attributo usato come identificatore non puo diventare composto",
+            "rimuovi il flag identificatore prima di impostare il composto",
+          ),
+        );
       }
     }
 
@@ -2229,7 +2375,13 @@ export default function App() {
       );
     } catch (error) {
       console.error(error);
-      setStatusError("JSON non valido.");
+      setStatusError(
+        buildStructuredErrorMessage(
+          "il file JSON non e stato caricato",
+          "il contenuto non rispetta il formato del diagramma",
+          "controlla la sintassi JSON o esporta di nuovo il file e riprova",
+        ),
+      );
     } finally {
       event.target.value = "";
     }
@@ -2251,8 +2403,9 @@ export default function App() {
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "Codice ERS non valido.";
-      setCodeError(message);
-      setStatusError(message);
+      const formattedMessage = formatErsErrorMessage(message);
+      setCodeError(formattedMessage);
+      setStatusError(formattedMessage);
     } finally {
       event.target.value = "";
     }
@@ -2274,7 +2427,13 @@ export default function App() {
       setStatus("PNG esportato.");
     } catch (error) {
       console.error(error);
-      setStatusError("Esportazione PNG non riuscita.");
+      setStatusError(
+        buildStructuredErrorMessage(
+          "il PNG non e stato esportato",
+          "il canvas non e stato convertito correttamente in immagine",
+          "riprova l'esportazione e verifica che il diagramma sia visibile",
+        ),
+      );
     }
   }
 
