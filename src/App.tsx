@@ -3,6 +3,7 @@ import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } fr
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
+import { OnboardingGuide } from "./components/OnboardingGuide";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalCanvas } from "./logical/LogicalCanvas";
 import { LogicalInspectorPanel } from "./logical/LogicalInspectorPanel";
@@ -81,6 +82,31 @@ interface PromptDialogState {
   requiredMessage: string;
 }
 
+interface OnboardingSnapshot {
+  entityCount: number;
+  relationshipCount: number;
+  edgeCount: number;
+  labelsByNodeId: Record<string, string>;
+}
+
+type OnboardingStepId = "create-entity" | "create-relationship" | "create-connection" | "rename-node";
+
+interface OnboardingStepState {
+  entityCreated: boolean;
+  relationshipCreated: boolean;
+  connectionCreated: boolean;
+  renamedNode: boolean;
+}
+
+interface OnboardingProgress {
+  entityCreated: boolean;
+  relationshipCreated: boolean;
+  connectionCreated: boolean;
+  renamedNode: boolean;
+  activeStepId: OnboardingStepId;
+  allCompleted: boolean;
+}
+
 type AppSurface = "studio" | "code-tutorial";
 type DiagramWorkspaceView = "er" | "logical";
 
@@ -115,6 +141,7 @@ const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 216 : 196;
 const MIN_TOOLBAR_WIDTH = 180;
 const MAX_TOOLBAR_WIDTH = 320;
 const RESIZER_WIDTH = 12;
+const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 
 function isSourceSelectionPendingMessage(message: string): boolean {
   const normalized = message.trim().toLowerCase();
@@ -143,6 +170,86 @@ function downloadTextFile(content: string, fileName: string, mimeType = "text/pl
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function readOnboardingCompleted(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markOnboardingCompleted() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+  } catch {
+    // Ignore storage errors and continue without persistence.
+  }
+}
+
+function normalizeLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isDefaultNodeLabel(node: DiagramNode): boolean {
+  const normalizedLabel = normalizeLabel(node.label);
+
+  if (node.type === "entity") {
+    return normalizedLabel.startsWith("nuova entita");
+  }
+
+  if (node.type === "relationship") {
+    return normalizedLabel.startsWith("nuova relazione");
+  }
+
+  if (node.type === "attribute") {
+    return normalizedLabel.startsWith("nuovo attributo");
+  }
+
+  return normalizedLabel === "testo";
+}
+
+function createOnboardingSnapshot(diagram: DiagramDocument): OnboardingSnapshot {
+  const labelsByNodeId: Record<string, string> = {};
+  diagram.nodes.forEach((node) => {
+    labelsByNodeId[node.id] = node.label;
+  });
+
+  return {
+    entityCount: diagram.nodes.filter((node) => node.type === "entity").length,
+    relationshipCount: diagram.nodes.filter((node) => node.type === "relationship").length,
+    edgeCount: diagram.edges.length,
+    labelsByNodeId,
+  };
+}
+
+function getOnboardingProgress(stepState: OnboardingStepState): OnboardingProgress {
+  const orderedSteps: Array<{ id: OnboardingStepId; done: boolean }> = [
+    { id: "create-entity", done: stepState.entityCreated },
+    { id: "create-relationship", done: stepState.relationshipCreated },
+    { id: "create-connection", done: stepState.connectionCreated },
+    { id: "rename-node", done: stepState.renamedNode },
+  ];
+  const activeStep = orderedSteps.find((step) => !step.done);
+
+  return {
+    ...stepState,
+    activeStepId: activeStep ? activeStep.id : "rename-node",
+    allCompleted: orderedSteps.every((step) => step.done),
+  };
 }
 
 function updateNodeInDiagram(
@@ -472,6 +579,13 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
   const [toolbarWidth, setToolbarWidth] = useState(DEFAULT_TOOLBAR_WIDTH);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
+    entityCreated: false,
+    relationshipCreated: false,
+    connectionCreated: false,
+    renamedNode: false,
+  });
 
   const svgRef = useRef<SVGSVGElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -492,6 +606,7 @@ export default function App() {
     startClientX: number;
     startWidth: number;
   } | null>(null);
+  const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
 
   const issues = validateDiagram(history.present);
   const selectedNode =
@@ -546,6 +661,7 @@ export default function App() {
     "--inspector-resizer-width": "0px",
     "--inspector-width": "0px",
   } as CSSProperties;
+  const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
@@ -606,6 +722,93 @@ export default function App() {
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
   }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
+
+  useEffect(() => {
+    if (surface !== "studio" || diagramView !== "er") {
+      return;
+    }
+
+    if (onboardingOpen) {
+      return;
+    }
+
+    if (readOnboardingCompleted()) {
+      return;
+    }
+
+    setOnboardingStepState({
+      entityCreated: false,
+      relationshipCreated: false,
+      connectionCreated: false,
+      renamedNode: false,
+    });
+    onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
+    setOnboardingOpen(true);
+    setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
+  }, [diagramView, onboardingOpen, surface]);
+
+  useEffect(() => {
+    if (!onboardingOpen) {
+      return;
+    }
+
+    const previousSnapshot = onboardingPreviousSnapshotRef.current;
+    const currentSnapshot = createOnboardingSnapshot(history.present);
+    if (!previousSnapshot) {
+      onboardingPreviousSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    const nextStatePatch: Partial<OnboardingStepState> = {};
+    if (!onboardingStepState.entityCreated && currentSnapshot.entityCount > previousSnapshot.entityCount) {
+      nextStatePatch.entityCreated = true;
+    }
+    if (!onboardingStepState.relationshipCreated && currentSnapshot.relationshipCount > previousSnapshot.relationshipCount) {
+      nextStatePatch.relationshipCreated = true;
+    }
+    if (!onboardingStepState.connectionCreated && currentSnapshot.edgeCount > previousSnapshot.edgeCount) {
+      nextStatePatch.connectionCreated = true;
+    }
+    if (!onboardingStepState.renamedNode) {
+      const renamedExistingNode = history.present.nodes.some((node) => {
+        const previousLabel = previousSnapshot.labelsByNodeId[node.id];
+        return typeof previousLabel === "string" && previousLabel !== node.label;
+      });
+      const renamedNewNode = history.present.nodes.some(
+        (node) => previousSnapshot.labelsByNodeId[node.id] === undefined && !isDefaultNodeLabel(node),
+      );
+      if (renamedExistingNode || renamedNewNode) {
+        nextStatePatch.renamedNode = true;
+      }
+    }
+
+    if (Object.keys(nextStatePatch).length > 0) {
+      setOnboardingStepState((currentState) => ({
+        ...currentState,
+        ...nextStatePatch,
+      }));
+    }
+
+    onboardingPreviousSnapshotRef.current = currentSnapshot;
+  }, [
+    history.present,
+    onboardingOpen,
+    onboardingStepState.connectionCreated,
+    onboardingStepState.entityCreated,
+    onboardingStepState.relationshipCreated,
+    onboardingStepState.renamedNode,
+  ]);
+
+  useEffect(() => {
+    if (!onboardingOpen || !onboardingProgress.allCompleted) {
+      return;
+    }
+
+    markOnboardingCompleted();
+    setOnboardingOpen(false);
+    onboardingPreviousSnapshotRef.current = null;
+    showSuccessNotice("Tour completato. Ora puoi modellare liberamente.");
+  }, [onboardingOpen, onboardingProgress.allCompleted]);
 
   useEffect(() => {
     if (!promptDialog) {
@@ -978,6 +1181,40 @@ export default function App() {
   function setStatusError(message: string) {
     setStatusMessage(message);
     showErrorNotice(message);
+  }
+
+  function handleSkipOnboarding() {
+    markOnboardingCompleted();
+    setOnboardingOpen(false);
+    onboardingPreviousSnapshotRef.current = null;
+    setStatusMessage("");
+  }
+
+  function handleOnboardingStepAction(stepId: OnboardingStepId) {
+    if (mode !== "edit") {
+      setMode("edit");
+    }
+
+    if (stepId === "create-entity") {
+      setTool("entity");
+      setStatus("Step 1: crea una nuova entita con un click nel canvas.");
+      return;
+    }
+
+    if (stepId === "create-relationship") {
+      setTool("relationship");
+      setStatus("Step 2: crea una nuova associazione nel canvas.");
+      return;
+    }
+
+    if (stepId === "create-connection") {
+      setTool("connector");
+      setStatus("Step 3: collega entita e associazione trascinando tra i nodi.");
+      return;
+    }
+
+    setTool("select");
+    setStatus("Step 4: fai doppio click su un nodo e rinominalo.");
   }
 
   function handleCanvasStatusMessage(message: string) {
@@ -2068,6 +2305,52 @@ export default function App() {
     logicalHistory.redo();
   }
 
+  const onboardingSteps: Array<{
+    id: OnboardingStepId;
+    title: string;
+    description: string;
+    complete: boolean;
+    actionLabel: string;
+  }> = onboardingProgress
+    ? [
+        {
+          id: "create-entity",
+          title: "Crea un'entita",
+          description: "Seleziona Entita e clicca nel canvas.",
+          complete: onboardingProgress.entityCreated,
+          actionLabel: "Attiva Entita",
+        },
+        {
+          id: "create-relationship",
+          title: "Crea una relazione",
+          description: "Seleziona Associazione e aggiungi un rombo.",
+          complete: onboardingProgress.relationshipCreated,
+          actionLabel: "Attiva Associazione",
+        },
+        {
+          id: "create-connection",
+          title: "Collega i nodi",
+          description: "Usa Collegamento tra entita e associazione.",
+          complete: onboardingProgress.connectionCreated,
+          actionLabel: "Attiva Collegamento",
+        },
+        {
+          id: "rename-node",
+          title: "Rinomina un elemento",
+          description: "Con Selezione, fai doppio click e cambia il nome.",
+          complete: onboardingProgress.renamedNode,
+          actionLabel: "Attiva Selezione",
+        },
+      ]
+    : [];
+  const onboardingActiveStepIndex = onboardingSteps.findIndex((step) => !step.complete);
+  const resolvedOnboardingStepIndex = onboardingActiveStepIndex >= 0 ? onboardingActiveStepIndex : onboardingSteps.length - 1;
+  const showOnboardingGuide =
+    surface === "studio" &&
+    diagramView === "er" &&
+    onboardingOpen &&
+    onboardingSteps.length > 0;
+
   if (surface === "code-tutorial") {
     return (
       <CodeModeTutorialPage
@@ -2156,6 +2439,17 @@ export default function App() {
               ))}
             </div>
           </section>
+        ) : null}
+
+        {showOnboardingGuide ? (
+          <OnboardingGuide
+            steps={onboardingSteps}
+            activeStepIndex={resolvedOnboardingStepIndex}
+            canEdit={mode === "edit"}
+            onEnableEdit={() => setMode("edit")}
+            onStepAction={handleOnboardingStepAction}
+            onSkip={handleSkipOnboarding}
+          />
         ) : null}
 
         <div

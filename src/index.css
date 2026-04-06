@@ -6634,3 +6634,129 @@ body.workspace-resizing {
     max-height: 320px;
   }
 }
+
+.onboarding-guide {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 32;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: var(--studio-surface-strong);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.onboarding-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.onboarding-guide-head strong {
+  font-size: 0.92rem;
+  color: var(--studio-ink);
+}
+
+.onboarding-guide-head span {
+  color: var(--studio-muted);
+}
+
+.onboarding-guide-subtitle {
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.onboarding-guide-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-guide-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--studio-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.onboarding-guide-step.active {
+  border-color: rgba(52, 112, 145, 0.38);
+  background: rgba(90, 154, 191, 0.1);
+}
+
+.onboarding-guide-step.complete {
+  border-color: rgba(54, 128, 92, 0.34);
+  background: rgba(86, 158, 115, 0.1);
+}
+
+.onboarding-guide-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--studio-line);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--studio-ink);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.onboarding-guide-step.complete .onboarding-guide-index {
+  border-color: rgba(54, 128, 92, 0.42);
+  color: #1e5c3e;
+  background: rgba(232, 249, 238, 0.98);
+}
+
+.onboarding-guide-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--studio-ink);
+}
+
+.onboarding-guide-description {
+  margin-top: 3px;
+  color: var(--studio-muted);
+  font-size: 0.79rem;
+  line-height: 1.4;
+}
+
+.onboarding-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.onboarding-guide-actions .mode-button,
+.onboarding-guide-actions .header-button {
+  min-height: 34px;
+}
+
+@media (max-width: 860px) {
+  .onboarding-guide {
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: min(56vh, 520px);
+  }
+}
