@@ -5820,6 +5820,10 @@ body.workspace-resizing {
   grid-template-columns: 20px minmax(0, 1fr);
 }
 
+.toolbar-action-button-text {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .toolbar-panel.collapsed .toolbar-action-button,
 .toolbar-panel.collapsed .tool-button {
   min-height: 38px;
