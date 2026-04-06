@@ -345,6 +345,36 @@ export function Toolbar(props: ToolbarProps) {
       );
     }
 
+    if (props.collapsed) {
+      return (
+        <section className="toolbar-section">
+          <div className="toolbar-section-label">Azioni multiple</div>
+          <div className="toolbar-list toolbar-list-tight">
+            <button
+              type="button"
+              className="toolbar-action-button"
+              onClick={props.onDuplicateSelection}
+              disabled={!canEdit}
+              title="Duplica selezione"
+            >
+              <ActionIcon kind="duplicate" />
+              <span className="tool-label">Duplica</span>
+            </button>
+            <button
+              type="button"
+              className="toolbar-action-button"
+              onClick={props.onDeleteSelection}
+              disabled={!canEdit}
+              title="Elimina selezione"
+            >
+              <ActionIcon kind="delete" />
+              <span className="tool-label">Elimina</span>
+            </button>
+          </div>
+        </section>
+      );
+    }
+
     return (
       <section className="toolbar-section">
         <div className="toolbar-section-label">Azioni multiple</div>
@@ -429,7 +459,7 @@ export function Toolbar(props: ToolbarProps) {
         </button>
       </div>
 
-      {!props.collapsed ? renderContextActions() : null}
+      {!props.collapsed || context !== "empty" ? renderContextActions() : null}
 
       <section className="toolbar-section">
         <div className="toolbar-section-label">{context === "empty" ? "Strumenti" : "Strumenti rapidi"}</div>
