@@ -1692,9 +1692,10 @@ export default function App() {
     }
 
     if (!canConnect(type, sourceNode, targetNode)) {
+      const failureReason = getConnectionFailureReason(type, sourceNode, targetNode);
       return {
         success: false,
-        message: getConnectionFailureReason(type, sourceNode, targetNode),
+        message: /^errore[:\s]/i.test(failureReason) ? failureReason : `Errore: ${failureReason}`,
       };
     }
 
