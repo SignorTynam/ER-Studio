@@ -489,6 +489,24 @@ function selectFrameRoute(
   return clockwise;
 }
 
+function normalizeVector(vector: Point, fallback: Point = { x: 1, y: 0 }): Point {
+  const length = Math.hypot(vector.x, vector.y);
+  if (length <= 0.001) {
+    return fallback;
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
+}
+
+function distanceSquared(from: Point, to: Point): number {
+  const deltaX = from.x - to.x;
+  const deltaY = from.y - to.y;
+  return deltaX * deltaX + deltaY * deltaY;
+}
+
 export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
@@ -706,11 +724,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     const targetEntityNode = targetEntity;
-    const manualOffset = typeof node.externalIdentifierOffset === "number" ? node.externalIdentifierOffset : 0;
-    const markerOffsetX =
-      typeof node.externalIdentifierMarkerOffsetX === "number" ? node.externalIdentifierMarkerOffsetX : 0;
-    const markerOffsetY =
-      typeof node.externalIdentifierMarkerOffsetY === "number" ? node.externalIdentifierMarkerOffsetY : 0;
+    // External identifier endpoints stay fixed by design.
+    const manualOffset = 0;
+    const markerOffsetX = 0;
+    const markerOffsetY = 0;
 
     const weakConnector = props.diagram.edges.find(
       (edge) =>
@@ -747,33 +764,42 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     };
 
     if (node.externalIdentifierMode !== "composite") {
+      const targetCenter = getNodeCenter(targetEntityNode);
       const baseJunction = {
         x: weakSidePoint.x + weakDirection.x * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
         y: weakSidePoint.y + weakDirection.y * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
       };
       const junction = {
-        x: baseJunction.x + markerOffsetX,
-        y: baseJunction.y + markerOffsetY + manualOffset,
+        x: baseJunction.x,
+        y: baseJunction.y + manualOffset,
       };
-      const mostlyHorizontal = Math.abs(weakDelta.x) >= Math.abs(weakDelta.y);
-      const marker = mostlyHorizontal
-        ? {
-            x: junction.x,
-            y: junction.y - EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-          }
-        : {
-            x: junction.x + EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
-            y: junction.y,
-          };
-      const tailEnd = mostlyHorizontal
-        ? {
-            x: junction.x,
-            y: junction.y + EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH,
-          }
-        : {
-            x: junction.x - EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH,
-            y: junction.y,
-          };
+      const sourceAttributeCenter = getNodeCenter(sourceAttribute);
+      const baseDirection = normalizeVector(
+        {
+          x: sourceAttributeCenter.x - junction.x,
+          y: sourceAttributeCenter.y - junction.y,
+        },
+        {
+          x: -weakDirection.y,
+          y: weakDirection.x,
+        },
+      );
+      const candidateDirections = [baseDirection, { x: -baseDirection.x, y: -baseDirection.y }];
+      const markerCandidates = candidateDirections.map((direction) => {
+        const markerBase = {
+          x: junction.x + direction.x * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
+          y: junction.y + direction.y * EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE,
+        };
+        const sourceDistance = distanceSquared(markerBase, sourceAttributeCenter);
+        const entityDistance = distanceSquared(markerBase, targetCenter);
+        const score = sourceDistance - entityDistance * 0.3;
+        return { markerBase, score };
+      });
+      markerCandidates.sort((left, right) => left.score - right.score);
+      const marker = {
+        x: markerCandidates[0].markerBase.x + markerOffsetX,
+        y: markerCandidates[0].markerBase.y + markerOffsetY,
+      };
 
       externalIdentifierLayouts.push({
         relationshipId: node.id,
@@ -781,7 +807,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         marker,
         pathPoints: [marker, junction],
         junction,
-        tailEnd,
       });
       return;
     }
@@ -1185,15 +1210,39 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     return true;
   }
 
+  function isExternalIdentifierConnectorEdge(edge: DiagramEdge): boolean {
+    if (edge.type !== "connector") {
+      return false;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+
+    return (
+      (sourceNode?.type === "relationship" && sourceNode.isExternalIdentifier === true) ||
+      (targetNode?.type === "relationship" && targetNode.isExternalIdentifier === true)
+    );
+  }
+
   function moveSelectedEdgeOffset(delta: number): boolean {
     if (props.mode !== "edit" || props.selection.nodeIds.length > 0 || props.selection.edgeIds.length !== 1) {
+      return false;
+    }
+
+    const selectedEdge = props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0]);
+    if (!selectedEdge) {
+      return false;
+    }
+
+    if (isExternalIdentifierConnectorEdge(selectedEdge)) {
+      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
       return false;
     }
 
     const nextDiagram = {
       ...props.diagram,
       edges: props.diagram.edges.map((edge) =>
-        edge.id === props.selection.edgeIds[0]
+        edge.id === selectedEdge.id
           ? {
               ...edge,
               manualOffset: Math.round(((edge.manualOffset ?? 0) + delta) / 2) * 2,
@@ -1504,6 +1553,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
+    if (isExternalIdentifierConnectorEdge(edge)) {
+      props.onSelectionChange({ nodeIds: [], edgeIds: [edge.id] });
+      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
+      return;
+    }
+
     const sourceCenter = getNodeCenter(sourceNode);
     const targetCenter = getNodeCenter(targetNode);
     // Drag should move connectors across parallel lanes, i.e. on the perpendicular axis.
@@ -1537,7 +1592,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.mode !== "edit" || props.tool !== "select") {
+    if (props.tool !== "select") {
       return;
     }
 
@@ -1547,14 +1602,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     props.onSelectionChange({ nodeIds: [relationshipId], edgeIds: [] });
-    setInteraction({
-      kind: "external-id-drag",
-      pointerId: event.pointerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      originalDiagram: props.diagram,
-      relationshipId,
-      startOffset: relationshipNode.externalIdentifierOffset ?? 0,
-    });
+    if (props.mode === "edit") {
+      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
+    }
   }
 
   function handleExternalIdentifierMarkerPointerDown(
@@ -1570,7 +1620,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (props.mode !== "edit" || props.tool !== "select") {
+    if (props.tool !== "select") {
       return;
     }
 
@@ -1580,15 +1630,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     props.onSelectionChange({ nodeIds: [relationshipId], edgeIds: [] });
-    setInteraction({
-      kind: "external-id-marker-drag",
-      pointerId: event.pointerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      originalDiagram: props.diagram,
-      relationshipId,
-      startOffsetX: relationshipNode.externalIdentifierMarkerOffsetX ?? 0,
-      startOffsetY: relationshipNode.externalIdentifierMarkerOffsetY ?? 0,
-    });
+    if (props.mode === "edit") {
+      props.onStatusMessageChange("Gli estremi del collegamento dell'identificatore esterno sono bloccati.");
+    }
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -2136,16 +2180,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ))}
 
           {externalIdentifierLayouts.map((layout) => {
-            if (layout.mode === "entity" && layout.tailEnd && layout.junction) {
+            if (layout.mode === "entity" && layout.junction) {
               const markerPath = pathFromPoints(layout.pathPoints);
-              const hitPath = pathFromPoints([layout.marker, layout.junction, layout.tailEnd]);
               return (
                 <g
                   key={`external-id-${layout.relationshipId}`}
                   className="external-identifier external-identifier-entity"
                   onPointerDown={(event) => handleExternalIdentifierPointerDown(event, layout.relationshipId)}
                 >
-                  <path d={hitPath} fill="none" stroke="transparent" strokeWidth={16} />
+                  <path d={markerPath} fill="none" stroke="transparent" strokeWidth={16} />
                   <path
                     d={markerPath}
                     fill="none"
@@ -2153,15 +2196,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                  />
-                  <line
-                    x1={layout.junction.x}
-                    y1={layout.junction.y}
-                    x2={layout.tailEnd.x}
-                    y2={layout.tailEnd.y}
-                    stroke={DIAGRAM_STROKE}
-                    strokeWidth={2}
-                    strokeLinecap="round"
                   />
                   <circle
                     cx={layout.junction.x}
@@ -2178,6 +2212,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={2}
+                    onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
                   />
                 </g>
               );
@@ -2249,6 +2284,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   fill={DIAGRAM_STROKE}
                   stroke={DIAGRAM_STROKE}
                   strokeWidth={2}
+                  onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
                 />
               </g>
             );
