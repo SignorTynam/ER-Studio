@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.0.0";
+export const APP_VERSION = "3.1.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,19 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.1.0",
+    date: "2026-04-07",
+    updates: [
+      "UI contestuale rifinita: onboarding guidato alla prima apertura con step reali (crea entita, collega, rinomina).",
+      "Toolbar piu focalizzata: azioni contestuali mostrate in base alla selezione anche con pannello strumenti chiuso.",
+      "Rimosse le azioni duplicate tra barra contestuale e inspector embedded, con meno rumore durante l'editing.",
+      "Messaggi di errore uniformati nel formato unico: cosa e successo, perche, e come risolvere in una sola frase.",
+      "Export PNG corretto: risoluzione esplicita delle variabili CSS del canvas per evitare immagini nere o incomplete.",
+      "Introdotti autosalvataggio locale e ripristino sessione automatico dopo chiusura o crash.",
+      "Ripristino workspace esteso a diagramma ER, vista logica, viewport/selezioni, bozza ERS e stato pannelli.",
+    ],
+  },
   {
     version: "3.0.0",
     date: "2026-03-29",
