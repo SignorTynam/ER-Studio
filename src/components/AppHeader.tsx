@@ -155,7 +155,6 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className={props.focusMode ? "app-header focus-mode" : "app-header"}>
       <div className="app-title-block">
-        <div className="app-eyebrow">Workspace ER</div>
         <div className="app-title-inline">
           <h1>{props.appTitle}</h1>
           <div className="app-version-pill">v{props.appVersion}</div>
@@ -165,7 +164,6 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-switches">
         <div className="header-control-group">
-          <div className="header-group-label">Vista</div>
           <div className="mode-switch mode-switch-primary" role="group" aria-label="Vista diagramma">
             <button
               className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
@@ -185,7 +183,6 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
 
         <div className="header-control-group">
-          <div className="header-group-label">Modalita</div>
           <div className="mode-switch mode-switch-secondary" role="group" aria-label="Modalita editor">
             <button
               className={props.mode === "edit" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
@@ -209,7 +206,6 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-utility-bar">
         <div className="header-control-group header-control-group-actions">
-          <div className="header-group-label">Azioni</div>
           <div className="header-quick-actions" role="group" aria-label="Azioni rapide workspace">
             <button
               type="button"
@@ -273,7 +269,6 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
 
         <div className="header-control-group header-control-group-menu">
-          <div className="header-group-label">Workspace</div>
           <nav ref={navRef} className="header-nav" aria-label="Azioni secondarie">
             <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
               <summary>Menu</summary>
