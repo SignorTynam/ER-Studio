@@ -100,7 +100,7 @@ function getSelectionHeading(
 
 export function InspectorPanel(props: InspectorPanelProps) {
   const isEmbedded = props.embedded === true;
-  const showQuickActions = props.hideQuickActions !== true;
+  const showQuickActions = props.hideQuickActions !== true && !isEmbedded;
   const isCollapsed = props.collapsed === true && !isEmbedded;
   const canEdit = props.mode !== "view";
   const selectedNodeCount = props.selection.nodeIds.length;
