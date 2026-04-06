@@ -458,6 +458,7 @@ export function Toolbar(props: ToolbarProps) {
       {showInlineInspector ? (
         <InspectorPanel
           embedded
+          hideQuickActions
           diagram={props.diagram}
           selection={props.selection}
           mode={props.mode}

@@ -19,6 +19,7 @@ interface InspectorPanelProps {
   issues: ValidationIssue[];
   collapsed?: boolean;
   embedded?: boolean;
+  hideQuickActions?: boolean;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
@@ -99,6 +100,7 @@ function getSelectionHeading(
 
 export function InspectorPanel(props: InspectorPanelProps) {
   const isEmbedded = props.embedded === true;
+  const showQuickActions = props.hideQuickActions !== true;
   const isCollapsed = props.collapsed === true && !isEmbedded;
   const canEdit = props.mode !== "view";
   const selectedNodeCount = props.selection.nodeIds.length;
@@ -199,6 +201,10 @@ export function InspectorPanel(props: InspectorPanelProps) {
   }
 
   function renderSelectionActions() {
+    if (!showQuickActions) {
+      return null;
+    }
+
     return (
       <section className="context-card">
         <div className="context-card-title">Azioni rapide</div>
@@ -231,30 +237,32 @@ export function InspectorPanel(props: InspectorPanelProps) {
   function renderMultiSelection() {
     return (
       <>
-        <section className="context-card">
-          <div className="context-card-title">Azioni di gruppo</div>
-          <div className="action-grid">
-            <button type="button" onClick={() => props.onAlign("left")} disabled={!canAlign}>
-              Allinea a sinistra
-            </button>
-            <button type="button" onClick={() => props.onAlign("center")} disabled={!canAlign}>
-              Allinea al centro
-            </button>
-            <button type="button" onClick={() => props.onAlign("top")} disabled={!canAlign}>
-              Allinea in alto
-            </button>
-            <button type="button" onClick={() => props.onAlign("middle")} disabled={!canAlign}>
-              Allinea a meta
-            </button>
-            <button type="button" onClick={props.onDuplicateSelection} disabled={!canEdit}>
-              Duplica selezione
-            </button>
-            <button type="button" onClick={props.onDeleteSelection} disabled={!canEdit}>
-              Elimina selezione
-            </button>
-          </div>
-          {!canAlign ? <p className="action-hint">Servono almeno due nodi per usare gli allineamenti.</p> : null}
-        </section>
+        {showQuickActions ? (
+          <section className="context-card">
+            <div className="context-card-title">Azioni di gruppo</div>
+            <div className="action-grid">
+              <button type="button" onClick={() => props.onAlign("left")} disabled={!canAlign}>
+                Allinea a sinistra
+              </button>
+              <button type="button" onClick={() => props.onAlign("center")} disabled={!canAlign}>
+                Allinea al centro
+              </button>
+              <button type="button" onClick={() => props.onAlign("top")} disabled={!canAlign}>
+                Allinea in alto
+              </button>
+              <button type="button" onClick={() => props.onAlign("middle")} disabled={!canAlign}>
+                Allinea a meta
+              </button>
+              <button type="button" onClick={props.onDuplicateSelection} disabled={!canEdit}>
+                Duplica selezione
+              </button>
+              <button type="button" onClick={props.onDeleteSelection} disabled={!canEdit}>
+                Elimina selezione
+              </button>
+            </div>
+            {!canAlign ? <p className="action-hint">Servono almeno due nodi per usare gli allineamenti.</p> : null}
+          </section>
+        ) : null}
 
         {canConfigureCompositeInternal ? (
           <section className="context-card">
