@@ -110,6 +110,49 @@ interface OnboardingProgress {
 type AppSurface = "studio" | "code-tutorial";
 type DiagramWorkspaceView = "er" | "logical";
 
+interface WorkspaceSessionSnapshot {
+  version: 1;
+  savedAt: string;
+  diagram: DiagramDocument;
+  logicalModel: LogicalModel;
+  logicalGenerated: boolean;
+  logicalSourceSignature: string;
+  surface: AppSurface;
+  diagramView: DiagramWorkspaceView;
+  tool: ToolKind;
+  mode: EditorMode;
+  viewport: Viewport;
+  selection: SelectionState;
+  logicalViewport: Viewport;
+  logicalSelection: LogicalSelection;
+  codeDraft: string;
+  codeDirty: boolean;
+  toolbarCollapsed: boolean;
+  focusMode: boolean;
+  toolbarWidth: number;
+}
+
+interface WorkspaceSessionBootstrap {
+  diagram: DiagramDocument;
+  logicalModel: LogicalModel;
+  logicalGenerated: boolean;
+  logicalSourceSignature: string;
+  surface: AppSurface;
+  diagramView: DiagramWorkspaceView;
+  tool: ToolKind;
+  mode: EditorMode;
+  viewport: Viewport;
+  selection: SelectionState;
+  logicalViewport: Viewport;
+  logicalSelection: LogicalSelection;
+  codeDraft: string;
+  codeDirty: boolean;
+  toolbarCollapsed: boolean;
+  focusMode: boolean;
+  toolbarWidth: number;
+  restored: boolean;
+}
+
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
 const CANCELLATION_PATTERNS = [/annullat[oa]/i, /rimoss[oa]/i, /eliminat[oa]/i, /cancellat[oa]/i] as const;
 const WARNING_PATTERNS = [
@@ -142,6 +185,172 @@ const MIN_TOOLBAR_WIDTH = 180;
 const MAX_TOOLBAR_WIDTH = 320;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
+const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v1";
+const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
+const TOOL_KIND_VALUES: ToolKind[] = [
+  "move",
+  "select",
+  "delete",
+  "entity",
+  "relationship",
+  "attribute",
+  "connector",
+  "inheritance",
+  "text",
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function sanitizeViewport(value: unknown, fallback: Viewport): Viewport {
+  if (!isRecord(value)) {
+    return { ...fallback };
+  }
+
+  const x = typeof value.x === "number" && Number.isFinite(value.x) ? value.x : fallback.x;
+  const y = typeof value.y === "number" && Number.isFinite(value.y) ? value.y : fallback.y;
+  const zoom = typeof value.zoom === "number" && Number.isFinite(value.zoom) && value.zoom > 0 ? value.zoom : fallback.zoom;
+  return { x, y, zoom };
+}
+
+function sanitizeSelectionState(value: unknown): SelectionState {
+  if (!isRecord(value)) {
+    return { nodeIds: [], edgeIds: [] };
+  }
+
+  const nodeIds = Array.isArray(value.nodeIds) ? value.nodeIds.filter((nodeId): nodeId is string => typeof nodeId === "string") : [];
+  const edgeIds = Array.isArray(value.edgeIds) ? value.edgeIds.filter((edgeId): edgeId is string => typeof edgeId === "string") : [];
+  return { nodeIds, edgeIds };
+}
+
+function sanitizeLogicalSelectionState(value: unknown): LogicalSelection {
+  if (!isRecord(value)) {
+    return { ...EMPTY_LOGICAL_SELECTION };
+  }
+
+  return {
+    tableId: typeof value.tableId === "string" ? value.tableId : null,
+    columnId: typeof value.columnId === "string" ? value.columnId : null,
+    edgeId: typeof value.edgeId === "string" ? value.edgeId : null,
+  };
+}
+
+function sanitizeToolKind(value: unknown): ToolKind {
+  if (typeof value === "string" && TOOL_KIND_VALUES.includes(value as ToolKind)) {
+    return value as ToolKind;
+  }
+
+  return "select";
+}
+
+function sanitizeLogicalModel(value: unknown): LogicalModel {
+  const fallback = createEmptyLogicalModel("modello-logico");
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const candidate = value as Partial<LogicalModel>;
+  const meta = candidate.meta;
+  if (
+    !isRecord(meta) ||
+    typeof meta.name !== "string" ||
+    typeof meta.generatedAt !== "string" ||
+    typeof meta.sourceDiagramVersion !== "number" ||
+    typeof meta.sourceSignature !== "string" ||
+    !Array.isArray(candidate.tables) ||
+    !Array.isArray(candidate.foreignKeys) ||
+    !Array.isArray(candidate.edges) ||
+    !Array.isArray(candidate.issues)
+  ) {
+    return fallback;
+  }
+
+  return candidate as LogicalModel;
+}
+
+function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
+  const diagram = createExampleDiagram();
+  return {
+    diagram,
+    logicalModel: createEmptyLogicalModel("modello-logico"),
+    logicalGenerated: false,
+    logicalSourceSignature: "",
+    surface: "studio",
+    diagramView: "er",
+    tool: "select",
+    mode: "edit",
+    viewport: { ...DEFAULT_VIEWPORT },
+    selection: { nodeIds: [], edgeIds: [] },
+    logicalViewport: { ...DEFAULT_VIEWPORT },
+    logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+    codeDraft: serializeDiagramToErs(diagram),
+    codeDirty: false,
+    toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
+    focusMode: false,
+    toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
+    restored: false,
+  };
+}
+
+function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
+  const fallback = createDefaultWorkspaceSessionBootstrap();
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
+    if (!raw) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed) || parsed.version !== 1) {
+      return fallback;
+    }
+
+    const storedDiagram = parseDiagram(JSON.stringify(parsed.diagram));
+    const storedViewport = sanitizeViewport(parsed.viewport, DEFAULT_VIEWPORT);
+    const storedLogicalViewport = sanitizeViewport(parsed.logicalViewport, DEFAULT_VIEWPORT);
+    const storedSelection = sanitizeSelectionState(parsed.selection);
+    const storedLogicalSelection = sanitizeLogicalSelectionState(parsed.logicalSelection);
+    const storedSurface: AppSurface = parsed.surface === "code-tutorial" ? "code-tutorial" : "studio";
+    const storedDiagramView: DiagramWorkspaceView = parsed.diagramView === "logical" ? "logical" : "er";
+    const storedMode: EditorMode = parsed.mode === "view" ? "view" : "edit";
+    const storedTool = sanitizeToolKind(parsed.tool);
+    const storedCodeDraft =
+      typeof parsed.codeDraft === "string" && parsed.codeDraft.trim().length > 0
+        ? parsed.codeDraft
+        : serializeDiagramToErs(storedDiagram);
+
+    return {
+      diagram: storedDiagram,
+      logicalModel: sanitizeLogicalModel(parsed.logicalModel),
+      logicalGenerated: parsed.logicalGenerated === true,
+      logicalSourceSignature: typeof parsed.logicalSourceSignature === "string" ? parsed.logicalSourceSignature : "",
+      surface: storedSurface,
+      diagramView: storedDiagramView,
+      tool: storedTool,
+      mode: storedMode,
+      viewport: storedViewport,
+      selection: storedSelection,
+      logicalViewport: storedLogicalViewport,
+      logicalSelection: storedLogicalSelection,
+      codeDraft: storedCodeDraft,
+      codeDirty: parsed.codeDirty === true,
+      toolbarCollapsed: typeof parsed.toolbarCollapsed === "boolean" ? parsed.toolbarCollapsed : fallback.toolbarCollapsed,
+      focusMode: typeof parsed.focusMode === "boolean" ? parsed.focusMode : false,
+      toolbarWidth:
+        typeof parsed.toolbarWidth === "number" && Number.isFinite(parsed.toolbarWidth)
+          ? parsed.toolbarWidth
+          : fallback.toolbarWidth,
+      restored: true,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 function normalizeMessagePart(value: string): string {
   return value.trim().replace(/\s+/g, " ").replace(/[;:,.!?]+$/g, "");
@@ -601,22 +810,31 @@ function getNextAttributePosition(
 }
 
 export default function App() {
-  const initialDiagramRef = useRef<DiagramDocument>(createExampleDiagram());
+  const sessionBootstrapRef = useRef<WorkspaceSessionBootstrap | null>(null);
+  if (!sessionBootstrapRef.current) {
+    sessionBootstrapRef.current = readWorkspaceSessionBootstrap();
+  }
+  const sessionBootstrap = sessionBootstrapRef.current;
+
+  const initialDiagramRef = useRef<DiagramDocument>(sessionBootstrap.diagram);
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
-  const initialLogicalModelRef = useRef<LogicalModel>(createEmptyLogicalModel("modello-logico"));
+  const initialLogicalModelRef = useRef<LogicalModel>(sessionBootstrap.logicalModel);
   const logicalHistory = useHistory<LogicalModel>(initialLogicalModelRef.current);
-  const initialSerializedCode = serializeDiagramToErs(initialDiagramRef.current);
-  const [surface, setSurface] = useState<AppSurface>("studio");
-  const [diagramView, setDiagramView] = useState<DiagramWorkspaceView>("er");
-  const [tool, setTool] = useState<ToolKind>("select");
-  const [mode, setMode] = useState<EditorMode>("edit");
-  const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeIds: [] });
-  const [logicalViewport, setLogicalViewport] = useState<Viewport>(DEFAULT_VIEWPORT);
-  const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(EMPTY_LOGICAL_SELECTION);
+  const initialSerializedCode = sessionBootstrap.codeDraft;
+  const [surface, setSurface] = useState<AppSurface>(sessionBootstrap.surface);
+  const [diagramView, setDiagramView] = useState<DiagramWorkspaceView>(sessionBootstrap.diagramView);
+  const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
+  const [mode, setMode] = useState<EditorMode>(sessionBootstrap.mode);
+  const [viewport, setViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.viewport }));
+  const [selection, setSelection] = useState<SelectionState>(() => ({
+    nodeIds: [...sessionBootstrap.selection.nodeIds],
+    edgeIds: [...sessionBootstrap.selection.edgeIds],
+  }));
+  const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
+  const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
-  const [logicalGenerated, setLogicalGenerated] = useState(false);
-  const [logicalSourceSignature, setLogicalSourceSignature] = useState("");
+  const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
+  const [logicalSourceSignature, setLogicalSourceSignature] = useState(sessionBootstrap.logicalSourceSignature);
   const [statusMessage, setStatusMessage] = useState("");
   const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -627,12 +845,12 @@ export default function App() {
   const [promptValue, setPromptValue] = useState("");
   const [promptError, setPromptError] = useState("");
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
-  const [codeDirty, setCodeDirty] = useState(false);
+  const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
   const [codeError, setCodeError] = useState("");
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(INITIAL_WINDOW_WIDTH < 1460);
-  const [focusMode, setFocusMode] = useState(false);
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
+  const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
-  const [toolbarWidth, setToolbarWidth] = useState(DEFAULT_TOOLBAR_WIDTH);
+  const [toolbarWidth, setToolbarWidth] = useState(sessionBootstrap.toolbarWidth);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -661,6 +879,8 @@ export default function App() {
     startWidth: number;
   } | null>(null);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
+  const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
+  const restoredSessionNoticeShownRef = useRef(false);
 
   const issues = validateDiagram(history.present);
   const selectedNode =
@@ -717,6 +937,23 @@ export default function App() {
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
+  function persistWorkspaceSessionNow() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const snapshot = latestSessionSnapshotRef.current;
+    if (!snapshot) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Ignore storage errors and keep the app usable.
+    }
+  }
+
   useEffect(() => {
     if (!statusMessage || isSourceSelectionPendingMessage(statusMessage)) {
       return;
@@ -728,6 +965,16 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, [statusMessage]);
+
+  useEffect(() => {
+    if (!sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
+      return;
+    }
+
+    restoredSessionNoticeShownRef.current = true;
+    setStatusMessage("Sessione precedente ripristinata automaticamente.");
+    showSuccessNotice("Sessione precedente ripristinata automaticamente.");
+  }, [sessionBootstrap.restored]);
 
   useEffect(() => {
     if (!selectedWarningIssue) {
@@ -745,7 +992,83 @@ export default function App() {
   }, [history.present, codeDraft]);
 
   useEffect(() => {
+    latestSessionSnapshotRef.current = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      diagram: history.present,
+      logicalModel: logicalHistory.present,
+      logicalGenerated,
+      logicalSourceSignature,
+      surface,
+      diagramView,
+      tool,
+      mode,
+      viewport: { ...viewport },
+      selection: {
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+      },
+      logicalViewport: { ...logicalViewport },
+      logicalSelection: { ...logicalSelection },
+      codeDraft: codeDraftRef.current,
+      codeDirty: codeDirtyRef.current,
+      toolbarCollapsed,
+      focusMode,
+      toolbarWidth,
+    };
+  }, [
+    codeDraft,
+    codeDirty,
+    diagramView,
+    focusMode,
+    history.present,
+    logicalGenerated,
+    logicalHistory.present,
+    logicalSelection,
+    logicalSourceSignature,
+    logicalViewport,
+    mode,
+    selection,
+    surface,
+    tool,
+    toolbarCollapsed,
+    toolbarWidth,
+    viewport,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      persistWorkspaceSessionNow();
+    }, WORKSPACE_SESSION_SAVE_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    codeDraft,
+    codeDirty,
+    diagramView,
+    focusMode,
+    history.present,
+    logicalGenerated,
+    logicalHistory.present,
+    logicalSelection,
+    logicalSourceSignature,
+    logicalViewport,
+    mode,
+    selection,
+    surface,
+    tool,
+    toolbarCollapsed,
+    toolbarWidth,
+    viewport,
+  ]);
+
+  useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
+      persistWorkspaceSessionNow();
       if (!hasUnsavedChangesRef.current) {
         return;
       }
@@ -754,8 +1077,24 @@ export default function App() {
       event.returnValue = "";
     }
 
+    function handlePageHide() {
+      persistWorkspaceSessionNow();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        persistWorkspaceSessionNow();
+      }
+    }
+
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -790,6 +1129,10 @@ export default function App() {
       return;
     }
 
+    if (sessionBootstrap.restored) {
+      return;
+    }
+
     setOnboardingStepState({
       entityCreated: false,
       relationshipCreated: false,
@@ -799,7 +1142,7 @@ export default function App() {
     onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
     setOnboardingOpen(true);
     setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
-  }, [diagramView, onboardingOpen, surface]);
+  }, [diagramView, onboardingOpen, sessionBootstrap.restored, surface]);
 
   useEffect(() => {
     if (!onboardingOpen) {
