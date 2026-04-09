@@ -533,7 +533,7 @@ export function validateExternalIdentifier(
     reason,
     message: buildExternalIdentifierInvalidationMessage(
       relationship.label,
-      context?.sourceEntityLabel,
+      context?.targetEntityLabel ?? context?.sourceEntityLabel,
       reason,
     ),
   });
@@ -557,7 +557,7 @@ export function validateExternalIdentifier(
   }
 
   if (!relationship.externalIdentifierTargetEntityId) {
-    return fail("manca il riferimento all'entita esterna identificante", {
+    return fail("manca il riferimento all'entita dipendente target", {
       sourceEntityId: sourceEntity.id,
       sourceEntityLabel: sourceEntity.label,
     });
@@ -565,7 +565,7 @@ export function validateExternalIdentifier(
 
   const targetEntity = nodeMap.get(relationship.externalIdentifierTargetEntityId);
   if (!targetEntity || targetEntity.type !== "entity") {
-    return fail("l'entita esterna identificante e stata rimossa", {
+    return fail("l'entita dipendente target e stata rimossa", {
       sourceEntityId: sourceEntity.id,
       sourceEntityLabel: sourceEntity.label,
     });
@@ -599,10 +599,10 @@ export function validateExternalIdentifier(
     );
   }
 
-  const dependentConnector = participantByEntityId.get(sourceEntity.id);
+  const dependentConnector = participantByEntityId.get(targetEntity.id);
   const dependentCardinality = normalizeCardinality(dependentConnector?.edge.cardinality);
   if (dependentCardinality !== "1,1") {
-    return fail(`la cardinalita sul lato dipendente "${sourceEntity.label}" non e piu (1,1)`, {
+    return fail(`la cardinalita sul lato dipendente "${targetEntity.label}" non e piu (1,1)`, {
       sourceEntityId: sourceEntity.id,
       sourceEntityLabel: sourceEntity.label,
       targetEntityId: targetEntity.id,
@@ -610,9 +610,9 @@ export function validateExternalIdentifier(
     });
   }
 
-  if (!entityHasIdentifierContribution(diagram, targetEntity.id)) {
+  if (!entityHasIdentifierContribution(diagram, sourceEntity.id)) {
     return fail(
-      `l'entita "${targetEntity.label}" non fornisce piu un contributo identificante attivo`,
+      `l'entita "${sourceEntity.label}" non fornisce piu un contributo identificante attivo`,
       {
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
@@ -706,7 +706,7 @@ export function revalidateExternalIdentifiers(
           validation.message ??
           buildExternalIdentifierInvalidationMessage(
             node.label,
-            validation.sourceEntityLabel,
+            validation.targetEntityLabel ?? validation.sourceEntityLabel,
             validation.reason ?? "la dipendenza identificante non e piu soddisfatta",
           ),
       });
