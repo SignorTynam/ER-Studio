@@ -364,6 +364,66 @@ export function alignNodes(
   };
 }
 
+export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]): string[] {
+  if (nodeIds.length === 0) {
+    return [];
+  }
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const attributeEdgesByNode = new Map<string, Array<Extract<DiagramEdge, { type: "attribute" }>>>();
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceList = attributeEdgesByNode.get(edge.sourceId) ?? [];
+    sourceList.push(edge);
+    attributeEdgesByNode.set(edge.sourceId, sourceList);
+
+    const targetList = attributeEdgesByNode.get(edge.targetId) ?? [];
+    targetList.push(edge);
+    attributeEdgesByNode.set(edge.targetId, targetList);
+  });
+
+  const expanded = new Set(nodeIds);
+  const queue: string[] = [];
+  const processedHosts = new Set<string>();
+
+  nodeIds.forEach((nodeId) => {
+    const node = nodeMap.get(nodeId);
+    if (node?.type === "entity" || node?.type === "attribute") {
+      queue.push(nodeId);
+    }
+  });
+
+  while (queue.length > 0) {
+    const hostId = queue.shift() as string;
+    if (processedHosts.has(hostId)) {
+      continue;
+    }
+    processedHosts.add(hostId);
+
+    const connectedAttributeEdges = attributeEdgesByNode.get(hostId) ?? [];
+    connectedAttributeEdges.forEach((edge) => {
+      const otherId = edge.sourceId === hostId ? edge.targetId : edge.sourceId;
+      const otherNode = nodeMap.get(otherId);
+      if (otherNode?.type !== "attribute") {
+        return;
+      }
+
+      if (!expanded.has(otherId)) {
+        expanded.add(otherId);
+      }
+
+      if (!processedHosts.has(otherId)) {
+        queue.push(otherId);
+      }
+    });
+  }
+
+  return Array.from(expanded);
+}
+
 export function serializeDiagram(diagram: DiagramDocument): string {
   return JSON.stringify(diagram, null, 2);
 }

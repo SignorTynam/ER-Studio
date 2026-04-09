@@ -9,6 +9,7 @@ import type {
 } from "react";
 import { DiagramEdgeView } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
+import { expandNodeIdsForMove } from "../utils/diagram";
 import {
   clampZoom,
   clipPointToNodePerimeter,
@@ -1324,7 +1325,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return false;
     }
 
-    const movingNodeIds = new Set(props.selection.nodeIds);
+    const movingNodeIds = new Set(expandNodeIdsForMove(props.diagram, props.selection.nodeIds));
     const nextDiagram = {
       ...props.diagram,
       nodes: props.diagram.nodes.map((node) =>
@@ -1627,7 +1628,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.selection.nodeIds.includes(node.id) && props.selection.nodeIds.length > 0
         ? props.selection.nodeIds
         : [node.id];
-    const nodeIds = selectedNodeIds;
+    const nodeIds = expandNodeIdsForMove(props.diagram, selectedNodeIds);
 
     const originalDiagram = props.diagram;
     const originPositions: Record<string, Point> = {};
