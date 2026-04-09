@@ -150,9 +150,12 @@ const COMPOSITE_INTERNAL_VERTICAL_BULGE = 14;
 const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 8;
 const COMPOSITE_INTERNAL_MARKER_OFFSET = 20;
 const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
-const EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE = 22;
+const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
+const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
+const EXTERNAL_IDENTIFIER_BRANCH_TARGET_DISTANCE = 30;
+const EXTERNAL_IDENTIFIER_BRANCH_MIN_DISTANCE = 22;
+const EXTERNAL_IDENTIFIER_BRANCH_MIN_ATTRIBUTE_CLEARANCE = 26;
 const EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE = 24;
-const EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH = 18;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
 
 interface CompositeGroupPoint {
@@ -175,6 +178,7 @@ interface ExternalIdentifierLayout {
   mode: "entity" | "composite";
   marker: Point;
   pathPoints: Point[];
+  markerStemStart?: Point;
   junction?: Point;
   tailEnd?: Point;
   attributeJunction?: Point;
@@ -352,14 +356,6 @@ function buildCompositePath(points: Point[], orientation: "vertical" | "horizont
   return commands.join(" ");
 }
 
-function getFrameSideFromDirection(direction: Point): FrameSide {
-  if (Math.abs(direction.x) >= Math.abs(direction.y)) {
-    return direction.x >= 0 ? "right" : "left";
-  }
-
-  return direction.y >= 0 ? "bottom" : "top";
-}
-
 function getFrameSidePoint(frame: RouteFrame, side: FrameSide, reference: Point): Point {
   if (side === "left" || side === "right") {
     return {
@@ -487,6 +483,139 @@ function selectFrameRoute(
   }
 
   return clockwise;
+}
+
+function getFrameSideNormal(side: FrameSide): Point {
+  if (side === "left") {
+    return { x: -1, y: 0 };
+  }
+  if (side === "right") {
+    return { x: 1, y: 0 };
+  }
+  if (side === "top") {
+    return { x: 0, y: -1 };
+  }
+
+  return { x: 0, y: 1 };
+}
+
+function resolveFrameSide(bounds: Bounds, anchor: Point, outwardHint: Point): FrameSide {
+  const sideDistances: Array<{ side: FrameSide; distance: number }> = [
+    { side: "left", distance: Math.abs(anchor.x - bounds.x) },
+    { side: "right", distance: Math.abs(anchor.x - (bounds.x + bounds.width)) },
+    { side: "top", distance: Math.abs(anchor.y - bounds.y) },
+    { side: "bottom", distance: Math.abs(anchor.y - (bounds.y + bounds.height)) },
+  ];
+  const minDistance = Math.min(...sideDistances.map((entry) => entry.distance));
+  const candidateSides = sideDistances.filter((entry) => entry.distance <= minDistance + 1.2);
+
+  if (candidateSides.length === 1) {
+    return candidateSides[0].side;
+  }
+
+  const hintLength = Math.hypot(outwardHint.x, outwardHint.y);
+  const normalizedHint =
+    hintLength <= 0.001
+      ? { x: 1, y: 0 }
+      : {
+          x: outwardHint.x / hintLength,
+          y: outwardHint.y / hintLength,
+        };
+
+  let best = candidateSides[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
+  candidateSides.forEach((entry) => {
+    const normal = getFrameSideNormal(entry.side);
+    const score = normal.x * normalizedHint.x + normal.y * normalizedHint.y;
+    if (score > bestScore) {
+      best = entry;
+      bestScore = score;
+    }
+  });
+
+  return best.side;
+}
+
+function offsetPointOnFrameSide(frame: RouteFrame, side: FrameSide, point: Point, offset: number): Point {
+  if (offset === 0) {
+    return point;
+  }
+
+  if (side === "left" || side === "right") {
+    return {
+      x: point.x,
+      y: clampNumber(point.y + offset, frame.top, frame.bottom),
+    };
+  }
+
+  return {
+    x: clampNumber(point.x + offset, frame.left, frame.right),
+    y: point.y,
+  };
+}
+
+function dedupeRoutePoints(points: Point[]): Point[] {
+  return points.filter((point, index) => {
+    if (index === 0) {
+      return true;
+    }
+
+    const previous = points[index - 1];
+    return Math.abs(previous.x - point.x) > 0.001 || Math.abs(previous.y - point.y) > 0.001;
+  });
+}
+
+function pruneTinyRouteSegments(points: Point[], minimumSegmentLength: number): Point[] {
+  const deduped = dedupeRoutePoints(points);
+  if (deduped.length <= 2) {
+    return deduped;
+  }
+
+  const pruned: Point[] = [deduped[0]];
+  for (let index = 1; index < deduped.length - 1; index += 1) {
+    const previous = pruned[pruned.length - 1];
+    const current = deduped[index];
+    const next = deduped[index + 1];
+    const incoming = Math.hypot(current.x - previous.x, current.y - previous.y);
+    const outgoing = Math.hypot(next.x - current.x, next.y - current.y);
+
+    if (incoming < minimumSegmentLength || outgoing < minimumSegmentLength) {
+      continue;
+    }
+
+    pruned.push(current);
+  }
+
+  pruned.push(deduped[deduped.length - 1]);
+  return dedupeRoutePoints(pruned);
+}
+
+function getFirstRouteDirection(points: Point[], fallback: Point): Point {
+  for (let index = 1; index < points.length; index += 1) {
+    const delta = {
+      x: points[index].x - points[index - 1].x,
+      y: points[index].y - points[index - 1].y,
+    };
+    if (Math.hypot(delta.x, delta.y) > 0.001) {
+      return normalizeVector(delta, fallback);
+    }
+  }
+
+  return normalizeVector(fallback);
+}
+
+function getBranchJunctionDistance(branchLength: number): number {
+  if (branchLength <= 0.001) {
+    return 0;
+  }
+
+  const minimumFromEntity = Math.min(EXTERNAL_IDENTIFIER_BRANCH_MIN_DISTANCE, branchLength * 0.75);
+  const maximumFromEntity = Math.max(
+    minimumFromEntity,
+    branchLength - EXTERNAL_IDENTIFIER_BRANCH_MIN_ATTRIBUTE_CLEARANCE,
+  );
+
+  return clampNumber(EXTERNAL_IDENTIFIER_BRANCH_TARGET_DISTANCE, minimumFromEntity, maximumFromEntity);
 }
 
 function normalizeVector(vector: Point, fallback: Point = { x: 1, y: 0 }): Point {
@@ -724,10 +853,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     const targetEntityNode = targetEntity;
-    // External identifier endpoints stay fixed by design.
-    const manualOffset = 0;
-    const markerOffsetX = 0;
-    const markerOffsetY = 0;
+    const manualOffset =
+      typeof node.externalIdentifierOffset === "number" && Number.isFinite(node.externalIdentifierOffset)
+        ? node.externalIdentifierOffset
+        : 0;
+    const markerOffsetX =
+      typeof node.externalIdentifierMarkerOffsetX === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetX)
+        ? node.externalIdentifierMarkerOffsetX
+        : 0;
+    const markerOffsetY =
+      typeof node.externalIdentifierMarkerOffsetY === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetY)
+        ? node.externalIdentifierMarkerOffsetY
+        : 0;
 
     const weakConnector = props.diagram.edges.find(
       (edge) =>
@@ -757,32 +894,30 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       x: weakSideAdjacentPoint.x - weakSidePoint.x,
       y: weakSideAdjacentPoint.y - weakSidePoint.y,
     };
-    const weakLength = Math.hypot(weakDelta.x, weakDelta.y) || 1;
-    const weakDirection = {
-      x: weakDelta.x / weakLength,
-      y: weakDelta.y / weakLength,
+    const weakDirection = normalizeVector(weakDelta, { x: 0, y: -1 });
+    const targetBounds = getNodeBounds(targetEntityNode);
+    const frame: RouteFrame = {
+      left: targetBounds.x - EXTERNAL_IDENTIFIER_FRAME_PADDING,
+      top: targetBounds.y - EXTERNAL_IDENTIFIER_FRAME_PADDING,
+      right: targetBounds.x + targetBounds.width + EXTERNAL_IDENTIFIER_FRAME_PADDING,
+      bottom: targetBounds.y + targetBounds.height + EXTERNAL_IDENTIFIER_FRAME_PADDING,
+      centerX: targetBounds.x + targetBounds.width / 2,
+      centerY: targetBounds.y + targetBounds.height / 2,
     };
+    const relationSide = resolveFrameSide(targetBounds, weakSidePoint, weakDirection);
+    const relationBaseJunction = getFrameSidePoint(frame, relationSide, weakSidePoint);
+    const junction = offsetPointOnFrameSide(frame, relationSide, relationBaseJunction, manualOffset);
+    const relationNormal = getFrameSideNormal(relationSide);
 
     if (node.externalIdentifierMode !== "composite") {
       const targetCenter = getNodeCenter(targetEntityNode);
-      const baseJunction = {
-        x: weakSidePoint.x + weakDirection.x * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
-        y: weakSidePoint.y + weakDirection.y * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
-      };
-      const junction = {
-        x: baseJunction.x,
-        y: baseJunction.y + manualOffset,
-      };
       const sourceAttributeCenter = getNodeCenter(sourceAttribute);
       const baseDirection = normalizeVector(
         {
           x: sourceAttributeCenter.x - junction.x,
           y: sourceAttributeCenter.y - junction.y,
         },
-        {
-          x: -weakDirection.y,
-          y: weakDirection.x,
-        },
+        relationNormal,
       );
       const candidateDirections = [baseDirection, { x: -baseDirection.x, y: -baseDirection.y }];
       const markerCandidates = candidateDirections.map((direction) => {
@@ -843,63 +978,25 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       x: attributeAnchor.x - entityAnchor.x,
       y: attributeAnchor.y - entityAnchor.y,
     };
-    const branchLength = Math.hypot(branchVector.x, branchVector.y) || 1;
-    const branchDirection = {
-      x: branchVector.x / branchLength,
-      y: branchVector.y / branchLength,
-    };
-    const attributeJunctionDistance = Math.min(Math.max(11, branchLength * 0.2), Math.max(8, branchLength - 10));
+    const branchLength = Math.hypot(branchVector.x, branchVector.y);
+    const branchDirection = normalizeVector(branchVector, relationNormal);
+    const attributeJunctionDistance = getBranchJunctionDistance(branchLength);
     const attributeJunction = {
       x: entityAnchor.x + branchDirection.x * attributeJunctionDistance,
       y: entityAnchor.y + branchDirection.y * attributeJunctionDistance,
     };
 
-    const baseJunction = {
-      x: weakSidePoint.x + weakDirection.x * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
-      y: weakSidePoint.y + weakDirection.y * EXTERNAL_IDENTIFIER_ENTITY_ANCHOR_DISTANCE,
-    };
-    const junction = {
-      x: baseJunction.x,
-      y: baseJunction.y + manualOffset,
-    };
-    const mostlyHorizontal = Math.abs(weakDelta.x) >= Math.abs(weakDelta.y);
-    const tailEnd = mostlyHorizontal
-      ? {
-          x: junction.x,
-          y: junction.y + EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH,
-        }
-      : {
-          x: junction.x - EXTERNAL_IDENTIFIER_ENTITY_TAIL_LENGTH,
-          y: junction.y,
-        };
-
-    const frameGap = 16;
-    const frame: RouteFrame = {
-      left: targetEntityNode.x - frameGap,
-      top: targetEntityNode.y - frameGap,
-      right: targetEntityNode.x + targetEntityNode.width + frameGap,
-      bottom: targetEntityNode.y + targetEntityNode.height + frameGap,
-      centerX: targetEntityNode.x + targetEntityNode.width / 2,
-      centerY: targetEntityNode.y + targetEntityNode.height / 2,
-    };
-    const relationSide = getFrameSideFromDirection(weakDirection);
-    const attributeSide = getFrameSideFromDirection(branchDirection);
-    const frameStart = getFrameSidePoint(frame, relationSide, junction);
+    const attributeSide = resolveFrameSide(targetBounds, entityAnchor, branchDirection);
     const frameEnd = getFrameSidePoint(frame, attributeSide, attributeJunction);
-    const frameRoute = selectFrameRoute(frame, relationSide, frameStart, attributeSide, frameEnd);
-    const routePoints = [junction, ...frameRoute, attributeJunction];
-    const baseNormal = {
-      x: -branchDirection.y,
-      y: branchDirection.x,
-    };
-    const towardRelation = {
-      x: junction.x - attributeJunction.x,
-      y: junction.y - attributeJunction.y,
-    };
-    const normalSign = baseNormal.x * towardRelation.x + baseNormal.y * towardRelation.y > 0 ? -1 : 1;
+    const frameRoute = selectFrameRoute(frame, relationSide, junction, attributeSide, frameEnd);
+    const routePoints = pruneTinyRouteSegments(
+      [...frameRoute, attributeJunction],
+      EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH,
+    );
+    const routeDirection = getFirstRouteDirection(routePoints, relationNormal);
     const markerBase = {
-      x: attributeJunction.x + baseNormal.x * normalSign * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
-      y: attributeJunction.y + baseNormal.y * normalSign * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
+      x: junction.x - routeDirection.x * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
+      y: junction.y - routeDirection.y * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
     };
     const marker = {
       x: markerBase.x + markerOffsetX,
@@ -911,8 +1008,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       mode: "composite",
       marker,
       pathPoints: routePoints,
+      markerStemStart: junction,
       junction,
-      tailEnd,
+      tailEnd: weakSidePoint,
       attributeJunction,
     });
   });
@@ -2260,16 +2358,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   <circle
                     cx={layout.attributeJunction.x}
                     cy={layout.attributeJunction.y}
-                    r={4.1}
+                    r={3.9}
                     fill={DIAGRAM_STROKE}
                     stroke={DIAGRAM_STROKE}
                     strokeWidth={1.1}
                   />
                 ) : null}
-                {layout.attributeJunction ? (
+                {layout.markerStemStart ? (
                   <line
-                    x1={layout.attributeJunction.x}
-                    y1={layout.attributeJunction.y}
+                    x1={layout.markerStemStart.x}
+                    y1={layout.markerStemStart.y}
                     x2={layout.marker.x}
                     y2={layout.marker.y}
                     stroke={DIAGRAM_STROKE}
