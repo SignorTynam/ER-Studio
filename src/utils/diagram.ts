@@ -79,19 +79,72 @@ function createId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function getDefaultLabel(nodeType: NodeKind): string {
-  switch (nodeType) {
-    case "entity":
-      return "Nuova entità";
-    case "relationship":
-      return "Nuova relazione";
-    case "attribute":
-      return "Nuovo attributo";
-    case "text":
-      return "Testo";
-    default:
-      return "Elemento";
+const NODE_ID_PREFIX_BY_TYPE: Record<NodeKind, string> = {
+  entity: "entity",
+  relationship: "relationship",
+  attribute: "attribute",
+  text: "text",
+};
+
+const NODE_LABEL_PREFIX_BY_TYPE: Record<NodeKind, string> = {
+  entity: "ENTITA",
+  relationship: "RELAZIONE",
+  attribute: "ATTRIBUTO",
+  text: "TESTO",
+};
+
+function parseTrailingIndex(value: string, prefix: string): number | null {
+  const normalizedValue = value.trim().toLowerCase();
+  const normalizedPrefix = prefix.trim().toLowerCase();
+  if (!normalizedValue.startsWith(normalizedPrefix)) {
+    return null;
   }
+
+  const suffix = normalizedValue.slice(normalizedPrefix.length);
+  if (!/^\d+$/.test(suffix)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(suffix, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getNextNodeIndex(diagram: DiagramDocument, nodeType: NodeKind): number {
+  const idPrefix = NODE_ID_PREFIX_BY_TYPE[nodeType];
+  const labelPrefix = NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+  let maxIndex = 0;
+
+  for (const node of diagram.nodes) {
+    if (node.type !== nodeType) {
+      continue;
+    }
+
+    const idIndex = parseTrailingIndex(node.id, idPrefix);
+    if (idIndex !== null) {
+      maxIndex = Math.max(maxIndex, idIndex);
+    }
+
+    const labelIndex = parseTrailingIndex(node.label, labelPrefix);
+    if (labelIndex !== null) {
+      maxIndex = Math.max(maxIndex, labelIndex);
+    }
+  }
+
+  return maxIndex + 1;
+}
+
+function createDefaultNodeIdentity(
+  nodeType: NodeKind,
+  diagram: DiagramDocument,
+): { id: string; label: string } {
+  const nextIndex = getNextNodeIndex(diagram, nodeType);
+  const idPrefix = NODE_ID_PREFIX_BY_TYPE[nodeType];
+  const labelPrefix = NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+
+  return {
+    id: `${idPrefix}${nextIndex}`,
+    label: `${labelPrefix}${nextIndex}`,
+  };
 }
 
 function getNodeSize(nodeType: NodeKind) {
@@ -120,17 +173,22 @@ export function createEmptyDiagram(name = "Diagramma ER"): DiagramDocument {
   };
 }
 
-export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
+export function createNode(
+  nodeType: NodeKind,
+  position: Point,
+  diagram: DiagramDocument,
+): DiagramNode {
   const size = getNodeSize(nodeType);
   const snappedCenter = snapPoint(position);
   const x = snapValue(snappedCenter.x - size.width / 2, GRID_SIZE);
   const y = snapValue(snappedCenter.y - size.height / 2, GRID_SIZE);
+  const defaultIdentity = createDefaultNodeIdentity(nodeType, diagram);
 
   if (nodeType === "attribute") {
     return {
-      id: createId(nodeType),
+      id: defaultIdentity.id,
       type: nodeType,
-      label: getDefaultLabel(nodeType),
+      label: defaultIdentity.label,
       x,
       y,
       width: size.width,
@@ -143,9 +201,9 @@ export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
 
   if (nodeType === "entity") {
     return {
-      id: createId(nodeType),
+      id: defaultIdentity.id,
       type: nodeType,
-      label: getDefaultLabel(nodeType),
+      label: defaultIdentity.label,
       x,
       y,
       width: size.width,
@@ -155,9 +213,9 @@ export function createNode(nodeType: NodeKind, position: Point): DiagramNode {
   }
 
   return {
-    id: createId(nodeType),
+    id: defaultIdentity.id,
     type: nodeType,
-    label: getDefaultLabel(nodeType),
+    label: defaultIdentity.label,
     x,
     y,
     width: size.width,

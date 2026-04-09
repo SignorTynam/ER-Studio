@@ -473,18 +473,18 @@ function isDefaultNodeLabel(node: DiagramNode): boolean {
   const normalizedLabel = normalizeLabel(node.label);
 
   if (node.type === "entity") {
-    return normalizedLabel.startsWith("nuova entita");
+    return normalizedLabel.startsWith("nuova entita") || /^entita\d+$/.test(normalizedLabel);
   }
 
   if (node.type === "relationship") {
-    return normalizedLabel.startsWith("nuova relazione");
+    return normalizedLabel.startsWith("nuova relazione") || /^relazione\d+$/.test(normalizedLabel);
   }
 
   if (node.type === "attribute") {
-    return normalizedLabel.startsWith("nuovo attributo");
+    return normalizedLabel.startsWith("nuovo attributo") || /^attributo\d+$/.test(normalizedLabel);
   }
 
-  return normalizedLabel === "testo";
+  return normalizedLabel === "testo" || /^testo\d+$/.test(normalizedLabel);
 }
 
 function createOnboardingSnapshot(diagram: DiagramDocument): OnboardingSnapshot {
@@ -2110,7 +2110,7 @@ export default function App() {
     nodeType: Extract<ToolKind, "entity" | "relationship" | "attribute" | "text">,
     point: Point,
   ) {
-    const nextNode = createNode(nodeType, point);
+    const nextNode = createNode(nodeType, point, history.present);
     const nextDiagram = {
       ...history.present,
       nodes: [...history.present.nodes, nextNode],
@@ -2339,7 +2339,10 @@ export default function App() {
       return;
     }
 
-    const draftAttribute = createNode("attribute", { x: 0, y: 0 }) as Extract<DiagramNode, { type: "attribute" }>;
+    const draftAttribute = createNode("attribute", { x: 0, y: 0 }, history.present) as Extract<
+      DiagramNode,
+      { type: "attribute" }
+    >;
     const nextAttribute = {
       ...draftAttribute,
       ...getNextAttributePosition(history.present, hostNode, draftAttribute),
