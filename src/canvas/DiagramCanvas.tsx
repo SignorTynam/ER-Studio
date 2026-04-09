@@ -2341,10 +2341,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   <circle
                     cx={layout.marker.x}
                     cy={layout.marker.y}
-                    r={8}
-                    fill={DIAGRAM_STROKE}
-                    stroke={DIAGRAM_STROKE}
-                    strokeWidth={2}
+                    r={10}
+                    fill="transparent"
+                    stroke="none"
+                    pointerEvents="all"
                     onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
                   />
                 </g>
@@ -2402,10 +2402,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 <circle
                   cx={layout.marker.x}
                   cy={layout.marker.y}
-                  r={8}
-                  fill={DIAGRAM_STROKE}
-                  stroke={DIAGRAM_STROKE}
-                  strokeWidth={2}
+                  r={10}
+                  fill="transparent"
+                  stroke="none"
+                  pointerEvents="all"
                   onPointerDown={(event) => handleExternalIdentifierMarkerPointerDown(event, layout.relationshipId)}
                 />
               </g>
