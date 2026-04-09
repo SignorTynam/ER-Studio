@@ -2168,7 +2168,7 @@ export default function App() {
       return { success: false, message: "Collegamento gia presente." };
     }
 
-    const nextEdge = createEdge(type, resolvedSourceId, resolvedTargetId);
+    const nextEdge = createEdge(type, resolvedSourceId, resolvedTargetId, history.present);
     const nextDiagramBase = {
       ...history.present,
       edges: [...history.present.edges, nextEdge],
@@ -2347,7 +2347,7 @@ export default function App() {
       ...draftAttribute,
       ...getNextAttributePosition(history.present, hostNode, draftAttribute),
     };
-    const nextEdge = createEdge("attribute", nextAttribute.id, hostNode.id);
+    const nextEdge = createEdge("attribute", nextAttribute.id, hostNode.id, history.present);
     const nextDiagramBase: DiagramDocument = {
       ...history.present,
       nodes: [...history.present.nodes, nextAttribute],

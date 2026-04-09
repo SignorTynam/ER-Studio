@@ -93,6 +93,17 @@ const NODE_LABEL_PREFIX_BY_TYPE: Record<NodeKind, string> = {
   text: "TESTO",
 };
 
+const EDGE_ID_PREFIX_BY_TYPE: Record<EdgeKind, string> = {
+  connector: "connector",
+  attribute: "attributeLink",
+  inheritance: "inheritance",
+};
+
+const EDGE_LABEL_PREFIX_BY_TYPE: Partial<Record<EdgeKind, string>> = {
+  connector: "COLLEGAMENTO",
+  attribute: "COLLEGAMENTO_ATTRIBUTO",
+};
+
 function parseTrailingIndex(value: string, prefix: string): number | null {
   const normalizedValue = value.trim().toLowerCase();
   const normalizedPrefix = prefix.trim().toLowerCase();
@@ -144,6 +155,46 @@ function createDefaultNodeIdentity(
   return {
     id: `${idPrefix}${nextIndex}`,
     label: `${labelPrefix}${nextIndex}`,
+  };
+}
+
+function getNextEdgeIndex(diagram: DiagramDocument, edgeType: EdgeKind): number {
+  const idPrefix = EDGE_ID_PREFIX_BY_TYPE[edgeType];
+  const labelPrefix = EDGE_LABEL_PREFIX_BY_TYPE[edgeType];
+  let maxIndex = 0;
+
+  for (const edge of diagram.edges) {
+    if (edge.type !== edgeType) {
+      continue;
+    }
+
+    const idIndex = parseTrailingIndex(edge.id, idPrefix);
+    if (idIndex !== null) {
+      maxIndex = Math.max(maxIndex, idIndex);
+    }
+
+    if (labelPrefix) {
+      const labelIndex = parseTrailingIndex(edge.label, labelPrefix);
+      if (labelIndex !== null) {
+        maxIndex = Math.max(maxIndex, labelIndex);
+      }
+    }
+  }
+
+  return maxIndex + 1;
+}
+
+function createDefaultEdgeIdentity(
+  edgeType: EdgeKind,
+  diagram: DiagramDocument,
+): { id: string; label: string } {
+  const nextIndex = getNextEdgeIndex(diagram, edgeType);
+  const idPrefix = EDGE_ID_PREFIX_BY_TYPE[edgeType];
+  const labelPrefix = EDGE_LABEL_PREFIX_BY_TYPE[edgeType];
+
+  return {
+    id: `${idPrefix}${nextIndex}`,
+    label: labelPrefix ? `${labelPrefix}${nextIndex}` : "",
   };
 }
 
@@ -227,25 +278,28 @@ export function createEdge(
   edgeType: EdgeKind,
   sourceId: string,
   targetId: string,
+  diagram: DiagramDocument,
 ): DiagramEdge {
+  const defaultIdentity = createDefaultEdgeIdentity(edgeType, diagram);
+
   if (edgeType === "connector") {
     return {
-      id: createId(edgeType),
+      id: defaultIdentity.id,
       type: edgeType,
       sourceId,
       targetId,
-      label: "",
+      label: defaultIdentity.label,
       lineStyle: "solid",
       cardinality: CONNECTOR_CARDINALITY_PLACEHOLDER,
     };
   }
 
   return {
-    id: createId(edgeType),
+    id: defaultIdentity.id,
     type: edgeType,
     sourceId,
     targetId,
-    label: "",
+    label: defaultIdentity.label,
     lineStyle: "solid",
   } as DiagramEdge;
 }

@@ -483,17 +483,18 @@ export function InspectorPanel(props: InspectorPanelProps) {
               </label>
             ) : null}
 
+            <label className="field">
+              <span>Nome collegamento</span>
+              <input
+                value={edge.label}
+                disabled={!canEdit}
+                placeholder="Etichetta opzionale"
+                onChange={(event) => props.onEdgeChange(edge.id, { label: event.target.value })}
+              />
+            </label>
+
             {edge.type === "inheritance" ? (
               <>
-                <label className="field">
-                  <span>Nome collegamento</span>
-                  <input
-                    value={edge.label}
-                    disabled={!canEdit}
-                    placeholder="Etichetta opzionale"
-                    onChange={(event) => props.onEdgeChange(edge.id, { label: event.target.value })}
-                  />
-                </label>
                 <label className="field">
                   <span>Vincolo ISA</span>
                   <select
