@@ -83,25 +83,6 @@ function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, c
   );
 }
 
-function offsetPolyline(points: Point[], offset: number): Point[] {
-  if (points.length < 2 || offset === 0) {
-    return points;
-  }
-
-  const start = points[0];
-  const end = points[points.length - 1];
-  const deltaX = end.x - start.x;
-  const deltaY = end.y - start.y;
-  const length = Math.hypot(deltaX, deltaY) || 1;
-  const normalX = (-deltaY / length) * offset;
-  const normalY = (deltaX / length) * offset;
-
-  return points.map((point) => ({
-    x: point.x + normalX,
-    y: point.y + normalY,
-  }));
-}
-
 function getInheritanceConstraintLabel(edge: Extract<DiagramEdge, { type: "inheritance" }>): string {
   const parts: string[] = [];
 
@@ -124,10 +105,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const isGhost = props.ghost === true;
   const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
-  const secondaryPathData =
-    props.edge.type === "inheritance" && props.edge.isaCompleteness === "total"
-      ? pathFromPoints(offsetPolyline(geometry.points, 6))
-      : "";
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const connectorCardinality =
     props.edge.type === "connector" ? props.edge.cardinality?.trim() || "(X,Y)" : "";
@@ -150,7 +127,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const baseOpacity = isGhost ? 0.58 : 1;
   const labelOpacity = isGhost ? 0.72 : 1;
   const primaryDashArray = isGhost ? "10 8" : dashArray;
-  const secondaryDashArray = isGhost ? "10 8" : dashArray;
   const groupClassName = isGhost ? "diagram-edge ghost" : props.selected ? "diagram-edge selected" : "diagram-edge";
   const groupTabIndex = !isGhost && props.focusable ? 0 : -1;
   const groupFocusable = !isGhost && props.focusable ? "true" : "false";
@@ -188,18 +164,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           strokeLinecap="round"
           strokeLinejoin="round"
           opacity={0.62}
-        />
-      ) : null}
-      {secondaryPathData ? (
-        <path
-          d={secondaryPathData}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth={isGhost ? 1.4 : 1.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray={secondaryDashArray}
-          opacity={baseOpacity}
         />
       ) : null}
       <path

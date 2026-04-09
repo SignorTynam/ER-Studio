@@ -482,9 +482,10 @@ export function getEdgeGeometry(
       getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, attributeLaneOffset),
     ]);
   } else {
-    const shouldUseStraightConnector =
-      edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0;
-    const logicalPoints = shouldUseStraightConnector
+    const shouldUseStraightRoute =
+      edge.type === "inheritance" ||
+      (edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0);
+    const logicalPoints = shouldUseStraightRoute
       ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
       : buildOrthogonalPoints(
           getNodeLogicalAnchor(sourceNode),
