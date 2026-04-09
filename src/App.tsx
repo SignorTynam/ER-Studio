@@ -29,8 +29,10 @@ import {
   createNode,
   duplicateSelection,
   edgeAlreadyExists,
+  type ExternalIdentifierInvalidation,
   findNode,
   getMultivaluedAttributeSize,
+  revalidateExternalIdentifiers,
   parseDiagram,
   removeSelection,
   serializeDiagram,
@@ -1575,6 +1577,30 @@ export default function App() {
     showWarningNotice(message);
   }
 
+  function reportExternalIdentifierInvalidations(
+    invalidations: ExternalIdentifierInvalidation[],
+    mode: "status" | "notice",
+  ) {
+    if (invalidations.length === 0) {
+      return;
+    }
+
+    const primary = invalidations[0];
+    if (primary) {
+      if (mode === "status") {
+        setStatusWarning(primary.message);
+      } else {
+        showWarningNotice(primary.message);
+      }
+    }
+
+    if (invalidations.length > 1) {
+      showWarningNotice(
+        `${invalidations.length - 1} identificator${invalidations.length - 1 === 1 ? "e esterno e stato" : "i esterni sono stati"} invalidat${invalidations.length - 1 === 1 ? "o" : "i"} automaticamente.`,
+      );
+    }
+  }
+
   function setStatusError(message: string) {
     const normalizedError = formatErrorFromRawMessage(message);
     setStatusMessage(normalizedError);
@@ -1696,13 +1722,16 @@ export default function App() {
     nextDiagram: DiagramDocument,
     status: string,
   ) {
-    history.commit(nextDiagram, history.present);
-    syncCodeDraftWithDiagram(nextDiagram);
-    markDocumentBaseline(nextDiagram);
+    const normalizedIncoming = revalidateExternalIdentifiers(nextDiagram);
+    const normalizedCurrent = revalidateExternalIdentifiers(history.present);
+    history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    syncCodeDraftWithDiagram(normalizedIncoming.diagram);
+    markDocumentBaseline(normalizedIncoming.diagram);
     setSelection({ nodeIds: [], edgeIds: [] });
     setViewport(DEFAULT_VIEWPORT);
     setTool("select");
     setStatus(status);
+    reportExternalIdentifierInvalidations(normalizedIncoming.invalidations, "notice");
   }
 
   function updateCodeDraft(nextCode: string) {
@@ -1727,7 +1756,9 @@ export default function App() {
         const parsedSerialized = serializeDiagramToErs(parsed);
 
         if (parsedSerialized !== lastSerializedCodeRef.current) {
-          history.commit(parsed, history.present);
+          const normalizedParsed = revalidateExternalIdentifiers(parsed).diagram;
+          const normalizedCurrent = revalidateExternalIdentifiers(history.present).diagram;
+          history.commit(normalizedParsed, normalizedCurrent);
         }
 
         if (codeError) {
@@ -1892,8 +1923,27 @@ export default function App() {
     whatsNewOpen,
   ]);
 
-  function commitDiagram(nextDiagram: DiagramDocument, previousDiagram?: DiagramDocument) {
-    history.commit(nextDiagram, previousDiagram);
+  function commitDiagram(
+    nextDiagram: DiagramDocument,
+    previousDiagram?: DiagramDocument,
+    options?: { suppressExternalIdentifierWarnings?: boolean },
+  ): DiagramDocument {
+    const normalizedNext = revalidateExternalIdentifiers(nextDiagram);
+    const normalizedPrevious = previousDiagram
+      ? revalidateExternalIdentifiers(previousDiagram).diagram
+      : undefined;
+
+    history.commit(normalizedNext.diagram, normalizedPrevious);
+    if (!options?.suppressExternalIdentifierWarnings) {
+      reportExternalIdentifierInvalidations(normalizedNext.invalidations, "notice");
+    }
+
+    return normalizedNext.diagram;
+  }
+
+  function handlePreviewDiagram(nextDiagram: DiagramDocument) {
+    const normalized = revalidateExternalIdentifiers(nextDiagram);
+    history.setPresent(normalized.diagram);
   }
 
   function handleModeChange(nextMode: EditorMode) {
@@ -2252,6 +2302,21 @@ export default function App() {
       externalIdentifierTargetEntityId: targetEntity.id,
       externalIdentifierTargetAttributeId: targetAttributeId,
     } as Partial<DiagramNode>);
+
+    const externalIdentifierCheck = revalidateExternalIdentifiers(nextDiagram);
+    const blockedInvalidation = externalIdentifierCheck.invalidations.find(
+      (invalidation) => invalidation.relationshipId === relationship.id,
+    );
+    if (blockedInvalidation) {
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          blockedInvalidation.reason,
+          "ripristina i prerequisiti identificanti e riprova",
+        ),
+      };
+    }
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [relationship.id], edgeIds: [] });
@@ -3023,7 +3088,7 @@ export default function App() {
                   svgRef={svgRef}
                   onViewportChange={setViewport}
                   onSelectionChange={setSelection}
-                  onPreviewDiagram={history.setPresent}
+                  onPreviewDiagram={handlePreviewDiagram}
                   onCommitDiagram={commitDiagram}
                   onCreateNode={handleCreateNode}
                   onCreateEdge={handleCreateEdge}

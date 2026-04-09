@@ -23,6 +23,34 @@ const MULTIVALUED_ATTRIBUTE_HEIGHT = 52;
 const MULTIVALUED_ATTRIBUTE_HORIZONTAL_PADDING = 46;
 const MULTIVALUED_ATTRIBUTE_CHAR_WIDTH = 8;
 
+type RelationshipNode = Extract<DiagramNode, { type: "relationship" }>;
+type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
+type EntityNode = Extract<DiagramNode, { type: "entity" }>;
+type ConnectorEdge = Extract<DiagramEdge, { type: "connector" }>;
+
+export interface ExternalIdentifierValidationResult {
+  valid: boolean;
+  relationshipId: string;
+  relationshipLabel: string;
+  sourceEntityId?: string;
+  sourceEntityLabel?: string;
+  targetEntityId?: string;
+  targetEntityLabel?: string;
+  reason?: string;
+  message?: string;
+}
+
+export interface ExternalIdentifierInvalidation {
+  relationshipId: string;
+  relationshipLabel: string;
+  sourceEntityId?: string;
+  sourceEntityLabel?: string;
+  targetEntityId?: string;
+  targetEntityLabel?: string;
+  reason: string;
+  message: string;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -367,6 +395,345 @@ function normalizeCardinality(value: string | undefined): string {
     .replace(":", ",");
 }
 
+function relationshipHasExternalIdentifierMetadata(node: RelationshipNode): boolean {
+  return (
+    node.isExternalIdentifier === true ||
+    node.externalIdentifierMode !== undefined ||
+    node.externalIdentifierSourceAttributeId !== undefined ||
+    node.externalIdentifierTargetEntityId !== undefined ||
+    node.externalIdentifierTargetAttributeId !== undefined ||
+    node.externalIdentifierOffset !== undefined ||
+    node.externalIdentifierMarkerOffsetX !== undefined ||
+    node.externalIdentifierMarkerOffsetY !== undefined
+  );
+}
+
+function clearExternalIdentifierMetadata(node: RelationshipNode): RelationshipNode {
+  return {
+    ...node,
+    isExternalIdentifier: false,
+    externalIdentifierMode: undefined,
+    externalIdentifierSourceAttributeId: undefined,
+    externalIdentifierTargetEntityId: undefined,
+    externalIdentifierTargetAttributeId: undefined,
+    externalIdentifierOffset: undefined,
+    externalIdentifierMarkerOffsetX: undefined,
+    externalIdentifierMarkerOffsetY: undefined,
+  };
+}
+
+function buildExternalIdentifierInvalidationMessage(
+  relationshipLabel: string,
+  sourceEntityLabel: string | undefined,
+  reason: string,
+): string {
+  const target = sourceEntityLabel ? ` su "${sourceEntityLabel}"` : "";
+  return `L'identificatore esterno${target} collegato alla relazione "${relationshipLabel}" non e piu valido perche ${reason}.`;
+}
+
+function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): EntityNode | undefined {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  let currentAttributeId = attributeId;
+
+  while (!visited.has(currentAttributeId)) {
+    visited.add(currentAttributeId);
+    const connectedAttributeEdges = diagram.edges.filter(
+      (edge) =>
+        edge.type === "attribute" &&
+        (edge.sourceId === currentAttributeId || edge.targetId === currentAttributeId),
+    );
+    if (connectedAttributeEdges.length === 0) {
+      return undefined;
+    }
+
+    const edgeWithNonAttributeHost = connectedAttributeEdges.find((edge) => {
+      const hostId = edge.sourceId === currentAttributeId ? edge.targetId : edge.sourceId;
+      const hostNode = nodeMap.get(hostId);
+      return hostNode?.type !== "attribute";
+    });
+    const chosenEdge = edgeWithNonAttributeHost ?? connectedAttributeEdges[0];
+    if (!chosenEdge) {
+      return undefined;
+    }
+
+    const hostId = chosenEdge.sourceId === currentAttributeId ? chosenEdge.targetId : chosenEdge.sourceId;
+    const hostNode = nodeMap.get(hostId);
+    if (!hostNode) {
+      return undefined;
+    }
+
+    if (hostNode.type === "entity") {
+      return hostNode;
+    }
+
+    if (hostNode.type !== "attribute") {
+      return undefined;
+    }
+
+    currentAttributeId = hostNode.id;
+  }
+
+  return undefined;
+}
+
+function entityHasIdentifierContribution(diagram: DiagramDocument, entityId: string): boolean {
+  const identifierAttributes = diagram.nodes.filter(
+    (node): node is AttributeNode =>
+      node.type === "attribute" &&
+      (node.isIdentifier === true || node.isCompositeInternal === true),
+  );
+
+  return identifierAttributes.some((attribute) => findEntityHostForAttribute(diagram, attribute.id)?.id === entityId);
+}
+
+function normalizeRelationshipExternalIdentifierParticipants(
+  diagram: DiagramDocument,
+  relationshipId: string,
+): Array<{ edge: ConnectorEdge; entity: EntityNode }> {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  return diagram.edges
+    .filter(
+      (edge): edge is ConnectorEdge =>
+        edge.type === "connector" && (edge.sourceId === relationshipId || edge.targetId === relationshipId),
+    )
+    .map((edge) => {
+      const entityId = edge.sourceId === relationshipId ? edge.targetId : edge.sourceId;
+      const entityNode = nodeMap.get(entityId);
+      return entityNode?.type === "entity" ? { edge, entity: entityNode } : null;
+    })
+    .filter((candidate): candidate is { edge: ConnectorEdge; entity: EntityNode } => candidate !== null);
+}
+
+export function validateExternalIdentifier(
+  diagram: DiagramDocument,
+  relationship: RelationshipNode,
+): ExternalIdentifierValidationResult {
+  const baseResult: ExternalIdentifierValidationResult = {
+    valid: true,
+    relationshipId: relationship.id,
+    relationshipLabel: relationship.label,
+  };
+
+  if (relationship.isExternalIdentifier !== true) {
+    return baseResult;
+  }
+
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const fail = (
+    reason: string,
+    context?: Pick<
+      ExternalIdentifierValidationResult,
+      "sourceEntityId" | "sourceEntityLabel" | "targetEntityId" | "targetEntityLabel"
+    >,
+  ): ExternalIdentifierValidationResult => ({
+    ...baseResult,
+    ...context,
+    valid: false,
+    reason,
+    message: buildExternalIdentifierInvalidationMessage(
+      relationship.label,
+      context?.sourceEntityLabel,
+      reason,
+    ),
+  });
+
+  if (!relationship.externalIdentifierSourceAttributeId) {
+    return fail("manca il riferimento all'attributo identificatore sorgente");
+  }
+
+  const sourceAttribute = nodeMap.get(relationship.externalIdentifierSourceAttributeId);
+  if (!sourceAttribute || sourceAttribute.type !== "attribute") {
+    return fail("l'attributo identificatore sorgente e stato rimosso");
+  }
+
+  if (sourceAttribute.isIdentifier !== true) {
+    return fail(`l'attributo sorgente "${sourceAttribute.label}" non e piu marcato come identificatore`);
+  }
+
+  const sourceEntity = findEntityHostForAttribute(diagram, sourceAttribute.id);
+  if (!sourceEntity) {
+    return fail(`l'attributo sorgente "${sourceAttribute.label}" non e piu collegato a un'entita`);
+  }
+
+  if (!relationship.externalIdentifierTargetEntityId) {
+    return fail("manca il riferimento all'entita esterna identificante", {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+    });
+  }
+
+  const targetEntity = nodeMap.get(relationship.externalIdentifierTargetEntityId);
+  if (!targetEntity || targetEntity.type !== "entity") {
+    return fail("l'entita esterna identificante e stata rimossa", {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+    });
+  }
+
+  if (sourceEntity.id === targetEntity.id) {
+    return fail("origine e destinazione coincidono sulla stessa entita", {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+      targetEntityId: targetEntity.id,
+      targetEntityLabel: targetEntity.label,
+    });
+  }
+
+  const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationship.id);
+  const participantByEntityId = new Map(participants.map((participant) => [participant.entity.id, participant]));
+  const distinctParticipantIds = new Set(participants.map((participant) => participant.entity.id));
+  if (
+    distinctParticipantIds.size !== 2 ||
+    !participantByEntityId.has(sourceEntity.id) ||
+    !participantByEntityId.has(targetEntity.id)
+  ) {
+    return fail(
+      `la relazione non collega piu in modo coerente "${sourceEntity.label}" e "${targetEntity.label}"`,
+      {
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        targetEntityId: targetEntity.id,
+        targetEntityLabel: targetEntity.label,
+      },
+    );
+  }
+
+  const dependentConnector = participantByEntityId.get(sourceEntity.id);
+  const dependentCardinality = normalizeCardinality(dependentConnector?.edge.cardinality);
+  if (dependentCardinality !== "1,1") {
+    return fail(`la cardinalita sul lato dipendente "${sourceEntity.label}" non e piu (1,1)`, {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+      targetEntityId: targetEntity.id,
+      targetEntityLabel: targetEntity.label,
+    });
+  }
+
+  if (!entityHasIdentifierContribution(diagram, targetEntity.id)) {
+    return fail(
+      `l'entita "${targetEntity.label}" non fornisce piu un contributo identificante attivo`,
+      {
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        targetEntityId: targetEntity.id,
+        targetEntityLabel: targetEntity.label,
+      },
+    );
+  }
+
+  if (relationship.externalIdentifierMode === "composite") {
+    if (!relationship.externalIdentifierTargetAttributeId) {
+      return fail("manca il riferimento all'attributo target della composizione", {
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        targetEntityId: targetEntity.id,
+        targetEntityLabel: targetEntity.label,
+      });
+    }
+
+    const targetAttribute = nodeMap.get(relationship.externalIdentifierTargetAttributeId);
+    if (!targetAttribute || targetAttribute.type !== "attribute") {
+      return fail("l'attributo target della composizione e stato rimosso", {
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        targetEntityId: targetEntity.id,
+        targetEntityLabel: targetEntity.label,
+      });
+    }
+
+    const targetAttributeHost = findEntityHostForAttribute(diagram, targetAttribute.id);
+    if (!targetAttributeHost || targetAttributeHost.id !== targetEntity.id) {
+      return fail(
+        `l'attributo target "${targetAttribute.label}" non appartiene piu a "${targetEntity.label}"`,
+        {
+          sourceEntityId: sourceEntity.id,
+          sourceEntityLabel: sourceEntity.label,
+          targetEntityId: targetEntity.id,
+          targetEntityLabel: targetEntity.label,
+        },
+      );
+    }
+  }
+
+  return {
+    ...baseResult,
+    sourceEntityId: sourceEntity.id,
+    sourceEntityLabel: sourceEntity.label,
+    targetEntityId: targetEntity.id,
+    targetEntityLabel: targetEntity.label,
+  };
+}
+
+export function isExternalIdentifierStillValid(diagram: DiagramDocument, relationshipId: string): boolean {
+  const relationshipNode = diagram.nodes.find(
+    (node): node is RelationshipNode => node.id === relationshipId && node.type === "relationship",
+  );
+  if (!relationshipNode || relationshipNode.isExternalIdentifier !== true) {
+    return false;
+  }
+
+  return validateExternalIdentifier(diagram, relationshipNode).valid;
+}
+
+export function revalidateExternalIdentifiers(
+  diagram: DiagramDocument,
+): { diagram: DiagramDocument; invalidations: ExternalIdentifierInvalidation[] } {
+  const invalidations: ExternalIdentifierInvalidation[] = [];
+  let changed = false;
+
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.type !== "relationship") {
+      return node;
+    }
+
+    if (node.isExternalIdentifier === true) {
+      const validation = validateExternalIdentifier(diagram, node);
+      if (validation.valid) {
+        return node;
+      }
+
+      changed = true;
+      invalidations.push({
+        relationshipId: node.id,
+        relationshipLabel: node.label,
+        sourceEntityId: validation.sourceEntityId,
+        sourceEntityLabel: validation.sourceEntityLabel,
+        targetEntityId: validation.targetEntityId,
+        targetEntityLabel: validation.targetEntityLabel,
+        reason: validation.reason ?? "la dipendenza identificante non e piu soddisfatta",
+        message:
+          validation.message ??
+          buildExternalIdentifierInvalidationMessage(
+            node.label,
+            validation.sourceEntityLabel,
+            validation.reason ?? "la dipendenza identificante non e piu soddisfatta",
+          ),
+      });
+      return clearExternalIdentifierMetadata(node);
+    }
+
+    if (relationshipHasExternalIdentifierMetadata(node)) {
+      changed = true;
+      return clearExternalIdentifierMetadata(node);
+    }
+
+    return node;
+  });
+
+  if (!changed) {
+    return { diagram, invalidations };
+  }
+
+  return {
+    diagram: {
+      ...diagram,
+      nodes: nextNodes,
+    },
+    invalidations,
+  };
+}
+
 export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
   const meta = parsed.meta ?? { name: "Diagramma importato", version: 1 };
@@ -498,7 +865,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
         })
     : [];
 
-  return {
+  const parsedDiagram: DiagramDocument = {
     meta: {
       name: meta.name ?? "Diagramma importato",
       version: meta.version ?? 1,
@@ -506,6 +873,8 @@ export function parseDiagram(rawJson: string): DiagramDocument {
     nodes,
     edges,
   };
+
+  return revalidateExternalIdentifiers(parsedDiagram).diagram;
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
@@ -593,27 +962,17 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       }
 
       if (node.isExternalIdentifier === true) {
-        if (connectors.length !== 2) {
+        const externalValidation = validateExternalIdentifier(diagram, node);
+        if (!externalValidation.valid) {
           issues.push({
-            id: `external-id-arity-${node.id}`,
+            id: `external-id-invalid-${node.id}`,
             level: "warning",
-            message: `La relazione "${node.label}" marcata come identificatore esterno deve avere esattamente due collegamenti con cardinalita coerenti.`,
+            message:
+              externalValidation.message ??
+              `L'identificatore esterno su "${node.label}" non e valido: controlla i legami identificanti.`,
             targetId: node.id,
             targetType: "node",
           });
-        } else {
-          const normalized = connectors.map((edge) => normalizeCardinality(edge.cardinality));
-          const hasOneToOne = normalized.includes("1,1");
-
-          if (!hasOneToOne) {
-            issues.push({
-              id: `external-id-cardinality-${node.id}`,
-              level: "warning",
-              message: `Per l'identificatore esterno su "${node.label}" imposta (1,1) sul lato dipendente; l'altro lato puo avere qualsiasi cardinalita.`,
-              targetId: node.id,
-              targetType: "node",
-            });
-          }
         }
       }
     }
