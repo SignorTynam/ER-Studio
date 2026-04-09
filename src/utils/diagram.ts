@@ -1226,47 +1226,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
     }
   });
 
-  const inheritanceGroups = new Map<string, Array<Extract<DiagramEdge, { type: "inheritance" }>>>();
-  diagram.edges.forEach((edge) => {
-    if (edge.type !== "inheritance") {
-      return;
-    }
-
-    const bucket = inheritanceGroups.get(edge.targetId) ?? [];
-    bucket.push(edge);
-    inheritanceGroups.set(edge.targetId, bucket);
-  });
-
-  inheritanceGroups.forEach((group, superClassId) => {
-    if (group.length < 2) {
-      return;
-    }
-
-    const superClass = diagram.nodes.find((node) => node.id === superClassId);
-    const disjointnessValues = new Set(group.map((edge) => edge.isaDisjointness ?? ""));
-    const completenessValues = new Set(group.map((edge) => edge.isaCompleteness ?? ""));
-
-    if (disjointnessValues.size > 1) {
-      issues.push({
-        id: `inheritance-disjointness-${superClassId}`,
-        level: "warning",
-        message: `Le generalizzazioni verso "${superClass?.label ?? superClassId}" devono condividere lo stesso vincolo disjoint/overlap.`,
-        targetId: group[0].id,
-        targetType: "edge",
-      });
-    }
-
-    if (completenessValues.size > 1) {
-      issues.push({
-        id: `inheritance-completeness-${superClassId}`,
-        level: "warning",
-        message: `Le generalizzazioni verso "${superClass?.label ?? superClassId}" devono condividere lo stesso vincolo total/partial.`,
-        targetId: group[0].id,
-        targetType: "edge",
-      });
-    }
-  });
-
   diagram.edges.forEach((edge) => {
     const sourceNode = diagram.nodes.find((node) => node.id === edge.sourceId);
     const targetNode = diagram.nodes.find((node) => node.id === edge.targetId);

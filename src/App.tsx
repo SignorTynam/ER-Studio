@@ -2542,24 +2542,7 @@ export default function App() {
   }
 
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
-    const currentEdge = history.present.edges.find((edge) => edge.id === edgeId);
-
-    const updatesIsaGroup =
-      currentEdge?.type === "inheritance" &&
-      ("isaDisjointness" in patch || "isaCompleteness" in patch);
-
-    const nextDiagram =
-      updatesIsaGroup && currentEdge
-        ? updateEdgesInDiagram(
-            history.present,
-            history.present.edges
-              .filter(
-                (edge) => edge.type === "inheritance" && edge.targetId === currentEdge.targetId,
-              )
-              .map((edge) => edge.id),
-            patch,
-          )
-        : updateEdgeInDiagram(history.present, edgeId, patch);
+    const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
 
     commitDiagram(nextDiagram);
   }

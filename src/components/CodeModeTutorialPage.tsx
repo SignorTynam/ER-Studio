@@ -83,7 +83,7 @@ const SYNTAX_PATTERNS = [
   {
     title: "Vincoli ISA avanzati",
     code: `inheritance dipendente -> persona disjoint total`,
-    text: "Disjoint/overlap e total/partial vengono condivisi dall'intero set ISA con la stessa superclasse.",
+    text: "Disjoint/overlap e total/partial si impostano su ogni singolo collegamento di generalizzazione.",
   },
 ];
 
