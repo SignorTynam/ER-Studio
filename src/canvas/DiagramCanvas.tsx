@@ -152,9 +152,6 @@ const COMPOSITE_INTERNAL_MARKER_OFFSET = 20;
 const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
-const EXTERNAL_IDENTIFIER_BRANCH_TARGET_DISTANCE = 30;
-const EXTERNAL_IDENTIFIER_BRANCH_MIN_DISTANCE = 22;
-const EXTERNAL_IDENTIFIER_BRANCH_MIN_ATTRIBUTE_CLEARANCE = 26;
 const EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE = 24;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
 
@@ -180,7 +177,6 @@ interface ExternalIdentifierLayout {
   pathPoints: Point[];
   markerStemStart?: Point;
   junction?: Point;
-  tailEnd?: Point;
   attributeJunction?: Point;
 }
 
@@ -554,6 +550,64 @@ function offsetPointOnFrameSide(frame: RouteFrame, side: FrameSide, point: Point
   };
 }
 
+function computeFrameSideLineIntersection(
+  frame: RouteFrame,
+  side: FrameSide,
+  lineStart: Point,
+  lineToward: Point,
+): Point {
+  const deltaX = lineToward.x - lineStart.x;
+  const deltaY = lineToward.y - lineStart.y;
+
+  if (side === "left" || side === "right") {
+    const sideX = side === "left" ? frame.left : frame.right;
+    if (Math.abs(deltaX) <= 0.001) {
+      return getFrameSidePoint(frame, side, lineStart);
+    }
+
+    const t = (sideX - lineStart.x) / deltaX;
+    return {
+      x: sideX,
+      y: clampNumber(lineStart.y + deltaY * t, frame.top, frame.bottom),
+    };
+  }
+
+  const sideY = side === "top" ? frame.top : frame.bottom;
+  if (Math.abs(deltaY) <= 0.001) {
+    return getFrameSidePoint(frame, side, lineStart);
+  }
+
+  const t = (sideY - lineStart.y) / deltaY;
+  return {
+    x: clampNumber(lineStart.x + deltaX * t, frame.left, frame.right),
+    y: sideY,
+  };
+}
+
+function computeTopJunctionPoint(frame: RouteFrame, lineStart: Point, lineToward: Point): Point {
+  return computeFrameSideLineIntersection(frame, "top", lineStart, lineToward);
+}
+
+function computeBottomJunctionPoint(frame: RouteFrame, lineStart: Point, lineToward: Point): Point {
+  return computeFrameSideLineIntersection(frame, "bottom", lineStart, lineToward);
+}
+
+function computeVisibleJunctionPoint(
+  frame: RouteFrame,
+  side: FrameSide,
+  lineStart: Point,
+  lineToward: Point,
+  sideOffset = 0,
+): Point {
+  const basePoint =
+    side === "top"
+      ? computeTopJunctionPoint(frame, lineStart, lineToward)
+      : side === "bottom"
+        ? computeBottomJunctionPoint(frame, lineStart, lineToward)
+        : computeFrameSideLineIntersection(frame, side, lineStart, lineToward);
+  return offsetPointOnFrameSide(frame, side, basePoint, sideOffset);
+}
+
 function dedupeRoutePoints(points: Point[]): Point[] {
   return points.filter((point, index) => {
     if (index === 0) {
@@ -602,20 +656,6 @@ function getFirstRouteDirection(points: Point[], fallback: Point): Point {
   }
 
   return normalizeVector(fallback);
-}
-
-function getBranchJunctionDistance(branchLength: number): number {
-  if (branchLength <= 0.001) {
-    return 0;
-  }
-
-  const minimumFromEntity = Math.min(EXTERNAL_IDENTIFIER_BRANCH_MIN_DISTANCE, branchLength * 0.75);
-  const maximumFromEntity = Math.max(
-    minimumFromEntity,
-    branchLength - EXTERNAL_IDENTIFIER_BRANCH_MIN_ATTRIBUTE_CLEARANCE,
-  );
-
-  return clampNumber(EXTERNAL_IDENTIFIER_BRANCH_TARGET_DISTANCE, minimumFromEntity, maximumFromEntity);
 }
 
 function normalizeVector(vector: Point, fallback: Point = { x: 1, y: 0 }): Point {
@@ -905,8 +945,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       centerY: targetBounds.y + targetBounds.height / 2,
     };
     const relationSide = resolveFrameSide(targetBounds, weakSidePoint, weakDirection);
-    const relationBaseJunction = getFrameSidePoint(frame, relationSide, weakSidePoint);
-    const junction = offsetPointOnFrameSide(frame, relationSide, relationBaseJunction, manualOffset);
+    const junction = computeVisibleJunctionPoint(
+      frame,
+      relationSide,
+      weakSidePoint,
+      weakSideAdjacentPoint,
+      manualOffset,
+    );
     const relationNormal = getFrameSideNormal(relationSide);
 
     if (node.externalIdentifierMode !== "composite") {
@@ -978,21 +1023,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       x: attributeAnchor.x - entityAnchor.x,
       y: attributeAnchor.y - entityAnchor.y,
     };
-    const branchLength = Math.hypot(branchVector.x, branchVector.y);
     const branchDirection = normalizeVector(branchVector, relationNormal);
-    const attributeJunctionDistance = getBranchJunctionDistance(branchLength);
-    const attributeJunction = {
-      x: entityAnchor.x + branchDirection.x * attributeJunctionDistance,
-      y: entityAnchor.y + branchDirection.y * attributeJunctionDistance,
-    };
-
     const attributeSide = resolveFrameSide(targetBounds, entityAnchor, branchDirection);
-    const frameEnd = getFrameSidePoint(frame, attributeSide, attributeJunction);
+    const attributeJunction = computeVisibleJunctionPoint(frame, attributeSide, entityAnchor, attributeAnchor);
+    const frameEnd = attributeJunction;
     const frameRoute = selectFrameRoute(frame, relationSide, junction, attributeSide, frameEnd);
-    const routePoints = pruneTinyRouteSegments(
-      [...frameRoute, attributeJunction],
-      EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH,
-    );
+    const routePoints = pruneTinyRouteSegments(frameRoute, EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH);
     const routeDirection = getFirstRouteDirection(routePoints, relationNormal);
     const markerBase = {
       x: junction.x - routeDirection.x * EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE,
@@ -1010,7 +1046,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       pathPoints: routePoints,
       markerStemStart: junction,
       junction,
-      tailEnd: weakSidePoint,
       attributeJunction,
     });
   });
@@ -2333,17 +2368,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                {layout.junction && layout.tailEnd ? (
-                  <line
-                    x1={layout.junction.x}
-                    y1={layout.junction.y}
-                    x2={layout.tailEnd.x}
-                    y2={layout.tailEnd.y}
-                    stroke={DIAGRAM_STROKE}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  />
-                ) : null}
                 {layout.junction ? (
                   <circle
                     cx={layout.junction.x}
