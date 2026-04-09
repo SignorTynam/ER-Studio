@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.1.0";
+export const APP_VERSION = "3.2.0";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.2.0",
+    date: "2026-04-09",
+    updates: [
+      "Validazione semantica degli identificatori esterni centralizzata nel dominio con invalidazione automatica quando i legami richiesti non sono piu coerenti.",
+      "Sincronizzazione stato/UI sugli identificatori esterni invalidi: cleanup dei metadati residui e avvisi specifici mostrati all'utente durante l'editing.",
+      "Routing grafico degli identificatori esterni rifinito su junction finali reali, con eliminazione di micro-stub e migliore leggibilita dei raccordi.",
+      "Drag entita esteso agli attributi collegati (inclusi attributi identificanti e composti interni) per mantenere la struttura durante lo spostamento.",
+      "Creazione elementi con identita separate: ID tecnico progressivo (`entity1`, `attribute1`, `relationship1`) distinto dal nome visuale (`ENTITA1`, `ATTRIBUTO1`, `RELAZIONE1`).",
+      "Versione applicativa, metadata e documentazione allineati alla release 3.2.0.",
+    ],
+  },
   {
     version: "3.1.0",
     date: "2026-04-07",
