@@ -114,7 +114,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" | "weak" }) {
+function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" | "weak" | "identifier" | "multivalue" | "composite" }) {
   if (kind === "undo") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -168,6 +168,33 @@ function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "d
     );
   }
 
+  if (kind === "identifier") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <circle cx="15" cy="9" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M13 11L5 19v3h3v-2h2v-2h2v-2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "multivalue") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "composite") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
       <circle cx="8" cy="12" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -177,7 +204,7 @@ function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "d
   );
 }
 
-function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge, selectionItemCount?: number) {
+function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge, selectionItemCount?: number, diagram?: DiagramDocument) {
   if (selectedNode) {
     if (selectedNode.type === "entity") {
       return "Entita selezionata";
@@ -188,6 +215,16 @@ function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge,
     }
 
     if (selectedNode.type === "attribute") {
+      if (diagram) {
+        const attributeEdge = diagram.edges.find((edge) => edge.type === "attribute" && (edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id));
+        if (attributeEdge) {
+          const hostId = attributeEdge.sourceId === selectedNode.id ? attributeEdge.targetId : attributeEdge.sourceId;
+          const hostNode = diagram.nodes.find((node) => node.id === hostId);
+          if (hostNode) {
+            return `Attributo di ${hostNode.label.toUpperCase()}`;
+          }
+        }
+      }
       return "Attributo selezionato";
     }
 
@@ -276,6 +313,58 @@ export function Toolbar(props: ToolbarProps) {
                 <span className="tool-label">Entita debole</span>
               </button>
             ) : null}
+            {props.selectedNode && props.selectedNode.type === "attribute" ? (() => {
+              const attrNode = props.selectedNode;
+              const isLinkedToRel = props.diagram.edges.some(edge => {
+                if (edge.type !== "attribute") return false;
+                const isLinked = edge.sourceId === attrNode.id || edge.targetId === attrNode.id;
+                if (!isLinked) return false;
+                const hostId = edge.sourceId === attrNode.id ? edge.targetId : edge.sourceId;
+                const hostNode = props.diagram.nodes.find(node => node.id === hostId);
+                return hostNode?.type === "relationship";
+              });
+
+              return (
+                <>
+                  {!attrNode.isMultivalued && !attrNode.isCompositeInternal && (
+                    <button
+                      type="button"
+                      className={attrNode.isIdentifier ? "toolbar-action-button active" : "toolbar-action-button"}
+                      onClick={() => props.onNodeChange(attrNode.id, { isIdentifier: !attrNode.isIdentifier })}
+                      disabled={!canEdit || isLinkedToRel}
+                      title="Attributo identificatore"
+                    >
+                      <ActionIcon kind="identifier" />
+                      <span className="tool-label">Identificatore</span>
+                    </button>
+                  )}
+                  {!attrNode.isIdentifier && !attrNode.isCompositeInternal && (
+                    <button
+                      type="button"
+                      className={attrNode.isMultivalued ? "toolbar-action-button active" : "toolbar-action-button"}
+                      onClick={() => props.onNodeChange(attrNode.id, { isMultivalued: !attrNode.isMultivalued })}
+                      disabled={!canEdit}
+                      title="Attributo multivalore"
+                    >
+                      <ActionIcon kind="multivalue" />
+                      <span className="tool-label">Multivalore</span>
+                    </button>
+                  )}
+                  {!attrNode.isIdentifier && !attrNode.isMultivalued && (
+                    <button
+                      type="button"
+                      className={attrNode.isCompositeInternal ? "toolbar-action-button active" : "toolbar-action-button"}
+                      onClick={() => props.onNodeChange(attrNode.id, { isCompositeInternal: !attrNode.isCompositeInternal })}
+                      disabled={!canEdit || isLinkedToRel}
+                      title="Parte di identificatore interno"
+                    >
+                      <ActionIcon kind="composite" />
+                      <span className="tool-label">Id. interno</span>
+                    </button>
+                  )}
+                </>
+              );
+            })() : null}
             {props.selectedNode &&
             (props.selectedNode.type === "entity" ||
               props.selectedNode.type === "relationship" ||
@@ -468,7 +557,7 @@ export function Toolbar(props: ToolbarProps) {
       <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
         {!props.collapsed ? (
           <div>
-            <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount)}</div>
+            <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount, props.diagram)}</div>
           </div>
         ) : null}
         <button

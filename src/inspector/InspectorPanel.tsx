@@ -448,75 +448,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     }
 
     if (node.type === "attribute") {
-      return (
-        <>
-          <section className="context-card">
-            <div className="context-card-title">Impostazioni attributo</div>
-            <div className="inspector-stack">
-              {attributeHost ? (
-                <p className="action-hint">
-                  Collegato a <strong>{attributeHost.label}</strong>.
-                </p>
-              ) : null}
-              {!node.isMultivalued && !node.isCompositeInternal && (
-                <label className="field checkbox-field">
-                  <span>Attributo identificatore</span>
-                  <input
-                    type="checkbox"
-                    checked={node.isIdentifier === true}
-                    disabled={!canEdit || selectedAttributeLinkedToRelationship}
-                    onChange={(event) => props.onNodeChange(node.id, { isIdentifier: event.target.checked })}
-                  />
-                </label>
-              )}
-              {!node.isIdentifier && !node.isCompositeInternal && (
-                <label className="field checkbox-field">
-                  <span>Attributo multivalore</span>
-                  <input
-                    type="checkbox"
-                    checked={node.isMultivalued === true}
-                    disabled={!canEdit}
-                    onChange={(event) => props.onNodeChange(node.id, { isMultivalued: event.target.checked })}
-                  />
-                </label>
-              )}
-              {!node.isIdentifier && !node.isMultivalued && (
-                <label className="field checkbox-field">
-                  <span>Parte di identificatore interno</span>
-                  <input
-                    type="checkbox"
-                    checked={node.isCompositeInternal === true}
-                    disabled={!canEdit || selectedAttributeLinkedToRelationship}
-                    onChange={(event) => props.onNodeChange(node.id, { isCompositeInternal: event.target.checked })}
-                  />
-                </label>
-              )}
-              {selectedAttributeLinkedToRelationship ? (
-                <p className="action-hint">
-                  Un attributo collegato a un'associazione non puo essere usato come identificatore.
-                </p>
-              ) : null}
-              {selectedAttributeIsInternalIdentifier ? (
-                <>
-                  <p className="action-hint">
-                    Questo attributo fa parte dell'identificatore interno di <strong>{selectedAttributeEntityHost.label}</strong>.
-                  </p>
-                  <div className="context-action-row">
-                    <button
-                      type="button"
-                      onClick={() => props.onClearInternalIdentifier(selectedAttributeEntityHost.id)}
-                      disabled={!canEdit}
-                    >
-                      Rimuovi identificatore interno
-                    </button>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </section>
-          {renderSelectionActions()}
-        </>
-      );
+      return renderSelectionActions();
     }
 
     return (
