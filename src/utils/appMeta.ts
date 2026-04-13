@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.2.0";
+export const APP_VERSION = "3.3";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,21 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.3",
+    date: "2026-04-13",
+    updates: [
+      "Refactor identificatori interni: ogni entita puo avere piu identificatori interni tramite struttura dedicata `internalIdentifiers`.",
+      "Nuova sezione UI 'Identificatori interni' con flusso completo crea/modifica/elimina e modal di selezione attributi eleggibili.",
+      "Filtraggio attributi consolidato: esclusi multivalore, identificatori semplici e attributi gia usati in altri identificatori interni.",
+      "Sincronizzazione retro-compatibile tra stato moderno e flag legacy attributo (`isIdentifier`, `isCompositeInternal`) con normalizzazione automatica.",
+      "Coerenza flussi legacy/nuovi: i semplici creati da controlli storici vengono allineati nella lista identificatori interni e viceversa.",
+      "Rendering canvas corretto per composti multipli: identificatori interni composti distinti sulla stessa entita non vengono piu fusi in un unico backbone.",
+      "Modal identificatori reso robusto in pannello embedded tramite portal su `document.body`, eliminando clipping e scroll anomalo.",
+      "Nuova guardia cardinalita: gli attributi usati in identificatori interni (semplici o composti) non espongono cardinalita opzionale e i valori non validi vengono rimossi automaticamente.",
+      "Versione applicativa e documentazione allineate alla release 3.3.",
+    ],
+  },
   {
     version: "3.2.0",
     date: "2026-04-09",
