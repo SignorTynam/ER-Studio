@@ -455,14 +455,34 @@ function attachPolylineToNodeBounds(
   return simplifyPoints(points);
 }
 
+function buildNonAttributeLogicalPoints(
+  edge: Exclude<DiagramEdge, Extract<DiagramEdge, { type: "attribute" }>>,
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+  laneInfo?: EdgeLaneInfo,
+): Point[] {
+  const laneCount = laneInfo?.laneCount ?? 1;
+  const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
+  const shouldUseStraightRoute =
+    edge.type === "inheritance" ||
+    (edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0);
+
+  return shouldUseStraightRoute
+    ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
+    : buildOrthogonalPoints(
+        getNodeLogicalAnchor(sourceNode),
+        getNodeLogicalAnchor(targetNode),
+        edge.type,
+        connectorLaneOffset,
+      );
+}
+
 export function getEdgeGeometry(
   edge: DiagramEdge,
   sourceNode: DiagramNode,
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
-  const laneCount = laneInfo?.laneCount ?? 1;
-  const connectorLaneOffset = getParallelLaneOffset(laneInfo) + (edge.manualOffset ?? 0);
   let points: Point[];
 
   if (edge.type === "attribute") {
@@ -482,18 +502,7 @@ export function getEdgeGeometry(
       getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, attributeLaneOffset),
     ]);
   } else {
-    const shouldUseStraightRoute =
-      edge.type === "inheritance" ||
-      (edge.type === "connector" && laneCount === 1 && connectorLaneOffset === 0);
-    const logicalPoints = shouldUseStraightRoute
-      ? [getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode)]
-      : buildOrthogonalPoints(
-          getNodeLogicalAnchor(sourceNode),
-          getNodeLogicalAnchor(targetNode),
-          edge.type,
-          connectorLaneOffset,
-        );
-
+    const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
     points = attachPolylineToNodeBounds(logicalPoints, sourceNode, targetNode);
   }
 
@@ -509,6 +518,15 @@ export function getRenderedEdgeGeometry(
   targetNode: DiagramNode,
   laneInfo?: EdgeLaneInfo,
 ): EdgeGeometry {
+  if (edge.type === "connector") {
+    const points = simplifyPoints(buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo));
+
+    return {
+      points,
+      labelPoint: getPointAlongPolyline(points, 0.5),
+    };
+  }
+
   if (edge.type !== "attribute") {
     return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
   }
