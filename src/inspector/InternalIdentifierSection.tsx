@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -113,7 +114,7 @@ function IdentifierModal({
     setSelected(next);
   }
 
-  return (
+  const modalContent = (
     <div className="help-modal-backdrop" role="dialog" aria-modal="true" aria-label="Identificatore interno">
       <div className="help-modal action-modal">
         <div className="help-modal-head">
@@ -159,6 +160,12 @@ function IdentifierModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return modalContent;
+  }
+
+  return createPortal(modalContent, document.body);
 }
 
 export function InternalIdentifierSection({
