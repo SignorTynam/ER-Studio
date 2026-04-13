@@ -495,19 +495,46 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
   }
 
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const attributeEdgesByNode = new Map<string, Array<Extract<DiagramEdge, { type: "attribute" }>>>();
+  const attributeChildrenByHostId = new Map<string, string[]>();
   diagram.edges.forEach((edge) => {
     if (edge.type !== "attribute") {
       return;
     }
 
-    const sourceList = attributeEdgesByNode.get(edge.sourceId) ?? [];
-    sourceList.push(edge);
-    attributeEdgesByNode.set(edge.sourceId, sourceList);
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
 
-    const targetList = attributeEdgesByNode.get(edge.targetId) ?? [];
-    targetList.push(edge);
-    attributeEdgesByNode.set(edge.targetId, targetList);
+    let hostId: string | null = null;
+    let childId: string | null = null;
+
+    if (sourceNode.type === "attribute" && targetNode.type !== "attribute") {
+      hostId = targetNode.id;
+      childId = sourceNode.id;
+    } else if (targetNode.type === "attribute" && sourceNode.type !== "attribute") {
+      hostId = sourceNode.id;
+      childId = targetNode.id;
+    } else if (sourceNode.type === "attribute" && targetNode.type === "attribute") {
+      if (sourceNode.isMultivalued === true && targetNode.isMultivalued !== true) {
+        hostId = sourceNode.id;
+        childId = targetNode.id;
+      } else {
+        hostId = targetNode.id;
+        childId = sourceNode.id;
+      }
+    }
+
+    if (!hostId || !childId) {
+      return;
+    }
+
+    const children = attributeChildrenByHostId.get(hostId) ?? [];
+    if (!children.includes(childId)) {
+      children.push(childId);
+      attributeChildrenByHostId.set(hostId, children);
+    }
   });
 
   const expanded = new Set(nodeIds);
@@ -516,7 +543,7 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 
   nodeIds.forEach((nodeId) => {
     const node = nodeMap.get(nodeId);
-    if (node?.type === "entity") {
+    if (node?.type === "entity" || (node?.type === "attribute" && node.isMultivalued === true)) {
       queue.push(nodeId);
     }
   });
@@ -528,9 +555,8 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
     }
     processedHosts.add(hostId);
 
-    const connectedAttributeEdges = attributeEdgesByNode.get(hostId) ?? [];
-    connectedAttributeEdges.forEach((edge) => {
-      const otherId = edge.sourceId === hostId ? edge.targetId : edge.sourceId;
+    const childIds = attributeChildrenByHostId.get(hostId) ?? [];
+    childIds.forEach((otherId) => {
       const otherNode = nodeMap.get(otherId);
       if (otherNode?.type !== "attribute") {
         return;
