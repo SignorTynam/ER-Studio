@@ -359,7 +359,7 @@ export function Toolbar(props: ToolbarProps) {
                       title="Parte di identificatore interno"
                     >
                       <ActionIcon kind="composite" />
-                      <span className="tool-label">Id. interno</span>
+                      <span className="tool-label">Identificatore interno</span>
                     </button>
                   )}
                 </>

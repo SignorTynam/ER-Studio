@@ -412,11 +412,11 @@ function applyLaneOffsetToAnchor(
   side: ConnectionSide,
   laneOffset: number,
 ): Point {
-  // Keep clipping clean on diamonds/ellipses; only rectangular bounds get tangential lane offsets.
+  // Keep clipping clean on diamonds/ellipses/simple attributes; only rectangular bounds get tangential lane offsets.
   if (
     laneOffset === 0 ||
     node.type === "relationship" ||
-    (node.type === "attribute" && usesCompositeAttributeShape(node))
+    node.type === "attribute"
   ) {
     return anchor;
   }

@@ -2580,7 +2580,26 @@ export default function App() {
             }
           : patch;
 
-    const nextDiagram = updateNodeInDiagram(history.present, nodeId, nextPatch);
+    let nextDiagram = updateNodeInDiagram(history.present, nodeId, nextPatch);
+
+    if (
+      currentNode?.type === "attribute" &&
+      normalizedAttributePatch.isMultivalued === false &&
+      currentNode.isMultivalued === true
+    ) {
+      const subAttributeIds = history.present.edges
+        .filter((edge) => edge.type === "attribute" && (edge.sourceId === nodeId || edge.targetId === nodeId))
+        .map((edge) => (edge.sourceId === nodeId ? edge.targetId : edge.sourceId))
+        .filter((connectedId) => {
+          const connectedNode = history.present.nodes.find((n) => n.id === connectedId);
+          return connectedNode?.type === "attribute";
+        });
+
+      if (subAttributeIds.length > 0) {
+        nextDiagram = removeSelection(nextDiagram, { nodeIds: subAttributeIds, edgeIds: [] });
+      }
+    }
+
     commitDiagram(nextDiagram);
   }
 
