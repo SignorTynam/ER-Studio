@@ -6338,8 +6338,11 @@ body.workspace-resizing {
   min-height: 0;
   margin: 0;
   padding: 12px 2px 4px 10px;
-  overflow: auto;
-  white-space: pre;
+  overflow-y: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   border: 0;
   outline: none;
   resize: none;

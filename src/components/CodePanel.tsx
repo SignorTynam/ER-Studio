@@ -148,6 +148,7 @@ export function CodePanel(props: CodePanelProps) {
           onScroll={syncGutterScroll}
           placeholder={props.placeholder ?? "Nessun codice disponibile"}
           spellCheck={false}
+          wrap="soft"
           readOnly={isReadOnly}
           aria-label="Editor codice del programma"
         />
