@@ -2366,7 +2366,7 @@ export default function App() {
         : nextDiagramBase;
 
     commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [nextAttribute.id], edgeIds: [] });
+    setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
     setTool("select");
     setStatus(`Attributo collegato a ${hostNode.label}.`);
   }
