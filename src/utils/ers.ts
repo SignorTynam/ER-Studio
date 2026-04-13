@@ -79,6 +79,12 @@ interface StructuredAttributeSpec {
   line: number;
 }
 
+interface StructuredAttributeFlags {
+  isIdentifier: boolean;
+  isCompositeInternal: boolean;
+  isMultivalued: boolean;
+}
+
 interface StructuredConnectionSpec {
   entityAlias: string;
   cardinality?: string;
@@ -460,7 +466,79 @@ function qualifyAttributeAlias(hostAlias: string, localAlias: string): string {
   return `${hostAlias}.${localAlias}`;
 }
 
-function parseStructuredAttributeDeclaration(tokens: string[], line: number): StructuredAttributeSpec {
+function consumeBracketDirectives(tokens: string[], state: { index: number }, line: number): string[] {
+  const firstToken = tokens[state.index];
+  if (!firstToken || !firstToken.startsWith("[")) {
+    return [];
+  }
+
+  const rawTokens: string[] = [];
+  while (state.index < tokens.length) {
+    const token = tokens[state.index];
+    rawTokens.push(token);
+    state.index += 1;
+    if (token.includes("]")) {
+      break;
+    }
+  }
+
+  const rawGroup = rawTokens.join(" ");
+  const openIndex = rawGroup.indexOf("[");
+  const closeIndex = rawGroup.lastIndexOf("]");
+  if (openIndex < 0 || closeIndex < openIndex) {
+    throw new ErsParseError(line, "Sintassi args non valida: manca ] nel blocco attributo.");
+  }
+
+  if (rawGroup.slice(closeIndex + 1).trim().length > 0) {
+    throw new ErsParseError(line, "Sintassi args non valida dopo ].");
+  }
+
+  const content = rawGroup.slice(openIndex + 1, closeIndex).trim();
+  if (!content) {
+    return [];
+  }
+
+  return content
+    .split(/[,\s]+/g)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function applyAttributeDirective(flags: StructuredAttributeFlags, directive: string, line: number): void {
+  const normalized = directive.trim().toLowerCase();
+  switch (normalized) {
+    case "identifier":
+    case "id":
+      flags.isIdentifier = true;
+      return;
+    case "composite":
+    case "compositeinternal":
+      flags.isCompositeInternal = true;
+      return;
+    case "multivalued":
+    case "multi":
+      flags.isMultivalued = true;
+      return;
+    default:
+      throw new ErsParseError(line, `Direttiva attributo non riconosciuta: "${directive}".`);
+  }
+}
+
+function validateStructuredAttributeFlags(flags: StructuredAttributeFlags, line: number): void {
+  if (flags.isIdentifier && flags.isCompositeInternal) {
+    throw new ErsParseError(line, "Un attributo non puo essere sia identifier sia composite.");
+  }
+
+  if (flags.isMultivalued && (flags.isIdentifier || flags.isCompositeInternal)) {
+    throw new ErsParseError(line, "Un attributo multivalued non puo essere anche identifier o composite.");
+  }
+}
+
+function parseStructuredAttributeDeclaration(
+  tokens: string[],
+  line: number,
+  options?: { allowQualifiedAlias?: boolean },
+): StructuredAttributeSpec {
   const keyword = tokens[0];
   if (!["attribute", "identifier", "composite", "multivalued"].includes(keyword)) {
     throw new ErsParseError(line, `Istruzione non valida nel blocco: "${keyword}".`);
@@ -468,40 +546,36 @@ function parseStructuredAttributeDeclaration(tokens: string[], line: number): St
 
   const state = { index: 1 };
   const alias = readIdentifier(tokens, state, line, "Nome attributo mancante.");
-  assertUnqualifiedAlias(alias, line, "Il nome attributo");
+  if (!options?.allowQualifiedAlias) {
+    assertUnqualifiedAlias(alias, line, "Il nome attributo");
+  }
   const label = readStructuredLabel(tokens, state, alias, line);
-  let isIdentifier = keyword === "identifier";
-  let isCompositeInternal = keyword === "composite";
-  let isMultivalued = keyword === "multivalued";
+  const flags: StructuredAttributeFlags = {
+    isIdentifier: keyword === "identifier",
+    isCompositeInternal: keyword === "composite",
+    isMultivalued: keyword === "multivalued",
+  };
 
   while (state.index < tokens.length) {
-    const directive = readIdentifier(tokens, state, line, "Direttiva attributo non valida.");
-
-    switch (directive) {
-      case "identifier":
-        isIdentifier = true;
-        break;
-      case "composite":
-      case "compositeInternal":
-        isCompositeInternal = true;
-        break;
-      case "multivalued":
-        isMultivalued = true;
-        break;
-      default:
-        throw new ErsParseError(line, `Direttiva attributo non riconosciuta: "${directive}".`);
+    if (tokens[state.index]?.startsWith("[")) {
+      const directives = consumeBracketDirectives(tokens, state, line);
+      directives.forEach((directive) => applyAttributeDirective(flags, directive, line));
+      continue;
     }
+
+    const directive = readIdentifier(tokens, state, line, "Direttiva attributo non valida.");
+    applyAttributeDirective(flags, directive, line);
   }
 
-  if (isIdentifier && isCompositeInternal) {
-    throw new ErsParseError(line, "Un attributo non puo essere sia identifier sia composite.");
-  }
-
-  if (isMultivalued && (isIdentifier || isCompositeInternal)) {
-    throw new ErsParseError(line, "Un attributo multivalued non puo essere anche identifier o composite.");
-  }
-
-  return { alias, label, isIdentifier, isCompositeInternal, isMultivalued, line };
+  validateStructuredAttributeFlags(flags, line);
+  return {
+    alias,
+    label,
+    isIdentifier: flags.isIdentifier,
+    isCompositeInternal: flags.isCompositeInternal,
+    isMultivalued: flags.isMultivalued,
+    line,
+  };
 }
 
 function parseStructuredConnections(
@@ -831,7 +905,7 @@ function expandStructuredRelation(
         return;
       }
 
-      if (["attribute", "identifier", "composite"].includes(keyword)) {
+      if (["attribute", "identifier", "composite", "multivalued"].includes(keyword)) {
         relationAttributes.push(parseStructuredAttributeDeclaration(entry.tokens, entry.line));
         return;
       }
@@ -868,43 +942,28 @@ function expandStructuredRelation(
 }
 
 function expandStructuredTopLevelNode(tokens: string[], line: number): string {
-  const state = { index: 1 };
-  const alias = readIdentifier(tokens, state, line, "Nome elemento mancante.");
-  const label = readStructuredLabel(tokens, state, alias, line);
-  const parts = [tokens[0] === "text" ? "text" : "attribute", alias, "label", quoteValue(label)];
-
-  if (tokens[0] !== "text") {
-    const attributeLikeKeyword = tokens[0];
-    if (attributeLikeKeyword === "identifier") {
-      parts.push("identifier");
-    } else if (attributeLikeKeyword === "composite") {
-      parts.push("compositeInternal");
-    } else if (attributeLikeKeyword === "multivalued") {
-      parts.push("multivalued");
+  if (tokens[0] === "text") {
+    const state = { index: 1 };
+    const alias = readIdentifier(tokens, state, line, "Nome elemento mancante.");
+    const label = readStructuredLabel(tokens, state, alias, line);
+    if (state.index < tokens.length) {
+      throw new ErsParseError(line, "Sintassi text non valida.");
     }
 
-    while (state.index < tokens.length) {
-      const directive = readIdentifier(tokens, state, line, "Direttiva attributo non valida.");
-
-      switch (directive) {
-        case "identifier":
-        case "composite":
-          parts.push(directive === "composite" ? "compositeInternal" : directive);
-          break;
-        case "compositeInternal":
-          parts.push(directive);
-          break;
-        case "multivalued":
-          parts.push(directive);
-          break;
-        default:
-          throw new ErsParseError(line, `Direttiva attributo non riconosciuta: "${directive}".`);
-      }
-    }
-  } else if (state.index < tokens.length) {
-    throw new ErsParseError(line, "Sintassi text non valida.");
+    return `text ${alias} label ${quoteValue(label)}`;
   }
 
+  const attribute = parseStructuredAttributeDeclaration(tokens, line, { allowQualifiedAlias: true });
+  const parts = ["attribute", attribute.alias, "label", quoteValue(attribute.label)];
+  if (attribute.isIdentifier) {
+    parts.push("identifier");
+  }
+  if (attribute.isCompositeInternal) {
+    parts.push("compositeInternal");
+  }
+  if (attribute.isMultivalued) {
+    parts.push("multivalued");
+  }
   return parts.join(" ");
 }
 
@@ -985,6 +1044,22 @@ function parseNodeStatement(
   }
 
   while (state.index < tokens.length) {
+    if (tokens[state.index]?.startsWith("[")) {
+      if (node.type !== "attribute") {
+        throw new ErsParseError(line, "La sintassi [args] e valida solo per gli attributi.");
+      }
+
+      const directives = consumeBracketDirectives(tokens, state, line);
+      directives.forEach((directive) =>
+        applyAttributeDirective(
+          node as StructuredAttributeFlags,
+          directive,
+          line,
+        ),
+      );
+      continue;
+    }
+
     const directive = readIdentifier(tokens, state, line, "Direttiva non valida.");
 
     switch (directive) {
@@ -1086,16 +1161,15 @@ function parseNodeStatement(
     }
   }
 
-  if (node.type === "attribute" && node.isIdentifier === true && node.isCompositeInternal === true) {
-    throw new ErsParseError(line, "Un attributo non puo essere sia identifier sia compositeInternal.");
-  }
-
-  if (
-    node.type === "attribute" &&
-    node.isMultivalued === true &&
-    (node.isIdentifier === true || node.isCompositeInternal === true)
-  ) {
-    throw new ErsParseError(line, "Un attributo multivalued non puo essere anche identifier o compositeInternal.");
+  if (node.type === "attribute") {
+    validateStructuredAttributeFlags(
+      {
+        isIdentifier: node.isIdentifier === true,
+        isCompositeInternal: node.isCompositeInternal === true,
+        isMultivalued: node.isMultivalued === true,
+      },
+      line,
+    );
   }
 
   if (node.type === "attribute" && node.isMultivalued === true) {
@@ -1252,36 +1326,43 @@ function getLocalAttributeAlias(
   return qualifiedAlias;
 }
 
+function formatNamedDefinition(keyword: string, alias: string, label: string): string {
+  if (label === alias) {
+    return `${keyword} ${alias}`;
+  }
+
+  return `${keyword} ${alias} ${quoteValue(label)}`;
+}
+
+function buildAttributeArgs(attribute: Extract<DiagramNode, { type: "attribute" }>): string {
+  const args: string[] = [];
+  if (attribute.isIdentifier === true) {
+    args.push("identifier");
+  }
+  if (attribute.isCompositeInternal === true) {
+    args.push("composite");
+  }
+  if (attribute.isMultivalued === true) {
+    args.push("multivalued");
+  }
+
+  return args.length > 0 ? ` [${args.join(", ")}]` : "";
+}
+
 function buildAttributeDeclaration(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   hostAlias: string,
   aliasByNodeId: Map<string, string>,
 ): string {
-  const keyword =
-    attribute.isIdentifier === true
-      ? "identifier"
-      : attribute.isCompositeInternal === true
-        ? "composite"
-        : attribute.isMultivalued === true
-          ? "multivalued"
-          : "attribute";
-  return `  ${keyword} ${getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId)} ${quoteValue(attribute.label)}`;
+  const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
+  return `  ${formatNamedDefinition("attribute", alias, attribute.label)}${buildAttributeArgs(attribute)}`;
 }
 
 function buildStandaloneAttributeLine(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   alias: string,
 ): string {
-  const keyword =
-    attribute.isIdentifier === true
-      ? "identifier"
-      : attribute.isCompositeInternal === true
-        ? "composite"
-        : attribute.isMultivalued === true
-          ? "multivalued"
-          : "attribute";
-
-  return `${keyword} ${alias} ${quoteValue(attribute.label)}`;
+  return `${formatNamedDefinition("attribute", alias, attribute.label)}${buildAttributeArgs(attribute)}`;
 }
 
 function buildNestedAttributeLegacyLines(
@@ -1325,7 +1406,7 @@ function buildEntityBlock(
 ): string[] {
   const entityAlias = aliasByNodeId.get(entity.id) ?? entity.id;
   const lines = [
-    `entity ${entityAlias} ${quoteValue(entity.label)}${entity.isWeak === true ? " weak" : ""} {`,
+    `${formatNamedDefinition("entity", entityAlias, entity.label)}${entity.isWeak === true ? " weak" : ""} {`,
   ];
   const attributes = (attributesByHostId.get(entity.id) ?? [])
     .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
@@ -1369,13 +1450,13 @@ function buildRelationLines(
     relationship.isExternalIdentifier !== true
   ) {
     return [
-      `relation ${relationAlias} ${quoteValue(relationship.label)} ${connectors[0].entityAlias} ${quoteValue(
+      `${formatNamedDefinition("relation", relationAlias, relationship.label)} ${connectors[0].entityAlias} ${quoteValue(
         connectors[0].cardinality,
       )} ${connectors[1].entityAlias} ${quoteValue(connectors[1].cardinality)}`,
     ];
   }
 
-  const lines = [`relation ${relationAlias} ${quoteValue(relationship.label)} {`];
+  const lines = [`${formatNamedDefinition("relation", relationAlias, relationship.label)} {`];
 
   connectors.forEach((connector) => {
     lines.push(`  connect ${connector.entityAlias} ${quoteValue(connector.cardinality)}`);
@@ -1464,7 +1545,7 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   const textLines = [...diagram.nodes]
     .filter((node): node is Extract<DiagramNode, { type: "text" }> => node.type === "text")
     .sort(compareNodes)
-    .map((node) => `text ${aliasByNodeId.get(node.id) ?? node.id} ${quoteValue(node.label)}`);
+    .map((node) => formatNamedDefinition("text", aliasByNodeId.get(node.id) ?? node.id, node.label));
   const inheritanceLines = [...diagram.edges]
     .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
     .sort((left, right) => compareEdges(left, right, aliasByNodeId))
@@ -1510,7 +1591,7 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     textLines.length > 0 ||
     inheritanceLines.length > 0
   ) {
-    sections.push("", "# Extras", ...orphanAttributeLines, ...nestedAttributeLines, ...textLines, ...inheritanceLines);
+    sections.push("", ...orphanAttributeLines, ...nestedAttributeLines, ...textLines, ...inheritanceLines);
   }
 
   return sections.join("\n");
