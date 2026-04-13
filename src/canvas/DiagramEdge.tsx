@@ -1,5 +1,5 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
-import { getEdgeGeometry, pathFromPoints } from "../utils/geometry";
+import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -103,7 +103,7 @@ function getInheritanceConstraintLabel(edge: Extract<DiagramEdge, { type: "inher
 
 export function DiagramEdgeView(props: DiagramEdgeProps) {
   const isGhost = props.ghost === true;
-  const geometry = getEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
+  const geometry = getRenderedEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
   const connectorCardinality =
