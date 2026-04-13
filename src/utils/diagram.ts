@@ -1033,7 +1033,20 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 }
 
 export function serializeDiagram(diagram: DiagramDocument): string {
-  return JSON.stringify(diagram, null, 2);
+  const normalizedDiagram = synchronizeNodeNameIdentity(diagram).diagram;
+  const serializedNodes = normalizedDiagram.nodes.map((node) => {
+    const { label: _unusedLabel, ...nodeWithoutLabel } = node as DiagramNode & { label: string };
+    return nodeWithoutLabel;
+  });
+
+  return JSON.stringify(
+    {
+      ...normalizedDiagram,
+      nodes: serializedNodes,
+    },
+    null,
+    2,
+  );
 }
 
 function isNodeKind(value: string): value is NodeKind {
