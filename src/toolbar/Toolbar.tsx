@@ -463,29 +463,31 @@ export function Toolbar(props: ToolbarProps) {
 
       {!props.collapsed || context !== "empty" ? renderContextActions() : null}
 
-      <section className="toolbar-section">
-        <div className="toolbar-section-label">{context === "empty" ? "Strumenti" : "Strumenti rapidi"}</div>
-        <div className="toolbar-list">
-          {visibleTools.map((item) => {
-            const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
-            return (
-              <button
-                key={item.tool}
-                type="button"
-                className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
-                onClick={() => props.onToolChange(item.tool)}
-                disabled={disabled}
-                title={`${item.label} (${item.shortcut.toUpperCase()})`}
-                aria-label={item.label}
-              >
-                <ToolIcon tool={item.tool} />
-                <span className="tool-label">{item.label}</span>
-                <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {context === "empty" && (
+        <section className="toolbar-section">
+          <div className="toolbar-section-label">Strumenti</div>
+          <div className="toolbar-list">
+            {visibleTools.map((item) => {
+              const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";
+              return (
+                <button
+                  key={item.tool}
+                  type="button"
+                  className={props.activeTool === item.tool ? "tool-button active" : "tool-button"}
+                  onClick={() => props.onToolChange(item.tool)}
+                  disabled={disabled}
+                  title={`${item.label} (${item.shortcut.toUpperCase()})`}
+                  aria-label={item.label}
+                >
+                  <ToolIcon tool={item.tool} />
+                  <span className="tool-label">{item.label}</span>
+                  <span className="tool-shortcut">{item.shortcut.toUpperCase()}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {showInlineInspector ? (
         <InspectorPanel
