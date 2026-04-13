@@ -76,6 +76,11 @@ const SYNTAX_PATTERNS = [
     text: "Usa relation in forma compatta o a blocco. La forma a blocco e piu leggibile quando la relazione cresce.",
   },
   {
+    title: "Identificatori interni composti multipli",
+    code: `entity ordine "ORDINE" {\n  attribute anno "ANNO"\n  attribute numero "NUMERO"\n  attribute serie "SERIE"\n  attribute progressivo "PROGRESSIVO"\n  identifier anno, numero\n  identifier serie, progressivo\n}`,
+    text: "Ogni riga identifier con lista separata da virgole definisce un identificatore interno composto distinto.",
+  },
+  {
     title: "Attributo multivalore con attributi collegati",
     code: `multivalued indirizzo "INDIRIZZO"\nattribute via "Via"\nattribute-link via -> indirizzo`,
     text: "Nel DSL e nel canvas la parola chiave corretta per questo nodo e multivalued.",
@@ -98,7 +103,7 @@ const COMMON_TRAPS = [
   },
   {
     title: "Attributi incompatibili",
-    text: "Un attributo non puo essere insieme identifier, compositeInternal e multivalued. Il parser blocca le combinazioni incoerenti.",
+    text: "Un attributo non puo essere multivalued e membro di un identificatore interno. Inoltre non puo comparire in piu identificatori interni contemporaneamente.",
   },
   {
     title: "Errore temporaneo durante la digitazione",

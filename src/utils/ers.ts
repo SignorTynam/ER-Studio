@@ -3,6 +3,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  InternalIdentifier,
   IsaCompleteness,
   IsaDisjointness,
   LineStyle,
@@ -63,6 +64,12 @@ interface ParsedEdgeSpec {
   cardinality?: string;
   isaDisjointness?: IsaDisjointness;
   isaCompleteness?: IsaCompleteness;
+}
+
+interface ParsedInternalIdentifierSpec {
+  line: number;
+  entityAlias: string;
+  attributeAliases: string[];
 }
 
 interface StructuredExpansion {
@@ -578,6 +585,64 @@ function parseStructuredAttributeDeclaration(
   };
 }
 
+function isStructuredInternalIdentifierGroup(tokens: string[]): boolean {
+  if (!["identifier", "composite"].includes(tokens[0])) {
+    return false;
+  }
+
+  if (tokens.length < 2) {
+    return false;
+  }
+
+  if (tokens.slice(1).some((token) => isQuotedToken(token))) {
+    return false;
+  }
+
+  return tokens.slice(1).join(" ").includes(",");
+}
+
+function parseStructuredInternalIdentifierGroup(tokens: string[], line: number): string[] {
+  if (!isStructuredInternalIdentifierGroup(tokens)) {
+    throw new ErsParseError(line, "Sintassi identifier non valida.");
+  }
+
+  const rawContent = tokens.slice(1).join(" ").trim();
+  const aliases = rawContent
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (aliases.length < 2) {
+    throw new ErsParseError(line, "Un identificatore interno composto richiede almeno due attributi separati da virgola.");
+  }
+
+  aliases.forEach((alias) => assertUnqualifiedAlias(alias, line, "Il nome attributo"));
+  return aliases;
+}
+
+function parseInternalIdentifierStatement(tokens: string[], line: number): ParsedInternalIdentifierSpec {
+  const state = { index: 1 };
+  const entityAlias = readIdentifier(tokens, state, line, "Nome entita identificatore interno mancante.");
+  assertUnqualifiedAlias(entityAlias, line, "Il nome entita");
+
+  const attributeAliases: string[] = [];
+
+  while (state.index < tokens.length) {
+    const attributeAlias = readIdentifier(tokens, state, line, "Attributo identificatore interno mancante.");
+    attributeAliases.push(attributeAlias);
+  }
+
+  if (attributeAliases.length === 0) {
+    throw new ErsParseError(line, "internal-identifier richiede almeno un attributo.");
+  }
+
+  return {
+    line,
+    entityAlias,
+    attributeAliases,
+  };
+}
+
 function parseStructuredConnections(
   tokens: string[],
   state: { index: number },
@@ -821,6 +886,7 @@ function expandStructuredEntity(
   }
 
   const emitted: Array<{ line: number; text: string }> = [{ line, text: entityParts.join(" ") }];
+  const internalIdentifierGroups: Array<{ line: number; aliases: string[] }> = [];
 
   if (!hasBlock) {
     return { nextIndex: startIndex, emitted };
@@ -828,9 +894,25 @@ function expandStructuredEntity(
 
   const { nextIndex, body } = collectStructuredBlockLines(rawLines, startIndex, line, closesInline);
   body.forEach((entry) => {
+    if (isStructuredInternalIdentifierGroup(entry.tokens)) {
+      internalIdentifierGroups.push({
+        line: entry.line,
+        aliases: parseStructuredInternalIdentifierGroup(entry.tokens, entry.line),
+      });
+      return;
+    }
+
     const attribute = parseStructuredAttributeDeclaration(entry.tokens, entry.line);
     emitLegacyAttributeLines(alias, attribute).forEach((text) => {
       emitted.push({ line: attribute.line, text });
+    });
+  });
+
+  internalIdentifierGroups.forEach((group) => {
+    const qualifiedAliases = group.aliases.map((localAlias) => qualifyAttributeAlias(alias, localAlias));
+    emitted.push({
+      line: group.line,
+      text: `internal-identifier ${alias} ${qualifiedAliases.join(" ")}`,
     });
   });
 
@@ -1334,17 +1416,15 @@ function formatNamedDefinition(keyword: string, alias: string, label: string): s
   return `${keyword} ${alias} ${quoteValue(label)}`;
 }
 
-function getAttributeKeyword(attribute: Extract<DiagramNode, { type: "attribute" }>):
+function getAttributeKeyword(
+  attribute: Extract<DiagramNode, { type: "attribute" }>,
+  simpleIdentifierAttributeIds: Set<string>,
+):
   | "attribute"
   | "identifier"
-  | "composite"
   | "multivalued" {
-  if (attribute.isIdentifier === true) {
+  if (simpleIdentifierAttributeIds.has(attribute.id)) {
     return "identifier";
-  }
-
-  if (attribute.isCompositeInternal === true) {
-    return "composite";
   }
 
   if (attribute.isMultivalued === true) {
@@ -1354,20 +1434,86 @@ function getAttributeKeyword(attribute: Extract<DiagramNode, { type: "attribute"
   return "attribute";
 }
 
+function getEntityInternalIdentifierGroups(
+  entity: Extract<DiagramNode, { type: "entity" }>,
+  attributes: Array<Extract<DiagramNode, { type: "attribute" }>>,
+): { simpleAttributeIds: Set<string>; compositeAttributeGroups: string[][] } {
+  const simpleAttributeIds = new Set<string>();
+  const compositeAttributeGroups: string[][] = [];
+
+  const directAttributeIdSet = new Set(attributes.map((attribute) => attribute.id));
+  const explicitIdentifiers = Array.isArray(entity.internalIdentifiers)
+    ? entity.internalIdentifiers.filter(
+        (identifier): identifier is InternalIdentifier =>
+          Array.isArray(identifier.attributeIds) && identifier.attributeIds.length > 0,
+      )
+    : [];
+
+  if (explicitIdentifiers.length > 0) {
+    explicitIdentifiers.forEach((identifier) => {
+      const normalizedAttributeIds = identifier.attributeIds
+        .filter((attributeId) => directAttributeIdSet.has(attributeId))
+        .filter((attributeId, index, source) => source.indexOf(attributeId) === index);
+
+      if (normalizedAttributeIds.length === 1) {
+        simpleAttributeIds.add(normalizedAttributeIds[0]);
+        return;
+      }
+
+      if (normalizedAttributeIds.length > 1) {
+        compositeAttributeGroups.push(normalizedAttributeIds);
+      }
+    });
+
+    return {
+      simpleAttributeIds,
+      compositeAttributeGroups,
+    };
+  }
+
+  attributes
+    .filter((attribute) => attribute.isIdentifier === true)
+    .forEach((attribute) => {
+      simpleAttributeIds.add(attribute.id);
+    });
+
+  const legacyCompositeGroup = attributes
+    .filter((attribute) => attribute.isCompositeInternal === true)
+    .map((attribute) => attribute.id);
+
+  if (legacyCompositeGroup.length > 1) {
+    compositeAttributeGroups.push(legacyCompositeGroup);
+  }
+
+  return {
+    simpleAttributeIds,
+    compositeAttributeGroups,
+  };
+}
+
 function buildAttributeDeclaration(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   hostAlias: string,
   aliasByNodeId: Map<string, string>,
+  simpleIdentifierAttributeIds: Set<string>,
 ): string {
   const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
-  return `  ${formatNamedDefinition(getAttributeKeyword(attribute), alias, attribute.label)}`;
+  return `  ${formatNamedDefinition(
+    getAttributeKeyword(attribute, simpleIdentifierAttributeIds),
+    alias,
+    attribute.label,
+  )}`;
 }
 
 function buildStandaloneAttributeLine(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   alias: string,
 ): string {
-  return `${formatNamedDefinition(getAttributeKeyword(attribute), alias, attribute.label)}`;
+  return `${formatNamedDefinition(
+    getAttributeKeyword(attribute, attribute.isIdentifier === true ? new Set([attribute.id]) : new Set()),
+    alias,
+    attribute.label,
+  )}`;
 }
 
 function buildNestedAttributeLegacyLines(
@@ -1416,9 +1562,22 @@ function buildEntityBlock(
   const attributes = (attributesByHostId.get(entity.id) ?? [])
     .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
     .sort(compareNodes);
+  const attributesById = new Map(attributes.map((attribute) => [attribute.id, attribute]));
+  const { simpleAttributeIds, compositeAttributeGroups } = getEntityInternalIdentifierGroups(entity, attributes);
 
   attributes.forEach((attribute) => {
-    lines.push(buildAttributeDeclaration(attribute, entityAlias, aliasByNodeId));
+    lines.push(buildAttributeDeclaration(attribute, entityAlias, aliasByNodeId, simpleAttributeIds));
+  });
+
+  compositeAttributeGroups.forEach((group) => {
+    const localAliases = group
+      .map((attributeId) => attributesById.get(attributeId))
+      .filter((attribute): attribute is Extract<DiagramNode, { type: "attribute" }> => Boolean(attribute))
+      .map((attribute) => getLocalAttributeAlias(attribute, entityAlias, aliasByNodeId));
+
+    if (localAliases.length > 1) {
+      lines.push(`  identifier ${localAliases.join(", ")}`);
+    }
   });
 
   lines.push("}");
@@ -1448,6 +1607,7 @@ function buildRelationLines(
   const attributes = (attributesByHostId.get(relationship.id) ?? [])
     .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
     .sort(compareNodes);
+  const relationSimpleIdentifierAttributeIds = new Set<string>();
 
   if (
     connectors.length === 2 &&
@@ -1468,7 +1628,9 @@ function buildRelationLines(
   });
 
   attributes.forEach((attribute) => {
-    lines.push(buildAttributeDeclaration(attribute, relationAlias, aliasByNodeId));
+    lines.push(
+      buildAttributeDeclaration(attribute, relationAlias, aliasByNodeId, relationSimpleIdentifierAttributeIds),
+    );
   });
 
   if (relationship.isExternalIdentifier === true) {
@@ -1864,6 +2026,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   const lines = rawSource.split(/\r?\n/);
   const parsedNodes: ParsedNodeSpec[] = [];
   const parsedEdges: ParsedEdgeSpec[] = [];
+  const parsedInternalIdentifiers: ParsedInternalIdentifierSpec[] = [];
   const aliasMap = new Map<string, ParsedNodeSpec>();
   let diagramName = "Diagramma ER";
 
@@ -1920,6 +2083,11 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     if (keyword === "connector" || keyword === "attribute-link" || keyword === "inheritance") {
       const edgeType = keyword === "attribute-link" ? "attribute" : (keyword as EdgeKind);
       parsedEdges.push(parseEdgeStatement(edgeType, tokens, line));
+      return;
+    }
+
+    if (keyword === "internal-identifier" || keyword === "internalIdentifier") {
+      parsedInternalIdentifiers.push(parseInternalIdentifierStatement(tokens, line));
       return;
     }
 
@@ -1983,7 +2151,77 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     };
   });
 
+  const directAttributeIdsByEntityId = new Map<string, Set<string>>();
+  const parsedNodeById = new Map(parsedNodes.map((entry) => [entry.node.id, entry.node]));
+  edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = parsedNodeById.get(edge.sourceId);
+    const targetNode = parsedNodeById.get(edge.targetId);
+
+    if (sourceNode?.type === "entity" && targetNode?.type === "attribute") {
+      const bucket = directAttributeIdsByEntityId.get(sourceNode.id) ?? new Set<string>();
+      bucket.add(targetNode.id);
+      directAttributeIdsByEntityId.set(sourceNode.id, bucket);
+      return;
+    }
+
+    if (targetNode?.type === "entity" && sourceNode?.type === "attribute") {
+      const bucket = directAttributeIdsByEntityId.get(targetNode.id) ?? new Set<string>();
+      bucket.add(sourceNode.id);
+      directAttributeIdsByEntityId.set(targetNode.id, bucket);
+    }
+  });
+
+  const internalIdentifierCountersByEntityId = new Map<string, number>();
+  const internalIdentifiersByEntityId = new Map<string, InternalIdentifier[]>();
+
+  parsedInternalIdentifiers.forEach((spec) => {
+    const entity = resolveNodeAlias(spec.entityAlias, aliasMap, spec.line, "entity");
+    const directAttributeIds = directAttributeIdsByEntityId.get(entity.id) ?? new Set<string>();
+    const attributeIds = spec.attributeAliases
+      .map((attributeAlias) => resolveNodeAlias(attributeAlias, aliasMap, spec.line, "attribute").id)
+      .filter((attributeId, index, source) => source.indexOf(attributeId) === index);
+
+    if (attributeIds.length === 0) {
+      return;
+    }
+
+    const invalidAttributeId = attributeIds.find((attributeId) => !directAttributeIds.has(attributeId));
+    if (invalidAttributeId) {
+      const invalidAlias = spec.attributeAliases[attributeIds.indexOf(invalidAttributeId)] ?? invalidAttributeId;
+      throw new ErsParseError(
+        spec.line,
+        `L'attributo "${invalidAlias}" deve essere collegato direttamente a "${spec.entityAlias}".`,
+      );
+    }
+
+    const nextCounter = (internalIdentifierCountersByEntityId.get(entity.id) ?? 0) + 1;
+    internalIdentifierCountersByEntityId.set(entity.id, nextCounter);
+
+    const nextIdentifiers = internalIdentifiersByEntityId.get(entity.id) ?? [];
+    nextIdentifiers.push({
+      id: `internalIdentifier-ers-${entity.id}-${nextCounter}`,
+      attributeIds,
+    });
+    internalIdentifiersByEntityId.set(entity.id, nextIdentifiers);
+  });
+
   const nodes = parsedNodes.map((entry) => {
+    if (entry.node.type === "entity") {
+      const internalIdentifiers = internalIdentifiersByEntityId.get(entry.node.id);
+      if (internalIdentifiers && internalIdentifiers.length > 0) {
+        return {
+          ...entry.node,
+          internalIdentifiers,
+        };
+      }
+
+      return entry.node;
+    }
+
     if (entry.node.type !== "relationship" || !entry.externalSpec) {
       return entry.node;
     }
