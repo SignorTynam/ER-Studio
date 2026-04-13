@@ -52,6 +52,11 @@ export interface ExternalIdentifierInvalidation {
   message: string;
 }
 
+export interface NodeNameIdentitySyncResult {
+  diagram: DiagramDocument;
+  nodeIdMap: Map<string, string>;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -105,6 +110,136 @@ const EDGE_LABEL_PREFIX_BY_TYPE: Partial<Record<EdgeKind, string>> = {
   attribute: "COLLEGAMENTO_ATTRIBUTO",
 };
 
+function normalizeNodeNameKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function normalizeNodeNameCandidate(value: string | undefined, nodeType: NodeKind): string {
+  const normalized = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+}
+
+function createUniqueNodeName(baseName: string, usedNames: Set<string>): string {
+  const normalizedBase = baseName.trim().replace(/\s+/g, " ");
+  const fallback = normalizedBase.length > 0 ? normalizedBase : "ELEMENTO";
+  const fallbackKey = normalizeNodeNameKey(fallback);
+
+  if (!usedNames.has(fallbackKey)) {
+    usedNames.add(fallbackKey);
+    return fallback;
+  }
+
+  let suffix = 2;
+  while (true) {
+    const candidate = `${fallback}_${suffix}`;
+    const candidateKey = normalizeNodeNameKey(candidate);
+    if (!usedNames.has(candidateKey)) {
+      usedNames.add(candidateKey);
+      return candidate;
+    }
+    suffix += 1;
+  }
+}
+
+function remapNodeReference(nodeIdMap: Map<string, string>, nodeId: string | undefined): string | undefined {
+  if (typeof nodeId !== "string") {
+    return undefined;
+  }
+
+  return nodeIdMap.get(nodeId) ?? nodeId;
+}
+
+function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, string>): DiagramNode {
+  if (node.type === "entity") {
+    if (!Array.isArray(node.internalIdentifiers) || node.internalIdentifiers.length === 0) {
+      return node;
+    }
+
+    return {
+      ...node,
+      internalIdentifiers: node.internalIdentifiers.map((identifier) => ({
+        ...identifier,
+        attributeIds: identifier.attributeIds.map((attributeId) => nodeIdMap.get(attributeId) ?? attributeId),
+      })),
+    };
+  }
+
+  if (node.type === "relationship") {
+    return {
+      ...node,
+      externalIdentifierSourceAttributeId: remapNodeReference(nodeIdMap, node.externalIdentifierSourceAttributeId),
+      externalIdentifierTargetEntityId: remapNodeReference(nodeIdMap, node.externalIdentifierTargetEntityId),
+      externalIdentifierTargetAttributeId: remapNodeReference(nodeIdMap, node.externalIdentifierTargetAttributeId),
+    };
+  }
+
+  return node;
+}
+
+export function synchronizeNodeNameIdentity(
+  diagram: DiagramDocument,
+  preferredNamesByNodeId?: Record<string, string>,
+): NodeNameIdentitySyncResult {
+  const usedNames = new Set<string>();
+  const fullNodeIdMap = new Map<string, string>();
+
+  diagram.nodes.forEach((node) => {
+    const preferredName = preferredNamesByNodeId?.[node.id] ?? node.label ?? node.id;
+    const normalizedPreferredName = normalizeNodeNameCandidate(preferredName, node.type);
+    const uniqueName = createUniqueNodeName(normalizedPreferredName, usedNames);
+    fullNodeIdMap.set(node.id, uniqueName);
+  });
+
+  const nodeIdMap = new Map<string, string>();
+  fullNodeIdMap.forEach((nextId, previousId) => {
+    if (nextId !== previousId) {
+      nodeIdMap.set(previousId, nextId);
+    }
+  });
+
+  const nextNodes = diagram.nodes.map((node) => {
+    const nextNodeId = fullNodeIdMap.get(node.id) ?? node.id;
+    const nextNode = {
+      ...node,
+      id: nextNodeId,
+      label: nextNodeId,
+    } as DiagramNode;
+    return remapNodeScopedMetadata(nextNode, fullNodeIdMap);
+  });
+
+  const nextEdges = diagram.edges.map((edge) => ({
+    ...edge,
+    sourceId: fullNodeIdMap.get(edge.sourceId) ?? edge.sourceId,
+    targetId: fullNodeIdMap.get(edge.targetId) ?? edge.targetId,
+  }));
+
+  return {
+    diagram: {
+      ...diagram,
+      nodes: nextNodes,
+      edges: nextEdges,
+    },
+    nodeIdMap,
+  };
+}
+
+export function renameNodeAsNameIdentity(
+  diagram: DiagramDocument,
+  nodeId: string,
+  nextName: string,
+): NodeNameIdentitySyncResult {
+  return synchronizeNodeNameIdentity(diagram, { [nodeId]: nextName });
+}
+
 function parseTrailingIndex(value: string, prefix: string): number | null {
   const normalizedValue = value.trim().toLowerCase();
   const normalizedPrefix = prefix.trim().toLowerCase();
@@ -150,12 +285,12 @@ function createDefaultNodeIdentity(
   diagram: DiagramDocument,
 ): { id: string; label: string } {
   const nextIndex = getNextNodeIndex(diagram, nodeType);
-  const idPrefix = NODE_ID_PREFIX_BY_TYPE[nodeType];
   const labelPrefix = NODE_LABEL_PREFIX_BY_TYPE[nodeType];
+  const name = `${labelPrefix}${nextIndex}`;
 
   return {
-    id: `${idPrefix}${nextIndex}`,
-    label: `${labelPrefix}${nextIndex}`,
+    id: name,
+    label: name,
   };
 }
 
@@ -742,13 +877,16 @@ export function duplicateSelection(
   }
 
   const idMap = new Map<string, string>();
+  const usedNodeNames = new Set(diagram.nodes.map((node) => normalizeNodeNameKey(node.id)));
   const duplicatedNodes = selectedNodes.map((node) => {
-    const duplicateId = createId(node.type);
+    const baseName = normalizeNodeNameCandidate(node.id, node.type);
+    const duplicateId = createUniqueNodeName(baseName, usedNodeNames);
     idMap.set(node.id, duplicateId);
 
     return {
       ...node,
       id: duplicateId,
+      label: duplicateId,
       x: snapValue(node.x + GRID_SIZE * 2),
       y: snapValue(node.y + GRID_SIZE * 2),
     };
@@ -1274,7 +1412,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
             typeof node === "object" &&
             node !== null &&
             typeof node.id === "string" &&
-            typeof node.label === "string" &&
+            (typeof node.label === "string" || node.label === undefined) &&
             typeof node.x === "number" &&
             typeof node.y === "number" &&
             typeof node.width === "number" &&
@@ -1283,11 +1421,13 @@ export function parseDiagram(rawJson: string): DiagramDocument {
             isNodeKind(node.type),
         )
         .map((node) => {
+          const nodeLabel = typeof node.label === "string" ? node.label : node.id;
           if (node.type === "attribute") {
             const isMultivalued = node.isMultivalued === true;
-            const multivaluedSize = getMultivaluedAttributeSize(node.label);
+            const multivaluedSize = getMultivaluedAttributeSize(nodeLabel);
             return {
               ...node,
+              label: nodeLabel,
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
               isMultivalued,
@@ -1338,6 +1478,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 
             return {
               ...node,
+              label: nodeLabel,
               isWeak: node.isWeak === true,
               internalIdentifiers:
                 parsedInternalIdentifiers.length > 0 ? parsedInternalIdentifiers : undefined,
@@ -1347,6 +1488,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           if (node.type === "relationship") {
             return {
               ...node,
+              label: nodeLabel,
               isExternalIdentifier: node.isExternalIdentifier === true,
               externalIdentifierMode:
                 node.externalIdentifierMode === "entity" || node.externalIdentifierMode === "composite"
@@ -1379,7 +1521,10 @@ export function parseDiagram(rawJson: string): DiagramDocument {
             };
           }
 
-          return node;
+          return {
+            ...node,
+            label: nodeLabel,
+          };
         })
     : [];
   const edges = Array.isArray(parsed.edges)
@@ -1441,7 +1586,8 @@ export function parseDiagram(rawJson: string): DiagramDocument {
     edges,
   };
 
-  const synchronizedDiagram = synchronizeInternalIdentifiers(parsedDiagram);
+  const nodeNameIdentitySynchronized = synchronizeNodeNameIdentity(parsedDiagram).diagram;
+  const synchronizedDiagram = synchronizeInternalIdentifiers(nodeNameIdentitySynchronized);
   return revalidateExternalIdentifiers(synchronizedDiagram).diagram;
 }
 

@@ -35,10 +35,12 @@ import {
   type ExternalIdentifierInvalidation,
   findNode,
   getMultivaluedAttributeSize,
+  renameNodeAsNameIdentity,
   revalidateExternalIdentifiers,
   parseDiagram,
   removeSelection,
   serializeDiagram,
+  synchronizeNodeNameIdentity,
   synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./utils/diagram";
@@ -283,7 +285,7 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
 }
 
 function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
-  const diagram = createExampleDiagram();
+  const diagram = synchronizeNodeNameIdentity(createExampleDiagram()).diagram;
   return {
     diagram,
     logicalModel: createEmptyLogicalModel("modello-logico"),
@@ -1789,8 +1791,12 @@ export default function App() {
     nextDiagram: DiagramDocument,
     status: string,
   ) {
-    const normalizedIncoming = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
-    const normalizedCurrent = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(history.present));
+    const normalizedIncoming = revalidateExternalIdentifiers(
+      synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(nextDiagram).diagram),
+    );
+    const normalizedCurrent = revalidateExternalIdentifiers(
+      synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(history.present).diagram),
+    );
     history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
     markDocumentBaseline(normalizedIncoming.diagram);
@@ -1823,8 +1829,12 @@ export default function App() {
         const parsedSerialized = serializeDiagramToErs(parsed);
 
         if (parsedSerialized !== lastSerializedCodeRef.current) {
-          const normalizedParsed = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(parsed)).diagram;
-          const normalizedCurrent = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(history.present)).diagram;
+          const normalizedParsed = revalidateExternalIdentifiers(
+            synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(parsed).diagram),
+          ).diagram;
+          const normalizedCurrent = revalidateExternalIdentifiers(
+            synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(history.present).diagram),
+          ).diagram;
           history.commit(normalizedParsed, normalizedCurrent);
         }
 
@@ -1983,13 +1993,30 @@ export default function App() {
     previousDiagram?: DiagramDocument,
     options?: { suppressExternalIdentifierWarnings?: boolean },
   ): DiagramDocument {
-    const synchronizedNext = synchronizeInternalIdentifiers(nextDiagram);
+    const nodeIdentitySynchronizedNext = synchronizeNodeNameIdentity(nextDiagram);
+    const synchronizedNext = synchronizeInternalIdentifiers(nodeIdentitySynchronizedNext.diagram);
     const normalizedNext = revalidateExternalIdentifiers(synchronizedNext);
-    const normalizedPrevious = previousDiagram
-      ? revalidateExternalIdentifiers(synchronizeInternalIdentifiers(previousDiagram)).diagram
+    const previousIdentitySynchronized = previousDiagram
+      ? synchronizeNodeNameIdentity(previousDiagram).diagram
+      : undefined;
+    const normalizedPrevious = previousIdentitySynchronized
+      ? revalidateExternalIdentifiers(synchronizeInternalIdentifiers(previousIdentitySynchronized)).diagram
       : undefined;
 
     history.commit(normalizedNext.diagram, normalizedPrevious);
+    if (nodeIdentitySynchronizedNext.nodeIdMap.size > 0) {
+      setSelection((currentSelection) => ({
+        ...currentSelection,
+        nodeIds: Array.from(
+          new Set(
+            currentSelection.nodeIds.map(
+              (selectedNodeId) =>
+                nodeIdentitySynchronizedNext.nodeIdMap.get(selectedNodeId) ?? selectedNodeId,
+            ),
+          ),
+        ),
+      }));
+    }
     syncCodeDraftWithDiagram(normalizedNext.diagram);
     if (!options?.suppressExternalIdentifierWarnings) {
       reportExternalIdentifierInvalidations(normalizedNext.invalidations, "notice");
@@ -1999,7 +2026,8 @@ export default function App() {
   }
 
   function handlePreviewDiagram(nextDiagram: DiagramDocument) {
-    const normalized = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
+    const withNodeIdentity = synchronizeNodeNameIdentity(nextDiagram).diagram;
+    const normalized = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(withNodeIdentity));
     history.setPresent(normalized.diagram);
   }
 
@@ -2482,13 +2510,41 @@ export default function App() {
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
-    const currentNode = history.present.nodes.find((node) => node.id === nodeId);
-    const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
+    let workingDiagram = history.present;
+    let workingNodeId = nodeId;
+    let workingPatch: Partial<DiagramNode> = patch;
+
+    if (typeof patch.label === "string") {
+      const identityRenamed = renameNodeAsNameIdentity(history.present, nodeId, patch.label);
+      workingDiagram = identityRenamed.diagram;
+      workingNodeId = identityRenamed.nodeIdMap.get(nodeId) ?? nodeId;
+      if (identityRenamed.nodeIdMap.size > 0) {
+        setSelection((currentSelection) => ({
+          nodeIds: Array.from(
+            new Set(
+              currentSelection.nodeIds.map(
+                (selectedNodeId) => identityRenamed.nodeIdMap.get(selectedNodeId) ?? selectedNodeId,
+              ),
+            ),
+          ),
+          edgeIds: currentSelection.edgeIds,
+        }));
+      }
+
+      const patchWithoutLabel = {
+        ...patch,
+      } as Partial<DiagramNode> & { label?: string };
+      delete patchWithoutLabel.label;
+      workingPatch = patchWithoutLabel;
+    }
+
+    const currentNode = workingDiagram.nodes.find((node) => node.id === workingNodeId);
+    const attributePatch = workingPatch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
     let normalizedAttributePatch = attributePatch;
 
     const attributeLinkedToRelationship =
       currentNode?.type === "attribute" &&
-      history.present.edges.some((edge) => {
+      workingDiagram.edges.some((edge) => {
         if (edge.type !== "attribute") {
           return false;
         }
@@ -2499,7 +2555,7 @@ export default function App() {
         }
 
         const hostId = edge.sourceId === currentNode.id ? edge.targetId : edge.sourceId;
-        const hostNode = history.present.nodes.find((node) => node.id === hostId);
+        const hostNode = workingDiagram.nodes.find((node) => node.id === hostId);
         return hostNode?.type === "relationship";
       });
 
@@ -2550,13 +2606,13 @@ export default function App() {
         (currentNode.isMultivalued === true && normalizedAttributePatch.isMultivalued !== false));
     const nextMultivaluedSize =
       currentNode?.type === "attribute" && attributeWillBeMultivalued
-        ? getMultivaluedAttributeSize(typeof patch.label === "string" ? patch.label : currentNode.label)
+        ? getMultivaluedAttributeSize(currentNode.label)
         : null;
 
     const nextPatch =
       currentNode?.type === "attribute" && attributeWillBeMultivalued && nextMultivaluedSize
         ? {
-            ...patch,
+            ...workingPatch,
             ...normalizedAttributePatch,
             width: nextMultivaluedSize.width,
             height: nextMultivaluedSize.height,
@@ -2565,30 +2621,32 @@ export default function App() {
             normalizedAttributePatch.isMultivalued === false &&
             currentNode.isMultivalued === true
           ? {
-              ...patch,
+              ...workingPatch,
               ...normalizedAttributePatch,
               width: DEFAULT_ATTRIBUTE_SIZE.width,
               height: DEFAULT_ATTRIBUTE_SIZE.height,
             }
         : currentNode?.type === "attribute"
           ? {
-              ...patch,
+              ...workingPatch,
               ...normalizedAttributePatch,
             }
-          : patch;
+          : workingPatch;
 
-    let nextDiagram = updateNodeInDiagram(history.present, nodeId, nextPatch);
+    let nextDiagram = updateNodeInDiagram(workingDiagram, workingNodeId, nextPatch);
 
     if (
       currentNode?.type === "attribute" &&
       normalizedAttributePatch.isMultivalued === false &&
       currentNode.isMultivalued === true
     ) {
-      const subAttributeIds = history.present.edges
-        .filter((edge) => edge.type === "attribute" && (edge.sourceId === nodeId || edge.targetId === nodeId))
-        .map((edge) => (edge.sourceId === nodeId ? edge.targetId : edge.sourceId))
+      const subAttributeIds = workingDiagram.edges
+        .filter(
+          (edge) => edge.type === "attribute" && (edge.sourceId === workingNodeId || edge.targetId === workingNodeId),
+        )
+        .map((edge) => (edge.sourceId === workingNodeId ? edge.targetId : edge.sourceId))
         .filter((connectedId) => {
-          const connectedNode = history.present.nodes.find((n) => n.id === connectedId);
+          const connectedNode = workingDiagram.nodes.find((n) => n.id === connectedId);
           return connectedNode?.type === "attribute";
         });
 
