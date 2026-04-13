@@ -2756,17 +2756,6 @@ export default function App() {
       return;
     }
 
-    if (selection.nodeIds.length === 1 && selection.edgeIds.length === 0) {
-      const selectedNode = history.present.nodes.find((node) => node.id === selection.nodeIds[0]);
-      if (selectedNode?.type === "relationship" && selectedNode.isExternalIdentifier === true) {
-        const nextDiagram = clearExternalIdentifierFromRelationship(history.present, selectedNode.id);
-        commitDiagram(nextDiagram);
-        setSelection({ nodeIds: [selectedNode.id], edgeIds: [] });
-        setStatus("Identificatore esterno rimosso.");
-        return;
-      }
-    }
-
     const nextDiagram = removeSelection(history.present, selection);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });

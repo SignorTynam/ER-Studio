@@ -421,7 +421,7 @@ function applyLaneOffsetToAnchor(
     return anchor;
   }
 
-  const margin = node.type === "attribute" ? 4 : 8;
+  const margin = 8;
 
   if (side === "left" || side === "right") {
     return {

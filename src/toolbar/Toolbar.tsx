@@ -301,18 +301,21 @@ export function Toolbar(props: ToolbarProps) {
         <section className="toolbar-section">
           <div className="toolbar-section-label">Azioni selezione</div>
           <div className="toolbar-list toolbar-list-tight">
-            {props.selectedNode && props.selectedNode.type === "entity" ? (
-              <button
-                type="button"
-                className={props.selectedNode.isWeak ? "toolbar-action-button active" : "toolbar-action-button"}
-                onClick={() => props.onNodeChange(props.selectedNode!.id, { isWeak: !props.selectedNode?.isWeak })}
-                disabled={!canEdit}
-                title="Entita debole"
-              >
-                <ActionIcon kind="weak" />
-                <span className="tool-label">Entita debole</span>
-              </button>
-            ) : null}
+            {props.selectedNode && props.selectedNode.type === "entity" ? (() => {
+              const selectedEntity = props.selectedNode;
+              return (
+                <button
+                  type="button"
+                  className={selectedEntity.isWeak ? "toolbar-action-button active" : "toolbar-action-button"}
+                  onClick={() => props.onNodeChange(selectedEntity.id, { isWeak: !selectedEntity.isWeak })}
+                  disabled={!canEdit}
+                  title="Entita debole"
+                >
+                  <ActionIcon kind="weak" />
+                  <span className="tool-label">Entita debole</span>
+                </button>
+              );
+            })() : null}
             {props.selectedNode && props.selectedNode.type === "attribute" ? (() => {
               const attrNode = props.selectedNode;
               const isLinkedToRel = props.diagram.edges.some(edge => {

@@ -381,12 +381,106 @@ function getDuplicateEdgeSignature(edge: DiagramEdge): string | null {
   return `${edge.type}:${firstId}<->${secondId}`;
 }
 
+function resolveAttributeOwnership(
+  edge: DiagramEdge,
+  nodeMap: Map<string, DiagramNode>,
+): { hostId: string; childId: string } | null {
+  if (edge.type !== "attribute") {
+    return null;
+  }
+
+  const sourceNode = nodeMap.get(edge.sourceId);
+  const targetNode = nodeMap.get(edge.targetId);
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  if (sourceNode.type === "attribute" && targetNode.type !== "attribute") {
+    return { hostId: targetNode.id, childId: sourceNode.id };
+  }
+
+  if (targetNode.type === "attribute" && sourceNode.type !== "attribute") {
+    return { hostId: sourceNode.id, childId: targetNode.id };
+  }
+
+  if (sourceNode.type === "attribute" && targetNode.type === "attribute") {
+    if (sourceNode.isMultivalued === true && targetNode.isMultivalued !== true) {
+      return { hostId: sourceNode.id, childId: targetNode.id };
+    }
+
+    if (targetNode.isMultivalued === true && sourceNode.isMultivalued !== true) {
+      return { hostId: targetNode.id, childId: sourceNode.id };
+    }
+
+    return { hostId: targetNode.id, childId: sourceNode.id };
+  }
+
+  return null;
+}
+
+function getAttributeChildrenByHostId(
+  diagram: DiagramDocument,
+  nodeMap: Map<string, DiagramNode>,
+): Map<string, string[]> {
+  const attributeChildrenByHostId = new Map<string, string[]>();
+
+  diagram.edges.forEach((edge) => {
+    const ownership = resolveAttributeOwnership(edge, nodeMap);
+    if (!ownership) {
+      return;
+    }
+
+    const children = attributeChildrenByHostId.get(ownership.hostId) ?? [];
+    if (!children.includes(ownership.childId)) {
+      children.push(ownership.childId);
+      attributeChildrenByHostId.set(ownership.hostId, children);
+    }
+  });
+
+  return attributeChildrenByHostId;
+}
+
 export function removeSelection(
   diagram: DiagramDocument,
   selection: SelectionState,
 ): DiagramDocument {
   const selectedNodeIds = new Set(selection.nodeIds);
   const selectedEdgeIds = new Set(selection.edgeIds);
+
+  if (selectedNodeIds.size > 0) {
+    const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+    const attributeChildrenByHostId = getAttributeChildrenByHostId(diagram, nodeMap);
+    const queue = Array.from(selectedNodeIds);
+    const processedHosts = new Set<string>();
+
+    while (queue.length > 0) {
+      const hostId = queue.shift() as string;
+      if (processedHosts.has(hostId)) {
+        continue;
+      }
+      processedHosts.add(hostId);
+
+      const hostNode = nodeMap.get(hostId);
+      const canOwnAttributes =
+        hostNode?.type === "entity" ||
+        hostNode?.type === "relationship" ||
+        hostNode?.type === "attribute";
+      if (!canOwnAttributes) {
+        continue;
+      }
+
+      const childIds = attributeChildrenByHostId.get(hostId) ?? [];
+      childIds.forEach((childId) => {
+        const childNode = nodeMap.get(childId);
+        if (childNode?.type !== "attribute" || selectedNodeIds.has(childId)) {
+          return;
+        }
+
+        selectedNodeIds.add(childId);
+        queue.push(childId);
+      });
+    }
+  }
 
   return {
     ...diagram,
@@ -495,47 +589,7 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
   }
 
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const attributeChildrenByHostId = new Map<string, string[]>();
-  diagram.edges.forEach((edge) => {
-    if (edge.type !== "attribute") {
-      return;
-    }
-
-    const sourceNode = nodeMap.get(edge.sourceId);
-    const targetNode = nodeMap.get(edge.targetId);
-    if (!sourceNode || !targetNode) {
-      return;
-    }
-
-    let hostId: string | null = null;
-    let childId: string | null = null;
-
-    if (sourceNode.type === "attribute" && targetNode.type !== "attribute") {
-      hostId = targetNode.id;
-      childId = sourceNode.id;
-    } else if (targetNode.type === "attribute" && sourceNode.type !== "attribute") {
-      hostId = sourceNode.id;
-      childId = targetNode.id;
-    } else if (sourceNode.type === "attribute" && targetNode.type === "attribute") {
-      if (sourceNode.isMultivalued === true && targetNode.isMultivalued !== true) {
-        hostId = sourceNode.id;
-        childId = targetNode.id;
-      } else {
-        hostId = targetNode.id;
-        childId = sourceNode.id;
-      }
-    }
-
-    if (!hostId || !childId) {
-      return;
-    }
-
-    const children = attributeChildrenByHostId.get(hostId) ?? [];
-    if (!children.includes(childId)) {
-      children.push(childId);
-      attributeChildrenByHostId.set(hostId, children);
-    }
-  });
+  const attributeChildrenByHostId = getAttributeChildrenByHostId(diagram, nodeMap);
 
   const expanded = new Set(nodeIds);
   const queue: string[] = [];
