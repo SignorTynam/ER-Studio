@@ -527,26 +527,16 @@ export function getRenderedEdgeGeometry(
     };
   }
 
-  if (edge.type !== "attribute") {
-    return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
+  if (edge.type === "attribute") {
+    const points = simplifyPoints([getNodeCenter(sourceNode), getNodeCenter(targetNode)]);
+
+    return {
+      points,
+      labelPoint: getPointAlongPolyline(points, 0.5),
+    };
   }
 
-  const attributeNode =
-    sourceNode.type === "attribute" ? sourceNode : targetNode.type === "attribute" ? targetNode : null;
-  const hostNode = attributeNode ? (attributeNode.id === sourceNode.id ? targetNode : sourceNode) : null;
-
-  if (!attributeNode || !hostNode || hostNode.type !== "entity") {
-    return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
-  }
-
-  // Render simple attribute-to-entity edges from real center to real center.
-  // This keeps the SVG path anchored on the actual node coordinates instead of the clipped perimeter point.
-  const points = simplifyPoints([getNodeCenter(attributeNode), getNodeCenter(hostNode)]);
-
-  return {
-    points,
-    labelPoint: getPointAlongPolyline(points, 0.5),
-  };
+  return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
 }
 
 export function pathFromPoints(points: Point[]): string {
