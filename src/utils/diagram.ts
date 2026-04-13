@@ -479,7 +479,7 @@ function normalizeInternalIdentifierSet(
 ): InternalIdentifier[] {
   const eligibleAttributeIds = new Set(
     directAttributes
-      .filter((attribute) => attribute.isMultivalued !== true && attribute.isIdentifier !== true)
+      .filter((attribute) => attribute.isMultivalued !== true)
       .map((attribute) => attribute.id),
   );
   const usedAttributeIds = new Set<string>();
@@ -513,23 +513,39 @@ function normalizeInternalIdentifierSet(
     }
   });
 
-  if (normalizedIdentifiers.length === 0) {
-    const legacyAttributeIds = directAttributes
-      .filter(
-        (attribute) =>
-          attribute.isCompositeInternal === true &&
-          attribute.isMultivalued !== true &&
-          attribute.isIdentifier !== true,
-      )
-      .map((attribute) => attribute.id)
-      .filter((attributeId, index, source) => source.indexOf(attributeId) === index);
+  // Backward compatibility: simple identifiers toggled from legacy controls
+  // should appear in entity.internalIdentifiers as one-attribute entries.
+  directAttributes
+    .filter((attribute) => attribute.isIdentifier === true && attribute.isMultivalued !== true)
+    .forEach((attribute) => {
+      if (usedAttributeIds.has(attribute.id)) {
+        return;
+      }
 
-    if (legacyAttributeIds.length > 0) {
+      usedAttributeIds.add(attribute.id);
       normalizedIdentifiers.push({
-        id: createId("internalIdentifier"),
-        attributeIds: legacyAttributeIds,
+        id: `internalIdentifier-simple-${attribute.id}`,
+        attributeIds: [attribute.id],
       });
-    }
+    });
+
+  // Backward compatibility: legacy composite marker on attributes becomes
+  // one composite internal identifier if no explicit identifiers claim them.
+  const legacyCompositeAttributeIds = directAttributes
+    .filter(
+      (attribute) =>
+        attribute.isCompositeInternal === true &&
+        attribute.isMultivalued !== true &&
+        !usedAttributeIds.has(attribute.id),
+    )
+    .map((attribute) => attribute.id);
+
+  if (legacyCompositeAttributeIds.length > 0) {
+    legacyCompositeAttributeIds.forEach((attributeId) => usedAttributeIds.add(attributeId));
+    normalizedIdentifiers.push({
+      id: `internalIdentifier-composite-${entity.id}`,
+      attributeIds: legacyCompositeAttributeIds,
+    });
   }
 
   return normalizedIdentifiers;
@@ -570,7 +586,8 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   const directAttributeIdsByEntityId = getDirectAttributeIdsByEntityId(diagram, nodeMap);
   const normalizedByEntityId = new Map<string, InternalIdentifier[]>();
-  const memberAttributeIds = new Set<string>();
+  const simpleMemberAttributeIds = new Set<string>();
+  const compositeMemberAttributeIds = new Set<string>();
 
   diagram.nodes.forEach((node) => {
     if (node.type !== "entity") {
@@ -584,7 +601,12 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
 
     normalizedByEntityId.set(node.id, normalizedIdentifiers);
     normalizedIdentifiers.forEach((identifier) => {
-      identifier.attributeIds.forEach((attributeId) => memberAttributeIds.add(attributeId));
+      if (identifier.attributeIds.length === 1) {
+        simpleMemberAttributeIds.add(identifier.attributeIds[0]);
+        return;
+      }
+
+      identifier.attributeIds.forEach((attributeId) => compositeMemberAttributeIds.add(attributeId));
     });
   });
 
@@ -605,14 +627,16 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
     }
 
     if (node.type === "attribute") {
-      const nextIsCompositeInternal = memberAttributeIds.has(node.id);
-      if (node.isCompositeInternal === nextIsCompositeInternal) {
+      const nextIsIdentifier = simpleMemberAttributeIds.has(node.id);
+      const nextIsCompositeInternal = compositeMemberAttributeIds.has(node.id);
+      if (node.isIdentifier === nextIsIdentifier && node.isCompositeInternal === nextIsCompositeInternal) {
         return node;
       }
 
       changed = true;
       return {
         ...node,
+        isIdentifier: nextIsIdentifier,
         isCompositeInternal: nextIsCompositeInternal,
       };
     }
@@ -1618,7 +1642,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
             });
           }
 
-          if (attributeNode.isIdentifier === true) {
+          if (identifier.attributeIds.length > 1 && attributeNode.isIdentifier === true) {
             issues.push({
               id: `internal-identifier-primary-conflict-${node.id}-${identifierLabel}-${attributeId}`,
               level: "error",

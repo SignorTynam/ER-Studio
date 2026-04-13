@@ -210,15 +210,22 @@ export function InternalIdentifierSection({
 
   function applyUpdate(nextIdentifiers: InternalIdentifier[]) {
     const attributePatches: Record<string, Partial<AttributeNode>> = {};
-    const memberAttributeIds = new Set<string>();
+    const simpleIdentifierAttributeIds = new Set<string>();
+    const compositeIdentifierAttributeIds = new Set<string>();
 
     nextIdentifiers.forEach((identifier) => {
-      identifier.attributeIds.forEach((attributeId) => memberAttributeIds.add(attributeId));
+      if (identifier.attributeIds.length === 1) {
+        simpleIdentifierAttributeIds.add(identifier.attributeIds[0]);
+        return;
+      }
+
+      identifier.attributeIds.forEach((attributeId) => compositeIdentifierAttributeIds.add(attributeId));
     });
 
     attributes.forEach((attribute) => {
       attributePatches[attribute.id] = {
-        isCompositeInternal: memberAttributeIds.has(attribute.id),
+        isIdentifier: simpleIdentifierAttributeIds.has(attribute.id),
+        isCompositeInternal: compositeIdentifierAttributeIds.has(attribute.id),
       };
     });
 
