@@ -37,6 +37,8 @@ interface ToolbarProps {
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
   onCreateAttributeForSelection: () => void;
+  onApplyInternalIdentifier: (entityId: string, attributeIds: string[]) => void;
+  onClearInternalIdentifier: (entityId: string) => void;
   onRenameSelection: () => void;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
@@ -501,6 +503,8 @@ export function Toolbar(props: ToolbarProps) {
           onDuplicateSelection={props.onDuplicateSelection}
           onAlign={props.onAlign}
           onCreateAttributeForSelection={props.onCreateAttributeForSelection}
+          onApplyInternalIdentifier={props.onApplyInternalIdentifier}
+          onClearInternalIdentifier={props.onClearInternalIdentifier}
           onIssueSelect={props.onIssueSelect}
           onRenameSelection={props.onRenameSelection}
         />

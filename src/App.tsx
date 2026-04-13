@@ -177,6 +177,7 @@ const NOTICE_DURATION_MS = {
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const ATTRIBUTE_CREATION_HORIZONTAL_OFFSET = 140;
 const ATTRIBUTE_CREATION_STACK_GAP = 28;
+const INTERNAL_IDENTIFIER_HORIZONTAL_OFFSET = 80;
 const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
@@ -809,6 +810,37 @@ function getNextAttributePosition(
     ),
     y: snapValue(nextY, GRID_SIZE),
   };
+}
+
+function getInternalIdentifierAttributePositions(
+  entityNode: Extract<DiagramNode, { type: "entity" }>,
+  identifierAttributes: AttributeNodeDraft[],
+): Map<string, Point> {
+  const positions = new Map<string, Point>();
+
+  if (identifierAttributes.length === 1) {
+    const attribute = identifierAttributes[0];
+    positions.set(attribute.id, {
+      x: snapValue(entityNode.x - attribute.width - INTERNAL_IDENTIFIER_HORIZONTAL_OFFSET, GRID_SIZE),
+      y: snapValue(entityNode.y + entityNode.height / 2 - attribute.height / 2, GRID_SIZE),
+    });
+    return positions;
+  }
+
+  identifierAttributes.forEach((attribute, index) => {
+    positions.set(attribute.id, {
+      x: snapValue(
+        entityNode.x + entityNode.width / 2 - attribute.width / 2 + index * COMPOSITE_CHILD_HORIZONTAL_STEP,
+        GRID_SIZE,
+      ),
+      y: snapValue(
+        entityNode.y + entityNode.height + COMPOSITE_CHILD_VERTICAL_GAP + index * COMPOSITE_CHILD_VERTICAL_STEP,
+        GRID_SIZE,
+      ),
+    });
+  });
+
+  return positions;
 }
 
 export default function App() {
@@ -2371,6 +2403,87 @@ export default function App() {
     setStatus(`Attributo collegato a ${hostNode.label}.`);
   }
 
+  function handleApplyInternalIdentifier(entityId: string, attributeIds: string[]) {
+    if (mode === "view") {
+      return;
+    }
+
+    const entityNode = history.present.nodes.find(
+      (node): node is Extract<DiagramNode, { type: "entity" }> => node.id === entityId && node.type === "entity",
+    );
+    if (!entityNode) {
+      return;
+    }
+
+    const directAttributes = findDirectHostedAttributes(history.present, entityId).filter(
+      (attribute) => attribute.isMultivalued !== true,
+    );
+    const directAttributeIds = new Set(directAttributes.map((attribute) => attribute.id));
+    const normalizedIds = Array.from(new Set(attributeIds)).filter((attributeId) => directAttributeIds.has(attributeId));
+
+    if (normalizedIds.length === 0) {
+      setStatusWarning("Seleziona almeno un attributo semplice per creare l'identificatore interno.");
+      return;
+    }
+
+    const selectedAttributes = normalizedIds
+      .map((attributeId) => directAttributes.find((attribute) => attribute.id === attributeId))
+      .filter((attribute): attribute is AttributeNodeDraft => attribute !== undefined);
+    const positions = getInternalIdentifierAttributePositions(entityNode, selectedAttributes);
+    const selectedIdSet = new Set(normalizedIds);
+    const directAttributeIdSet = new Set(directAttributes.map((attribute) => attribute.id));
+    const isSingleAttributeIdentifier = normalizedIds.length === 1;
+
+    const nextDiagram: DiagramDocument = {
+      ...history.present,
+      nodes: history.present.nodes.map((node) => {
+        if (node.type !== "attribute" || !directAttributeIdSet.has(node.id)) {
+          return node;
+        }
+
+        const isSelected = selectedIdSet.has(node.id);
+        const position = positions.get(node.id);
+        return {
+          ...node,
+          isIdentifier: isSingleAttributeIdentifier ? isSelected : false,
+          isCompositeInternal: isSingleAttributeIdentifier ? false : isSelected,
+          ...(position ? position : {}),
+        };
+      }),
+    };
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [entityId], edgeIds: [] });
+    setStatus(
+      isSingleAttributeIdentifier
+        ? `Identificatore interno impostato su ${selectedAttributes[0]?.label ?? "attributo"}.`
+        : `Identificatore interno aggiornato con ${selectedAttributes.length} attributi.`,
+    );
+  }
+
+  function handleClearInternalIdentifier(entityId: string) {
+    if (mode === "view") {
+      return;
+    }
+
+    const identifierAttributeIds = findDirectHostedAttributes(history.present, entityId)
+      .filter((attribute) => attribute.isIdentifier === true || attribute.isCompositeInternal === true)
+      .map((attribute) => attribute.id);
+
+    if (identifierAttributeIds.length === 0) {
+      setStatusWarning("Nessun identificatore interno da rimuovere sull'entita selezionata.");
+      return;
+    }
+
+    const nextDiagram = updateNodesInDiagram(history.present, identifierAttributeIds, {
+      isIdentifier: false,
+      isCompositeInternal: false,
+    } as Partial<DiagramNode>);
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [entityId], edgeIds: [] });
+    setStatus("Identificatore interno rimosso.");
+  }
+
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
     const currentNode = history.present.nodes.find((node) => node.id === nodeId);
     const attributePatch = patch as Partial<Extract<DiagramNode, { type: "attribute" }>>;
@@ -3038,6 +3151,8 @@ export default function App() {
                 onDuplicateSelection={handleDuplicateSelection}
                 onDeleteSelection={handleDeleteSelection}
                 onCreateAttributeForSelection={handleCreateAttributeFromSelection}
+                onApplyInternalIdentifier={handleApplyInternalIdentifier}
+                onClearInternalIdentifier={handleClearInternalIdentifier}
                 onRenameSelection={handleRenameSelectionQuick}
                 onNodeChange={handleNodeChange}
                 onNodesChange={handleNodesChange}

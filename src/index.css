@@ -4517,6 +4517,47 @@ summary:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.inspector-option-list,
+.context-action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector-option-row {
+  width: 100%;
+}
+
+.context-action-row button {
+  border: 1px solid var(--studio-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--studio-ink);
+  min-height: 44px;
+  padding: 0.72rem 0.9rem;
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(35, 44, 40, 0.05);
+}
+
+.context-action-row button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(79, 107, 100, 0.28);
+  box-shadow: 0 14px 26px rgba(35, 44, 40, 0.1);
+}
+
+.context-action-row button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.action-grid button,
+.context-action-row button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+
 .validation-list {
   display: flex;
   flex-direction: column;
@@ -4982,6 +5023,13 @@ summary:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.toolbar-panel:not(.collapsed) .toolbar-section {
+  padding: 10px;
+  border: 1px solid rgba(42, 39, 31, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .toolbar-section-label {
@@ -5882,34 +5930,34 @@ body.workspace-resizing {
   box-shadow: none;
   border: 0;
   background: transparent;
-  gap: 12px;
+  gap: 10px;
 }
 
 .toolbar-panel .inspector-panel-embedded .context-card {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 10px;
+  border: 1px solid rgba(42, 39, 31, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
   box-shadow: none;
 }
 
 .toolbar-panel .inspector-panel-embedded .context-card + .context-card {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--studio-line);
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 0;
 }
 
 .toolbar-panel .inspector-panel-embedded .checkbox-field {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 0.72rem 0.9rem;
+  border: 1px solid var(--studio-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.56);
 }
 
 .toolbar-panel .inspector-panel-embedded .context-card-subtitle,
 .toolbar-panel .inspector-panel-embedded .context-card-list,
 .toolbar-panel .inspector-panel-embedded .panel-subheading {
-  display: none;
+  display: block;
 }
 
 .workspace-shell.workspace-shell-split .inspector-panel.collapsed {

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -28,9 +29,35 @@ interface InspectorPanelProps {
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
   onCreateAttributeForSelection: () => void;
+  onApplyInternalIdentifier: (entityId: string, attributeIds: string[]) => void;
+  onClearInternalIdentifier: (entityId: string) => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onRenameSelection: () => void;
   onToggleCollapse?: () => void;
+}
+
+function findDirectHostedAttributes(diagram: DiagramDocument, hostId: string): AttributeNode[] {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+
+  return diagram.edges.flatMap((edge) => {
+    if (edge.type !== "attribute") {
+      return [];
+    }
+
+    const candidateId =
+      edge.sourceId === hostId
+        ? edge.targetId
+        : edge.targetId === hostId
+          ? edge.sourceId
+          : undefined;
+
+    if (!candidateId) {
+      return [];
+    }
+
+    const candidateNode = nodeById.get(candidateId);
+    return candidateNode?.type === "attribute" ? [candidateNode] : [];
+  });
 }
 
 function findDirectAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
@@ -138,6 +165,44 @@ export function InspectorPanel(props: InspectorPanelProps) {
     selectedNode?.type === "attribute" ? findDirectAttributeHost(props.diagram, selectedNode.id) : undefined;
   const selectedAttributeLinkedToRelationship =
     selectedNode?.type === "attribute" ? isAttributeLinkedToRelationship(selectedNode.id) : false;
+  const directEntityAttributes =
+    selectedNode?.type === "entity"
+      ? findDirectHostedAttributes(props.diagram, selectedNode.id).sort((left, right) =>
+          left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
+        )
+      : [];
+  const eligibleInternalIdentifierAttributes = directEntityAttributes.filter(
+    (attribute) => attribute.isMultivalued !== true,
+  );
+  const currentInternalIdentifierAttributeIds = directEntityAttributes
+    .filter((attribute) => attribute.isIdentifier === true || attribute.isCompositeInternal === true)
+    .map((attribute) => attribute.id);
+  const eligibleInternalIdentifierSignature = eligibleInternalIdentifierAttributes
+    .map((attribute) => `${attribute.id}:${attribute.isMultivalued === true ? 1 : 0}`)
+    .join("|");
+  const currentInternalIdentifierSignature = currentInternalIdentifierAttributeIds.join("|");
+  const eligibleInternalIdentifierIdSet = new Set(
+    eligibleInternalIdentifierAttributes.map((attribute) => attribute.id),
+  );
+  const [internalIdentifierDraftIds, setInternalIdentifierDraftIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (selectedNode?.type !== "entity") {
+      setInternalIdentifierDraftIds([]);
+      return;
+    }
+
+    setInternalIdentifierDraftIds(
+      currentInternalIdentifierAttributeIds.filter((attributeId) =>
+        eligibleInternalIdentifierIdSet.has(attributeId),
+      ),
+    );
+  }, [
+    currentInternalIdentifierSignature,
+    eligibleInternalIdentifierSignature,
+    selectedNode?.id,
+    selectedNode?.type,
+  ]);
 
   const selectedAttributeNodes = props.diagram.nodes.filter(
     (node): node is AttributeNode =>
@@ -153,6 +218,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const allSelectedAttributesComposite =
     canConfigureCompositeInternal &&
     eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
+  const selectedAttributeEntityHost =
+    selectedNode?.type === "attribute" && attributeHost?.type === "entity" ? attributeHost : undefined;
+  const selectedAttributeIsInternalIdentifier =
+    selectedNode?.type === "attribute" &&
+    (selectedNode.isIdentifier === true || selectedNode.isCompositeInternal === true) &&
+    selectedAttributeEntityHost !== undefined;
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
@@ -288,6 +359,84 @@ export function InspectorPanel(props: InspectorPanelProps) {
     );
   }
 
+  function toggleInternalIdentifierDraft(attributeId: string, checked: boolean) {
+    setInternalIdentifierDraftIds((current) => {
+      const nextIds = checked ? [...current, attributeId] : current.filter((id) => id !== attributeId);
+      return eligibleInternalIdentifierAttributes
+        .map((attribute) => attribute.id)
+        .filter((candidateId) => nextIds.includes(candidateId));
+    });
+  }
+
+  function renderInternalIdentifierSection(entityNode: Extract<DiagramNode, { type: "entity" }>) {
+    if (directEntityAttributes.length === 0) {
+      return (
+        <section className="context-card">
+          <div className="context-card-title">Identificatore interno</div>
+          <p className="action-hint">Aggiungi prima uno o piu attributi diretti all'entita per configurarlo.</p>
+        </section>
+      );
+    }
+
+    if (eligibleInternalIdentifierAttributes.length === 0) {
+      return (
+        <section className="context-card">
+          <div className="context-card-title">Identificatore interno</div>
+          <p className="action-hint">
+            Gli attributi multivalore non possono essere usati come identificatore interno.
+          </p>
+        </section>
+      );
+    }
+
+    return (
+      <section className="context-card">
+        <div className="context-card-title">Identificatore interno</div>
+        <p className="context-card-subtitle">
+          Seleziona 1 attributo per un identificatore singolo, 2 o piu attributi per un identificatore interno composto.
+        </p>
+        <div className="inspector-option-list">
+          {eligibleInternalIdentifierAttributes.map((attribute) => (
+            <label key={attribute.id} className="checkbox-field inspector-option-row">
+              <span>{attribute.label}</span>
+              <input
+                type="checkbox"
+                checked={internalIdentifierDraftIds.includes(attribute.id)}
+                disabled={!canEdit}
+                onChange={(event) => toggleInternalIdentifierDraft(attribute.id, event.target.checked)}
+              />
+            </label>
+          ))}
+        </div>
+        <p className="action-hint">
+          {internalIdentifierDraftIds.length === 0
+            ? "Nessun attributo selezionato."
+            : internalIdentifierDraftIds.length === 1
+              ? "Verrà creato un identificatore interno singolo."
+              : `Verrà creato un identificatore interno composto di ${internalIdentifierDraftIds.length} attributi.`}
+        </p>
+        <div className="action-grid">
+          <button
+            type="button"
+            onClick={() => props.onApplyInternalIdentifier(entityNode.id, internalIdentifierDraftIds)}
+            disabled={!canEdit || internalIdentifierDraftIds.length === 0}
+          >
+            {currentInternalIdentifierAttributeIds.length > 0
+              ? "Aggiorna identificatore interno"
+              : "Aggiungi identificatore interno"}
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onClearInternalIdentifier(entityNode.id)}
+            disabled={!canEdit || currentInternalIdentifierAttributeIds.length === 0}
+          >
+            Rimuovi identificatore interno
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   function renderNodeContext(node: DiagramNode) {
     if (node.type === "entity") {
       return (
@@ -314,6 +463,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
               </label>
             </div>
           </section>
+          {renderInternalIdentifierSection(node)}
           {renderSelectionActions()}
         </>
       );
@@ -338,13 +488,15 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   <p className="action-hint">
                     Questa associazione usa un identificatore esterno. Puoi rimuoverlo da qui.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => props.onClearExternalIdentifier(node.id)}
-                    disabled={!canEdit}
-                  >
-                    Rimuovi identificatore esterno
-                  </button>
+                  <div className="context-action-row">
+                    <button
+                      type="button"
+                      onClick={() => props.onClearExternalIdentifier(node.id)}
+                      disabled={!canEdit}
+                    >
+                      Rimuovi identificatore esterno
+                    </button>
+                  </div>
                 </>
               ) : null}
             </div>
@@ -397,7 +549,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 />
               </label>
               <label className="field checkbox-field">
-                <span>Parte di identificatore composto interno</span>
+                <span>Parte di identificatore interno</span>
                 <input
                   type="checkbox"
                   checked={node.isCompositeInternal === true}
@@ -409,6 +561,22 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 <p className="action-hint">
                   Un attributo collegato a un'associazione non puo essere usato come identificatore.
                 </p>
+              ) : null}
+              {selectedAttributeIsInternalIdentifier ? (
+                <>
+                  <p className="action-hint">
+                    Questo attributo fa parte dell'identificatore interno di <strong>{selectedAttributeEntityHost.label}</strong>.
+                  </p>
+                  <div className="context-action-row">
+                    <button
+                      type="button"
+                      onClick={() => props.onClearInternalIdentifier(selectedAttributeEntityHost.id)}
+                      disabled={!canEdit}
+                    >
+                      Rimuovi identificatore interno
+                    </button>
+                  </div>
+                </>
               ) : null}
             </div>
           </section>
