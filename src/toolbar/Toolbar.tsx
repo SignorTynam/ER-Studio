@@ -261,35 +261,7 @@ export function Toolbar(props: ToolbarProps) {
 
   function renderContextActions() {
     if (context === "empty") {
-      return (
-        <section className="toolbar-section">
-          <div className="toolbar-section-label">Azioni canvas</div>
-          <div className="toolbar-list toolbar-list-tight">
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onUndo}
-              disabled={!props.canUndo}
-              aria-label="Annulla"
-              title="Annulla"
-            >
-              <ActionIcon kind="undo" />
-              <span className="tool-label">Annulla</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onRedo}
-              disabled={!props.canRedo}
-              aria-label="Ripeti"
-              title="Ripeti"
-            >
-              <ActionIcon kind="redo" />
-              <span className="tool-label">Ripeti</span>
-            </button>
-          </div>
-        </section>
-      );
+      return null;
     }
 
     if (context === "node") {
@@ -608,35 +580,6 @@ export function Toolbar(props: ToolbarProps) {
         />
       ) : null}
 
-      {props.collapsed && context === "empty" ? (
-        <section className="toolbar-section">
-          <div className="toolbar-section-label">Cronologia</div>
-          <div className="toolbar-list toolbar-list-tight">
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onUndo}
-              disabled={!props.canUndo}
-              aria-label="Annulla"
-              title="Annulla"
-            >
-              <ActionIcon kind="undo" />
-              <span className="tool-label">Annulla</span>
-            </button>
-            <button
-              type="button"
-              className="toolbar-action-button"
-              onClick={props.onRedo}
-              disabled={!props.canRedo}
-              aria-label="Ripeti"
-              title="Ripeti"
-            >
-              <ActionIcon kind="redo" />
-              <span className="tool-label">Ripeti</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
     </aside>
   );
 }
