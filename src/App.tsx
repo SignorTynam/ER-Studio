@@ -43,7 +43,6 @@ import {
   validateDiagram,
 } from "./utils/diagram";
 import { createExampleDiagram } from "./utils/example";
-import { serializeDiagramForCodePanel } from "./utils/codePanelSerializer";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
@@ -951,7 +950,6 @@ export default function App() {
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
   const activeCanUndo = diagramView === "er" ? history.canUndo : logicalHistory.canUndo;
   const activeCanRedo = diagramView === "er" ? history.canRedo : logicalHistory.canRedo;
-  const diagramCode = useMemo(() => serializeDiagramForCodePanel(history.present), [history.present]);
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
     max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
@@ -1298,12 +1296,13 @@ export default function App() {
         return;
       }
 
-      const nextWidth = currentResize.startWidth + (event.clientX - currentResize.startClientX);
       if (currentResize.panel === "toolbar") {
+        const nextWidth = currentResize.startWidth + (event.clientX - currentResize.startClientX);
         setToolbarWidth(clampValue(nextWidth, toolbarResizeBounds.min, toolbarResizeBounds.max));
         return;
       }
 
+      const nextWidth = currentResize.startWidth - (event.clientX - currentResize.startClientX);
       setCodePanelWidth(clampValue(nextWidth, codePanelResizeBounds.min, codePanelResizeBounds.max));
     }
 
@@ -3230,20 +3229,6 @@ export default function App() {
                 className={codePanelOpen ? "workspace-main diagram-with-code code-open" : "workspace-main diagram-with-code"}
                 style={erWorkspaceMainStyle}
               >
-                <div className="diagram-code-column">
-                  <CodePanel code={diagramCode} placeholder="Nessun codice disponibile" />
-                </div>
-
-                <button
-                  type="button"
-                  className={codePanelOpen ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
-                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
-                  onDoubleClick={() => resetPanelWidth("code")}
-                  aria-label="Ridimensiona pannello codice"
-                  title="Trascina per ridimensionare il pannello codice"
-                  disabled={!codePanelOpen}
-                />
-
                 <DiagramCanvas
                   diagram={history.present}
                   selection={selection}
@@ -3268,6 +3253,26 @@ export default function App() {
                   onRenameEdge={handleRenameEdge}
                   onStatusMessageChange={handleCanvasStatusMessage}
                 />
+
+                <button
+                  type="button"
+                  className={codePanelOpen ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
+                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
+                  onDoubleClick={() => resetPanelWidth("code")}
+                  aria-label="Ridimensiona pannello codice"
+                  title="Trascina per ridimensionare il pannello codice"
+                  disabled={!codePanelOpen}
+                />
+
+                <div className="diagram-code-column">
+                  <CodePanel
+                    code={codeDraft}
+                    editable={mode === "edit"}
+                    parseError={codeError}
+                    onCodeChange={updateCodeDraft}
+                    placeholder="Inserisci il codice ERS"
+                  />
+                </div>
               </div>
             </>
           ) : (

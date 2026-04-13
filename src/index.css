@@ -5885,9 +5885,10 @@ body.workspace-resizing {
   --diagram-code-panel-width: 0px;
   --diagram-code-resizer-width: 0px;
   grid-template-columns:
-    var(--diagram-code-panel-width)
+    minmax(0, 1fr)
     var(--diagram-code-resizer-width)
-    minmax(0, 1fr);
+    var(--diagram-code-panel-width)
+    ;
   gap: var(--workspace-gap);
   transition: grid-template-columns 180ms ease;
 }
@@ -5898,7 +5899,7 @@ body.workspace-resizing {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-12px);
+  transform: translateX(12px);
   transition:
     opacity 160ms ease,
     transform 160ms ease;
@@ -6295,6 +6296,10 @@ body.workspace-resizing {
   color: rgba(42, 39, 31, 0.5);
 }
 
+.diagram-code-panel-head .code-panel-status.error {
+  color: #8f2419;
+}
+
 .diagram-code-panel-content {
   flex: 1 1 auto;
   min-height: 0;
@@ -6306,6 +6311,18 @@ body.workspace-resizing {
   line-height: 1.5;
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   color: rgba(28, 27, 23, 0.9);
+}
+
+textarea.diagram-code-panel-content {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+}
+
+textarea.diagram-code-panel-content::placeholder {
+  color: rgba(42, 39, 31, 0.58);
 }
 
 .diagram-code-panel-placeholder {
