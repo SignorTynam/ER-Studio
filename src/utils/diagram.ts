@@ -1000,7 +1000,11 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 
   nodeIds.forEach((nodeId) => {
     const node = nodeMap.get(nodeId);
-    if (node?.type === "entity" || (node?.type === "attribute" && node.isMultivalued === true)) {
+    if (
+      node?.type === "entity" ||
+      node?.type === "relationship" ||
+      (node?.type === "attribute" && node.isMultivalued === true)
+    ) {
       queue.push(nodeId);
     }
   });
