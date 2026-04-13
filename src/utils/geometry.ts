@@ -478,7 +478,7 @@ export function getEdgeGeometry(
 
     // Attribute geometry stays normalized attribute -> host, but its direction now comes from logical centers.
     points = simplifyPoints([
-      attributeEndpoint.visualAttachmentPoint,
+      getNodeLogicalAnchor(attributeNode),
       getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, attributeLaneOffset),
     ]);
   } else {
