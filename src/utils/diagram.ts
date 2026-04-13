@@ -3,6 +3,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  InternalIdentifier,
   IsaCompleteness,
   IsaDisjointness,
   NodeKind,
@@ -260,6 +261,7 @@ export function createNode(
       width: size.width,
       height: size.height,
       isWeak: false,
+      internalIdentifiers: [],
     };
   }
 
@@ -440,6 +442,192 @@ function getAttributeChildrenByHostId(
   return attributeChildrenByHostId;
 }
 
+function getDirectAttributeIdsByEntityId(
+  diagram: DiagramDocument,
+  nodeMap: Map<string, DiagramNode>,
+): Map<string, Set<string>> {
+  const directAttributeIdsByEntityId = new Map<string, Set<string>>();
+
+  diagram.edges.forEach((edge) => {
+    if (edge.type !== "attribute") {
+      return;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+
+    if (sourceNode?.type === "entity" && targetNode?.type === "attribute") {
+      const ids = directAttributeIdsByEntityId.get(sourceNode.id) ?? new Set<string>();
+      ids.add(targetNode.id);
+      directAttributeIdsByEntityId.set(sourceNode.id, ids);
+      return;
+    }
+
+    if (targetNode?.type === "entity" && sourceNode?.type === "attribute") {
+      const ids = directAttributeIdsByEntityId.get(targetNode.id) ?? new Set<string>();
+      ids.add(sourceNode.id);
+      directAttributeIdsByEntityId.set(targetNode.id, ids);
+    }
+  });
+
+  return directAttributeIdsByEntityId;
+}
+
+function normalizeInternalIdentifierSet(
+  entity: EntityNode,
+  directAttributes: AttributeNode[],
+): InternalIdentifier[] {
+  const eligibleAttributeIds = new Set(
+    directAttributes
+      .filter((attribute) => attribute.isMultivalued !== true && attribute.isIdentifier !== true)
+      .map((attribute) => attribute.id),
+  );
+  const usedAttributeIds = new Set<string>();
+  const normalizedIdentifiers: InternalIdentifier[] = [];
+  const rawIdentifiers = Array.isArray(entity.internalIdentifiers) ? entity.internalIdentifiers : [];
+
+  rawIdentifiers.forEach((identifier) => {
+    const identifierId =
+      typeof identifier.id === "string" && identifier.id.trim().length > 0
+        ? identifier.id
+        : createId("internalIdentifier");
+
+    const normalizedAttributeIds = (Array.isArray(identifier.attributeIds) ? identifier.attributeIds : [])
+      .filter((attributeId): attributeId is string => typeof attributeId === "string" && attributeId.length > 0)
+      .filter((attributeId, index, source) => source.indexOf(attributeId) === index)
+      .filter((attributeId) => eligibleAttributeIds.has(attributeId))
+      .filter((attributeId) => {
+        if (usedAttributeIds.has(attributeId)) {
+          return false;
+        }
+
+        usedAttributeIds.add(attributeId);
+        return true;
+      });
+
+    if (normalizedAttributeIds.length > 0) {
+      normalizedIdentifiers.push({
+        id: identifierId,
+        attributeIds: normalizedAttributeIds,
+      });
+    }
+  });
+
+  if (normalizedIdentifiers.length === 0) {
+    const legacyAttributeIds = directAttributes
+      .filter(
+        (attribute) =>
+          attribute.isCompositeInternal === true &&
+          attribute.isMultivalued !== true &&
+          attribute.isIdentifier !== true,
+      )
+      .map((attribute) => attribute.id)
+      .filter((attributeId, index, source) => source.indexOf(attributeId) === index);
+
+    if (legacyAttributeIds.length > 0) {
+      normalizedIdentifiers.push({
+        id: createId("internalIdentifier"),
+        attributeIds: legacyAttributeIds,
+      });
+    }
+  }
+
+  return normalizedIdentifiers;
+}
+
+function areInternalIdentifierListsEqual(
+  left: InternalIdentifier[] | undefined,
+  right: InternalIdentifier[] | undefined,
+): boolean {
+  const leftList = left ?? [];
+  const rightList = right ?? [];
+
+  if (leftList.length !== rightList.length) {
+    return false;
+  }
+
+  for (let index = 0; index < leftList.length; index += 1) {
+    const leftIdentifier = leftList[index];
+    const rightIdentifier = rightList[index];
+    if (
+      leftIdentifier.id !== rightIdentifier.id ||
+      leftIdentifier.attributeIds.length !== rightIdentifier.attributeIds.length
+    ) {
+      return false;
+    }
+
+    for (let attributeIndex = 0; attributeIndex < leftIdentifier.attributeIds.length; attributeIndex += 1) {
+      if (leftIdentifier.attributeIds[attributeIndex] !== rightIdentifier.attributeIds[attributeIndex]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+export function synchronizeInternalIdentifiers(diagram: DiagramDocument): DiagramDocument {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const directAttributeIdsByEntityId = getDirectAttributeIdsByEntityId(diagram, nodeMap);
+  const normalizedByEntityId = new Map<string, InternalIdentifier[]>();
+  const memberAttributeIds = new Set<string>();
+
+  diagram.nodes.forEach((node) => {
+    if (node.type !== "entity") {
+      return;
+    }
+
+    const directAttributes = Array.from(directAttributeIdsByEntityId.get(node.id) ?? [])
+      .map((attributeId) => nodeMap.get(attributeId))
+      .filter((candidate): candidate is AttributeNode => candidate?.type === "attribute");
+    const normalizedIdentifiers = normalizeInternalIdentifierSet(node, directAttributes);
+
+    normalizedByEntityId.set(node.id, normalizedIdentifiers);
+    normalizedIdentifiers.forEach((identifier) => {
+      identifier.attributeIds.forEach((attributeId) => memberAttributeIds.add(attributeId));
+    });
+  });
+
+  let changed = false;
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.type === "entity") {
+      const normalizedIdentifiers = normalizedByEntityId.get(node.id) ?? [];
+      const nextIdentifiers = normalizedIdentifiers.length > 0 ? normalizedIdentifiers : undefined;
+      if (areInternalIdentifierListsEqual(node.internalIdentifiers, nextIdentifiers)) {
+        return node;
+      }
+
+      changed = true;
+      return {
+        ...node,
+        internalIdentifiers: nextIdentifiers,
+      };
+    }
+
+    if (node.type === "attribute") {
+      const nextIsCompositeInternal = memberAttributeIds.has(node.id);
+      if (node.isCompositeInternal === nextIsCompositeInternal) {
+        return node;
+      }
+
+      changed = true;
+      return {
+        ...node,
+        isCompositeInternal: nextIsCompositeInternal,
+      };
+    }
+
+    return node;
+  });
+
+  return changed
+    ? {
+        ...diagram,
+        nodes: nextNodes,
+      }
+    : diagram;
+}
+
 export function removeSelection(
   diagram: DiagramDocument,
   selection: SelectionState,
@@ -517,6 +705,34 @@ export function duplicateSelection(
     };
   });
 
+  const duplicatedNodesWithIdentifiers = duplicatedNodes.map((node) => {
+    if (node.type !== "entity" || !Array.isArray(node.internalIdentifiers)) {
+      return node;
+    }
+
+    const remappedIdentifiers = node.internalIdentifiers
+      .map((identifier) => {
+        const remappedAttributeIds = identifier.attributeIds
+          .map((attributeId) => idMap.get(attributeId))
+          .filter((candidate): candidate is string => typeof candidate === "string");
+
+        if (remappedAttributeIds.length === 0) {
+          return null;
+        }
+
+        return {
+          id: createId("internalIdentifier"),
+          attributeIds: remappedAttributeIds,
+        };
+      })
+      .filter((identifier): identifier is InternalIdentifier => identifier !== null);
+
+    return {
+      ...node,
+      internalIdentifiers: remappedIdentifiers.length > 0 ? remappedIdentifiers : undefined,
+    };
+  });
+
   const duplicatedEdges = diagram.edges
     .filter((edge) => idMap.has(edge.sourceId) && idMap.has(edge.targetId))
     .map((edge) => ({
@@ -529,11 +745,11 @@ export function duplicateSelection(
   return {
     diagram: {
       ...diagram,
-      nodes: [...diagram.nodes, ...duplicatedNodes],
+      nodes: [...diagram.nodes, ...duplicatedNodesWithIdentifiers],
       edges: [...diagram.edges, ...duplicatedEdges],
     },
     selection: {
-      nodeIds: duplicatedNodes.map((node) => node.id),
+      nodeIds: duplicatedNodesWithIdentifiers.map((node) => node.id),
       edgeIds: duplicatedEdges.map((edge) => edge.id),
     },
   };
@@ -1036,9 +1252,46 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           }
 
           if (node.type === "entity") {
+            const rawInternalIdentifiers = (node as { internalIdentifiers?: unknown }).internalIdentifiers;
+            const parsedInternalIdentifiers = Array.isArray(rawInternalIdentifiers)
+              ? rawInternalIdentifiers
+                  .map((identifier) => {
+                    if (typeof identifier !== "object" || identifier === null) {
+                      return null;
+                    }
+
+                    const rawIdentifier = identifier as {
+                      id?: unknown;
+                      attributeIds?: unknown;
+                    };
+                    const identifierId =
+                      typeof rawIdentifier.id === "string" && rawIdentifier.id.trim().length > 0
+                        ? rawIdentifier.id
+                        : createId("internalIdentifier");
+                    const attributeIds = Array.isArray(rawIdentifier.attributeIds)
+                      ? rawIdentifier.attributeIds.filter(
+                          (attributeId): attributeId is string =>
+                            typeof attributeId === "string" && attributeId.trim().length > 0,
+                        )
+                      : [];
+
+                    if (attributeIds.length === 0) {
+                      return null;
+                    }
+
+                    return {
+                      id: identifierId,
+                      attributeIds,
+                    };
+                  })
+                  .filter((identifier): identifier is InternalIdentifier => identifier !== null)
+              : [];
+
             return {
               ...node,
               isWeak: node.isWeak === true,
+              internalIdentifiers:
+                parsedInternalIdentifiers.length > 0 ? parsedInternalIdentifiers : undefined,
             };
           }
 
@@ -1139,10 +1392,12 @@ export function parseDiagram(rawJson: string): DiagramDocument {
     edges,
   };
 
-  return revalidateExternalIdentifiers(parsedDiagram).diagram;
+  const synchronizedDiagram = synchronizeInternalIdentifiers(parsedDiagram);
+  return revalidateExternalIdentifiers(synchronizedDiagram).diagram;
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
+  diagram = synchronizeInternalIdentifiers(diagram);
   const issues: ValidationIssue[] = [];
   const edgesByNode = new Map<string, DiagramEdge[]>();
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -1304,30 +1559,90 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           targetType: "node",
         });
       }
-    }
-
-    if (node.type === "entity" || node.type === "relationship") {
-      const compositeAttributes = connectedEdges
+      const directAttributes = connectedEdges
         .filter((edge) => edge.type === "attribute")
         .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
-        .map((attributeId) => diagram.nodes.find((candidate) => candidate.id === attributeId))
-        .filter((candidate): candidate is DiagramNode => candidate !== undefined)
-        .filter(
-          (candidate) =>
-            candidate.type === "attribute" &&
-            candidate.isCompositeInternal === true &&
-            candidate.isIdentifier !== true,
-        );
+        .map((attributeId) => nodeMap.get(attributeId))
+        .filter((candidate): candidate is AttributeNode => candidate?.type === "attribute");
+      const directAttributeById = new Map(directAttributes.map((attribute) => [attribute.id, attribute]));
+      const attributeOwnerByIdentifier = new Map<string, string>();
+      const internalIdentifiers = node.internalIdentifiers ?? [];
 
-      if (compositeAttributes.length === 1) {
-        issues.push({
-          id: `composite-${node.id}`,
-          level: "warning",
-          message: `"${node.label}" ha un solo attributo nel composto interno: selezionane almeno due.`,
-          targetId: node.id,
-          targetType: "node",
+      internalIdentifiers.forEach((identifier, index) => {
+        const identifierLabel = identifier.id || `identificatore-${index + 1}`;
+        const seenInIdentifier = new Set<string>();
+
+        if (identifier.attributeIds.length === 0) {
+          issues.push({
+            id: `internal-identifier-empty-${node.id}-${index}`,
+            level: "warning",
+            message: `L'entita "${node.label}" contiene un identificatore interno vuoto.`,
+            targetId: node.id,
+            targetType: "node",
+          });
+          return;
+        }
+
+        identifier.attributeIds.forEach((attributeId) => {
+          if (seenInIdentifier.has(attributeId)) {
+            issues.push({
+              id: `internal-identifier-duplicate-attribute-${node.id}-${identifierLabel}-${attributeId}`,
+              level: "warning",
+              message: `L'identificatore interno "${identifierLabel}" su "${node.label}" contiene piu volte lo stesso attributo.`,
+              targetId: node.id,
+              targetType: "node",
+            });
+            return;
+          }
+
+          seenInIdentifier.add(attributeId);
+          const attributeNode = directAttributeById.get(attributeId);
+          if (!attributeNode) {
+            issues.push({
+              id: `internal-identifier-invalid-attribute-${node.id}-${identifierLabel}-${attributeId}`,
+              level: "error",
+              message: `L'identificatore interno "${identifierLabel}" su "${node.label}" riferisce un attributo non valido o non diretto.`,
+              targetId: node.id,
+              targetType: "node",
+            });
+            return;
+          }
+
+          if (attributeNode.isMultivalued === true) {
+            issues.push({
+              id: `internal-identifier-multivalued-${node.id}-${identifierLabel}-${attributeId}`,
+              level: "error",
+              message: `L'attributo "${attributeNode.label}" e multivalore e non puo far parte di un identificatore interno.`,
+              targetId: node.id,
+              targetType: "node",
+            });
+          }
+
+          if (attributeNode.isIdentifier === true) {
+            issues.push({
+              id: `internal-identifier-primary-conflict-${node.id}-${identifierLabel}-${attributeId}`,
+              level: "error",
+              message: `L'attributo "${attributeNode.label}" e gia identificatore semplice e non puo essere riusato negli identificatori interni.`,
+              targetId: node.id,
+              targetType: "node",
+            });
+          }
+
+          const owner = attributeOwnerByIdentifier.get(attributeId);
+          if (owner && owner !== identifierLabel) {
+            issues.push({
+              id: `internal-identifier-overlap-${node.id}-${attributeId}`,
+              level: "error",
+              message: `L'attributo "${attributeNode.label}" appartiene a piu identificatori interni su "${node.label}".`,
+              targetId: node.id,
+              targetType: "node",
+            });
+            return;
+          }
+
+          attributeOwnerByIdentifier.set(attributeId, identifierLabel);
         });
-      }
+      });
     }
   });
 

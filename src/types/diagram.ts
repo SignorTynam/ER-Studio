@@ -31,9 +31,15 @@ export interface BaseNode extends Bounds {
   label: string;
 }
 
+export interface InternalIdentifier {
+  id: string;
+  attributeIds: string[];
+}
+
 export interface EntityNode extends BaseNode {
   type: "entity";
   isWeak?: boolean;
+  internalIdentifiers?: InternalIdentifier[];
 }
 
 export interface RelationshipNode extends BaseNode {

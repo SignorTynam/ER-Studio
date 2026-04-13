@@ -9,9 +9,11 @@ import { LogicalCanvas } from "./logical/LogicalCanvas";
 import { LogicalInspectorPanel } from "./logical/LogicalInspectorPanel";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
+  AttributeNode,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
+  EntityNode,
   EditorMode,
   Point,
   SelectionState,
@@ -36,6 +38,7 @@ import {
   parseDiagram,
   removeSelection,
   serializeDiagram,
+  synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./utils/diagram";
 import { createExampleDiagram } from "./utils/example";
@@ -177,7 +180,6 @@ const NOTICE_DURATION_MS = {
 const STATUS_FOLLOWUP_NOTICE_MS = 2600;
 const ATTRIBUTE_CREATION_HORIZONTAL_OFFSET = 140;
 const ATTRIBUTE_CREATION_STACK_GAP = 28;
-const INTERNAL_IDENTIFIER_HORIZONTAL_OFFSET = 80;
 const COMPOSITE_CHILD_HORIZONTAL_STEP = 24;
 const COMPOSITE_CHILD_VERTICAL_GAP = 80;
 const COMPOSITE_CHILD_VERTICAL_STEP = 44;
@@ -810,37 +812,6 @@ function getNextAttributePosition(
     ),
     y: snapValue(nextY, GRID_SIZE),
   };
-}
-
-function getInternalIdentifierAttributePositions(
-  entityNode: Extract<DiagramNode, { type: "entity" }>,
-  identifierAttributes: AttributeNodeDraft[],
-): Map<string, Point> {
-  const positions = new Map<string, Point>();
-
-  if (identifierAttributes.length === 1) {
-    const attribute = identifierAttributes[0];
-    positions.set(attribute.id, {
-      x: snapValue(entityNode.x - attribute.width - INTERNAL_IDENTIFIER_HORIZONTAL_OFFSET, GRID_SIZE),
-      y: snapValue(entityNode.y + entityNode.height / 2 - attribute.height / 2, GRID_SIZE),
-    });
-    return positions;
-  }
-
-  identifierAttributes.forEach((attribute, index) => {
-    positions.set(attribute.id, {
-      x: snapValue(
-        entityNode.x + entityNode.width / 2 - attribute.width / 2 + index * COMPOSITE_CHILD_HORIZONTAL_STEP,
-        GRID_SIZE,
-      ),
-      y: snapValue(
-        entityNode.y + entityNode.height + COMPOSITE_CHILD_VERTICAL_GAP + index * COMPOSITE_CHILD_VERTICAL_STEP,
-        GRID_SIZE,
-      ),
-    });
-  });
-
-  return positions;
 }
 
 export default function App() {
@@ -1754,8 +1725,8 @@ export default function App() {
     nextDiagram: DiagramDocument,
     status: string,
   ) {
-    const normalizedIncoming = revalidateExternalIdentifiers(nextDiagram);
-    const normalizedCurrent = revalidateExternalIdentifiers(history.present);
+    const normalizedIncoming = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
+    const normalizedCurrent = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(history.present));
     history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
     markDocumentBaseline(normalizedIncoming.diagram);
@@ -1788,8 +1759,8 @@ export default function App() {
         const parsedSerialized = serializeDiagramToErs(parsed);
 
         if (parsedSerialized !== lastSerializedCodeRef.current) {
-          const normalizedParsed = revalidateExternalIdentifiers(parsed).diagram;
-          const normalizedCurrent = revalidateExternalIdentifiers(history.present).diagram;
+          const normalizedParsed = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(parsed)).diagram;
+          const normalizedCurrent = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(history.present)).diagram;
           history.commit(normalizedParsed, normalizedCurrent);
         }
 
@@ -1960,9 +1931,10 @@ export default function App() {
     previousDiagram?: DiagramDocument,
     options?: { suppressExternalIdentifierWarnings?: boolean },
   ): DiagramDocument {
-    const normalizedNext = revalidateExternalIdentifiers(nextDiagram);
+    const synchronizedNext = synchronizeInternalIdentifiers(nextDiagram);
+    const normalizedNext = revalidateExternalIdentifiers(synchronizedNext);
     const normalizedPrevious = previousDiagram
-      ? revalidateExternalIdentifiers(previousDiagram).diagram
+      ? revalidateExternalIdentifiers(synchronizeInternalIdentifiers(previousDiagram)).diagram
       : undefined;
 
     history.commit(normalizedNext.diagram, normalizedPrevious);
@@ -1974,7 +1946,7 @@ export default function App() {
   }
 
   function handlePreviewDiagram(nextDiagram: DiagramDocument) {
-    const normalized = revalidateExternalIdentifiers(nextDiagram);
+    const normalized = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
     history.setPresent(normalized.diagram);
   }
 
@@ -2335,7 +2307,7 @@ export default function App() {
       externalIdentifierTargetAttributeId: targetAttributeId,
     } as Partial<DiagramNode>);
 
-    const externalIdentifierCheck = revalidateExternalIdentifiers(nextDiagram);
+    const externalIdentifierCheck = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
     const blockedInvalidation = externalIdentifierCheck.invalidations.find(
       (invalidation) => invalidation.relationshipId === relationship.id,
     );
@@ -2403,85 +2375,57 @@ export default function App() {
     setStatus(`Attributo collegato a ${hostNode.label}.`);
   }
 
-  function handleApplyInternalIdentifier(entityId: string, attributeIds: string[]) {
+  function handleEntityInternalIdentifiersChange(
+    entityId: string,
+    patch: Partial<EntityNode>,
+    attributePatches: Record<string, Partial<AttributeNode>>,
+  ) {
     if (mode === "view") {
       return;
     }
 
     const entityNode = history.present.nodes.find(
-      (node): node is Extract<DiagramNode, { type: "entity" }> => node.id === entityId && node.type === "entity",
+      (node): node is EntityNode => node.id === entityId && node.type === "entity",
     );
     if (!entityNode) {
       return;
     }
 
-    const directAttributes = findDirectHostedAttributes(history.present, entityId).filter(
-      (attribute) => attribute.isMultivalued !== true,
-    );
-    const directAttributeIds = new Set(directAttributes.map((attribute) => attribute.id));
-    const normalizedIds = Array.from(new Set(attributeIds)).filter((attributeId) => directAttributeIds.has(attributeId));
-
-    if (normalizedIds.length === 0) {
-      setStatusWarning("Seleziona almeno un attributo semplice per creare l'identificatore interno.");
+    const hasEntityPatch = Object.keys(patch).length > 0;
+    const attributePatchIds = Object.keys(attributePatches);
+    if (!hasEntityPatch && attributePatchIds.length === 0) {
       return;
     }
-
-    const selectedAttributes = normalizedIds
-      .map((attributeId) => directAttributes.find((attribute) => attribute.id === attributeId))
-      .filter((attribute): attribute is AttributeNodeDraft => attribute !== undefined);
-    const positions = getInternalIdentifierAttributePositions(entityNode, selectedAttributes);
-    const selectedIdSet = new Set(normalizedIds);
-    const directAttributeIdSet = new Set(directAttributes.map((attribute) => attribute.id));
-    const isSingleAttributeIdentifier = normalizedIds.length === 1;
 
     const nextDiagram: DiagramDocument = {
       ...history.present,
       nodes: history.present.nodes.map((node) => {
-        if (node.type !== "attribute" || !directAttributeIdSet.has(node.id)) {
+        if (node.id === entityId && node.type === "entity") {
+          return {
+            ...node,
+            ...patch,
+          };
+        }
+
+        if (node.type !== "attribute") {
           return node;
         }
 
-        const isSelected = selectedIdSet.has(node.id);
-        const position = positions.get(node.id);
+        const attributePatch = attributePatches[node.id];
+        if (!attributePatch) {
+          return node;
+        }
+
         return {
           ...node,
-          isIdentifier: isSingleAttributeIdentifier ? isSelected : false,
-          isCompositeInternal: isSingleAttributeIdentifier ? false : isSelected,
-          ...(position ? position : {}),
+          ...attributePatch,
         };
       }),
     };
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus(
-      isSingleAttributeIdentifier
-        ? `Identificatore interno impostato su ${selectedAttributes[0]?.label ?? "attributo"}.`
-        : `Identificatore interno aggiornato con ${selectedAttributes.length} attributi.`,
-    );
-  }
-
-  function handleClearInternalIdentifier(entityId: string) {
-    if (mode === "view") {
-      return;
-    }
-
-    const identifierAttributeIds = findDirectHostedAttributes(history.present, entityId)
-      .filter((attribute) => attribute.isIdentifier === true || attribute.isCompositeInternal === true)
-      .map((attribute) => attribute.id);
-
-    if (identifierAttributeIds.length === 0) {
-      setStatusWarning("Nessun identificatore interno da rimuovere sull'entita selezionata.");
-      return;
-    }
-
-    const nextDiagram = updateNodesInDiagram(history.present, identifierAttributeIds, {
-      isIdentifier: false,
-      isCompositeInternal: false,
-    } as Partial<DiagramNode>);
-    commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus("Identificatore interno rimosso.");
+    setStatus("Identificatori interni aggiornati.");
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -3159,8 +3103,7 @@ export default function App() {
                 onDuplicateSelection={handleDuplicateSelection}
                 onDeleteSelection={handleDeleteSelection}
                 onCreateAttributeForSelection={handleCreateAttributeFromSelection}
-                onApplyInternalIdentifier={handleApplyInternalIdentifier}
-                onClearInternalIdentifier={handleClearInternalIdentifier}
+                onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
                 onRenameSelection={handleRenameSelectionQuick}
                 onNodeChange={handleNodeChange}
                 onNodesChange={handleNodesChange}

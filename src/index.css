@@ -1658,7 +1658,9 @@ button:disabled {
 }
 
 .action-modal {
-  width: min(460px, 100%);
+  width: min(520px, calc(100vw - 28px));
+  max-height: min(80vh, 720px);
+  overflow: hidden;
 }
 
 .action-modal-content {
@@ -1666,6 +1668,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
 }
 
 .action-modal-content p {
@@ -4526,6 +4529,104 @@ summary:focus-visible {
 
 .inspector-option-row {
   width: 100%;
+}
+
+.identifier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.identifier-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--studio-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  align-items: center;
+}
+
+.identifier-attrs {
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--studio-ink);
+  word-break: break-word;
+}
+
+.identifier-type {
+  align-self: center;
+  justify-self: start;
+  padding: 0.12rem 0.44rem;
+  border: 1px solid var(--studio-line);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--studio-muted);
+  background: rgba(247, 250, 246, 0.9);
+}
+
+.identifier-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.identifier-actions button {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--studio-ink);
+}
+
+.identifier-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(79, 107, 100, 0.28);
+}
+
+.identifier-add-button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--studio-ink);
+}
+
+.identifier-add-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(79, 107, 100, 0.3);
+}
+
+.modal-attribute-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(42vh, 360px);
+  overflow: auto;
+  padding-right: 6px;
+  overscroll-behavior: contain;
+}
+
+.modal-attribute-list .checkbox-field {
+  margin: 0;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .identifier-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .identifier-type {
+    justify-self: start;
+  }
 }
 
 .context-action-row button {

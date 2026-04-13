@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
 import type {
   AttributeNode,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
+  EntityNode,
   EditorMode,
   SelectionState,
   ValidationIssue,
@@ -12,6 +12,7 @@ import {
   CONNECTOR_CARDINALITIES,
   CONNECTOR_CARDINALITY_PLACEHOLDER,
 } from "../utils/cardinality";
+import { InternalIdentifierSection } from "./InternalIdentifierSection";
 
 interface InspectorPanelProps {
   diagram: DiagramDocument;
@@ -29,35 +30,14 @@ interface InspectorPanelProps {
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
   onCreateAttributeForSelection: () => void;
-  onApplyInternalIdentifier: (entityId: string, attributeIds: string[]) => void;
-  onClearInternalIdentifier: (entityId: string) => void;
+  onEntityInternalIdentifiersChange: (
+    entityId: string,
+    patch: Partial<EntityNode>,
+    attributePatches: Record<string, Partial<AttributeNode>>,
+  ) => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onRenameSelection: () => void;
   onToggleCollapse?: () => void;
-}
-
-function findDirectHostedAttributes(diagram: DiagramDocument, hostId: string): AttributeNode[] {
-  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
-
-  return diagram.edges.flatMap((edge) => {
-    if (edge.type !== "attribute") {
-      return [];
-    }
-
-    const candidateId =
-      edge.sourceId === hostId
-        ? edge.targetId
-        : edge.targetId === hostId
-          ? edge.sourceId
-          : undefined;
-
-    if (!candidateId) {
-      return [];
-    }
-
-    const candidateNode = nodeById.get(candidateId);
-    return candidateNode?.type === "attribute" ? [candidateNode] : [];
-  });
 }
 
 function findDirectAttributeHost(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
@@ -144,63 +124,19 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
       : undefined;
 
-  function isAttributeLinkedToRelationship(attributeId: string): boolean {
-    return props.diagram.edges.some((edge) => {
-      if (edge.type !== "attribute") {
-        return false;
-      }
-
-      const isLinked = edge.sourceId === attributeId || edge.targetId === attributeId;
-      if (!isLinked) {
-        return false;
-      }
-
-      const hostId = edge.sourceId === attributeId ? edge.targetId : edge.sourceId;
-      const hostNode = props.diagram.nodes.find((node) => node.id === hostId);
-      return hostNode?.type === "relationship";
-    });
-  }
-
   const attributeHost =
     selectedNode?.type === "attribute" ? findDirectAttributeHost(props.diagram, selectedNode.id) : undefined;
-  const selectedAttributeLinkedToRelationship =
-    selectedNode?.type === "attribute" ? isAttributeLinkedToRelationship(selectedNode.id) : false;
-  const directEntityAttributes =
-    selectedNode?.type === "entity"
-      ? findDirectHostedAttributes(props.diagram, selectedNode.id).sort((left, right) =>
-          left.label.localeCompare(right.label, "it", { sensitivity: "base" }),
-        )
-      : [];
-  const eligibleInternalIdentifierAttributes = directEntityAttributes.filter(
-    (attribute) => attribute.isMultivalued !== true,
-  );
-  const currentInternalIdentifierAttributeIds = directEntityAttributes
-    .filter((attribute) => attribute.isIdentifier === true || attribute.isCompositeInternal === true)
-    .map((attribute) => attribute.id);
-  const eligibleInternalIdentifierIdSet = new Set(
-    eligibleInternalIdentifierAttributes.map((attribute) => attribute.id),
-  );
-
-  const selectedAttributeNodes = props.diagram.nodes.filter(
-    (node): node is AttributeNode =>
-      props.selection.nodeIds.includes(node.id) && node.type === "attribute",
-  );
-  const eligibleCompositeAttributeNodes = selectedAttributeNodes.filter(
-    (node) =>
-      node.isIdentifier !== true &&
-      node.isMultivalued !== true &&
-      !isAttributeLinkedToRelationship(node.id),
-  );
-  const canConfigureCompositeInternal = eligibleCompositeAttributeNodes.length >= 2;
-  const allSelectedAttributesComposite =
-    canConfigureCompositeInternal &&
-    eligibleCompositeAttributeNodes.every((node) => node.isCompositeInternal === true);
   const selectedAttributeEntityHost =
     selectedNode?.type === "attribute" && attributeHost?.type === "entity" ? attributeHost : undefined;
   const selectedAttributeIsInternalIdentifier =
     selectedNode?.type === "attribute" &&
-    (selectedNode.isIdentifier === true || selectedNode.isCompositeInternal === true) &&
-    selectedAttributeEntityHost !== undefined;
+    selectedAttributeEntityHost !== undefined &&
+    (
+      selectedNode.isCompositeInternal === true ||
+      (selectedAttributeEntityHost.internalIdentifiers ?? []).some((identifier) =>
+        identifier.attributeIds.includes(selectedNode.id),
+      )
+    );
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
@@ -311,92 +247,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
             {!canAlign ? <p className="action-hint">Servono almeno due nodi per usare gli allineamenti.</p> : null}
           </section>
         ) : null}
-
-        {canConfigureCompositeInternal ? (
-          <section className="context-card">
-            <div className="context-card-title">Identificatore composto interno</div>
-            <label className="field checkbox-field">
-              <span>Usa gli attributi selezionati nel composto interno</span>
-              <input
-                type="checkbox"
-                checked={allSelectedAttributesComposite}
-                disabled={!canEdit}
-                onChange={(event) => {
-                  props.onNodesChange(
-                    eligibleCompositeAttributeNodes.map((attributeNode) => attributeNode.id),
-                    { isCompositeInternal: event.target.checked },
-                  );
-                }}
-              />
-            </label>
-            <p className="action-hint">Seleziona due o piu attributi collegati alla stessa entita.</p>
-          </section>
-        ) : null}
       </>
-    );
-  }
-
-  function toggleInternalIdentifierDraft(entityId: string, attributeId: string, checked: boolean) {
-    const activeIds = currentInternalIdentifierAttributeIds.filter((id) =>
-      eligibleInternalIdentifierIdSet.has(id),
-    );
-    const nextIds = checked ? [...activeIds, attributeId] : activeIds.filter((id) => id !== attributeId);
-    const orderedNextIds = eligibleInternalIdentifierAttributes
-      .map((attribute) => attribute.id)
-      .filter((candidateId) => nextIds.includes(candidateId));
-
-    if (orderedNextIds.length === 0) {
-      props.onClearInternalIdentifier(entityId);
-    } else {
-      props.onApplyInternalIdentifier(entityId, orderedNextIds);
-    }
-  }
-
-  function renderInternalIdentifierSection(entityNode: Extract<DiagramNode, { type: "entity" }>) {
-    if (directEntityAttributes.length === 0) {
-      return (
-        <section className="context-card">
-          <div className="context-card-title">Identificatore interno</div>
-          <p className="action-hint">Aggiungi prima uno o piu attributi diretti all'entita per configurarlo.</p>
-        </section>
-      );
-    }
-
-    if (eligibleInternalIdentifierAttributes.length === 0) {
-      return (
-        <section className="context-card">
-          <div className="context-card-title">Identificatore interno</div>
-          <p className="action-hint">
-            Gli attributi multivalore non possono essere usati come identificatore interno.
-          </p>
-        </section>
-      );
-    }
-
-    const activeIds = currentInternalIdentifierAttributeIds.filter((id) =>
-      eligibleInternalIdentifierIdSet.has(id),
-    );
-
-    return (
-      <section className="context-card">
-        <div className="context-card-title">Identificatore interno</div>
-        <p className="context-card-subtitle">
-          Seleziona 1 attributo per un identificatore singolo, 2 o piu attributi per un identificatore interno composto.
-        </p>
-        <div className="inspector-option-list">
-          {eligibleInternalIdentifierAttributes.map((attribute) => (
-            <label key={attribute.id} className="checkbox-field inspector-option-row">
-              <span>{attribute.label}</span>
-              <input
-                type="checkbox"
-                checked={activeIds.includes(attribute.id)}
-                disabled={!canEdit}
-                onChange={(event) => toggleInternalIdentifierDraft(entityNode.id, attribute.id, event.target.checked)}
-              />
-            </label>
-          ))}
-        </div>
-      </section>
     );
   }
 
@@ -404,7 +255,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
     if (node.type === "entity") {
       return (
         <>
-          {renderInternalIdentifierSection(node)}
+          <InternalIdentifierSection
+            entity={node}
+            diagram={props.diagram}
+            readOnly={!canEdit}
+            onEntityChange={props.onEntityInternalIdentifiersChange}
+          />
           {renderSelectionActions()}
         </>
       );
@@ -448,7 +304,17 @@ export function InspectorPanel(props: InspectorPanelProps) {
     }
 
     if (node.type === "attribute") {
-      return renderSelectionActions();
+      return (
+        <>
+          {selectedAttributeIsInternalIdentifier ? (
+            <section className="context-card">
+              <div className="context-card-title">Stato attributo</div>
+              <p className="action-hint">Parte di identificatore interno.</p>
+            </section>
+          ) : null}
+          {renderSelectionActions()}
+        </>
+      );
     }
 
     return (

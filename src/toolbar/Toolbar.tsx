@@ -1,8 +1,10 @@
 import { InspectorPanel } from "../inspector/InspectorPanel";
 import type {
+  AttributeNode,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
+  EntityNode,
   EditorMode,
   SelectionState,
   ToolKind,
@@ -37,8 +39,11 @@ interface ToolbarProps {
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
   onCreateAttributeForSelection: () => void;
-  onApplyInternalIdentifier: (entityId: string, attributeIds: string[]) => void;
-  onClearInternalIdentifier: (entityId: string) => void;
+  onEntityInternalIdentifiersChange: (
+    entityId: string,
+    patch: Partial<EntityNode>,
+    attributePatches: Record<string, Partial<AttributeNode>>,
+  ) => void;
   onRenameSelection: () => void;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
@@ -114,7 +119,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" | "weak" | "identifier" | "multivalue" | "composite" }) {
+function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" | "weak" | "identifier" | "multivalue" }) {
   if (kind === "undo") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -182,15 +187,6 @@ function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "d
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
         <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
         <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (kind === "composite") {
-    return (
-      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
       </svg>
     );
   }
@@ -351,18 +347,6 @@ export function Toolbar(props: ToolbarProps) {
                     >
                       <ActionIcon kind="multivalue" />
                       <span className="tool-label">Multivalore</span>
-                    </button>
-                  )}
-                  {!attrNode.isIdentifier && !attrNode.isMultivalued && (
-                    <button
-                      type="button"
-                      className={attrNode.isCompositeInternal ? "toolbar-action-button active" : "toolbar-action-button"}
-                      onClick={() => props.onNodeChange(attrNode.id, { isCompositeInternal: !attrNode.isCompositeInternal })}
-                      disabled={!canEdit || isLinkedToRel}
-                      title="Parte di identificatore interno"
-                    >
-                      <ActionIcon kind="composite" />
-                      <span className="tool-label">Identificatore interno</span>
                     </button>
                   )}
                 </>
@@ -618,8 +602,7 @@ export function Toolbar(props: ToolbarProps) {
           onDuplicateSelection={props.onDuplicateSelection}
           onAlign={props.onAlign}
           onCreateAttributeForSelection={props.onCreateAttributeForSelection}
-          onApplyInternalIdentifier={props.onApplyInternalIdentifier}
-          onClearInternalIdentifier={props.onClearInternalIdentifier}
+          onEntityInternalIdentifiersChange={props.onEntityInternalIdentifiersChange}
           onIssueSelect={props.onIssueSelect}
           onRenameSelection={props.onRenameSelection}
         />
