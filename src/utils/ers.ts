@@ -1334,19 +1334,24 @@ function formatNamedDefinition(keyword: string, alias: string, label: string): s
   return `${keyword} ${alias} ${quoteValue(label)}`;
 }
 
-function buildAttributeArgs(attribute: Extract<DiagramNode, { type: "attribute" }>): string {
-  const args: string[] = [];
+function getAttributeKeyword(attribute: Extract<DiagramNode, { type: "attribute" }>):
+  | "attribute"
+  | "identifier"
+  | "composite"
+  | "multivalued" {
   if (attribute.isIdentifier === true) {
-    args.push("identifier");
-  }
-  if (attribute.isCompositeInternal === true) {
-    args.push("composite");
-  }
-  if (attribute.isMultivalued === true) {
-    args.push("multivalued");
+    return "identifier";
   }
 
-  return args.length > 0 ? ` [${args.join(", ")}]` : "";
+  if (attribute.isCompositeInternal === true) {
+    return "composite";
+  }
+
+  if (attribute.isMultivalued === true) {
+    return "multivalued";
+  }
+
+  return "attribute";
 }
 
 function buildAttributeDeclaration(
@@ -1355,14 +1360,14 @@ function buildAttributeDeclaration(
   aliasByNodeId: Map<string, string>,
 ): string {
   const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
-  return `  ${formatNamedDefinition("attribute", alias, attribute.label)}${buildAttributeArgs(attribute)}`;
+  return `  ${formatNamedDefinition(getAttributeKeyword(attribute), alias, attribute.label)}`;
 }
 
 function buildStandaloneAttributeLine(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   alias: string,
 ): string {
-  return `${formatNamedDefinition("attribute", alias, attribute.label)}${buildAttributeArgs(attribute)}`;
+  return `${formatNamedDefinition(getAttributeKeyword(attribute), alias, attribute.label)}`;
 }
 
 function buildNestedAttributeLegacyLines(
