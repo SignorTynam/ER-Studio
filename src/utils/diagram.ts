@@ -368,6 +368,19 @@ export function edgeAlreadyExists(
   });
 }
 
+function getDuplicateEdgeSignature(edge: DiagramEdge): string | null {
+  if (edge.type === "connector") {
+    return null;
+  }
+
+  if (edge.type === "inheritance") {
+    return `${edge.type}:${edge.sourceId}->${edge.targetId}`;
+  }
+
+  const [firstId, secondId] = [edge.sourceId, edge.targetId].sort();
+  return `${edge.type}:${firstId}<->${secondId}`;
+}
+
 export function removeSelection(
   diagram: DiagramDocument,
   selection: SelectionState,
@@ -1052,6 +1065,8 @@ export function parseDiagram(rawJson: string): DiagramDocument {
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const edgesByNode = new Map<string, DiagramEdge[]>();
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const duplicateEdgeOwners = new Map<string, DiagramEdge>();
 
   diagram.edges.forEach((edge) => {
     const sourceList = edgesByNode.get(edge.sourceId) ?? [];
@@ -1097,7 +1112,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         connectors
           .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
           .filter((otherId) => {
-            const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+            const otherNode = nodeMap.get(otherId);
             return otherNode?.type === "entity";
           }),
       );
@@ -1115,7 +1130,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
       const relationshipIdentifierAttributes = connectedEdges
         .filter((edge) => edge.type === "attribute")
         .map((edge) => (edge.sourceId === node.id ? edge.targetId : edge.sourceId))
-        .map((attributeId) => diagram.nodes.find((candidate) => candidate.id === attributeId))
+        .map((attributeId) => nodeMap.get(attributeId))
         .filter((candidate): candidate is DiagramNode => candidate !== undefined)
         .filter(
           (candidate) =>
@@ -1156,7 +1171,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         }
 
         const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-        const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+        const otherNode = nodeMap.get(otherId);
         return otherNode?.type === "relationship";
       });
 
@@ -1179,10 +1194,10 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         }
 
         const otherId = edge.sourceId === node.id ? edge.targetId : edge.sourceId;
-        const otherNode = diagram.nodes.find((candidate) => candidate.id === otherId);
+        const otherNode = nodeMap.get(otherId);
         return otherNode?.type === "attribute";
       });
-      const hasExternalIdentifierAttribute = diagram.nodes.some(
+      const hasExternalIdentifierRelationship = diagram.nodes.some(
         (candidate) =>
           candidate.type === "relationship" &&
           candidate.isExternalIdentifier === true &&
@@ -1190,11 +1205,21 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           typeof candidate.externalIdentifierSourceAttributeId === "string",
       );
 
-      if (!hasAttribute && !hasExternalIdentifierAttribute) {
+      if (!hasAttribute && !hasExternalIdentifierRelationship) {
         issues.push({
           id: `entity-no-attributes-${node.id}`,
           level: "warning",
           message: `L'entita "${node.label}" non ha attributi collegati.`,
+          targetId: node.id,
+          targetType: "node",
+        });
+      }
+
+      if (node.isWeak === true && !hasExternalIdentifierRelationship) {
+        issues.push({
+          id: `weak-entity-${node.id}`,
+          level: "warning",
+          message: `L'entita debole "${node.label}" non e collegata ad alcun identificatore esterno.`,
           targetId: node.id,
           targetType: "node",
         });
@@ -1227,8 +1252,8 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
   });
 
   diagram.edges.forEach((edge) => {
-    const sourceNode = diagram.nodes.find((node) => node.id === edge.sourceId);
-    const targetNode = diagram.nodes.find((node) => node.id === edge.targetId);
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
 
     if (!sourceNode || !targetNode) {
       issues.push({
@@ -1249,6 +1274,22 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         targetId: edge.id,
         targetType: "edge",
       });
+    }
+
+    const duplicateSignature = getDuplicateEdgeSignature(edge);
+    if (duplicateSignature) {
+      const firstDuplicate = duplicateEdgeOwners.get(duplicateSignature);
+      if (firstDuplicate) {
+        issues.push({
+          id: `duplicate-${edge.id}`,
+          level: "warning",
+          message: `Il collegamento tra "${sourceNode.label}" e "${targetNode.label}" e duplicato.`,
+          targetId: edge.id,
+          targetType: "edge",
+        });
+      } else {
+        duplicateEdgeOwners.set(duplicateSignature, edge);
+      }
     }
 
     if (edge.type === "inheritance" && sourceNode.type === "entity" && targetNode.type === "entity") {
