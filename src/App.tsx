@@ -1890,28 +1890,16 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         if (event.shiftKey) {
-          if (diagramView === "er") {
-            history.redo();
-          } else {
-            logicalHistory.redo();
-          }
+          handleRedoAction();
         } else {
-          if (diagramView === "er") {
-            history.undo();
-          } else {
-            logicalHistory.undo();
-          }
+          handleUndoAction();
         }
         return;
       }
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
         event.preventDefault();
-        if (diagramView === "er") {
-          history.redo();
-        } else {
-          logicalHistory.redo();
-        }
+        handleRedoAction();
         return;
       }
 
@@ -2002,6 +1990,7 @@ export default function App() {
       : undefined;
 
     history.commit(normalizedNext.diagram, normalizedPrevious);
+    syncCodeDraftWithDiagram(normalizedNext.diagram);
     if (!options?.suppressExternalIdentifierWarnings) {
       reportExternalIdentifierInvalidations(normalizedNext.invalidations, "notice");
     }
@@ -3003,6 +2992,9 @@ export default function App() {
 
   function handleUndoAction() {
     if (diagramView === "er") {
+      if (codeDirtyRef.current || codeError) {
+        syncCodeDraftWithDiagram(history.present);
+      }
       history.undo();
       return;
     }
@@ -3012,6 +3004,9 @@ export default function App() {
 
   function handleRedoAction() {
     if (diagramView === "er") {
+      if (codeDirtyRef.current || codeError) {
+        syncCodeDraftWithDiagram(history.present);
+      }
       history.redo();
       return;
     }
