@@ -1,16 +1,14 @@
-# Chen ER Diagram Studio (v3.3)
+# Chen ER Diagram Studio (v3.4)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, export PNG/SVG, salvataggio JSON e sincronizzazione ERS live.
 
-## Novita 3.3
+## Novita 3.4
 
-- Versione aggiornata a `3.3`.
-- Refactor identificatori interni: ogni entita puo gestire piu identificatori interni con struttura dedicata.
-- Nuova sezione UI dedicata agli identificatori interni con creazione, modifica, eliminazione e selezione attributi via modal.
-- Coerenza tra flussi legacy e nuova UI: gli identificatori semplici/composti restano sincronizzati tra lista e flag attributo.
-- Rendering canvas corretto per composti multipli: identificatori composti diversi sulla stessa entita non vengono piu accorpati in un solo gruppo grafico.
-- Modal degli identificatori robusto anche nei pannelli embedded (portal su body), senza clipping laterale.
-- Vincolo cardinalita rafforzato: un attributo che partecipa a identificatori interni non espone cardinalita opzionale.
+- Versione aggiornata a `3.4`.
+- Nuova sintassi ERS per identificatori interni composti: `identifier att1, att2` (con piu gruppi distinti supportati nella stessa entita).
+- Compatibilita parser mantenuta per la forma legacy `composite att1, att2`.
+- Drag migliorato: spostando una relazione si spostano insieme anche gli attributi collegati, mantenendo il drag individuale degli attributi.
+- Esempio di progetto aggiornato a configurazione completa coerente con il JSON di riferimento.
 
 ## Requisiti
 

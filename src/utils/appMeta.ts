@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.3";
+export const APP_VERSION = "3.4";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,17 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.4",
+    date: "2026-04-14",
+    updates: [
+      "Nuova sintassi ERS per identificatori interni composti: `identifier att1, att2` con supporto a gruppi multipli distinti nella stessa entita.",
+      "Compatibilita retroattiva mantenuta: il parser continua ad accettare la forma legacy `composite att1, att2`.",
+      "Drag migliorato: spostando una relazione si spostano insieme anche gli attributi collegati, mantenendo comunque il drag singolo degli attributi.",
+      "Esempio di progetto aggiornato a scenario completo con layout e metadati allineati al JSON di riferimento.",
+      "Versione applicativa e documentazione allineate alla release 3.4.",
+    ],
+  },
   {
     version: "3.3",
     date: "2026-04-13",
