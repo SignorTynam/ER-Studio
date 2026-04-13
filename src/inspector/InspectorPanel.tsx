@@ -124,6 +124,19 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
       : undefined;
 
+  function edgeTouchesInternalIdentifierAttribute(edge: DiagramEdge): boolean {
+    if (edge.type !== "attribute") {
+      return false;
+    }
+
+    const sourceNode = props.diagram.nodes.find((node) => node.id === edge.sourceId);
+    const targetNode = props.diagram.nodes.find((node) => node.id === edge.targetId);
+    const isInternalIdentifierAttribute = (node?: DiagramNode) =>
+      node?.type === "attribute" && (node.isIdentifier === true || node.isCompositeInternal === true);
+
+    return isInternalIdentifierAttribute(sourceNode) || isInternalIdentifierAttribute(targetNode);
+  }
+
   const attributeHost =
     selectedNode?.type === "attribute" ? findDirectAttributeHost(props.diagram, selectedNode.id) : undefined;
   const selectedAttributeEntityHost =
@@ -338,6 +351,9 @@ export function InspectorPanel(props: InspectorPanelProps) {
   }
 
   function renderEdgeContext(edge: DiagramEdge) {
+    const canConfigureAttributeCardinality =
+      edge.type === "attribute" && !edgeTouchesInternalIdentifierAttribute(edge);
+
     return (
       <>
         <section className="context-card">
@@ -361,7 +377,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
               </label>
             ) : null}
 
-            {edge.type === "attribute" ? (
+            {canConfigureAttributeCardinality ? (
               <label className="field">
                 <span>Cardinalita opzionale</span>
                 <select
@@ -381,6 +397,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   ))}
                 </select>
               </label>
+            ) : null}
+
+            {edge.type === "attribute" && !canConfigureAttributeCardinality ? (
+              <p className="action-hint">
+                La cardinalita non e disponibile per attributi che fanno parte di identificatori interni.
+              </p>
             ) : null}
 
             <label className="field">

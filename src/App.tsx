@@ -672,6 +672,20 @@ function findRelationshipBetweenEntities(
   return undefined;
 }
 
+function isInternalIdentifierAttributeNode(node: DiagramNode | undefined): boolean {
+  return node?.type === "attribute" && (node.isIdentifier === true || node.isCompositeInternal === true);
+}
+
+function edgeTouchesInternalIdentifierAttribute(diagram: DiagramDocument, edge: DiagramEdge): boolean {
+  if (edge.type !== "attribute") {
+    return false;
+  }
+
+  const sourceNode = diagram.nodes.find((node) => node.id === edge.sourceId);
+  const targetNode = diagram.nodes.find((node) => node.id === edge.targetId);
+  return isInternalIdentifierAttributeNode(sourceNode) || isInternalIdentifierAttributeNode(targetNode);
+}
+
 function getNodeKindLabel(node: DiagramNode): string {
   if (node.type === "entity") {
     return "entita";
@@ -2618,6 +2632,30 @@ export default function App() {
   }
 
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
+    const currentEdge = history.present.edges.find((edge) => edge.id === edgeId);
+    if (!currentEdge) {
+      return;
+    }
+
+    const wantsCardinalityPatch = Object.prototype.hasOwnProperty.call(patch, "cardinality");
+    const touchesInternalIdentifier = edgeTouchesInternalIdentifierAttribute(history.present, currentEdge);
+    if (currentEdge.type === "attribute" && wantsCardinalityPatch && touchesInternalIdentifier) {
+      const requestedCardinality = (patch as Partial<Extract<DiagramEdge, { type: "attribute" }>>).cardinality;
+      if (typeof requestedCardinality === "string" && requestedCardinality.trim().length > 0) {
+        setStatusWarning(
+          "La cardinalita non e consentita per attributi identificatori interni: il valore e stato rimosso.",
+        );
+      }
+
+      const sanitizedPatch = {
+        ...patch,
+        cardinality: undefined,
+      } as Partial<DiagramEdge>;
+      const nextDiagram = updateEdgeInDiagram(history.present, edgeId, sanitizedPatch);
+      commitDiagram(nextDiagram);
+      return;
+    }
+
     const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
 
     commitDiagram(nextDiagram);
@@ -2659,6 +2697,13 @@ export default function App() {
     }
 
     if (!selectedEdge) {
+      return;
+    }
+
+    if (selectedEdge.type === "attribute" && edgeTouchesInternalIdentifierAttribute(history.present, selectedEdge)) {
+      setStatusWarning(
+        "La cardinalita non e modificabile per attributi che fanno parte di identificatori interni.",
+      );
       return;
     }
 

@@ -644,10 +644,35 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
     return node;
   });
 
-  return changed
+  let edgeChanged = false;
+  const nextNodeMap = new Map(nextNodes.map((node) => [node.id, node]));
+  const nextEdges = diagram.edges.map((edge) => {
+    if (edge.type !== "attribute" || edge.cardinality === undefined) {
+      return edge;
+    }
+
+    const sourceNode = nextNodeMap.get(edge.sourceId);
+    const targetNode = nextNodeMap.get(edge.targetId);
+    const touchesInternalIdentifierAttribute =
+      (sourceNode?.type === "attribute" && (sourceNode.isIdentifier === true || sourceNode.isCompositeInternal === true)) ||
+      (targetNode?.type === "attribute" && (targetNode.isIdentifier === true || targetNode.isCompositeInternal === true));
+
+    if (!touchesInternalIdentifierAttribute) {
+      return edge;
+    }
+
+    edgeChanged = true;
+    return {
+      ...edge,
+      cardinality: undefined,
+    };
+  });
+
+  return changed || edgeChanged
     ? {
         ...diagram,
         nodes: nextNodes,
+        edges: nextEdges,
       }
     : diagram;
 }
