@@ -9,6 +9,7 @@ interface AppHeaderProps {
   appVersion: string;
   diagramName: string;
   diagramView: DiagramWorkspaceView;
+  codePanelOpen: boolean;
   mode: EditorMode;
   canUndo: boolean;
   canRedo: boolean;
@@ -23,6 +24,7 @@ interface AppHeaderProps {
   onGenerateLogicalModel: () => void;
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
+  onToggleCodePanel: () => void;
   onSave: () => void;
   onSaveErs: () => void;
   onLoad: () => void;
@@ -225,6 +227,20 @@ export function AppHeader(props: AppHeaderProps) {
             >
               Ripeti
             </button>
+            {props.diagramView === "er" ? (
+              <button
+                type="button"
+                className={
+                  props.codePanelOpen
+                    ? "header-button header-quick-button active"
+                    : "header-button header-quick-button"
+                }
+                onClick={props.onToggleCodePanel}
+                title={props.codePanelOpen ? "Nascondi pannello codice" : "Mostra pannello codice"}
+              >
+                {props.codePanelOpen ? "Hide code" : "Show code"}
+              </button>
+            ) : null}
             {props.diagramView === "logical" ? (
               <>
                 <button

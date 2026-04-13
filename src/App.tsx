@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { CodePanel } from "./components/CodePanel";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { useHistory } from "./hooks/useHistory";
@@ -42,6 +43,7 @@ import {
   validateDiagram,
 } from "./utils/diagram";
 import { createExampleDiagram } from "./utils/example";
+import { serializeDiagramForCodePanel } from "./utils/codePanelSerializer";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
@@ -132,6 +134,8 @@ interface WorkspaceSessionSnapshot {
   logicalSelection: LogicalSelection;
   codeDraft: string;
   codeDirty: boolean;
+  codePanelOpen: boolean;
+  codePanelWidth: number;
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
@@ -152,6 +156,8 @@ interface WorkspaceSessionBootstrap {
   logicalSelection: LogicalSelection;
   codeDraft: string;
   codeDirty: boolean;
+  codePanelOpen: boolean;
+  codePanelWidth: number;
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
@@ -188,6 +194,9 @@ const TOOLBAR_COLLAPSED_WIDTH = 62;
 const DEFAULT_TOOLBAR_WIDTH = INITIAL_WINDOW_WIDTH >= 1680 ? 216 : 196;
 const MIN_TOOLBAR_WIDTH = 180;
 const MAX_TOOLBAR_WIDTH = 320;
+const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.32), 300, 640);
+const MIN_CODE_PANEL_WIDTH = 280;
+const MAX_CODE_PANEL_WIDTH = 760;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
 const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v1";
@@ -291,6 +300,8 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
     codeDraft: serializeDiagramToErs(diagram),
     codeDirty: false,
+    codePanelOpen: false,
+    codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
     toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
     focusMode: false,
     toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
@@ -344,6 +355,11 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       logicalSelection: storedLogicalSelection,
       codeDraft: storedCodeDraft,
       codeDirty: parsed.codeDirty === true,
+      codePanelOpen: parsed.codePanelOpen === true,
+      codePanelWidth:
+        typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
+          ? parsed.codePanelWidth
+          : fallback.codePanelWidth,
       toolbarCollapsed: typeof parsed.toolbarCollapsed === "boolean" ? parsed.toolbarCollapsed : fallback.toolbarCollapsed,
       focusMode: typeof parsed.focusMode === "boolean" ? parsed.focusMode : false,
       toolbarWidth:
@@ -866,6 +882,8 @@ export default function App() {
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
   const [codeError, setCodeError] = useState("");
+  const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
+  const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
@@ -893,7 +911,7 @@ export default function App() {
   const promptDialogResolverRef = useRef<((value: string | null) => void) | null>(null);
   const promptInputRef = useRef<HTMLInputElement | null>(null);
   const panelResizeRef = useRef<{
-    panel: "toolbar";
+    panel: "toolbar" | "code";
     startClientX: number;
     startWidth: number;
   } | null>(null);
@@ -933,20 +951,30 @@ export default function App() {
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
   const activeCanUndo = diagramView === "er" ? history.canUndo : logicalHistory.canUndo;
   const activeCanRedo = diagramView === "er" ? history.canRedo : logicalHistory.canRedo;
+  const diagramCode = useMemo(() => serializeDiagramForCodePanel(history.present), [history.present]);
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
     max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
+  };
+  const codePanelResizeBounds = {
+    min: clampValue(Math.floor(windowWidth * 0.22), MIN_CODE_PANEL_WIDTH, 420),
+    max: clampValue(Math.floor(windowWidth * 0.5), 520, MAX_CODE_PANEL_WIDTH),
   };
   const visibleToolbarWidth = focusMode
     ? 0
     : effectiveToolbarCollapsed
       ? TOOLBAR_COLLAPSED_WIDTH
       : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
+  const visibleCodePanelWidth = clampValue(codePanelWidth, codePanelResizeBounds.min, codePanelResizeBounds.max);
   const workspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
     "--inspector-resizer-width": "0px",
     "--inspector-width": "0px",
+  } as CSSProperties;
+  const erWorkspaceMainStyle = {
+    "--diagram-code-panel-width": codePanelOpen ? `${visibleCodePanelWidth}px` : "0px",
+    "--diagram-code-resizer-width": codePanelOpen ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const logicalWorkspaceShellStyle = {
     "--toolbar-width": "0px",
@@ -1031,6 +1059,8 @@ export default function App() {
       logicalSelection: { ...logicalSelection },
       codeDraft: codeDraftRef.current,
       codeDirty: codeDirtyRef.current,
+      codePanelOpen,
+      codePanelWidth,
       toolbarCollapsed,
       focusMode,
       toolbarWidth,
@@ -1038,6 +1068,8 @@ export default function App() {
   }, [
     codeDraft,
     codeDirty,
+    codePanelOpen,
+    codePanelWidth,
     diagramView,
     focusMode,
     history.present,
@@ -1068,6 +1100,8 @@ export default function App() {
   }, [
     codeDraft,
     codeDirty,
+    codePanelOpen,
+    codePanelWidth,
     diagramView,
     focusMode,
     history.present,
@@ -1134,6 +1168,10 @@ export default function App() {
   useEffect(() => {
     setToolbarWidth((current) => clampValue(current, toolbarResizeBounds.min, toolbarResizeBounds.max));
   }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
+
+  useEffect(() => {
+    setCodePanelWidth((current) => clampValue(current, codePanelResizeBounds.min, codePanelResizeBounds.max));
+  }, [codePanelResizeBounds.max, codePanelResizeBounds.min]);
 
   useEffect(() => {
     if (surface !== "studio" || diagramView !== "er") {
@@ -1260,12 +1298,13 @@ export default function App() {
         return;
       }
 
-      const nextWidth = clampValue(
-        currentResize.startWidth + (event.clientX - currentResize.startClientX),
-        toolbarResizeBounds.min,
-        toolbarResizeBounds.max,
-      );
-      setToolbarWidth(nextWidth);
+      const nextWidth = currentResize.startWidth + (event.clientX - currentResize.startClientX);
+      if (currentResize.panel === "toolbar") {
+        setToolbarWidth(clampValue(nextWidth, toolbarResizeBounds.min, toolbarResizeBounds.max));
+        return;
+      }
+
+      setCodePanelWidth(clampValue(nextWidth, codePanelResizeBounds.min, codePanelResizeBounds.max));
     }
 
     function stopResize() {
@@ -1285,7 +1324,12 @@ export default function App() {
       window.removeEventListener("pointerup", stopResize);
       document.body.classList.remove("workspace-resizing");
     };
-  }, [toolbarResizeBounds.max, toolbarResizeBounds.min]);
+  }, [
+    codePanelResizeBounds.max,
+    codePanelResizeBounds.min,
+    toolbarResizeBounds.max,
+    toolbarResizeBounds.min,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1699,8 +1743,12 @@ export default function App() {
     });
   }
 
+  function handleToggleCodePanel() {
+    setCodePanelOpen((current) => !current);
+  }
+
   function handlePanelResizeStart(
-    panel: "toolbar",
+    panel: "toolbar" | "code",
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
     if (event.button !== 0) {
@@ -1711,15 +1759,18 @@ export default function App() {
     panelResizeRef.current = {
       panel,
       startClientX: event.clientX,
-      startWidth: toolbarWidth,
+      startWidth: panel === "toolbar" ? toolbarWidth : codePanelWidth,
     };
     document.body.classList.add("workspace-resizing");
   }
 
-  function resetPanelWidth(panel: "toolbar") {
+  function resetPanelWidth(panel: "toolbar" | "code") {
     if (panel === "toolbar") {
       setToolbarWidth(clampValue(DEFAULT_TOOLBAR_WIDTH, toolbarResizeBounds.min, toolbarResizeBounds.max));
+      return;
     }
+
+    setCodePanelWidth(clampValue(DEFAULT_CODE_PANEL_WIDTH, codePanelResizeBounds.min, codePanelResizeBounds.max));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -3034,6 +3085,7 @@ export default function App() {
         appVersion={APP_VERSION}
         diagramName={history.present.meta.name}
         diagramView={diagramView}
+        codePanelOpen={codePanelOpen}
         mode={mode}
         canUndo={activeCanUndo}
         canRedo={activeCanRedo}
@@ -3048,6 +3100,7 @@ export default function App() {
         onGenerateLogicalModel={handleGenerateLogicalModel}
         onAutoLayoutLogical={handleLogicalAutoLayout}
         onFitLogical={handleLogicalFit}
+        onToggleCodePanel={handleToggleCodePanel}
         onSave={handleSaveJson}
         onSaveErs={handleSaveErs}
         onLoad={handleLoadRequest}
@@ -3173,7 +3226,24 @@ export default function App() {
                 disabled={focusMode || effectiveToolbarCollapsed}
               />
 
-              <div className="workspace-main diagram-only">
+              <div
+                className={codePanelOpen ? "workspace-main diagram-with-code code-open" : "workspace-main diagram-with-code"}
+                style={erWorkspaceMainStyle}
+              >
+                <div className="diagram-code-column">
+                  <CodePanel code={diagramCode} placeholder="Nessun codice disponibile" />
+                </div>
+
+                <button
+                  type="button"
+                  className={codePanelOpen ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
+                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
+                  onDoubleClick={() => resetPanelWidth("code")}
+                  aria-label="Ridimensiona pannello codice"
+                  title="Trascina per ridimensionare il pannello codice"
+                  disabled={!codePanelOpen}
+                />
+
                 <DiagramCanvas
                   diagram={history.present}
                   selection={selection}

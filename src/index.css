@@ -5881,6 +5881,35 @@ body.workspace-resizing {
   height: 100%;
 }
 
+.workspace-main.diagram-with-code {
+  --diagram-code-panel-width: 0px;
+  --diagram-code-resizer-width: 0px;
+  grid-template-columns:
+    var(--diagram-code-panel-width)
+    var(--diagram-code-resizer-width)
+    minmax(0, 1fr);
+  gap: var(--workspace-gap);
+  transition: grid-template-columns 180ms ease;
+}
+
+.workspace-main.diagram-with-code .diagram-code-column {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-12px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.workspace-main.diagram-with-code.code-open .diagram-code-column {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
 .workspace-main.split {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--workspace-gap);
@@ -6228,6 +6257,68 @@ body.workspace-resizing {
   font-size: 0.76rem;
 }
 
+.diagram-code-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 10px 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 39, 31, 0.08);
+  background:
+    linear-gradient(180deg, rgba(250, 248, 243, 0.95) 0%, rgba(246, 243, 235, 0.96) 100%);
+  box-shadow: none;
+}
+
+.diagram-code-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 2px 10px;
+  border-bottom: 1px solid rgba(42, 39, 31, 0.08);
+}
+
+.diagram-code-panel-head h2 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(42, 39, 31, 0.78);
+}
+
+.diagram-code-panel-head span {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(42, 39, 31, 0.5);
+}
+
+.diagram-code-panel-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 2px 4px;
+  overflow: auto;
+  white-space: pre;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: rgba(28, 27, 23, 0.9);
+}
+
+.diagram-code-panel-placeholder {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 16px;
+  font-size: 0.86rem;
+  color: rgba(42, 39, 31, 0.58);
+  text-align: center;
+}
+
 .code-mode-panel.code-mode-panel-editor-only {
   padding: 0;
   gap: 0;
@@ -6343,6 +6434,27 @@ body.workspace-resizing {
   .workspace-main.split {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .workspace-main.diagram-with-code {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workspace-main.diagram-with-code .workspace-resizer {
+    display: none;
+  }
+
+  .workspace-main.diagram-with-code .diagram-code-column {
+    transform: none;
+  }
+
+  .workspace-main.diagram-with-code:not(.code-open) .diagram-code-column {
+    display: none;
+  }
+
+  .workspace-main.diagram-with-code.code-open .diagram-code-column {
+    max-height: min(34vh, 320px);
+  }
 }
 
 @media (max-width: 960px) {
@@ -6386,6 +6498,10 @@ body.workspace-resizing {
 
   .workspace-shell.inspector-collapsed {
     --inspector-width: 62px;
+  }
+
+  .workspace-main.diagram-with-code.code-open .diagram-code-column {
+    max-height: min(38vh, 280px);
   }
 
   .canvas-viewport-hud {
