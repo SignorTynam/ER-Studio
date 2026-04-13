@@ -6300,25 +6300,55 @@ body.workspace-resizing {
   color: #8f2419;
 }
 
-.diagram-code-panel-content {
+.diagram-code-editor-shell {
   flex: 1 1 auto;
   min-height: 0;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.diagram-code-gutter {
   margin: 0;
-  padding: 12px 2px 4px;
-  overflow: auto;
-  white-space: pre;
+  min-height: 0;
+  padding: 12px 8px 4px 1px;
+  overflow: hidden;
+  border-right: 1px solid rgba(42, 39, 31, 0.08);
+  text-align: right;
   font-size: 0.84rem;
   line-height: 1.5;
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  color: rgba(28, 27, 23, 0.9);
+  color: rgba(42, 39, 31, 0.52);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-textarea.diagram-code-panel-content {
+.diagram-code-line-number {
+  display: block;
+  height: 1.5em;
+}
+
+.diagram-code-line-number.error {
+  color: #8f2419;
+  font-weight: 700;
+}
+
+.diagram-code-panel-content {
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 2px 4px 10px;
+  overflow: auto;
+  white-space: pre;
   border: 0;
   outline: none;
   resize: none;
   background: transparent;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  tab-size: 2;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: rgba(28, 27, 23, 0.9);
 }
 
 textarea.diagram-code-panel-content::placeholder {
