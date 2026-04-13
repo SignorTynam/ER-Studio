@@ -516,7 +516,7 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 
   nodeIds.forEach((nodeId) => {
     const node = nodeMap.get(nodeId);
-    if (node?.type === "entity" || node?.type === "attribute") {
+    if (node?.type === "entity") {
       queue.push(nodeId);
     }
   });

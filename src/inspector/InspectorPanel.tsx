@@ -388,7 +388,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
                 />
               </label>
               <label className="field checkbox-field">
-                <span>Attributo composto</span>
+                <span>Attributo multivalore</span>
                 <input
                   type="checkbox"
                   checked={node.isMultivalued === true}

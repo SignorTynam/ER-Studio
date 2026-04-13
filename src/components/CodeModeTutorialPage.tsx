@@ -50,12 +50,12 @@ const FLOW_STEPS = [
   {
     step: "02",
     title: "Aggiungi attributi dentro il blocco giusto",
-    text: "Gli attributi semplici, identifier e composite si leggono meglio quando restano vicini al loro contenitore nel blocco.",
+    text: "Gli attributi semplici, identifier e multivalued si leggono meglio quando restano vicini al loro contenitore nel blocco.",
   },
   {
     step: "03",
-    title: "Usa attribute-link per i figli del composto",
-    text: "I sotto-attributi sono nodi normali collegati all'attributo padre. Il numero di elementi e libero.",
+    title: "Usa attribute-link per gli attributi collegati",
+    text: "Gli attributi collegati restano nodi normali. Il numero di elementi e libero.",
   },
   {
     step: "04",
@@ -76,9 +76,9 @@ const SYNTAX_PATTERNS = [
     text: "Usa relation in forma compatta o a blocco. La forma a blocco e piu leggibile quando la relazione cresce.",
   },
   {
-    title: "Attributo composto con figli",
+    title: "Attributo multivalore con attributi collegati",
     code: `multivalued indirizzo "INDIRIZZO"\nattribute via "Via"\nattribute-link via -> indirizzo`,
-    text: "Nel DSL la parola chiave resta multivalued, ma nel canvas rappresenta l'attributo composto principale.",
+    text: "Nel DSL e nel canvas la parola chiave corretta per questo nodo e multivalued.",
   },
   {
     title: "Vincoli ISA avanzati",
@@ -90,7 +90,7 @@ const SYNTAX_PATTERNS = [
 const COMMON_TRAPS = [
   {
     title: "Etichetta dell'interfaccia e parola chiave del DSL",
-    text: "Nell'interfaccia vedi 'Attributo composto', ma nel file la forma compatibile da scrivere resta multivalued.",
+    text: "Nell'interfaccia e nel file la forma corretta da usare e multivalued.",
   },
   {
     title: "Direzione di attribute-link",
@@ -189,7 +189,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <div className="tutorial-stage-footer">
               <strong>Regola pratica</strong>
               <p>
-                Se vuoi un attributo composto come nell&apos;editor, crei l&apos;ovale padre con <code>multivalued</code>{" "}
+                Se vuoi un attributo multivalore come nell&apos;editor, crei l&apos;ovale padre con <code>multivalued</code>{" "}
                 e poi colleghi tutti i figli necessari con <code>attribute-link</code>.
               </p>
             </div>
@@ -223,7 +223,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <h2>Quattro pattern bastano per coprire quasi tutto il lavoro quotidiano.</h2>
             <p>
               Non serve memorizzare l&apos;intero DSL per partire. Questi frammenti coprono entita, relazioni,
-              attributi composti e generalizzazioni.
+              attributi multivalore e generalizzazioni.
             </p>
           </div>
 
@@ -243,7 +243,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               <h3>Tre dettagli che evitano quasi tutti i dubbi iniziali.</h3>
               <ul className="tutorial-note-list">
                 <li>
-                  <code>multivalued</code> e la parola chiave attuale per l&apos;attributo composto principale.
+                  <code>multivalued</code> e la parola chiave corretta per l&apos;attributo multivalore.
                 </li>
                 <li>
                   <code>attribute-link figlio -&gt; padre</code> collega un sotto-attributo al suo contenitore.
