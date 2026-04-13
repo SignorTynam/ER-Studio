@@ -441,28 +441,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
     if (node.type === "entity") {
       return (
         <>
-          <section className="context-card">
-            <div className="context-card-title">Impostazioni entita</div>
-            <div className="inspector-stack">
-              <label className="field">
-                <span>Nome entita</span>
-                <input
-                  value={node.label}
-                  disabled={!canEdit}
-                  onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
-                />
-              </label>
-              <label className="field checkbox-field">
-                <span>Entita debole dedicata</span>
-                <input
-                  type="checkbox"
-                  checked={node.isWeak === true}
-                  disabled={!canEdit}
-                  onChange={(event) => props.onNodeChange(node.id, { isWeak: event.target.checked })}
-                />
-              </label>
-            </div>
-          </section>
           {renderInternalIdentifierSection(node)}
           {renderSelectionActions()}
         </>

@@ -114,7 +114,7 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
   );
 }
 
-function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" }) {
+function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "duplicate" | "attribute" | "weak" }) {
   if (kind === "undo") {
     return (
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
@@ -155,6 +155,15 @@ function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "d
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
         <rect x="8" y="8" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
         <rect x="4" y="4" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  if (kind === "weak") {
+    return (
+      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <rect x="6.5" y="9" width="11" height="6" fill="none" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -255,6 +264,18 @@ export function Toolbar(props: ToolbarProps) {
         <section className="toolbar-section">
           <div className="toolbar-section-label">Azioni selezione</div>
           <div className="toolbar-list toolbar-list-tight">
+            {props.selectedNode && props.selectedNode.type === "entity" ? (
+              <button
+                type="button"
+                className={props.selectedNode.isWeak ? "toolbar-action-button active" : "toolbar-action-button"}
+                onClick={() => props.onNodeChange(props.selectedNode!.id, { isWeak: !props.selectedNode?.isWeak })}
+                disabled={!canEdit}
+                title="Entita debole"
+              >
+                <ActionIcon kind="weak" />
+                <span className="tool-label">Entita debole</span>
+              </button>
+            ) : null}
             {props.selectedNode &&
             (props.selectedNode.type === "entity" ||
               props.selectedNode.type === "relationship" ||
