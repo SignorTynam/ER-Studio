@@ -177,32 +177,9 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const currentInternalIdentifierAttributeIds = directEntityAttributes
     .filter((attribute) => attribute.isIdentifier === true || attribute.isCompositeInternal === true)
     .map((attribute) => attribute.id);
-  const eligibleInternalIdentifierSignature = eligibleInternalIdentifierAttributes
-    .map((attribute) => `${attribute.id}:${attribute.isMultivalued === true ? 1 : 0}`)
-    .join("|");
-  const currentInternalIdentifierSignature = currentInternalIdentifierAttributeIds.join("|");
   const eligibleInternalIdentifierIdSet = new Set(
     eligibleInternalIdentifierAttributes.map((attribute) => attribute.id),
   );
-  const [internalIdentifierDraftIds, setInternalIdentifierDraftIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (selectedNode?.type !== "entity") {
-      setInternalIdentifierDraftIds([]);
-      return;
-    }
-
-    setInternalIdentifierDraftIds(
-      currentInternalIdentifierAttributeIds.filter((attributeId) =>
-        eligibleInternalIdentifierIdSet.has(attributeId),
-      ),
-    );
-  }, [
-    currentInternalIdentifierSignature,
-    eligibleInternalIdentifierSignature,
-    selectedNode?.id,
-    selectedNode?.type,
-  ]);
 
   const selectedAttributeNodes = props.diagram.nodes.filter(
     (node): node is AttributeNode =>
@@ -359,13 +336,20 @@ export function InspectorPanel(props: InspectorPanelProps) {
     );
   }
 
-  function toggleInternalIdentifierDraft(attributeId: string, checked: boolean) {
-    setInternalIdentifierDraftIds((current) => {
-      const nextIds = checked ? [...current, attributeId] : current.filter((id) => id !== attributeId);
-      return eligibleInternalIdentifierAttributes
-        .map((attribute) => attribute.id)
-        .filter((candidateId) => nextIds.includes(candidateId));
-    });
+  function toggleInternalIdentifierDraft(entityId: string, attributeId: string, checked: boolean) {
+    const activeIds = currentInternalIdentifierAttributeIds.filter((id) =>
+      eligibleInternalIdentifierIdSet.has(id),
+    );
+    const nextIds = checked ? [...activeIds, attributeId] : activeIds.filter((id) => id !== attributeId);
+    const orderedNextIds = eligibleInternalIdentifierAttributes
+      .map((attribute) => attribute.id)
+      .filter((candidateId) => nextIds.includes(candidateId));
+
+    if (orderedNextIds.length === 0) {
+      props.onClearInternalIdentifier(entityId);
+    } else {
+      props.onApplyInternalIdentifier(entityId, orderedNextIds);
+    }
   }
 
   function renderInternalIdentifierSection(entityNode: Extract<DiagramNode, { type: "entity" }>) {
@@ -389,6 +373,10 @@ export function InspectorPanel(props: InspectorPanelProps) {
       );
     }
 
+    const activeIds = currentInternalIdentifierAttributeIds.filter((id) =>
+      eligibleInternalIdentifierIdSet.has(id),
+    );
+
     return (
       <section className="context-card">
         <div className="context-card-title">Identificatore interno</div>
@@ -401,37 +389,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
               <span>{attribute.label}</span>
               <input
                 type="checkbox"
-                checked={internalIdentifierDraftIds.includes(attribute.id)}
+                checked={activeIds.includes(attribute.id)}
                 disabled={!canEdit}
-                onChange={(event) => toggleInternalIdentifierDraft(attribute.id, event.target.checked)}
+                onChange={(event) => toggleInternalIdentifierDraft(entityNode.id, attribute.id, event.target.checked)}
               />
             </label>
           ))}
-        </div>
-        <p className="action-hint">
-          {internalIdentifierDraftIds.length === 0
-            ? "Nessun attributo selezionato."
-            : internalIdentifierDraftIds.length === 1
-              ? "Verrà creato un identificatore interno singolo."
-              : `Verrà creato un identificatore interno composto di ${internalIdentifierDraftIds.length} attributi.`}
-        </p>
-        <div className="action-grid">
-          <button
-            type="button"
-            onClick={() => props.onApplyInternalIdentifier(entityNode.id, internalIdentifierDraftIds)}
-            disabled={!canEdit || internalIdentifierDraftIds.length === 0}
-          >
-            {currentInternalIdentifierAttributeIds.length > 0
-              ? "Aggiorna identificatore interno"
-              : "Aggiungi identificatore interno"}
-          </button>
-          <button
-            type="button"
-            onClick={() => props.onClearInternalIdentifier(entityNode.id)}
-            disabled={!canEdit || currentInternalIdentifierAttributeIds.length === 0}
-          >
-            Rimuovi identificatore interno
-          </button>
         </div>
       </section>
     );
