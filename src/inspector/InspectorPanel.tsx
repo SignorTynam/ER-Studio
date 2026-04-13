@@ -525,29 +525,32 @@ export function InspectorPanel(props: InspectorPanelProps) {
                   Collegato a <strong>{attributeHost.label}</strong>.
                 </p>
               ) : null}
-              <label className="field checkbox-field">
-                <span>Attributo identificatore</span>
-                <input
-                  type="checkbox"
-                  checked={node.isIdentifier === true}
-                  disabled={
-                    !canEdit ||
-                    node.isCompositeInternal === true ||
-                    node.isMultivalued === true ||
-                    selectedAttributeLinkedToRelationship
-                  }
-                  onChange={(event) => props.onNodeChange(node.id, { isIdentifier: event.target.checked })}
-                />
-              </label>
-              <label className="field checkbox-field">
-                <span>Attributo multivalore</span>
-                <input
-                  type="checkbox"
-                  checked={node.isMultivalued === true}
-                  disabled={!canEdit || node.isIdentifier === true || node.isCompositeInternal === true}
-                  onChange={(event) => props.onNodeChange(node.id, { isMultivalued: event.target.checked })}
-                />
-              </label>
+              {node.isCompositeInternal !== true && (
+                <>
+                  <label className="field checkbox-field">
+                    <span>Attributo identificatore</span>
+                    <input
+                      type="checkbox"
+                      checked={node.isIdentifier === true}
+                      disabled={
+                        !canEdit ||
+                        node.isMultivalued === true ||
+                        selectedAttributeLinkedToRelationship
+                      }
+                      onChange={(event) => props.onNodeChange(node.id, { isIdentifier: event.target.checked })}
+                    />
+                  </label>
+                  <label className="field checkbox-field">
+                    <span>Attributo multivalore</span>
+                    <input
+                      type="checkbox"
+                      checked={node.isMultivalued === true}
+                      disabled={!canEdit || node.isIdentifier === true}
+                      onChange={(event) => props.onNodeChange(node.id, { isMultivalued: event.target.checked })}
+                    />
+                  </label>
+                </>
+              )}
               <label className="field checkbox-field">
                 <span>Parte di identificatore interno</span>
                 <input
