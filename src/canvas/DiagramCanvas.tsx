@@ -163,7 +163,7 @@ interface CompositeGroupPoint {
 }
 
 interface CompositeIdentifierLayout {
-  hostId: string;
+  groupKey: string;
   orientation: "vertical" | "horizontal";
   path: string;
   junctions: Point[];
@@ -694,6 +694,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
   const compositeGroups = new Map<string, { host: DiagramNode; points: CompositeGroupPoint[] }>();
+  const compositeGroupKeyByAttributeId = new Map<string, string>();
   const compositeIdentifierLayouts: CompositeIdentifierLayout[] = [];
   const externalIdentifierLayouts: ExternalIdentifierLayout[] = [];
   const edgeGeometryMap = new Map<string, Point[]>();
@@ -711,6 +712,30 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     targetMap.set(issue.targetId, {
       level: current.level === "error" || issue.level === "error" ? "error" : "warning",
       count: current.count + 1,
+    });
+  });
+
+  props.diagram.nodes.forEach((node) => {
+    if (node.type !== "entity") {
+      return;
+    }
+
+    (node.internalIdentifiers ?? []).forEach((identifier, index) => {
+      if (identifier.attributeIds.length <= 1) {
+        return;
+      }
+
+      const identifierId =
+        typeof identifier.id === "string" && identifier.id.trim().length > 0
+          ? identifier.id
+          : `generated-${index}`;
+      const groupKey = `${node.id}::${identifierId}`;
+
+      identifier.attributeIds.forEach((attributeId) => {
+        if (!compositeGroupKeyByAttributeId.has(attributeId)) {
+          compositeGroupKeyByAttributeId.set(attributeId, groupKey);
+        }
+      });
     });
   });
 
@@ -769,13 +794,15 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       hostNode.type === "entity"
     ) {
       const edgePoints = edgeGeometryMap.get(edge.id);
-      const group = compositeGroups.get(hostNode.id) ?? { host: hostNode, points: [] };
+      const explicitGroupKey = compositeGroupKeyByAttributeId.get(attributeNode.id);
+      const groupKey = explicitGroupKey ?? `legacy::${hostNode.id}`;
+      const group = compositeGroups.get(groupKey) ?? { host: hostNode, points: [] };
       group.points.push({
         attributeCenter,
         edgeStart: edgePoints?.[0] ?? attributeCenter,
         edgeEnd: edgePoints?.[edgePoints.length - 1] ?? getNodeAnchor(hostNode, attributeCenter, "attribute", "target"),
       });
-      compositeGroups.set(hostNode.id, group);
+      compositeGroups.set(groupKey, group);
     }
 
     attributeDirectionMap.set(attributeNode.id, {
@@ -784,7 +811,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     });
   });
 
-  compositeGroups.forEach((group, hostId) => {
+  compositeGroups.forEach((group, groupKey) => {
     if (group.points.length < 2) {
       return;
     }
@@ -827,7 +854,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       );
 
       compositeIdentifierLayouts.push({
-        hostId,
+        groupKey,
         orientation: "vertical",
         path,
         junctions,
@@ -863,7 +890,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const path = buildCompositePath(junctions, "horizontal", horizontalBulge);
 
     compositeIdentifierLayouts.push({
-      hostId,
+      groupKey,
       orientation: "horizontal",
       path,
       junctions,
@@ -2280,7 +2307,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ) : null}
 
           {compositeIdentifierLayouts.map((layout) => (
-            <g key={`composite-id-${layout.hostId}`} className="composite-identifier" pointerEvents="none">
+            <g key={`composite-id-${layout.groupKey}`} className="composite-identifier" pointerEvents="none">
               <path
                 d={layout.path}
                 fill="none"
@@ -2291,7 +2318,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               />
               {layout.junctions.map((junction, index) => (
                 <circle
-                  key={`composite-id-junction-${layout.hostId}-${index}`}
+                  key={`composite-id-junction-${layout.groupKey}-${index}`}
                   cx={junction.x}
                   cy={junction.y}
                   r={4.5}
