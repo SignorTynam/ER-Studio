@@ -528,12 +528,7 @@ export function getRenderedEdgeGeometry(
   }
 
   if (edge.type === "attribute") {
-    const points = simplifyPoints([getNodeCenter(sourceNode), getNodeCenter(targetNode)]);
-
-    return {
-      points,
-      labelPoint: getPointAlongPolyline(points, 0.5),
-    };
+    return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
   }
 
   return getEdgeGeometry(edge, sourceNode, targetNode, laneInfo);
