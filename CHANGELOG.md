@@ -15,6 +15,19 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [3.7.0] - 2026-04-15
+
+### Added
+- Nuova struttura CSS Grid flessibile che allinea lo spazio e l'estetica della vista Logico al sistema a 5 colonne della vista ER (Toolbar, Resizer, Main, Resizer, Inspector), rimuovendo i vecchi wrapper isolati.
+
+### Changed
+- Etichette dei menu a tendina Inspector per le associazioni ISA ("Vincolo ISA" e "Copertura ISA") tradotte in italiano per una maggiore congruenza linguistica.
+- Rifinito il rendering dei badge ISA con colori piu tenui e testo piu leggibile, per migliorare l'estetica e la chiarezza visiva.
+- Nuovo aggiornamento della vista Logica alla release 3.7, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.",
+
+### Fixed
+- Risolto bug sul componente `LogicalTransformationCanvas` che imponeva al browser l'altezza standard intrinseca degli SVG (150px) ignorando lo spazio verticale libero della UI.
+
 ## [3.6.0] - 2026-04-14
 
 ### Added

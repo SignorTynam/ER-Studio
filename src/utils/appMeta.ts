@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.6";
+export const APP_VERSION = "3.7";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.7",
+    date: "2026-04-15",
+    updates: [
+      "Versione applicativa aggiornata alla release 3.7.",
+      "Completato restyling del workspace della vista Logico, integrandolo nativamente come first-class citizen della UI a 5 colonne.",
+      "Risolto il problema di flessibilità verticale nel pannello Canvas Logico che limitava la sua visualizzazione (rimosso blocco fisso da 150px).",
+      "Tradotte in italiano le opzioni dei vincoli e coperture ISA all'interno dell'inspector.",
+      "Rifinito il rendering dei badge ISA con colori piu tenui e testo piu leggibile, per migliorare l'estetica e la chiarezza visiva.",
+      "Nuovo aggiornamento della vista Logica alla release 3.7, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.",
+    ],
+  },
   {
     version: "3.6",
     date: "2026-04-14",

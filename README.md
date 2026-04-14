@@ -1,15 +1,16 @@
-# Chen ER Diagram Studio (v3.6)
+# Chen ER Diagram Studio (v3.7)
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, export PNG/SVG, salvataggio JSON e sincronizzazione ERS live.
 
-## Novita 3.6
+## Novita 3.7
 
-- Versione aggiornata a `3.6`.
-- Identificatori interni composti ridisegnati con layout ortogonale pulito: backbone comune e rami lineari verso gli attributi membri.
-- Eliminato il routing curvo degli identificatori composti.
-- Posizione del backbone calcolata automaticamente da geometria entita e distribuzione attributi (senza coordinate hardcoded).
-- Trascinamento del backbone composito: il gruppo degli attributi membri si comporta come un'unita coerente.
-- Corretto il rendering con diagonali duplicate: i membri composti non mostrano piu il collegamento diretto attributo-entita quando il gruppo composito e attivo.
+- Versione aggiornata a `3.7`.
+- Completato restyling del workspace della vista Logico, integrandolo nativamente come first-class citizen della UI a 5 colonne.
+- Risolto il problema di flessibilità verticale nel pannello Canvas Logico che limitava la sua visualizzazione (rimosso blocco fisso da 150px).
+- Tradotte in italiano le opzioni dei vincoli e coperture ISA all'interno dell'inspector.
+- Rifinito il rendering dei badge ISA con colori piu tenui e testo piu leggibile, per migliorare l'estetica e la chiarezza visiva.
+- Nuovo aggiornamento della vista Logica alla release 3.7, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.
+
 
 ## Requisiti
 
