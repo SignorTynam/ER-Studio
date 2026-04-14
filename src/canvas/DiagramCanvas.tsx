@@ -172,6 +172,12 @@ interface CompositeIdentifierBranch {
   to: Point;
 }
 
+interface CompositeIdentifierStem {
+  attributeId: string;
+  from: Point;
+  to: Point;
+}
+
 interface CompositeIdentifierLayout {
   groupKey: string;
   hostEntityId: string;
@@ -180,6 +186,7 @@ interface CompositeIdentifierLayout {
   backboneStart: Point;
   backboneEnd: Point;
   branches: CompositeIdentifierBranch[];
+  hostStems: CompositeIdentifierStem[];
   junctions: Point[];
   markerStemFrom: Point;
   marker: Point;
@@ -668,6 +675,11 @@ function buildCompositeIdentifierLayout(
       x: branches[branches.length - 1].from.x + COMPOSITE_INTERNAL_BACKBONE_PADDING,
       y: backboneY,
     };
+    const hostStems = branches.map((branch) => ({
+      attributeId: branch.attributeId,
+      from: { x: branch.from.x, y: hostSideY },
+      to: { ...branch.from },
+    }));
     const markerStemFrom = { ...backboneStart };
 
     return {
@@ -678,6 +690,7 @@ function buildCompositeIdentifierLayout(
       backboneStart,
       backboneEnd,
       branches,
+      hostStems,
       junctions: branches.map((branch) => branch.from),
       markerStemFrom,
       marker: {
@@ -726,6 +739,11 @@ function buildCompositeIdentifierLayout(
     x: backboneX,
     y: branches[branches.length - 1].from.y + COMPOSITE_INTERNAL_BACKBONE_PADDING,
   };
+  const hostStems = branches.map((branch) => ({
+    attributeId: branch.attributeId,
+    from: { x: hostSideX, y: branch.from.y },
+    to: { ...branch.from },
+  }));
   const markerStemFrom = { ...backboneEnd };
 
   return {
@@ -736,6 +754,7 @@ function buildCompositeIdentifierLayout(
     backboneStart,
     backboneEnd,
     branches,
+    hostStems,
     junctions: branches.map((branch) => branch.from),
     markerStemFrom,
     marker: {
@@ -2439,6 +2458,12 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
+  const compositeMemberHostByAttributeId = new Map<string, string>();
+  compositeIdentifierLayouts.forEach((layout) => {
+    layout.memberAttributeIds.forEach((attributeId) => {
+      compositeMemberHostByAttributeId.set(attributeId, layout.hostEntityId);
+    });
+  });
   const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
   return (
     <div
@@ -2544,6 +2569,25 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               return null;
             }
 
+            if (edge.type === "attribute") {
+              const sourceHostId =
+                sourceNode.type === "attribute"
+                  ? compositeMemberHostByAttributeId.get(sourceNode.id)
+                  : undefined;
+              const targetHostId =
+                targetNode.type === "attribute"
+                  ? compositeMemberHostByAttributeId.get(targetNode.id)
+                  : undefined;
+
+              const isCompositeMemberDirectEdge =
+                (sourceHostId !== undefined && targetNode.type === "entity" && targetNode.id === sourceHostId) ||
+                (targetHostId !== undefined && sourceNode.type === "entity" && sourceNode.id === targetHostId);
+
+              if (isCompositeMemberDirectEdge) {
+                return null;
+              }
+            }
+
             return (
               <DiagramEdgeView
                 key={edge.id}
@@ -2623,6 +2667,18 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                   : undefined
               }
             >
+              {layout.hostStems.map((stem) => (
+                <line
+                  key={`composite-id-host-stem-${layout.groupKey}-${stem.attributeId}`}
+                  x1={stem.from.x}
+                  y1={stem.from.y}
+                  x2={stem.to.x}
+                  y2={stem.to.y}
+                  stroke={DIAGRAM_STROKE}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              ))}
               {layout.branches.map((branch) => (
                 <line
                   key={`composite-id-branch-${layout.groupKey}-${branch.attributeId}`}
@@ -2675,6 +2731,17 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
               {compositeIdentifierInteractive ? (
                 <>
+                  {layout.hostStems.map((stem) => (
+                    <line
+                      key={`composite-id-host-stem-hit-${layout.groupKey}-${stem.attributeId}`}
+                      x1={stem.from.x}
+                      y1={stem.from.y}
+                      x2={stem.to.x}
+                      y2={stem.to.y}
+                      stroke="transparent"
+                      strokeWidth={12}
+                    />
+                  ))}
                   <line
                     x1={layout.backboneStart.x}
                     y1={layout.backboneStart.y}
