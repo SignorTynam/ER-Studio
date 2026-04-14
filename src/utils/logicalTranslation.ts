@@ -644,6 +644,29 @@ function classifyBinaryRelationship(
   return "one-to-one";
 }
 
+function resolveOneToManyParticipants(
+  participants: RelationshipParticipant[],
+): { carrierParticipant: RelationshipParticipant; referencedParticipant: RelationshipParticipant } | null {
+  if (participants.length !== 2) {
+    return null;
+  }
+
+  const referencedParticipant = participants.find((participant) => participant.cardinality.isMany);
+  if (!referencedParticipant) {
+    return null;
+  }
+
+  const carrierParticipant = participants.find((participant) => participant !== referencedParticipant);
+  if (!carrierParticipant) {
+    return null;
+  }
+
+  return {
+    carrierParticipant,
+    referencedParticipant,
+  };
+}
+
 function buildRelationshipParticipants(
   diagram: DiagramDocument,
   relationship: RelationshipNode,
@@ -866,26 +889,52 @@ function buildRelationshipChoices(
   }
 
   if (relationshipKind === "one-to-many") {
-    const manyParticipant = participants.find((participant) => participant.cardinality.isMany) as RelationshipParticipant;
-    const oneParticipant = participants.find((participant) => participant !== manyParticipant) as RelationshipParticipant;
+    const oneToManyParticipants = resolveOneToManyParticipants(participants);
+    if (!oneToManyParticipants) {
+      return [
+        {
+          id: `relationship-table-${relationship.id}`,
+          targetType: "relationship",
+          targetId: relationship.id,
+          step: "relationships",
+          rule: "relationship-table",
+          label: "Trasforma in tabella della relazione",
+          description: "Le cardinalita non bastano per assorbire la relazione come semplice FK, quindi serve una tabella dedicata.",
+          summary: `Relazione "${relationship.label}" fissata come tabella autonoma.`,
+          configuration: {
+            strategy: "table",
+          },
+          previewLines: [
+            `Tabella: ${relationship.label}`,
+            `FK partecipanti: ${participants.map((participant) => participant.entity.label).join(", ") || "da definire"}`,
+            relationshipAttributes.length > 0
+              ? `Attributi relazione: ${relationshipAttributes.map((attribute) => attribute.label).join(", ")}`
+              : "Attributi relazione: nessuno",
+          ],
+          recommended: true,
+        },
+      ];
+    }
+
+    const { carrierParticipant, referencedParticipant } = oneToManyParticipants;
 
     const standardChoice: TranslationChoiceRecord = {
-      id: `relationship-fk-${relationship.id}-${manyParticipant.entity.id}`,
+      id: `relationship-fk-${relationship.id}-${carrierParticipant.entity.id}`,
       targetType: "relationship",
       targetId: relationship.id,
       step: "relationships",
       rule: "relationship-foreign-key",
-      label: `FK su ${manyParticipant.entity.label}`,
-      description: `Regola standard 1:N: la PK del lato 1 (${oneParticipant.entity.label}) migra come FK nella tabella del lato N (${manyParticipant.entity.label}).`,
-      summary: `Relazione "${relationship.label}" assorbita come FK in "${manyParticipant.entity.label}".`,
+      label: `FK su ${carrierParticipant.entity.label}`,
+      description: `Regola standard 1:N: la PK del lato 1 (${referencedParticipant.entity.label}) migra come FK nella tabella del lato N (${carrierParticipant.entity.label}).`,
+      summary: `Relazione "${relationship.label}" assorbita come FK in "${carrierParticipant.entity.label}".`,
       configuration: {
         strategy: "foreign-key",
-        carrierEntityId: manyParticipant.entity.id,
-        referencedEntityId: oneParticipant.entity.id,
+        carrierEntityId: carrierParticipant.entity.id,
+        referencedEntityId: referencedParticipant.entity.id,
       },
       previewLines: [
-        `Carrier FK: ${manyParticipant.entity.label}`,
-        `Referenced PK: ${oneParticipant.entity.label}`,
+        `Carrier FK: ${carrierParticipant.entity.label}`,
+        `Referenced PK: ${referencedParticipant.entity.label}`,
         relationshipAttributes.length > 0
           ? `Attributi relazione migrati: ${relationshipAttributes.map((attribute) => attribute.label).join(", ")}`
           : "Attributi relazione: nessuno",
@@ -1726,12 +1775,16 @@ function buildModelFromDecisions(
         return;
       }
 
+      const carrierParticipant = mode.carrierEntityId
+        ? participants.find((participant) => participant.entity.id === mode.carrierEntityId)
+        : undefined;
+
       addForeignKey(context, {
         decisionId: decision.id,
         fromTableId: carrierTableId,
         toTableId: referencedTableId,
         sourceRelationshipId: relationship.id,
-        required: true,
+        required: carrierParticipant?.cardinality.isTotal ?? true,
         unique: classifyBinaryRelationship(participants) === "one-to-one",
       });
       addOwnedLeafAttributes(context, carrierTableId, relationshipAttributes, {
@@ -2006,6 +2059,7 @@ function buildTransformationGraph(
       .filter((table) => typeof table.sourceRelationshipId === "string")
       .map((table) => [table.sourceRelationshipId as string, table]),
   );
+  const transformedRelationshipIds = new Set<string>();
   const tableBySourceAttributeId = new Map(
     model.tables
       .filter((table) => typeof table.sourceAttributeId === "string")
@@ -2056,6 +2110,7 @@ function buildTransformationGraph(
     if (table.sourceRelationshipId) {
       hiddenSourceNodeIds.add(table.sourceRelationshipId);
       representativeNodeIdBySourceId.set(table.sourceRelationshipId, table.id);
+      transformedRelationshipIds.add(table.sourceRelationshipId);
     }
 
     if (table.sourceAttributeId) {
@@ -2091,6 +2146,16 @@ function buildTransformationGraph(
     getDirectOwnedAttributes(foreignKey.sourceRelationshipId, ownership).forEach((attribute) => {
       collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
     });
+  });
+
+  model.foreignKeys.forEach((foreignKey) => {
+    if (!foreignKey.sourceRelationshipId) {
+      return;
+    }
+
+    hiddenSourceNodeIds.add(foreignKey.sourceRelationshipId);
+    representativeNodeIdBySourceId.set(foreignKey.sourceRelationshipId, foreignKey.fromTableId);
+    transformedRelationshipIds.add(foreignKey.sourceRelationshipId);
   });
 
   absorbedExternalRelationshipIds.forEach((relationshipId) => {
@@ -2298,10 +2363,11 @@ function buildTransformationGraph(
         return;
       }
 
-      const status = getTransformationStatus(translation, "relationship", relationshipId);
-      if (status === "transformed") {
+      if (transformedRelationshipIds.has(relationshipId)) {
         return;
       }
+
+      const status = getTransformationStatus(translation, "relationship", relationshipId);
 
       const sourceId = resolveRenderedNodeId(edge.sourceId);
       const targetId = resolveRenderedNodeId(edge.targetId);

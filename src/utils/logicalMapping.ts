@@ -585,6 +585,29 @@ function classifyBinaryRelationship(participants: RelationshipParticipant[]): "o
   return "one-to-one";
 }
 
+function resolveOneToManyParticipants(
+  participants: RelationshipParticipant[],
+): { carrierParticipant: RelationshipParticipant; referencedParticipant: RelationshipParticipant } | null {
+  if (participants.length !== 2) {
+    return null;
+  }
+
+  const referencedParticipant = participants.find((participant) => participant.cardinality.isMany);
+  if (!referencedParticipant) {
+    return null;
+  }
+
+  const carrierParticipant = participants.find((participant) => participant !== referencedParticipant);
+  if (!carrierParticipant) {
+    return null;
+  }
+
+  return {
+    carrierParticipant,
+    referencedParticipant,
+  };
+}
+
 function createAssociativeMapping(
   context: MappingContext,
   relationship: Extract<DiagramNode, { type: "relationship" }>,
@@ -764,17 +787,22 @@ function mapRelationship(
   }
 
   if (relationshipKind === "one-to-many") {
-    const manyParticipant = participants.find((participant) => participant.cardinality.isMany) as RelationshipParticipant;
-    const oneParticipant = participants.find((participant) => participant !== manyParticipant) as RelationshipParticipant;
+    const oneToManyParticipants = resolveOneToManyParticipants(participants);
+    if (!oneToManyParticipants) {
+      createAssociativeMapping(context, relationship, participants, relationshipAttributes, "ambiguous-cardinality");
+      return;
+    }
+
+    const { carrierParticipant, referencedParticipant } = oneToManyParticipants;
 
     addForeignKey(context, {
-      fromTableId: manyParticipant.tableId,
-      toTableId: oneParticipant.tableId,
+      fromTableId: carrierParticipant.tableId,
+      toTableId: referencedParticipant.tableId,
       sourceRelationshipId: relationship.id,
-      required: manyParticipant.cardinality.isTotal,
+      required: carrierParticipant.cardinality.isTotal,
     });
 
-    addRelationshipAttributes(context, manyParticipant.tableId, relationshipAttributes, relationship.id);
+    addRelationshipAttributes(context, carrierParticipant.tableId, relationshipAttributes, relationship.id);
     return;
   }
 
