@@ -487,6 +487,33 @@ function buildGeneralizationHierarchies(diagram: DiagramDocument): Generalizatio
     });
 }
 
+function buildDirectSupertypesBySubtypeId(
+  diagram: DiagramDocument,
+): Map<string, EntityNode[]> {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const directSupertypesBySubtypeId = new Map<string, EntityNode[]>();
+
+  diagram.edges
+    .filter((edge): edge is InheritanceEdge => edge.type === "inheritance")
+    .forEach((edge) => {
+      const subtype = nodeById.get(edge.sourceId);
+      const supertype = nodeById.get(edge.targetId);
+      if (subtype?.type !== "entity" || supertype?.type !== "entity") {
+        return;
+      }
+
+      const current = directSupertypesBySubtypeId.get(subtype.id) ?? [];
+      if (current.some((candidate) => candidate.id === supertype.id)) {
+        return;
+      }
+
+      current.push(supertype);
+      directSupertypesBySubtypeId.set(subtype.id, sortByLabel(current));
+    });
+
+  return directSupertypesBySubtypeId;
+}
+
 function getDecisionForTarget(
   state: LogicalTranslationState,
   targetType: LogicalTranslationDecision["targetType"],
@@ -537,6 +564,32 @@ function getTransformationStatus(
   }
 
   return "unresolved";
+}
+
+function getSubtypeGeneralizationSupport(
+  entity: EntityNode,
+  state: LogicalTranslationState,
+  directSupertypesBySubtypeId: Map<string, EntityNode[]>,
+): { supertype: EntityNode; hasAppliedTablePerType: boolean } | null {
+  const directSupertypes = directSupertypesBySubtypeId.get(entity.id) ?? [];
+  if (directSupertypes.length === 0) {
+    return null;
+  }
+
+  const appliedTablePerTypeSupertype = directSupertypes.find(
+    (supertype) => getDecisionForTarget(state, "generalization", supertype.id)?.rule === "generalization-table-per-type",
+  );
+  if (appliedTablePerTypeSupertype) {
+    return {
+      supertype: appliedTablePerTypeSupertype,
+      hasAppliedTablePerType: true,
+    };
+  }
+
+  return {
+    supertype: directSupertypes[0],
+    hasAppliedTablePerType: false,
+  };
 }
 
 function getAbsorbedExternalIdentifierRelationshipIds(
@@ -734,6 +787,8 @@ function buildEntityChoices(
   diagram: DiagramDocument,
   entity: EntityNode,
   ownership: AttributeOwnershipContext,
+  state: LogicalTranslationState,
+  directSupertypesBySubtypeId: Map<string, EntityNode[]>,
 ): TranslationChoiceRecord[] {
   const internalChoices = (entity.internalIdentifiers ?? []).map((identifier) => ({
     id: `entity-internal-${entity.id}-${identifier.id}`,
@@ -781,6 +836,35 @@ function buildEntityChoices(
 
   if (externalChoices.length > 0) {
     return externalChoices;
+  }
+
+  const subtypeGeneralizationSupport = getSubtypeGeneralizationSupport(entity, state, directSupertypesBySubtypeId);
+  if (subtypeGeneralizationSupport) {
+    const { supertype, hasAppliedTablePerType } = subtypeGeneralizationSupport;
+    return [
+      {
+        id: `entity-no-key-${entity.id}`,
+        targetType: "entity",
+        targetId: entity.id,
+        step: "entities",
+        rule: "entity-table-without-key",
+        label: hasAppliedTablePerType ? "Tabella sottotipo con PK derivata" : "Tabella sottotipo in attesa di gerarchia",
+        description: hasAppliedTablePerType
+          ? `Crea la tabella del sottotipo usando la PK derivata dal supertipo "${supertype.label}" tramite la gerarchia fissata.`
+          : `Crea la tabella del sottotipo anche senza PK propria: la PK potra derivare dal supertipo "${supertype.label}" quando fisserai la generalizzazione.`,
+        summary: hasAppliedTablePerType
+          ? `Tabella sottotipo "${entity.label}" fissata con PK derivata da "${supertype.label}".`
+          : `Tabella sottotipo "${entity.label}" creata senza PK propria; completa la generalizzazione con "${supertype.label}" per derivare la PK.`,
+        configuration: {
+          keySourceType: "none",
+        },
+        previewLines: [
+          `Tabella: ${entity.label}`,
+          hasAppliedTablePerType ? `PK: derivata da ${supertype.label}` : `PK: in attesa di derivazione da ${supertype.label}`,
+        ],
+        recommended: true,
+      },
+    ];
   }
 
   return [
@@ -1093,6 +1177,7 @@ function createTranslationItemsByStep(
 ): TranslationOverview {
   const ownership = buildAttributeOwnershipContext(diagram);
   const absorbedExternalRelationshipIds = getAbsorbedExternalIdentifierRelationshipIds(diagram, state);
+  const directSupertypesBySubtypeId = buildDirectSupertypesBySubtypeId(diagram);
   const choicesByKey = new Map<string, TranslationChoiceRecord>();
   const itemsByStep = {
     entities: [] as LogicalTranslationItem[],
@@ -1114,7 +1199,7 @@ function createTranslationItemsByStep(
   sortByLabel(
     diagram.nodes.filter((node): node is EntityNode => node.type === "entity" && node.isWeak !== true),
   ).forEach((entity) => {
-    const choices = buildEntityChoices(diagram, entity, ownership);
+    const choices = buildEntityChoices(diagram, entity, ownership, state, directSupertypesBySubtypeId);
     choices.forEach((choice) => choicesByKey.set(buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration), choice));
     const decision = getDecisionForTarget(state, "entity", entity.id);
     const conflictMessages = conflictsByTargetKey.get(`entity:${entity.id}`)?.map((conflict) => conflict.message) ?? [];
@@ -1563,6 +1648,52 @@ function buildSubtypeToSupertypeMap(
   return mapping;
 }
 
+function sortGeneralizationDecisionsForExecution(
+  diagram: DiagramDocument,
+  decisions: LogicalTranslationDecision[],
+): LogicalTranslationDecision[] {
+  const directSupertypesBySubtypeId = buildDirectSupertypesBySubtypeId(diagram);
+  const hierarchyBySupertypeId = new Map(
+    buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
+  );
+  const decisionBySupertypeId = new Map(decisions.map((decision) => [decision.targetId, decision]));
+  const pendingBySupertypeId = new Map(decisions.map((decision) => [decision.targetId, decision]));
+  const ordered: LogicalTranslationDecision[] = [];
+
+  const compareDecisions = (left: LogicalTranslationDecision, right: LogicalTranslationDecision): number => {
+    const leftHierarchy = hierarchyBySupertypeId.get(left.targetId);
+    const rightHierarchy = hierarchyBySupertypeId.get(right.targetId);
+    const leftLabel = leftHierarchy?.supertype.label ?? left.targetId;
+    const rightLabel = rightHierarchy?.supertype.label ?? right.targetId;
+    const byLabel = leftLabel.localeCompare(rightLabel, "it", { sensitivity: "base" });
+    if (byLabel !== 0) {
+      return byLabel;
+    }
+
+    return left.targetId.localeCompare(right.targetId);
+  };
+
+  while (pendingBySupertypeId.size > 0) {
+    const ready = [...pendingBySupertypeId.values()]
+      .filter((decision) => {
+        const parentSupertypes = directSupertypesBySubtypeId.get(decision.targetId) ?? [];
+        return parentSupertypes.every((supertype) => !pendingBySupertypeId.has(supertype.id) || !decisionBySupertypeId.has(supertype.id));
+      })
+      .sort(compareDecisions);
+
+    if (ready.length === 0) {
+      return [...ordered, ...[...pendingBySupertypeId.values()].sort(compareDecisions)];
+    }
+
+    ready.forEach((decision) => {
+      ordered.push(decision);
+      pendingBySupertypeId.delete(decision.targetId);
+    });
+  }
+
+  return ordered;
+}
+
 function buildLogicalSourceSignatureInternal(diagram: DiagramDocument): string {
   const nodes = [...diagram.nodes].sort((left, right) => left.id.localeCompare(right.id));
   const edges = [...diagram.edges].sort((left, right) => left.id.localeCompare(right.id));
@@ -1586,6 +1717,10 @@ function buildModelFromDecisions(
     buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
   );
   const validDecisions = translation.decisions.filter((decision) => decision.status === "applied");
+  const generalizationDecisions = sortGeneralizationDecisionsForExecution(
+    diagram,
+    validDecisions.filter((decision) => decision.targetType === "generalization"),
+  );
   const singleTableSubtypeToSupertype = buildSubtypeToSupertypeMap(diagram, validDecisions);
   const subtypeOnlySupertypes = new Set(
     validDecisions
@@ -1652,6 +1787,75 @@ function buildModelFromDecisions(
     });
 
   const entityTableByEntityId = context.entityTableByEntityId;
+
+  generalizationDecisions.forEach((decision) => {
+      const hierarchy = generalizationBySupertypeId.get(decision.targetId);
+      if (!hierarchy) {
+        return;
+      }
+
+      const mode = getGeneralizationMode(decision.configuration);
+      if (mode.strategy === "table-per-type") {
+        const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
+        if (!supertypeTableId) {
+          return;
+        }
+
+        hierarchy.subtypes.forEach((subtype) => {
+          const subtypeTableId = entityTableByEntityId.get(subtype.id);
+          if (!subtypeTableId) {
+            return;
+          }
+
+          addForeignKey(context, {
+            decisionId: decision.id,
+            fromTableId: subtypeTableId,
+            toTableId: supertypeTableId,
+            required: true,
+            includeInPrimaryKey: true,
+          });
+        });
+        return;
+      }
+
+      if (mode.strategy === "single-table") {
+        const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
+        if (!supertypeTableId) {
+          return;
+        }
+
+        addColumn(context, supertypeTableId, {
+          baseName: `${hierarchy.supertype.label}_tipo`,
+          decisionId: decision.id,
+          originLabel: "Discriminatore gerarchia",
+          isPrimaryKey: false,
+          isForeignKey: false,
+          isNullable: hierarchy.completeness !== "total",
+          isGenerated: true,
+        });
+
+        hierarchy.subtypes.forEach((subtype) => {
+          addOwnedLeafAttributes(context, supertypeTableId, getEntityLeafAttributes(subtype.id, ownership), {
+            decisionId: decision.id,
+          });
+        });
+        return;
+      }
+
+      if (mode.strategy === "subtypes-only") {
+        const supertypeLeaves = getEntityLeafAttributes(hierarchy.supertype.id, ownership);
+        hierarchy.subtypes.forEach((subtype) => {
+          const subtypeTableId = entityTableByEntityId.get(subtype.id);
+          if (!subtypeTableId) {
+            return;
+          }
+
+          addOwnedLeafAttributes(context, subtypeTableId, supertypeLeaves, {
+            decisionId: decision.id,
+          });
+        });
+      }
+    });
 
   validDecisions
     .filter((decision) => decision.rule === "entity-table-external" || decision.rule === "weak-entity-table")
@@ -1841,77 +2045,6 @@ function buildModelFromDecisions(
         primaryKeyAttributeIds: pkLeafIds,
         nonNullableAttributeIds: pkLeafIds,
       });
-    });
-
-  validDecisions
-    .filter((decision) => decision.targetType === "generalization")
-    .forEach((decision) => {
-      const hierarchy = generalizationBySupertypeId.get(decision.targetId);
-      if (!hierarchy) {
-        return;
-      }
-
-      const mode = getGeneralizationMode(decision.configuration);
-      if (mode.strategy === "table-per-type") {
-        const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
-        if (!supertypeTableId) {
-          return;
-        }
-
-        hierarchy.subtypes.forEach((subtype) => {
-          const subtypeTableId = entityTableByEntityId.get(subtype.id);
-          if (!subtypeTableId) {
-            return;
-          }
-
-          addForeignKey(context, {
-            decisionId: decision.id,
-            fromTableId: subtypeTableId,
-            toTableId: supertypeTableId,
-            required: true,
-            includeInPrimaryKey: true,
-          });
-        });
-        return;
-      }
-
-      if (mode.strategy === "single-table") {
-        const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
-        if (!supertypeTableId) {
-          return;
-        }
-
-        addColumn(context, supertypeTableId, {
-          baseName: `${hierarchy.supertype.label}_tipo`,
-          decisionId: decision.id,
-          originLabel: "Discriminatore gerarchia",
-          isPrimaryKey: false,
-          isForeignKey: false,
-          isNullable: hierarchy.completeness !== "total",
-          isGenerated: true,
-        });
-
-        hierarchy.subtypes.forEach((subtype) => {
-          addOwnedLeafAttributes(context, supertypeTableId, getEntityLeafAttributes(subtype.id, ownership), {
-            decisionId: decision.id,
-          });
-        });
-        return;
-      }
-
-      if (mode.strategy === "subtypes-only") {
-        const supertypeLeaves = getEntityLeafAttributes(hierarchy.supertype.id, ownership);
-        hierarchy.subtypes.forEach((subtype) => {
-          const subtypeTableId = entityTableByEntityId.get(subtype.id);
-          if (!subtypeTableId) {
-            return;
-          }
-
-          addOwnedLeafAttributes(context, subtypeTableId, supertypeLeaves, {
-            decisionId: decision.id,
-          });
-        });
-      }
     });
 
   return normalizeLogicalModelGeometry({
@@ -2578,9 +2711,14 @@ export function refreshLogicalWorkspace(
 ): LogicalWorkspaceDocument {
   const overview = createTranslationItemsByStep(diagram, workspace.translation);
   const decisions = workspace.translation.decisions.map((decision) => {
+    const matchedChoice = overview.choicesByKey.get(
+      buildChoiceKey(decision.targetType, decision.targetId, decision.rule, decision.configuration),
+    );
     const conflict = validateDecisionAgainstOverview(decision, overview);
     return {
       ...decision,
+      step: matchedChoice?.step ?? decision.step,
+      summary: matchedChoice?.summary ?? decision.summary,
       status: conflict ? "invalid" : "applied",
     } satisfies LogicalTranslationDecision;
   });
