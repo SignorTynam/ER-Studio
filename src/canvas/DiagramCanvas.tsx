@@ -146,27 +146,40 @@ interface DiagramCanvasProps {
 }
 
 const VIEWPORT_PADDING = 140;
-const COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET = 46;
-const COMPOSITE_INTERNAL_TOP_AXIS_OFFSET = 18;
-const COMPOSITE_INTERNAL_VERTICAL_BULGE = 14;
-const COMPOSITE_INTERNAL_HORIZONTAL_BULGE = 8;
-const COMPOSITE_INTERNAL_MARKER_OFFSET = 20;
-const COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET = 22;
+const COMPOSITE_INTERNAL_BACKBONE_MIN_OFFSET = 18;
+const COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET = 8;
+const COMPOSITE_INTERNAL_BACKBONE_MAX_OFFSET = 70;
+const COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET = 30;
+const COMPOSITE_INTERNAL_BACKBONE_DISTANCE_RATIO = 0.45;
+const COMPOSITE_INTERNAL_BACKBONE_PADDING = 10;
+const COMPOSITE_INTERNAL_BRANCH_MIN_SPACING = 22;
+const COMPOSITE_INTERNAL_MIN_BRANCH_LENGTH = 10;
+const COMPOSITE_INTERNAL_MARKER_OFFSET = 22;
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
 const EXTERNAL_IDENTIFIER_ENTITY_MARKER_RISE = 24;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
 
-interface CompositeGroupPoint {
+interface CompositeIdentifierMember {
+  attributeId: string;
   attributeCenter: Point;
-  edgeStart: Point;
-  edgeEnd: Point;
+  hostAnchor: Point;
+}
+
+interface CompositeIdentifierBranch {
+  attributeId: string;
+  from: Point;
+  to: Point;
 }
 
 interface CompositeIdentifierLayout {
   groupKey: string;
+  hostEntityId: string;
+  memberAttributeIds: string[];
   orientation: "vertical" | "horizontal";
-  path: string;
+  backboneStart: Point;
+  backboneEnd: Point;
+  branches: CompositeIdentifierBranch[];
   junctions: Point[];
   markerStemFrom: Point;
   marker: Point;
@@ -286,74 +299,37 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function projectOnVerticalAxis(axisX: number, start: Point, end: Point): Point {
-  const deltaX = end.x - start.x;
-  if (Math.abs(deltaX) <= 0.001) {
-    return {
-      x: start.x,
-      y: (start.y + end.y) / 2,
-    };
-  }
-
-  const rawT = (axisX - start.x) / deltaX;
-  const projectedT = rawT >= 0.08 && rawT <= 0.92 ? rawT : clampNumber(rawT, 0.18, 0.82);
-
-  return {
-    x: start.x + deltaX * projectedT,
-    y: start.y + (end.y - start.y) * projectedT,
-  };
-}
-
-function projectOnHorizontalAxis(axisY: number, start: Point, end: Point): Point {
-  const deltaY = end.y - start.y;
-  if (Math.abs(deltaY) <= 0.001) {
-    return {
-      x: (start.x + end.x) / 2,
-      y: start.y,
-    };
-  }
-
-  const rawT = (axisY - start.y) / deltaY;
-  const projectedT = rawT >= 0.08 && rawT <= 0.92 ? rawT : clampNumber(rawT, 0.18, 0.82);
-
-  return {
-    x: start.x + (end.x - start.x) * projectedT,
-    y: start.y + deltaY * projectedT,
-  };
-}
-
-function buildCompositePath(points: Point[], orientation: "vertical" | "horizontal", bulge: number): string {
+function spreadValuesWithMinimumSpacing(
+  points: Array<{ id: string; value: number }>,
+  minimumSpacing: number,
+): Map<string, number> {
+  const result = new Map<string, number>();
   if (points.length === 0) {
-    return "";
+    return result;
   }
 
-  if (points.length === 1) {
-    return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  }
+  const sorted = [...points].sort((left, right) => {
+    const delta = left.value - right.value;
+    return Math.abs(delta) <= 0.001 ? left.id.localeCompare(right.id) : delta;
+  });
+  const spread = sorted.map((entry) => entry.value);
 
-  const commands = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`];
-
-  for (let index = 1; index < points.length; index += 1) {
-    const previous = points[index - 1];
-    const current = points[index];
-
-    if (orientation === "vertical") {
-      const controlX = ((previous.x + current.x) / 2) + bulge;
-      const controlY = (previous.y + current.y) / 2;
-      commands.push(
-        `Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
-      );
-      continue;
+  for (let index = 1; index < spread.length; index += 1) {
+    const minAllowed = spread[index - 1] + minimumSpacing;
+    if (spread[index] < minAllowed) {
+      spread[index] = minAllowed;
     }
-
-    const controlX = (previous.x + current.x) / 2;
-    const controlY = ((previous.y + current.y) / 2) + bulge;
-    commands.push(
-      `Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${current.x.toFixed(1)} ${current.y.toFixed(1)}`,
-    );
   }
 
-  return commands.join(" ");
+  const originalCenter = (sorted[0].value + sorted[sorted.length - 1].value) / 2;
+  const spreadCenter = (spread[0] + spread[spread.length - 1]) / 2;
+  const correction = originalCenter - spreadCenter;
+
+  sorted.forEach((entry, index) => {
+    result.set(entry.id, spread[index] + correction);
+  });
+
+  return result;
 }
 
 function getFrameSidePoint(frame: RouteFrame, side: FrameSide, reference: Point): Point {
@@ -536,6 +512,239 @@ function resolveFrameSide(bounds: Bounds, anchor: Point, outwardHint: Point): Fr
   return best.side;
 }
 
+function chooseCompositeGroupSide(
+  hostBounds: Bounds,
+  hostCenter: Point,
+  members: CompositeIdentifierMember[],
+): FrameSide {
+  const sideStats = new Map<FrameSide, { count: number; distance: number }>();
+  const preferredSideOrder: FrameSide[] = ["bottom", "top", "right", "left"];
+
+  members.forEach((member) => {
+    const outwardHint = {
+      x: member.attributeCenter.x - hostCenter.x,
+      y: member.attributeCenter.y - hostCenter.y,
+    };
+    const side = resolveFrameSide(hostBounds, member.hostAnchor, outwardHint);
+    const outwardDistance =
+      side === "left" || side === "right"
+        ? Math.abs(member.attributeCenter.x - hostCenter.x)
+        : Math.abs(member.attributeCenter.y - hostCenter.y);
+    const current = sideStats.get(side) ?? { count: 0, distance: 0 };
+    sideStats.set(side, {
+      count: current.count + 1,
+      distance: current.distance + outwardDistance,
+    });
+  });
+
+  let bestSide: FrameSide | null = null;
+  let bestCount = -1;
+  let bestDistance = -1;
+  preferredSideOrder.forEach((side) => {
+    const stats = sideStats.get(side) ?? { count: 0, distance: 0 };
+    const betterCount = stats.count > bestCount;
+    const sameCount = stats.count === bestCount;
+    const betterDistance = stats.distance > bestDistance + 0.001;
+    if (betterCount || (sameCount && betterDistance)) {
+      bestSide = side;
+      bestCount = stats.count;
+      bestDistance = stats.distance;
+    }
+  });
+
+  if (bestSide && bestCount > 0) {
+    return bestSide;
+  }
+
+  const centroid = members.reduce(
+    (sum, member) => ({
+      x: sum.x + member.attributeCenter.x,
+      y: sum.y + member.attributeCenter.y,
+    }),
+    { x: 0, y: 0 },
+  );
+  const centroidPoint = {
+    x: centroid.x / members.length,
+    y: centroid.y / members.length,
+  };
+  const deltaX = centroidPoint.x - hostCenter.x;
+  const deltaY = centroidPoint.y - hostCenter.y;
+
+  if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+    return deltaY >= 0 ? "bottom" : "top";
+  }
+
+  return deltaX >= 0 ? "right" : "left";
+}
+
+function computeCompositeBackboneOffset(
+  hostSideCoordinate: number,
+  memberCoordinates: number[],
+  outwardSign: number,
+): number {
+  const outwardDistances = memberCoordinates
+    .map((coordinate) => outwardSign * (coordinate - hostSideCoordinate))
+    .filter((distance) => Number.isFinite(distance));
+  if (outwardDistances.length === 0) {
+    return COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET;
+  }
+
+  const positiveDistances = outwardDistances.map((distance) => Math.max(0, distance));
+  const averageDistance =
+    positiveDistances.reduce((sum, distance) => sum + distance, 0) / positiveDistances.length;
+  const nearestMemberDistance = Math.min(...positiveDistances.filter((distance) => distance > 0));
+
+  let offset = clampNumber(
+    averageDistance * COMPOSITE_INTERNAL_BACKBONE_DISTANCE_RATIO,
+    COMPOSITE_INTERNAL_BACKBONE_MIN_OFFSET,
+    COMPOSITE_INTERNAL_BACKBONE_MAX_OFFSET,
+  );
+
+  if (Number.isFinite(nearestMemberDistance)) {
+    const maxReadableOffset = Math.max(
+      COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET,
+      nearestMemberDistance - COMPOSITE_INTERNAL_MIN_BRANCH_LENGTH,
+    );
+    offset = Math.min(offset, maxReadableOffset);
+  }
+
+  if (!Number.isFinite(offset)) {
+    return COMPOSITE_INTERNAL_BACKBONE_DEFAULT_OFFSET;
+  }
+
+  return Math.max(COMPOSITE_INTERNAL_BACKBONE_MIN_SAFE_OFFSET, offset);
+}
+
+function buildCompositeIdentifierLayout(
+  groupKey: string,
+  hostEntityId: string,
+  hostBounds: Bounds,
+  hostCenter: Point,
+  members: CompositeIdentifierMember[],
+): CompositeIdentifierLayout | null {
+  if (members.length < 2) {
+    return null;
+  }
+
+  const groupSide = chooseCompositeGroupSide(hostBounds, hostCenter, members);
+
+  if (groupSide === "top" || groupSide === "bottom") {
+    const outwardSign = groupSide === "bottom" ? 1 : -1;
+    const hostSideY = groupSide === "bottom" ? hostBounds.y + hostBounds.height : hostBounds.y;
+    const axisOffset = computeCompositeBackboneOffset(
+      hostSideY,
+      members.map((member) => member.attributeCenter.y),
+      outwardSign,
+    );
+    const backboneY = hostSideY + outwardSign * axisOffset;
+    const branchXByAttributeId = spreadValuesWithMinimumSpacing(
+      members.map((member) => ({
+        id: member.attributeId,
+        value: member.attributeCenter.x,
+      })),
+      COMPOSITE_INTERNAL_BRANCH_MIN_SPACING,
+    );
+
+    const branches = members
+      .map((member) => {
+        const branchX = branchXByAttributeId.get(member.attributeId) ?? member.attributeCenter.x;
+        return {
+          attributeId: member.attributeId,
+          from: { x: branchX, y: backboneY },
+          to: { x: branchX, y: member.attributeCenter.y },
+        };
+      })
+      .sort((left, right) => left.from.x - right.from.x || left.attributeId.localeCompare(right.attributeId));
+
+    if (branches.length < 2) {
+      return null;
+    }
+
+    const backboneStart = {
+      x: branches[0].from.x - COMPOSITE_INTERNAL_BACKBONE_PADDING,
+      y: backboneY,
+    };
+    const backboneEnd = {
+      x: branches[branches.length - 1].from.x + COMPOSITE_INTERNAL_BACKBONE_PADDING,
+      y: backboneY,
+    };
+    const markerStemFrom = { ...backboneStart };
+
+    return {
+      groupKey,
+      hostEntityId,
+      memberAttributeIds: branches.map((branch) => branch.attributeId),
+      orientation: "horizontal",
+      backboneStart,
+      backboneEnd,
+      branches,
+      junctions: branches.map((branch) => branch.from),
+      markerStemFrom,
+      marker: {
+        x: markerStemFrom.x - COMPOSITE_INTERNAL_MARKER_OFFSET,
+        y: markerStemFrom.y,
+      },
+    };
+  }
+
+  const outwardSign = groupSide === "right" ? 1 : -1;
+  const hostSideX = groupSide === "right" ? hostBounds.x + hostBounds.width : hostBounds.x;
+  const axisOffset = computeCompositeBackboneOffset(
+    hostSideX,
+    members.map((member) => member.attributeCenter.x),
+    outwardSign,
+  );
+  const backboneX = hostSideX + outwardSign * axisOffset;
+  const branchYByAttributeId = spreadValuesWithMinimumSpacing(
+    members.map((member) => ({
+      id: member.attributeId,
+      value: member.attributeCenter.y,
+    })),
+    COMPOSITE_INTERNAL_BRANCH_MIN_SPACING,
+  );
+
+  const branches = members
+    .map((member) => {
+      const branchY = branchYByAttributeId.get(member.attributeId) ?? member.attributeCenter.y;
+      return {
+        attributeId: member.attributeId,
+        from: { x: backboneX, y: branchY },
+        to: { x: member.attributeCenter.x, y: branchY },
+      };
+    })
+    .sort((left, right) => left.from.y - right.from.y || left.attributeId.localeCompare(right.attributeId));
+
+  if (branches.length < 2) {
+    return null;
+  }
+
+  const backboneStart = {
+    x: backboneX,
+    y: branches[0].from.y - COMPOSITE_INTERNAL_BACKBONE_PADDING,
+  };
+  const backboneEnd = {
+    x: backboneX,
+    y: branches[branches.length - 1].from.y + COMPOSITE_INTERNAL_BACKBONE_PADDING,
+  };
+  const markerStemFrom = { ...backboneEnd };
+
+  return {
+    groupKey,
+    hostEntityId,
+    memberAttributeIds: branches.map((branch) => branch.attributeId),
+    orientation: "vertical",
+    backboneStart,
+    backboneEnd,
+    branches,
+    junctions: branches.map((branch) => branch.from),
+    markerStemFrom,
+    marker: {
+      x: markerStemFrom.x,
+      y: markerStemFrom.y + COMPOSITE_INTERNAL_MARKER_OFFSET,
+    },
+  };
+}
+
 function offsetPointOnFrameSide(frame: RouteFrame, side: FrameSide, point: Point, offset: number): Point {
   if (offset === 0) {
     return point;
@@ -696,8 +905,9 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
-  const compositeGroups = new Map<string, { host: DiagramNode; points: CompositeGroupPoint[] }>();
+  const compositeGroups = new Map<string, { host: Extract<DiagramNode, { type: "entity" }>; members: CompositeIdentifierMember[] }>();
   const compositeGroupKeyByAttributeId = new Map<string, string>();
+  const compositeGroupMemberIdsByGroupKey = new Map<string, string[]>();
   const compositeIdentifierLayouts: CompositeIdentifierLayout[] = [];
   const externalIdentifierLayouts: ExternalIdentifierLayout[] = [];
   const edgeGeometryMap = new Map<string, Point[]>();
@@ -733,8 +943,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ? identifier.id
           : `generated-${index}`;
       const groupKey = `${node.id}::${identifierId}`;
+      const uniqueAttributeIds = identifier.attributeIds.filter(
+        (attributeId, attributeIndex, source) =>
+          typeof attributeId === "string" &&
+          attributeId.length > 0 &&
+          source.indexOf(attributeId) === attributeIndex,
+      );
 
-      identifier.attributeIds.forEach((attributeId) => {
+      if (uniqueAttributeIds.length < 2) {
+        return;
+      }
+
+      compositeGroupMemberIdsByGroupKey.set(groupKey, uniqueAttributeIds);
+
+      uniqueAttributeIds.forEach((attributeId) => {
         if (!compositeGroupKeyByAttributeId.has(attributeId)) {
           compositeGroupKeyByAttributeId.set(attributeId, groupKey);
         }
@@ -796,16 +1018,29 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       attributeNode.isCompositeInternal === true &&
       hostNode.type === "entity"
     ) {
-      const edgePoints = edgeGeometryMap.get(edge.id);
       const explicitGroupKey = compositeGroupKeyByAttributeId.get(attributeNode.id);
       const groupKey = explicitGroupKey ?? `legacy::${hostNode.id}`;
-      const group = compositeGroups.get(groupKey) ?? { host: hostNode, points: [] };
-      group.points.push({
-        attributeCenter,
-        edgeStart: edgePoints?.[0] ?? attributeCenter,
-        edgeEnd: edgePoints?.[edgePoints.length - 1] ?? getNodeAnchor(hostNode, attributeCenter, "attribute", "target"),
-      });
+      const hostAnchor = getNodeAnchor(hostNode, attributeCenter, "attribute", "target");
+      const group = compositeGroups.get(groupKey) ?? { host: hostNode, members: [] };
+
+      if (!group.members.some((member) => member.attributeId === attributeNode.id)) {
+        group.members.push({
+          attributeId: attributeNode.id,
+          attributeCenter,
+          hostAnchor,
+        });
+      }
+
       compositeGroups.set(groupKey, group);
+
+      if (!compositeGroupMemberIdsByGroupKey.has(groupKey)) {
+        compositeGroupMemberIdsByGroupKey.set(groupKey, [attributeNode.id]);
+      } else {
+        const memberIds = compositeGroupMemberIdsByGroupKey.get(groupKey) ?? [];
+        if (!memberIds.includes(attributeNode.id)) {
+          compositeGroupMemberIdsByGroupKey.set(groupKey, [...memberIds, attributeNode.id]);
+        }
+      }
     }
 
     attributeDirectionMap.set(attributeNode.id, {
@@ -815,94 +1050,37 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   });
 
   compositeGroups.forEach((group, groupKey) => {
-    if (group.points.length < 2) {
+    if (group.members.length < 2) {
       return;
     }
 
-    const host = group.host;
-    const hostCenter = getNodeCenter(host);
-    const avg = group.points.reduce(
-      (sum, point) => ({
-        x: sum.x + point.attributeCenter.x,
-        y: sum.y + point.attributeCenter.y,
-      }),
-      { x: 0, y: 0 },
+    const hostBounds = getNodeBounds(group.host);
+    const hostCenter = getNodeCenter(group.host);
+    const membershipOrder = compositeGroupMemberIdsByGroupKey.get(groupKey) ?? [];
+    const orderIndexByAttributeId = new Map(
+      membershipOrder.map((attributeId, index) => [attributeId, index]),
     );
-    const averageCenter = {
-      x: avg.x / group.points.length,
-      y: avg.y / group.points.length,
-    };
-
-    const horizontalBias = Math.abs(averageCenter.x - hostCenter.x) >= Math.abs(averageCenter.y - hostCenter.y);
-
-    if (horizontalBias) {
-      const onLeft = averageCenter.x < hostCenter.x;
-      const hostSideX = onLeft ? host.x : host.x + host.width;
-      const axisX = onLeft
-        ? hostSideX - COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET
-        : hostSideX + COMPOSITE_INTERNAL_SIDE_AXIS_OFFSET;
-      const junctions = group.points
-        .map((point) => projectOnVerticalAxis(axisX, point.edgeStart, point.edgeEnd))
-        .sort((first, second) => first.y - second.y);
-      const markerStemFrom = junctions[junctions.length - 1];
-
-      if (junctions.length < 2 || !markerStemFrom) {
-        return;
+    const orderedMembers = [...group.members].sort((left, right) => {
+      const leftIndex = orderIndexByAttributeId.get(left.attributeId) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = orderIndexByAttributeId.get(right.attributeId) ?? Number.MAX_SAFE_INTEGER;
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
       }
 
-      const path = buildCompositePath(
-        junctions,
-        "vertical",
-        onLeft ? -COMPOSITE_INTERNAL_VERTICAL_BULGE : COMPOSITE_INTERNAL_VERTICAL_BULGE,
-      );
-
-      compositeIdentifierLayouts.push({
-        groupKey,
-        orientation: "vertical",
-        path,
-        junctions,
-        markerStemFrom,
-        marker: {
-          x: markerStemFrom.x,
-          y: markerStemFrom.y + COMPOSITE_INTERNAL_MARKER_OFFSET,
-        },
-      });
-      return;
-    }
-
-    const onTop = averageCenter.y < hostCenter.y;
-    const hostSideY = onTop ? host.y : host.y + host.height;
-    const axisY = onTop
-      ? hostSideY - COMPOSITE_INTERNAL_TOP_AXIS_OFFSET
-      : hostSideY + COMPOSITE_INTERNAL_TOP_AXIS_OFFSET;
-    const junctions = group.points
-      .map((point) => projectOnHorizontalAxis(axisY, point.edgeStart, point.edgeEnd))
-      .sort((first, second) => first.x - second.x);
-    const markerStemFrom = junctions[0];
-
-    if (junctions.length < 2 || !markerStemFrom) {
-      return;
-    }
-
-    const horizontalBulge =
-      junctions.length > 2
-        ? onTop
-          ? -COMPOSITE_INTERNAL_HORIZONTAL_BULGE
-          : COMPOSITE_INTERNAL_HORIZONTAL_BULGE
-        : 0;
-    const path = buildCompositePath(junctions, "horizontal", horizontalBulge);
-
-    compositeIdentifierLayouts.push({
-      groupKey,
-      orientation: "horizontal",
-      path,
-      junctions,
-      markerStemFrom,
-      marker: {
-        x: markerStemFrom.x - COMPOSITE_INTERNAL_SIDE_MARKER_OFFSET,
-        y: markerStemFrom.y,
-      },
+      return left.attributeId.localeCompare(right.attributeId);
     });
+
+    const layout = buildCompositeIdentifierLayout(
+      groupKey,
+      group.host.id,
+      hostBounds,
+      hostCenter,
+      orderedMembers,
+    );
+
+    if (layout) {
+      compositeIdentifierLayouts.push(layout);
+    }
   });
 
   props.diagram.nodes.forEach((node) => {
@@ -1637,6 +1815,74 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   }
 
+  function startNodeDragInteraction(
+    pointerId: number,
+    startClientX: number,
+    startClientY: number,
+    selectedNodeIds: string[],
+  ) {
+    if (selectedNodeIds.length === 0) {
+      return;
+    }
+
+    const nodeIds = expandNodeIdsForMove(props.diagram, selectedNodeIds);
+    const originalDiagram = props.diagram;
+    const originPositions: Record<string, Point> = {};
+
+    nodeIds.forEach((nodeId) => {
+      const currentNode = nodeMap.get(nodeId);
+      if (currentNode) {
+        originPositions[nodeId] = { x: currentNode.x, y: currentNode.y };
+      }
+    });
+
+    props.onSelectionChange({ nodeIds: selectedNodeIds, edgeIds: [] });
+    setInteraction({
+      kind: "drag",
+      pointerId,
+      startClient: { x: startClientX, y: startClientY },
+      originalDiagram,
+      nodeIds,
+      originPositions,
+    });
+  }
+
+  function handleCompositeIdentifierPointerDown(
+    event: ReactPointerEvent<SVGGElement>,
+    layout: CompositeIdentifierLayout,
+  ) {
+    event.stopPropagation();
+
+    if (props.tool !== "select") {
+      return;
+    }
+
+    if (props.mode === "view") {
+      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+      return;
+    }
+
+    const memberAttributeIds = layout.memberAttributeIds.filter((attributeId) => {
+      const node = nodeMap.get(attributeId);
+      return node?.type === "attribute";
+    });
+
+    if (memberAttributeIds.length === 0) {
+      props.onSelectionChange({ nodeIds: [layout.hostEntityId], edgeIds: [] });
+      return;
+    }
+
+    startNodeDragInteraction(
+      event.pointerId,
+      event.clientX,
+      event.clientY,
+      memberAttributeIds,
+    );
+    props.onStatusMessageChange(
+      "Trascina il backbone dell'identificatore composto: gli attributi membri si muovono come gruppo.",
+    );
+  }
+
   function handleNodePointerDown(event: ReactPointerEvent<SVGGElement>, node: DiagramNode) {
     event.stopPropagation();
     event.currentTarget.focus();
@@ -1706,26 +1952,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       props.selection.nodeIds.includes(node.id) && props.selection.nodeIds.length > 0
         ? props.selection.nodeIds
         : [node.id];
-    const nodeIds = expandNodeIdsForMove(props.diagram, selectedNodeIds);
 
-    const originalDiagram = props.diagram;
-    const originPositions: Record<string, Point> = {};
-    nodeIds.forEach((nodeId) => {
-      const currentNode = nodeMap.get(nodeId);
-      if (currentNode) {
-        originPositions[nodeId] = { x: currentNode.x, y: currentNode.y };
-      }
-    });
-
-    props.onSelectionChange({ nodeIds: selectedNodeIds, edgeIds: [] });
-    setInteraction({
-      kind: "drag",
-      pointerId: event.pointerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      originalDiagram,
-      nodeIds,
-      originPositions,
-    });
+    startNodeDragInteraction(event.pointerId, event.clientX, event.clientY, selectedNodeIds);
   }
 
   function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: DiagramEdge) {
@@ -2211,6 +2439,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           connectionPreviewPoint,
         ])
       : null;
+  const compositeIdentifierInteractive = props.mode === "edit" && props.tool === "select";
   return (
     <div
       ref={containerRef}
@@ -2384,14 +2613,36 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ) : null}
 
           {compositeIdentifierLayouts.map((layout) => (
-            <g key={`composite-id-${layout.groupKey}`} className="composite-identifier" pointerEvents="none">
-              <path
-                d={layout.path}
-                fill="none"
+            <g
+              key={`composite-id-${layout.groupKey}`}
+              className="composite-identifier"
+              pointerEvents={compositeIdentifierInteractive ? "visiblePainted" : "none"}
+              onPointerDown={
+                compositeIdentifierInteractive
+                  ? (event) => handleCompositeIdentifierPointerDown(event, layout)
+                  : undefined
+              }
+            >
+              {layout.branches.map((branch) => (
+                <line
+                  key={`composite-id-branch-${layout.groupKey}-${branch.attributeId}`}
+                  x1={branch.from.x}
+                  y1={branch.from.y}
+                  x2={branch.to.x}
+                  y2={branch.to.y}
+                  stroke={DIAGRAM_STROKE}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+              ))}
+              <line
+                x1={layout.backboneStart.x}
+                y1={layout.backboneStart.y}
+                x2={layout.backboneEnd.x}
+                y2={layout.backboneEnd.y}
                 stroke={DIAGRAM_STROKE}
                 strokeWidth={2}
                 strokeLinecap="round"
-                strokeLinejoin="round"
               />
               {layout.junctions.map((junction, index) => (
                 <circle
@@ -2413,7 +2664,39 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 strokeWidth={2}
                 strokeLinecap="round"
               />
-              <circle cx={layout.marker.x} cy={layout.marker.y} r={8.5} fill={DIAGRAM_STROKE} stroke={DIAGRAM_STROKE} strokeWidth={2} />
+              <circle
+                cx={layout.marker.x}
+                cy={layout.marker.y}
+                r={8.5}
+                fill={DIAGRAM_STROKE}
+                stroke={DIAGRAM_STROKE}
+                strokeWidth={2}
+              />
+
+              {compositeIdentifierInteractive ? (
+                <>
+                  <line
+                    x1={layout.backboneStart.x}
+                    y1={layout.backboneStart.y}
+                    x2={layout.backboneEnd.x}
+                    y2={layout.backboneEnd.y}
+                    stroke="transparent"
+                    strokeWidth={14}
+                  />
+                  {layout.branches.map((branch) => (
+                    <line
+                      key={`composite-id-branch-hit-${layout.groupKey}-${branch.attributeId}`}
+                      x1={branch.from.x}
+                      y1={branch.from.y}
+                      x2={branch.to.x}
+                      y2={branch.to.y}
+                      stroke="transparent"
+                      strokeWidth={12}
+                    />
+                  ))}
+                  <circle cx={layout.marker.x} cy={layout.marker.y} r={11} fill="transparent" />
+                </>
+              ) : null}
             </g>
           ))}
 
