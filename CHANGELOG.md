@@ -15,6 +15,22 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [3.6.0] - 2026-04-14
+
+### Added
+- Aggiunta interazione diretta sul backbone degli identificatori interni composti con drag del gruppo membro come unita logica.
+
+### Changed
+- Rendering identificatori interni composti rifattorizzato in geometria ortogonale: backbone comune e rami lineari.
+- Eliminato il routing curvo del backbone composito.
+- Posizione del backbone calcolata automaticamente in base al lato entita, bounding box e distribuzione attributi membri.
+- Distribuzione dei rami resa deterministica con spaziatura minima per evitare sovrapposizioni e incroci inutili.
+- Recompute del layout composito stabilizzato durante move entita/attributi, aggiunta o rimozione membri e reload.
+
+### Fixed
+- Rimossi i collegamenti diagonali duplicati dei membri composti sopprimendo gli edge diretti attributo-entita quando e attivo il gruppo composito.
+- Introdotti stem ortogonali entita-backbone per mantenere una lettura unica e pulita della struttura.
+
 ## [3.5.0] - 2026-04-14
 
 ### Added

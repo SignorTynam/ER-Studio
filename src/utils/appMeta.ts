@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.5";
+export const APP_VERSION = "3.6";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -10,6 +10,18 @@ export interface AppChangelogEntry {
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
   {
+    version: "3.6",
+    date: "2026-04-14",
+    updates: [
+      "Versione applicativa aggiornata alla release 3.6.",
+      "Layout identificatori interni composti rifattorizzato in geometria ortogonale con backbone comune e rami lineari.",
+      "Routing curvo eliminato: posizione backbone calcolata automaticamente da bounding box entita e distribuzione attributi membri.",
+      "Drag del backbone composito introdotto: gli attributi membri si muovono come gruppo coerente.",
+      "Rendering ripulito: rimossi i collegamenti diagonali duplicati dei membri composti e introdotti stem ortogonali entita-backbone.",
+      "Recompute stabile del composto durante move, add/remove membri e reload del diagramma.",
+    ],
+  },
+  {
     version: "3.5",
     date: "2026-04-14",
     updates: [
@@ -19,6 +31,7 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Inspector relazione semplificato: rinomina tramite azione rapida senza campo nome dedicato.",
       "Documentazione e governance allineate con SECURITY, LICENSE, CONTRIBUTING e CHANGELOG.",
     ],
+
   },
   {
     version: "3.4",
