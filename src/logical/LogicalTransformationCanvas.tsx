@@ -271,6 +271,39 @@ function getBoundsForNodes(nodes: LogicalTransformationNode[]): { x: number; y: 
   };
 }
 
+function hasTargetIntersection(relatedTargetKeys: string[], targetKeys: string[]): boolean {
+  return targetKeys.some((targetKey) => relatedTargetKeys.includes(targetKey));
+}
+
+function collectNodesForTargetKeys(
+  nodes: LogicalTransformationNode[],
+  edges: LogicalTransformationEdge[],
+  targetKeys: string[],
+): LogicalTransformationNode[] {
+  if (targetKeys.length === 0) {
+    return [];
+  }
+
+  const matchedNodeIds = new Set<string>();
+
+  nodes.forEach((node) => {
+    if (hasTargetIntersection(node.relatedTargetKeys, targetKeys)) {
+      matchedNodeIds.add(node.id);
+    }
+  });
+
+  edges.forEach((edge) => {
+    if (!hasTargetIntersection(edge.relatedTargetKeys, targetKeys)) {
+      return;
+    }
+
+    matchedNodeIds.add(edge.sourceId);
+    matchedNodeIds.add(edge.targetId);
+  });
+
+  return nodes.filter((node) => matchedNodeIds.has(node.id));
+}
+
 function getRowWorldPoint(tableNode: LogicalTransformationNode, rowIndex: number): Point {
   return {
     x: tableNode.x + 12,
@@ -371,6 +404,9 @@ function intersectingTargetKey(
 
 export function LogicalTransformationCanvas(props: LogicalTransformationCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const lastAutoFitTargetKeyRef = useRef<string | null>(null);
+  const fitRetryFrameRef = useRef<number | null>(null);
+  const fitRetryAttemptsRef = useRef(0);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
@@ -427,6 +463,19 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     return routes;
   }, [fkEdges, nodeById, laneByEdgeId]);
 
+  const focusedViewportNodes = useMemo(
+    () =>
+      props.focusedTargetKey
+        ? collectNodesForTargetKeys(graph.nodes, graph.edges, [props.focusedTargetKey])
+        : [],
+    [graph.edges, graph.nodes, props.focusedTargetKey],
+  );
+
+  const activeViewportNodes = useMemo(
+    () => collectNodesForTargetKeys(graph.nodes, graph.edges, props.activeTargetKeys),
+    [graph.edges, graph.nodes, props.activeTargetKeys],
+  );
+
   const attributeDirectionByNodeId = useMemo(() => buildAttributeDirectionMap(nodeById, erEdges), [nodeById, erEdges]);
 
   useEffect(() => {
@@ -453,19 +502,43 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     };
   }, [inlineEdit]);
 
-  function fitToContent() {
+  function resolveViewportNodes(): LogicalTransformationNode[] {
+    const defaultViewportNodes = tableNodes.length > 0 ? tableNodes : graph.nodes;
+    return (
+      focusedViewportNodes.length > 0
+        ? focusedViewportNodes
+        : activeViewportNodes.length > 0
+          ? activeViewportNodes
+          : defaultViewportNodes
+    );
+  }
+
+  function getViewportRect(): DOMRect | null {
     if (!containerRef.current) {
-      return;
+      return null;
     }
 
-    const bounds = getBoundsForNodes(graph.nodes);
+    return containerRef.current.getBoundingClientRect();
+  }
+
+  function hasUsableViewportRect(rect: DOMRect): boolean {
+    return rect.width >= 48 && rect.height >= 48;
+  }
+
+  function fitToContent(): boolean {
+    const rect = getViewportRect();
+    if (!rect || !hasUsableViewportRect(rect)) {
+      return false;
+    }
+
+    const viewportNodes = resolveViewportNodes();
+    const bounds = getBoundsForNodes(viewportNodes);
     if (!bounds) {
-      return;
+      return false;
     }
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const paddedWidth = bounds.width + VIEWPORT_PADDING * 2;
-    const paddedHeight = bounds.height + VIEWPORT_PADDING * 2;
+    const paddedWidth = Math.max(1, bounds.width + VIEWPORT_PADDING * 2);
+    const paddedHeight = Math.max(1, bounds.height + VIEWPORT_PADDING * 2);
     const nextZoom = clampZoom(Math.min(rect.width / paddedWidth, rect.height / paddedHeight));
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
@@ -475,25 +548,104 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       x: rect.width / 2 - centerX * nextZoom,
       y: rect.height / 2 - centerY * nextZoom,
     });
+
+    return true;
+  }
+
+  function cancelFitRetry() {
+    if (fitRetryFrameRef.current != null) {
+      window.cancelAnimationFrame(fitRetryFrameRef.current);
+      fitRetryFrameRef.current = null;
+    }
+    fitRetryAttemptsRef.current = 0;
+  }
+
+  function requestFitToContent() {
+    cancelFitRetry();
+
+    const attemptFit = () => {
+      if (fitToContent()) {
+        cancelFitRetry();
+        return;
+      }
+
+      if (fitRetryAttemptsRef.current >= 12) {
+        cancelFitRetry();
+        return;
+      }
+
+      fitRetryAttemptsRef.current += 1;
+      fitRetryFrameRef.current = window.requestAnimationFrame(attemptFit);
+    };
+
+    fitRetryFrameRef.current = window.requestAnimationFrame(attemptFit);
   }
 
   useEffect(() => {
-    fitToContent();
+    requestFitToContent();
     // Trigger only on token changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.fitRequestToken]);
 
-  function centerContent() {
-    if (!containerRef.current) {
+  useEffect(() => {
+    if (!props.focusedTargetKey) {
+      lastAutoFitTargetKeyRef.current = null;
+      requestFitToContent();
       return;
     }
 
-    const bounds = getBoundsForNodes(graph.nodes);
+    if (lastAutoFitTargetKeyRef.current === props.focusedTargetKey) {
+      return;
+    }
+
+    requestFitToContent();
+    lastAutoFitTargetKeyRef.current = props.focusedTargetKey;
+    // Intentionally react only to focus target changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.focusedTargetKey]);
+
+  useEffect(() => {
+    requestFitToContent();
+    // Refit after each transformation decision update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.workspace.translation.meta.updatedAt]);
+
+  useEffect(() => {
+    if (!containerRef.current || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observedNode = containerRef.current;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry || entry.contentRect.width < 48 || entry.contentRect.height < 48) {
+        return;
+      }
+
+      if (fitRetryFrameRef.current != null || props.viewport.zoom <= 0.451) {
+        requestFitToContent();
+      }
+    });
+
+    observer.observe(observedNode);
+    return () => observer.disconnect();
+    // Keep observer mounted; viewport zoom guard handles unnecessary refits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.viewport.zoom]);
+
+  useEffect(() => () => cancelFitRetry(), []);
+
+  function centerContent() {
+    const rect = getViewportRect();
+    if (!rect || !hasUsableViewportRect(rect)) {
+      return;
+    }
+
+    const bounds = getBoundsForNodes(resolveViewportNodes());
     if (!bounds) {
       return;
     }
 
-    const rect = containerRef.current.getBoundingClientRect();
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
     props.onViewportChange({
