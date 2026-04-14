@@ -390,6 +390,26 @@ function getPointAlongPolyline(points: Point[], progress: number): Point {
   return points[points.length - 1];
 }
 
+function getMidpoint(start: Point, end: Point): Point {
+  return {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  };
+}
+
+function resolveEdgeLabelPoint(
+  edge: DiagramEdge,
+  sourceNode: DiagramNode,
+  targetNode: DiagramNode,
+  points: Point[],
+): Point {
+  if (edge.type === "connector" || edge.type === "attribute") {
+    return getMidpoint(getNodeLogicalAnchor(sourceNode), getNodeLogicalAnchor(targetNode));
+  }
+
+  return getPointAlongPolyline(points, 0.5);
+}
+
 function attachPolylineToNodeBounds(
   logicalPoints: Point[],
   sourceNode: DiagramNode,
@@ -456,7 +476,7 @@ export function getEdgeGeometry(
 
   return {
     points,
-    labelPoint: getPointAlongPolyline(points, 0.5),
+    labelPoint: resolveEdgeLabelPoint(edge, sourceNode, targetNode, points),
   };
 }
 
@@ -471,7 +491,7 @@ export function getRenderedEdgeGeometry(
 
     return {
       points,
-      labelPoint: getPointAlongPolyline(points, 0.5),
+      labelPoint: resolveEdgeLabelPoint(edge, sourceNode, targetNode, points),
     };
   }
 
