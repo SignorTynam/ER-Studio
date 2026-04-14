@@ -3,13 +3,21 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  EntityRelationshipParticipation,
   InternalIdentifier,
   IsaCompleteness,
   IsaDisjointness,
   LineStyle,
   NodeKind,
 } from "../types/diagram";
-import { CONNECTOR_CARDINALITY_PLACEHOLDER, isSupportedCardinality } from "./cardinality";
+import {
+  CONNECTOR_CARDINALITY_PLACEHOLDER,
+  getAttributeCardinalityOwner,
+  getConnectorParticipation,
+  getConnectorParticipationContext,
+  isSupportedCardinality,
+  normalizeSupportedCardinality,
+} from "./cardinality";
 import { canConnect, getMultivaluedAttributeSize, validateDiagram } from "./diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
 
@@ -26,6 +34,7 @@ const LEGACY_NODE_DIRECTIVES = new Set([
   "label",
   "at",
   "size",
+  "card",
   "identifier",
   "compositeInternal",
   "external",
@@ -83,6 +92,7 @@ interface StructuredAttributeSpec {
   isIdentifier: boolean;
   isCompositeInternal: boolean;
   isMultivalued: boolean;
+  cardinality?: string;
   line: number;
 }
 
@@ -128,6 +138,14 @@ function formatNumber(value: number): string {
 
 function quoteValue(value: string): string {
   return JSON.stringify(value);
+}
+
+function createGeneratedId(prefix: string): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function isGeneratedNodeId(value: string): boolean {
@@ -434,6 +452,7 @@ function createNodeBase(alias: string, type: NodeKind): DiagramNode {
       isIdentifier: false,
       isCompositeInternal: false,
       isMultivalued: false,
+      cardinality: undefined,
     };
   }
 
@@ -442,6 +461,7 @@ function createNodeBase(alias: string, type: NodeKind): DiagramNode {
       ...base,
       type,
       isWeak: false,
+      relationshipParticipations: [],
     };
   }
 
@@ -562,6 +582,7 @@ function parseStructuredAttributeDeclaration(
     isCompositeInternal: keyword === "composite",
     isMultivalued: keyword === "multivalued",
   };
+  let cardinality: string | undefined;
 
   while (state.index < tokens.length) {
     if (tokens[state.index]?.startsWith("[")) {
@@ -571,6 +592,15 @@ function parseStructuredAttributeDeclaration(
     }
 
     const directive = readIdentifier(tokens, state, line, "Direttiva attributo non valida.");
+    if (directive === "card") {
+      const nextCardinality = readStringValue(tokens, state, line, "Cardinalita attributo non valida.");
+      if (!isSupportedCardinality(nextCardinality)) {
+        throw new ErsParseError(line, `Cardinalita attributo non valida: "${nextCardinality}".`);
+      }
+      cardinality = nextCardinality;
+      continue;
+    }
+
     applyAttributeDirective(flags, directive, line);
   }
 
@@ -581,6 +611,7 @@ function parseStructuredAttributeDeclaration(
     isIdentifier: flags.isIdentifier,
     isCompositeInternal: flags.isCompositeInternal,
     isMultivalued: flags.isMultivalued,
+    cardinality,
     line,
   };
 }
@@ -667,7 +698,7 @@ function parseStructuredConnections(
 
     connections.push({
       entityAlias,
-      cardinality: cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
+      cardinality,
       line,
     });
   }
@@ -753,6 +784,10 @@ function emitLegacyAttributeLines(hostAlias: string, attribute: StructuredAttrib
 
   if (attribute.isMultivalued) {
     parts.push("multivalued");
+  }
+
+  if (attribute.cardinality) {
+    parts.push("card", quoteValue(attribute.cardinality));
   }
 
   return [parts.join(" "), `attribute-link ${qualifiedAlias} -> ${hostAlias}`];
@@ -970,7 +1005,7 @@ function expandStructuredRelation(
         const entityAlias = readIdentifier(entry.tokens, localState, entry.line, "Entita relation mancante.");
         assertUnqualifiedAlias(entityAlias, entry.line, "Il nome entita");
 
-        let cardinality = CONNECTOR_CARDINALITY_PLACEHOLDER;
+        let cardinality: string | undefined;
         if (localState.index < entry.tokens.length) {
           if (entry.tokens[localState.index] === "card") {
             localState.index += 1;
@@ -1014,9 +1049,7 @@ function expandStructuredRelation(
   allConnections.forEach((connection) => {
     emitted.push({
       line: connection.line,
-      text: `connector ${alias} -> ${connection.entityAlias} card ${quoteValue(
-        connection.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
-      )}`,
+      text: `connector ${alias} -> ${connection.entityAlias}${connection.cardinality ? ` card ${quoteValue(connection.cardinality)}` : ""}`,
     });
   });
 
@@ -1155,6 +1188,18 @@ function parseNodeStatement(
       case "size":
         node.width = readNumberValue(tokens, state, line, "Larghezza non valida.");
         node.height = readNumberValue(tokens, state, line, "Altezza non valida.");
+        break;
+      case "card":
+        if (node.type !== "attribute") {
+          throw new ErsParseError(line, "La direttiva card e valida solo per gli attributi.");
+        }
+        {
+          const parsedCardinality = readStringValue(tokens, state, line, "Cardinalita attributo non valida.");
+          if (!isSupportedCardinality(parsedCardinality)) {
+            throw new ErsParseError(line, `Cardinalita attributo non valida: "${parsedCardinality}".`);
+          }
+          node.cardinality = normalizeSupportedCardinality(parsedCardinality);
+        }
         break;
       case "identifier":
         if (node.type !== "attribute") {
@@ -1498,22 +1543,38 @@ function buildAttributeDeclaration(
   simpleIdentifierAttributeIds: Set<string>,
 ): string {
   const alias = getLocalAttributeAlias(attribute, hostAlias, aliasByNodeId);
-  return `  ${formatNamedDefinition(
-    getAttributeKeyword(attribute, simpleIdentifierAttributeIds),
-    alias,
-    attribute.label,
-  )}`;
+  const parts = [
+    formatNamedDefinition(
+      getAttributeKeyword(attribute, simpleIdentifierAttributeIds),
+      alias,
+      attribute.label,
+    ),
+  ];
+
+  if (attribute.cardinality) {
+    parts.push("card", quoteValue(attribute.cardinality));
+  }
+
+  return `  ${parts.join(" ")}`;
 }
 
 function buildStandaloneAttributeLine(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   alias: string,
 ): string {
-  return `${formatNamedDefinition(
-    getAttributeKeyword(attribute, attribute.isIdentifier === true ? new Set([attribute.id]) : new Set()),
-    alias,
-    attribute.label,
-  )}`;
+  const parts = [
+    formatNamedDefinition(
+      getAttributeKeyword(attribute, attribute.isIdentifier === true ? new Set([attribute.id]) : new Set()),
+      alias,
+      attribute.label,
+    ),
+  ];
+
+  if (attribute.cardinality) {
+    parts.push("card", quoteValue(attribute.cardinality));
+  }
+
+  return parts.join(" ");
 }
 
 function buildNestedAttributeLegacyLines(
@@ -1591,6 +1652,7 @@ function buildRelationLines(
   attributesByHostId: Map<string, DiagramNode[]>,
 ): string[] {
   const relationAlias = aliasByNodeId.get(relationship.id) ?? relationship.id;
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
   const connectors = diagram.edges
     .filter(
       (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
@@ -1598,9 +1660,12 @@ function buildRelationLines(
     )
     .map((edge) => {
       const entityId = edge.sourceId === relationship.id ? edge.targetId : edge.sourceId;
+      const sourceNode = nodeMap.get(edge.sourceId);
+      const targetNode = nodeMap.get(edge.targetId);
       return {
         entityAlias: aliasByNodeId.get(entityId) ?? entityId,
-        cardinality: edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
+        cardinality:
+          getConnectorParticipation(edge, sourceNode, targetNode)?.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
       };
     })
     .sort((left, right) => left.entityAlias.localeCompare(right.entityAlias, "it", { sensitivity: "base" }));
@@ -2095,6 +2160,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   });
 
   const occurrenceByKey = new Map<string, number>();
+  const parsedNodeById = new Map(parsedNodes.map((entry) => [entry.node.id, entry.node]));
   const edges: DiagramEdge[] = parsedEdges.map((edgeSpec) => {
     const sourceNode = resolveNodeAlias(edgeSpec.sourceAlias, aliasMap, edgeSpec.line);
     const targetNode = resolveNodeAlias(edgeSpec.targetAlias, aliasMap, edgeSpec.line);
@@ -2129,30 +2195,59 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     }
 
     if (edgeSpec.type === "attribute") {
-      if (edgeSpec.cardinality && !isSupportedCardinality(edgeSpec.cardinality)) {
+      const normalizedCardinality = normalizeSupportedCardinality(edgeSpec.cardinality);
+      if (
+        edgeSpec.cardinality &&
+        normalizedCardinality === undefined &&
+        edgeSpec.cardinality !== CONNECTOR_CARDINALITY_PLACEHOLDER
+      ) {
         throw new ErsParseError(edgeSpec.line, `Cardinalita attributo non valida: "${edgeSpec.cardinality}".`);
+      }
+
+      const attributeOwner = getAttributeCardinalityOwner(sourceNode, targetNode);
+      const parsedAttributeNode = attributeOwner ? parsedNodeById.get(attributeOwner.id) : undefined;
+      if (parsedAttributeNode?.type === "attribute" && normalizedCardinality !== undefined) {
+        parsedAttributeNode.cardinality = normalizedCardinality;
       }
 
       return {
         ...baseEdge,
         type: "attribute" as const,
-        cardinality: edgeSpec.cardinality,
       };
     }
 
-    if (edgeSpec.cardinality && !isSupportedCardinality(edgeSpec.cardinality)) {
+    const normalizedCardinality = normalizeSupportedCardinality(edgeSpec.cardinality);
+    if (
+      edgeSpec.cardinality &&
+      normalizedCardinality === undefined &&
+      edgeSpec.cardinality !== CONNECTOR_CARDINALITY_PLACEHOLDER
+    ) {
       throw new ErsParseError(edgeSpec.line, `Cardinalita connettore non valida: "${edgeSpec.cardinality}".`);
+    }
+
+    const connectorContext = getConnectorParticipationContext(sourceNode, targetNode);
+    let participationId: string | undefined;
+    if (connectorContext) {
+      const entityNode = parsedNodeById.get(connectorContext.entity.id);
+      if (entityNode?.type === "entity") {
+        const participation: EntityRelationshipParticipation = {
+          id: createGeneratedId("participation"),
+          relationshipId: connectorContext.relationship.id,
+          cardinality: normalizedCardinality,
+        };
+        entityNode.relationshipParticipations = [...(entityNode.relationshipParticipations ?? []), participation];
+        participationId = participation.id;
+      }
     }
 
     return {
       ...baseEdge,
       type: "connector" as const,
-      cardinality: edgeSpec.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER,
+      participationId,
     };
   });
 
   const directAttributeIdsByEntityId = new Map<string, Set<string>>();
-  const parsedNodeById = new Map(parsedNodes.map((entry) => [entry.node.id, entry.node]));
   edges.forEach((edge) => {
     if (edge.type !== "attribute") {
       return;
@@ -2313,6 +2408,12 @@ function mergeDiagramConfiguration(
       y: existingNode.y,
       width: existingNode.width,
       height: existingNode.height,
+      ...(node.type === "attribute" &&
+      existingNode.type === "attribute" &&
+      node.cardinality == null &&
+      existingNode.cardinality != null
+        ? { cardinality: existingNode.cardinality }
+        : {}),
     };
   });
 
@@ -2337,9 +2438,6 @@ function mergeDiagramConfiguration(
       label: edge.label || existingEdge.label,
       lineStyle: existingEdge.lineStyle,
       manualOffset: existingEdge.manualOffset,
-      ...(edge.type === "attribute" && edge.cardinality == null && existingEdge.type === "attribute"
-        ? { cardinality: existingEdge.cardinality }
-        : {}),
     };
   });
 

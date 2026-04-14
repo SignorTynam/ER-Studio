@@ -39,10 +39,6 @@ import type {
   ValidationIssue,
   Viewport,
 } from "../types/diagram";
-import {
-  CONNECTOR_CARDINALITIES,
-  CONNECTOR_CARDINALITY_PLACEHOLDER,
-} from "../utils/cardinality";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_SELECTION_FILL = "var(--diagram-selection-fill)";
@@ -1332,18 +1328,10 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
     if (props.selection.edgeIds.length === 1 && props.selection.nodeIds.length === 0) {
       const edge = props.diagram.edges.find((candidate) => candidate.id === props.selection.edgeIds[0]);
-      if (!edge) {
+      if (!edge || edge.type !== "inheritance") {
         return;
       }
-
-      const value =
-        edge.type === "connector"
-          ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
-          : edge.type === "attribute"
-            ? edge.cardinality ?? ""
-            : edge.label;
-
-      setInlineEdit({ kind: "edge", id: edge.id, value });
+      setInlineEdit({ kind: "edge", id: edge.id, value: edge.label });
     }
   }
 
@@ -2020,17 +2008,11 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function startInlineEdgeEdit(event: MouseEvent<SVGGElement>, edge: DiagramEdge) {
     event.stopPropagation();
-    if (props.mode === "view") {
+    if (props.mode === "view" || edge.type !== "inheritance") {
       return;
     }
 
-    const value =
-      edge.type === "connector"
-        ? edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER
-        : edge.type === "attribute"
-          ? edge.cardinality ?? ""
-          : edge.label;
-    setInlineEdit({ kind: "edge", id: edge.id, value });
+    setInlineEdit({ kind: "edge", id: edge.id, value: edge.label });
   }
 
   function commitInlineEdit() {
@@ -2050,13 +2032,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         return;
       }
 
-      if (currentEdge.type === "connector") {
-        props.onRenameEdge(inlineEdit.id, inlineEdit.value || CONNECTOR_CARDINALITY_PLACEHOLDER);
-      } else if (currentEdge.type === "attribute") {
-        props.onRenameEdge(inlineEdit.id, inlineEdit.value);
-      } else {
-        props.onRenameEdge(inlineEdit.id, trimmed || currentEdge.label || "");
-      }
+      props.onRenameEdge(inlineEdit.id, trimmed || currentEdge.label || "");
     }
 
     setInlineEdit(null);
@@ -2123,9 +2099,6 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       ? normalizeBounds(interaction.startWorld, interaction.currentWorld)
       : null;
   const editorStyle = inlineEditorStyle();
-  const inlineEdge =
-    inlineEdit?.kind === "edge" ? props.diagram.edges.find((candidate) => candidate.id === inlineEdit.id) : null;
-  const editingEdgeCardinality = inlineEdge?.type === "connector" || inlineEdge?.type === "attribute";
   const pendingSourceNode = pendingConnectionSource ? nodeMap.get(pendingConnectionSource) : undefined;
   const pendingConnectionPath =
     pendingSourceNode && connectionPreviewPoint
@@ -2493,36 +2466,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
             commitInlineEdit();
           }}
         >
-          {editingEdgeCardinality ? (
-            <select
-              autoFocus
-              value={inlineEdit.value || (inlineEdge?.type === "connector" ? CONNECTOR_CARDINALITY_PLACEHOLDER : "")}
-              onBlur={commitInlineEdit}
-              onChange={(event) =>
-                setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
-              }
-            >
-              {inlineEdge?.type === "attribute" ? (
-                <option value="">Nessuna cardinalita</option>
-              ) : (
-                <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
-              )}
-              {CONNECTOR_CARDINALITIES.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              autoFocus
-              value={inlineEdit.value}
-              onBlur={commitInlineEdit}
-              onChange={(event) =>
-                setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
-              }
-            />
-          )}
+          <input
+            autoFocus
+            value={inlineEdit.value}
+            onBlur={commitInlineEdit}
+            onChange={(event) =>
+              setInlineEdit((current) => (current ? { ...current, value: event.target.value } : current))
+            }
+          />
         </form>
       ) : null}
     </div>

@@ -1,3 +1,5 @@
+import type { ConnectorCardinality } from "../utils/cardinality";
+
 export type NodeKind = "entity" | "relationship" | "attribute" | "text";
 export type EdgeKind = "connector" | "attribute" | "inheritance";
 export type ToolKind =
@@ -36,10 +38,17 @@ export interface InternalIdentifier {
   attributeIds: string[];
 }
 
+export interface EntityRelationshipParticipation {
+  id: string;
+  relationshipId: string;
+  cardinality?: ConnectorCardinality;
+}
+
 export interface EntityNode extends BaseNode {
   type: "entity";
   isWeak?: boolean;
   internalIdentifiers?: InternalIdentifier[];
+  relationshipParticipations?: EntityRelationshipParticipation[];
 }
 
 export interface RelationshipNode extends BaseNode {
@@ -59,6 +68,7 @@ export interface AttributeNode extends BaseNode {
   isIdentifier?: boolean;
   isCompositeInternal?: boolean;
   isMultivalued?: boolean;
+  cardinality?: ConnectorCardinality;
 }
 
 export interface TextNode extends BaseNode {
@@ -83,12 +93,11 @@ export interface BaseEdge {
 
 export interface ConnectorEdge extends BaseEdge {
   type: "connector";
-  cardinality?: string;
+  participationId?: string;
 }
 
 export interface AttributeEdge extends BaseEdge {
   type: "attribute";
-  cardinality?: string;
 }
 
 export interface InheritanceEdge extends BaseEdge {

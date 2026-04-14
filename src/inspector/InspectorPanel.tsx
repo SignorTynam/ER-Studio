@@ -4,6 +4,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EntityNode,
+  EntityRelationshipParticipation,
   EditorMode,
   SelectionState,
   ValidationIssue,
@@ -11,6 +12,9 @@ import type {
 import {
   CONNECTOR_CARDINALITIES,
   CONNECTOR_CARDINALITY_PLACEHOLDER,
+  getAttributeCardinalityOwner,
+  getConnectorParticipationContext,
+  normalizeSupportedCardinality,
 } from "../utils/cardinality";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
 
@@ -124,19 +128,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
       ? props.diagram.edges.find((edge) => edge.id === props.selection.edgeIds[0])
       : undefined;
 
-  function edgeTouchesInternalIdentifierAttribute(edge: DiagramEdge): boolean {
-    if (edge.type !== "attribute") {
-      return false;
-    }
-
-    const sourceNode = props.diagram.nodes.find((node) => node.id === edge.sourceId);
-    const targetNode = props.diagram.nodes.find((node) => node.id === edge.targetId);
-    const isInternalIdentifierAttribute = (node?: DiagramNode) =>
-      node?.type === "attribute" && (node.isIdentifier === true || node.isCompositeInternal === true);
-
-    return isInternalIdentifierAttribute(sourceNode) || isInternalIdentifierAttribute(targetNode);
-  }
-
   const attributeHost =
     selectedNode?.type === "attribute" ? findDirectAttributeHost(props.diagram, selectedNode.id) : undefined;
   const selectedAttributeEntityHost =
@@ -153,6 +144,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
   const heading = getSelectionHeading(selectedNode, selectedEdge, selectionCount);
   const isIdleContext = selectionCount === 0;
+  const canRenameCurrentSelection = selectedNode !== undefined || selectedEdge?.type === "inheritance";
 
   if (isCollapsed) {
     if (isIdleContext) {
@@ -211,7 +203,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
               {selectedNode.type === "attribute" ? "Aggiungi sotto-attributo" : "Aggiungi attributo"}
             </button>
           ) : null}
-          {(selectedNode || selectedEdge) ? (
+          {canRenameCurrentSelection ? (
             <button type="button" onClick={props.onRenameSelection} disabled={!canEdit}>
               Rinomina
             </button>
@@ -266,8 +258,99 @@ export function InspectorPanel(props: InspectorPanelProps) {
 
   function renderNodeContext(node: DiagramNode) {
     if (node.type === "entity") {
+      type EntityParticipationRow = {
+        edge: Extract<DiagramEdge, { type: "connector" }>;
+        relationship: Extract<DiagramNode, { type: "relationship" }>;
+        participationId: string | undefined;
+        cardinality: EntityRelationshipParticipation["cardinality"];
+        duplicateCount: number;
+      };
+
+      const connectorRows = props.diagram.edges
+        .filter((edge): edge is Extract<DiagramEdge, { type: "connector" }> => edge.type === "connector")
+        .map((edge) => {
+          const sourceNode = props.diagram.nodes.find((candidate) => candidate.id === edge.sourceId);
+          const targetNode = props.diagram.nodes.find((candidate) => candidate.id === edge.targetId);
+          const context = getConnectorParticipationContext(sourceNode, targetNode);
+          if (!context || context.entity.id !== node.id) {
+            return null;
+          }
+
+          const sameRelationshipEdges = props.diagram.edges.filter(
+            (candidate) =>
+              candidate.type === "connector" &&
+              candidate.id !== edge.id &&
+              ((candidate.sourceId === node.id &&
+                candidate.targetId === context.relationship.id) ||
+                (candidate.targetId === node.id && candidate.sourceId === context.relationship.id)),
+          ).length;
+
+          return {
+            edge,
+            relationship: context.relationship,
+            participationId: edge.participationId,
+            cardinality:
+              node.relationshipParticipations?.find((participation) => participation.id === edge.participationId)
+                ?.cardinality,
+            duplicateCount: sameRelationshipEdges,
+          };
+        })
+        .filter((row): row is EntityParticipationRow => row !== null);
+
       return (
         <>
+          <section className="context-card">
+            <div className="context-card-title">Impostazioni entita</div>
+            <div className="inspector-stack">
+              <label className="field">
+                <span>Nome entita</span>
+                <input
+                  value={node.label}
+                  disabled={!canEdit}
+                  onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
+                />
+              </label>
+              {connectorRows.length > 0 ? (
+                connectorRows.map((row, index) => (
+                  <label key={row.edge.id} className="field">
+                    <span>
+                      Cardinalita {row.relationship.label}
+                      {row.duplicateCount > 0 ? ` #${index + 1}` : ""}
+                    </span>
+                    <select
+                      value={row.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER}
+                      disabled={!canEdit || !row.participationId}
+                      onChange={(event) =>
+                        props.onNodeChange(node.id, {
+                          relationshipParticipations: (node.relationshipParticipations ?? []).map((participation) =>
+                            participation.id === row.participationId
+                              ? {
+                                  ...participation,
+                                  cardinality: normalizeSupportedCardinality(
+                                    event.target.value === CONNECTOR_CARDINALITY_PLACEHOLDER
+                                      ? undefined
+                                      : event.target.value,
+                                  ),
+                                }
+                              : participation,
+                          ),
+                        })
+                      }
+                    >
+                      <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
+                      {CONNECTOR_CARDINALITIES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))
+              ) : (
+                <p className="action-hint">Nessuna partecipazione relazionale collegata a questa entita.</p>
+              )}
+            </div>
+          </section>
           <InternalIdentifierSection
             entity={node}
             diagram={props.diagram}
@@ -282,35 +365,25 @@ export function InspectorPanel(props: InspectorPanelProps) {
     if (node.type === "relationship") {
       return (
         <>
-          <section className="context-card">
-            <div className="context-card-title">Impostazioni associazione</div>
-            <div className="inspector-stack">
-              <label className="field">
-                <span>Nome associazione</span>
-                <input
-                  value={node.label}
-                  disabled={!canEdit}
-                  onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
-                />
-              </label>
-              {node.isExternalIdentifier === true ? (
-                <>
-                  <p className="action-hint">
-                    Questa associazione usa un identificatore esterno. Puoi rimuoverlo da qui.
-                  </p>
-                  <div className="context-action-row">
-                    <button
-                      type="button"
-                      onClick={() => props.onClearExternalIdentifier(node.id)}
-                      disabled={!canEdit}
-                    >
-                      Rimuovi identificatore esterno
-                    </button>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </section>
+          {node.isExternalIdentifier === true ? (
+            <section className="context-card">
+              <div className="context-card-title">Stato associazione</div>
+              <div className="inspector-stack">
+                <p className="action-hint">
+                  Questa associazione usa un identificatore esterno. Puoi rimuoverlo da qui.
+                </p>
+                <div className="context-action-row">
+                  <button
+                    type="button"
+                    onClick={() => props.onClearExternalIdentifier(node.id)}
+                    disabled={!canEdit}
+                  >
+                    Rimuovi identificatore esterno
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
           {renderSelectionActions()}
         </>
       );
@@ -319,10 +392,42 @@ export function InspectorPanel(props: InspectorPanelProps) {
     if (node.type === "attribute") {
       return (
         <>
+          <section className="context-card">
+            <div className="context-card-title">Impostazioni attributo</div>
+            <div className="inspector-stack">
+              <label className="field">
+                <span>Nome attributo</span>
+                <input
+                  value={node.label}
+                  disabled={!canEdit}
+                  onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Cardinalita</span>
+                <select
+                  value={node.cardinality ?? ""}
+                  disabled={!canEdit || selectedAttributeIsInternalIdentifier}
+                  onChange={(event) =>
+                    props.onNodeChange(node.id, {
+                      cardinality: normalizeSupportedCardinality(event.target.value || undefined),
+                    })
+                  }
+                >
+                  <option value="">Nessuna cardinalita</option>
+                  {CONNECTOR_CARDINALITIES.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </section>
           {selectedAttributeIsInternalIdentifier ? (
             <section className="context-card">
               <div className="context-card-title">Stato attributo</div>
-              <p className="action-hint">Parte di identificatore interno.</p>
+              <p className="action-hint">Parte di identificatore interno: la cardinalita del nodo viene rimossa.</p>
             </section>
           ) : null}
           {renderSelectionActions()}
@@ -351,72 +456,47 @@ export function InspectorPanel(props: InspectorPanelProps) {
   }
 
   function renderEdgeContext(edge: DiagramEdge) {
-    const canConfigureAttributeCardinality =
-      edge.type === "attribute" && !edgeTouchesInternalIdentifierAttribute(edge);
+    const sourceNode = props.diagram.nodes.find((node) => node.id === edge.sourceId);
+    const targetNode = props.diagram.nodes.find((node) => node.id === edge.targetId);
+    const attributeOwner =
+      edge.type === "attribute" ? getAttributeCardinalityOwner(sourceNode, targetNode) : undefined;
+    const connectorContext =
+      edge.type === "connector" ? getConnectorParticipationContext(sourceNode, targetNode) : undefined;
 
     return (
       <>
         <section className="context-card">
           <div className="context-card-title">Impostazioni collegamento</div>
           <div className="inspector-stack">
-            {edge.type === "connector" ? (
-              <label className="field">
-                <span>Cardinalita</span>
-                <select
-                  value={edge.cardinality ?? CONNECTOR_CARDINALITY_PLACEHOLDER}
-                  disabled={!canEdit}
-                  onChange={(event) => props.onEdgeChange(edge.id, { cardinality: event.target.value })}
-                >
-                  <option value={CONNECTOR_CARDINALITY_PLACEHOLDER}>Seleziona cardinalita</option>
-                  {CONNECTOR_CARDINALITIES.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-
-            {canConfigureAttributeCardinality ? (
-              <label className="field">
-                <span>Cardinalita opzionale</span>
-                <select
-                  value={edge.cardinality ?? ""}
-                  disabled={!canEdit}
-                  onChange={(event) =>
-                    props.onEdgeChange(edge.id, {
-                      cardinality: event.target.value || undefined,
-                    })
-                  }
-                >
-                  <option value="">Nessuna cardinalita</option>
-                  {CONNECTOR_CARDINALITIES.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-
-            {edge.type === "attribute" && !canConfigureAttributeCardinality ? (
+            {edge.type === "connector" && connectorContext ? (
               <p className="action-hint">
-                La cardinalita non e disponibile per attributi che fanno parte di identificatori interni.
+                La cardinalita di questo collegamento si modifica nell&apos;entita "{connectorContext.entity.label}".
               </p>
             ) : null}
 
-            <label className="field">
-              <span>Nome collegamento</span>
-              <input
-                value={edge.label}
-                disabled={!canEdit}
-                placeholder="Etichetta opzionale"
-                onChange={(event) => props.onEdgeChange(edge.id, { label: event.target.value })}
-              />
-            </label>
+            {edge.type === "attribute" && attributeOwner ? (
+              <p className="action-hint">
+                La cardinalita di questo collegamento si modifica nell&apos;attributo "{attributeOwner.label}".
+              </p>
+            ) : null}
+
+            {edge.type === "attribute" && !attributeOwner ? (
+              <p className="action-hint">
+                L&apos;attributo associato non e disponibile: ricollega il nodo per ripristinare la proprieta.
+              </p>
+            ) : null}
 
             {edge.type === "inheritance" ? (
               <>
+                <label className="field">
+                  <span>Nome collegamento</span>
+                  <input
+                    value={edge.label}
+                    disabled={!canEdit}
+                    placeholder="Etichetta opzionale"
+                    onChange={(event) => props.onEdgeChange(edge.id, { label: event.target.value })}
+                  />
+                </label>
                 <label className="field">
                   <span>Vincolo ISA</span>
                   <select

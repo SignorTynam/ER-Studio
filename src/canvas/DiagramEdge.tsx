@@ -1,6 +1,7 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
+import { getEdgeCardinalityLabel } from "../utils/cardinality";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
@@ -106,20 +107,14 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const geometry = getRenderedEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
   const dashArray = props.edge.lineStyle === "dashed" ? "8 5" : undefined;
-  const connectorCardinality =
-    props.edge.type === "connector" ? props.edge.cardinality?.trim() || "(X,Y)" : "";
-  const attributeCardinality =
-    props.edge.type === "attribute" ? props.edge.cardinality?.trim() || "" : "";
   const inheritanceConstraintLabel =
     props.edge.type === "inheritance" ? getInheritanceConstraintLabel(props.edge) : "";
   const displayLabel =
-    props.edge.type === "connector"
-      ? connectorCardinality
-      : props.edge.type === "attribute"
-        ? attributeCardinality
-        : props.edge.type === "inheritance"
-          ? props.edge.label
-          : "";
+    props.edge.type === "connector" || props.edge.type === "attribute"
+      ? getEdgeCardinalityLabel(props.edge, props.sourceNode, props.targetNode)
+      : props.edge.type === "inheritance"
+        ? props.edge.label
+        : "";
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
   const selectedStrokeColor = !isGhost && props.selected && !props.validationLevel ? DIAGRAM_FOCUS : strokeColor;
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);

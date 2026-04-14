@@ -40,6 +40,7 @@ import {
   parseDiagram,
   removeSelection,
   serializeDiagram,
+  synchronizeEntityRelationshipParticipations,
   synchronizeNodeNameIdentity,
   synchronizeInternalIdentifiers,
   validateDiagram,
@@ -55,6 +56,7 @@ import {
   generateLogicalModel,
   preserveLogicalTablePositions,
 } from "./utils/logicalMapping";
+import { normalizeSupportedCardinality } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
 
@@ -592,14 +594,6 @@ function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value
         return edge;
       }
 
-      if (edge.type === "connector") {
-        return { ...edge, cardinality: value };
-      }
-
-      if (edge.type === "attribute") {
-        return { ...edge, cardinality: value || undefined };
-      }
-
       return { ...edge, label: value };
     }),
   };
@@ -687,20 +681,6 @@ function findRelationshipBetweenEntities(
   }
 
   return undefined;
-}
-
-function isInternalIdentifierAttributeNode(node: DiagramNode | undefined): boolean {
-  return node?.type === "attribute" && (node.isIdentifier === true || node.isCompositeInternal === true);
-}
-
-function edgeTouchesInternalIdentifierAttribute(diagram: DiagramDocument, edge: DiagramEdge): boolean {
-  if (edge.type !== "attribute") {
-    return false;
-  }
-
-  const sourceNode = diagram.nodes.find((node) => node.id === edge.sourceId);
-  const targetNode = diagram.nodes.find((node) => node.id === edge.targetId);
-  return isInternalIdentifierAttributeNode(sourceNode) || isInternalIdentifierAttributeNode(targetNode);
 }
 
 function getNodeKindLabel(node: DiagramNode): string {
@@ -1792,10 +1772,14 @@ export default function App() {
     status: string,
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(nextDiagram).diagram),
+      synchronizeInternalIdentifiers(
+        synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(nextDiagram).diagram),
+      ),
     );
     const normalizedCurrent = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(history.present).diagram),
+      synchronizeInternalIdentifiers(
+        synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+      ),
     );
     history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
@@ -1830,10 +1814,14 @@ export default function App() {
 
         if (parsedSerialized !== lastSerializedCodeRef.current) {
           const normalizedParsed = revalidateExternalIdentifiers(
-            synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(parsed).diagram),
+            synchronizeInternalIdentifiers(
+              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(parsed).diagram),
+            ),
           ).diagram;
           const normalizedCurrent = revalidateExternalIdentifiers(
-            synchronizeInternalIdentifiers(synchronizeNodeNameIdentity(history.present).diagram),
+            synchronizeInternalIdentifiers(
+              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+            ),
           ).diagram;
           history.commit(normalizedParsed, normalizedCurrent);
         }
@@ -1994,13 +1982,17 @@ export default function App() {
     options?: { suppressExternalIdentifierWarnings?: boolean },
   ): DiagramDocument {
     const nodeIdentitySynchronizedNext = synchronizeNodeNameIdentity(nextDiagram);
-    const synchronizedNext = synchronizeInternalIdentifiers(nodeIdentitySynchronizedNext.diagram);
+    const synchronizedNext = synchronizeInternalIdentifiers(
+      synchronizeEntityRelationshipParticipations(nodeIdentitySynchronizedNext.diagram),
+    );
     const normalizedNext = revalidateExternalIdentifiers(synchronizedNext);
     const previousIdentitySynchronized = previousDiagram
       ? synchronizeNodeNameIdentity(previousDiagram).diagram
       : undefined;
     const normalizedPrevious = previousIdentitySynchronized
-      ? revalidateExternalIdentifiers(synchronizeInternalIdentifiers(previousIdentitySynchronized)).diagram
+      ? revalidateExternalIdentifiers(
+          synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(previousIdentitySynchronized)),
+        ).diagram
       : undefined;
 
     history.commit(normalizedNext.diagram, normalizedPrevious);
@@ -2027,7 +2019,9 @@ export default function App() {
 
   function handlePreviewDiagram(nextDiagram: DiagramDocument) {
     const withNodeIdentity = synchronizeNodeNameIdentity(nextDiagram).diagram;
-    const normalized = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(withNodeIdentity));
+    const normalized = revalidateExternalIdentifiers(
+      synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(withNodeIdentity)),
+    );
     history.setPresent(normalized.diagram);
   }
 
@@ -2388,7 +2382,9 @@ export default function App() {
       externalIdentifierTargetAttributeId: targetAttributeId,
     } as Partial<DiagramNode>);
 
-    const externalIdentifierCheck = revalidateExternalIdentifiers(synchronizeInternalIdentifiers(nextDiagram));
+    const externalIdentifierCheck = revalidateExternalIdentifiers(
+      synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(nextDiagram)),
+    );
     const blockedInvalidation = externalIdentifierCheck.invalidations.find(
       (invalidation) => invalidation.relationshipId === relationship.id,
     );
@@ -2575,11 +2571,19 @@ export default function App() {
     }
 
     if (currentNode?.type === "attribute") {
+      if (Object.prototype.hasOwnProperty.call(attributePatch, "cardinality")) {
+        normalizedAttributePatch = {
+          ...normalizedAttributePatch,
+          cardinality: normalizeSupportedCardinality(attributePatch.cardinality),
+        };
+      }
+
       if (attributePatch.isIdentifier === true) {
         normalizedAttributePatch = {
           ...normalizedAttributePatch,
           isCompositeInternal: false,
           isMultivalued: false,
+          cardinality: undefined,
         };
       }
 
@@ -2588,6 +2592,7 @@ export default function App() {
           ...normalizedAttributePatch,
           isIdentifier: false,
           isMultivalued: false,
+          cardinality: undefined,
         };
       }
 
@@ -2596,6 +2601,23 @@ export default function App() {
           ...normalizedAttributePatch,
           isIdentifier: false,
           isCompositeInternal: false,
+        };
+      }
+
+      const attributeWillBeInternalIdentifier =
+        normalizedAttributePatch.isIdentifier === true ||
+        normalizedAttributePatch.isCompositeInternal === true ||
+        ((currentNode.isIdentifier === true || currentNode.isCompositeInternal === true) &&
+          normalizedAttributePatch.isIdentifier !== false &&
+          normalizedAttributePatch.isCompositeInternal !== false);
+
+      if (attributeWillBeInternalIdentifier && normalizedAttributePatch.cardinality !== undefined) {
+        setStatusWarning(
+          "La cardinalita dell'attributo viene rimossa perche gli identificatori interni non possono definirla.",
+        );
+        normalizedAttributePatch = {
+          ...normalizedAttributePatch,
+          cardinality: undefined,
         };
       }
     }
@@ -2729,30 +2751,6 @@ export default function App() {
   }
 
   function handleEdgeChange(edgeId: string, patch: Partial<DiagramEdge>) {
-    const currentEdge = history.present.edges.find((edge) => edge.id === edgeId);
-    if (!currentEdge) {
-      return;
-    }
-
-    const wantsCardinalityPatch = Object.prototype.hasOwnProperty.call(patch, "cardinality");
-    const touchesInternalIdentifier = edgeTouchesInternalIdentifierAttribute(history.present, currentEdge);
-    if (currentEdge.type === "attribute" && wantsCardinalityPatch && touchesInternalIdentifier) {
-      const requestedCardinality = (patch as Partial<Extract<DiagramEdge, { type: "attribute" }>>).cardinality;
-      if (typeof requestedCardinality === "string" && requestedCardinality.trim().length > 0) {
-        setStatusWarning(
-          "La cardinalita non e consentita per attributi identificatori interni: il valore e stato rimosso.",
-        );
-      }
-
-      const sanitizedPatch = {
-        ...patch,
-        cardinality: undefined,
-      } as Partial<DiagramEdge>;
-      const nextDiagram = updateEdgeInDiagram(history.present, edgeId, sanitizedPatch);
-      commitDiagram(nextDiagram);
-      return;
-    }
-
     const nextDiagram = updateEdgeInDiagram(history.present, edgeId, patch);
 
     commitDiagram(nextDiagram);
@@ -2797,35 +2795,32 @@ export default function App() {
       return;
     }
 
-    if (selectedEdge.type === "attribute" && edgeTouchesInternalIdentifierAttribute(history.present, selectedEdge)) {
+    if (selectedEdge.type === "connector") {
       setStatusWarning(
-        "La cardinalita non e modificabile per attributi che fanno parte di identificatori interni.",
+        "La cardinalita del collegamento si modifica dall'entita collegata, non dal connector.",
       );
       return;
     }
 
-    const promptLabel =
-      selectedEdge.type === "connector"
-        ? "Nuova cardinalita"
-        : selectedEdge.type === "attribute"
-          ? "Nuova cardinalita opzionale"
-          : "Nuovo nome collegamento";
-    const currentValue =
-      selectedEdge.type === "connector" || selectedEdge.type === "attribute"
-        ? selectedEdge.cardinality ?? ""
-        : selectedEdge.label;
+    if (selectedEdge.type === "attribute") {
+      setStatusWarning(
+        "La cardinalita del collegamento si modifica dall'attributo collegato, non dal link grafico.",
+      );
+      return;
+    }
+
     const nextValue = await requestPromptDialog({
       title: "Aggiorna collegamento",
-      label: promptLabel,
-      initialValue: currentValue,
-      required: selectedEdge.type === "connector",
-      requiredMessage: "La cardinalita del collegamento non puo essere vuota.",
+      label: "Nuovo nome collegamento",
+      initialValue: selectedEdge.label,
+      required: false,
+      requiredMessage: "",
     });
     if (nextValue == null) {
       return;
     }
 
-    if (nextValue === currentValue.trim()) {
+    if (nextValue === selectedEdge.label.trim()) {
       return;
     }
 
@@ -3568,7 +3563,7 @@ export default function App() {
                 <summary>Selezione e Modifica</summary>
                 <ul className="help-list">
                   <li>Con Selezione puoi trascinare nodi e box di selezione; Shift+click aggiunge/rimuove nodi dalla selezione.</li>
-                  <li>Doppio click su nodo o collegamento per rinominare/aggiornare il testo (cardinalita inclusa).</li>
+                  <li>Doppio click su nodo o su una generalizzazione per rinominare; le cardinalita si modificano dai pannelli proprieta di entita e attributi.</li>
                   <li>Nell'ispettore puoi attivare entita deboli dedicate, attributi composti e vincoli ISA avanzati sulle generalizzazioni.</li>
                   <li>Con Selezione puoi trascinare la cardinalita di un collegamento per spostare la linea.</li>
                   <li>I pulsanti di allineamento funzionano con almeno due nodi selezionati.</li>

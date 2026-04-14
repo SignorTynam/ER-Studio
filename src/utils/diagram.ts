@@ -3,6 +3,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  EntityRelationshipParticipation,
   InternalIdentifier,
   IsaCompleteness,
   IsaDisjointness,
@@ -13,9 +14,11 @@ import type {
 } from "../types/diagram";
 import { GRID_SIZE, getNodeBounds, snapPoint, snapValue } from "./geometry";
 import {
-  CONNECTOR_CARDINALITIES,
-  CONNECTOR_CARDINALITY_PLACEHOLDER,
+  getAttributeCardinalityOwner,
+  getConnectorParticipation,
+  getConnectorParticipationContext,
   isSupportedCardinality,
+  normalizeSupportedCardinality,
 } from "./cardinality";
 
 const MULTIVALUED_ATTRIBUTE_MIN_WIDTH = 100;
@@ -28,6 +31,8 @@ type RelationshipNode = Extract<DiagramNode, { type: "relationship" }>;
 type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
 type EntityNode = Extract<DiagramNode, { type: "entity" }>;
 type ConnectorEdge = Extract<DiagramEdge, { type: "connector" }>;
+
+const CURRENT_DIAGRAM_VERSION = 2;
 
 export interface ExternalIdentifierValidationResult {
   valid: boolean;
@@ -83,6 +88,66 @@ function createId(prefix: string): string {
   }
 
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function sanitizeEntityRelationshipParticipations(
+  rawParticipations: unknown,
+): EntityRelationshipParticipation[] | undefined {
+  const parsedParticipations: EntityRelationshipParticipation[] = [];
+  if (Array.isArray(rawParticipations)) {
+    rawParticipations.forEach((participation) => {
+      if (typeof participation !== "object" || participation === null) {
+        return;
+      }
+
+      const rawParticipation = participation as {
+        id?: unknown;
+        relationshipId?: unknown;
+        cardinality?: unknown;
+      };
+      if (
+        typeof rawParticipation.relationshipId !== "string" ||
+        rawParticipation.relationshipId.trim().length === 0
+      ) {
+        return;
+      }
+
+      parsedParticipations.push({
+        id:
+          typeof rawParticipation.id === "string" && rawParticipation.id.trim().length > 0
+            ? rawParticipation.id
+            : createId("participation"),
+        relationshipId: rawParticipation.relationshipId,
+        ...(typeof rawParticipation.cardinality === "string"
+          ? { cardinality: normalizeSupportedCardinality(rawParticipation.cardinality) }
+          : {}),
+      });
+    });
+  }
+
+  return parsedParticipations.length > 0 ? parsedParticipations : undefined;
+}
+
+function areEntityRelationshipParticipationsEqual(
+  left: EntityRelationshipParticipation[] | undefined,
+  right: EntityRelationshipParticipation[] | undefined,
+): boolean {
+  const leftList = left ?? [];
+  const rightList = right ?? [];
+
+  if (leftList.length !== rightList.length) {
+    return false;
+  }
+
+  return leftList.every((participation, index) => {
+    const other = rightList[index];
+    return (
+      other !== undefined &&
+      other.id === participation.id &&
+      other.relationshipId === participation.relationshipId &&
+      other.cardinality === participation.cardinality
+    );
+  });
 }
 
 const NODE_ID_PREFIX_BY_TYPE: Record<NodeKind, string> = {
@@ -160,16 +225,32 @@ function remapNodeReference(nodeIdMap: Map<string, string>, nodeId: string | und
 
 function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, string>): DiagramNode {
   if (node.type === "entity") {
-    if (!Array.isArray(node.internalIdentifiers) || node.internalIdentifiers.length === 0) {
+    const nextInternalIdentifiers =
+      Array.isArray(node.internalIdentifiers) && node.internalIdentifiers.length > 0
+        ? node.internalIdentifiers.map((identifier) => ({
+            ...identifier,
+            attributeIds: identifier.attributeIds.map((attributeId) => nodeIdMap.get(attributeId) ?? attributeId),
+          }))
+        : undefined;
+    const nextParticipations =
+      Array.isArray(node.relationshipParticipations) && node.relationshipParticipations.length > 0
+        ? node.relationshipParticipations.map((participation) => ({
+            ...participation,
+            relationshipId: nodeIdMap.get(participation.relationshipId) ?? participation.relationshipId,
+          }))
+        : undefined;
+
+    if (
+      areEntityRelationshipParticipationsEqual(node.relationshipParticipations, nextParticipations) &&
+      areInternalIdentifierListsEqual(node.internalIdentifiers, nextInternalIdentifiers)
+    ) {
       return node;
     }
 
     return {
       ...node,
-      internalIdentifiers: node.internalIdentifiers.map((identifier) => ({
-        ...identifier,
-        attributeIds: identifier.attributeIds.map((attributeId) => nodeIdMap.get(attributeId) ?? attributeId),
-      })),
+      internalIdentifiers: nextInternalIdentifiers,
+      relationshipParticipations: nextParticipations,
     };
   }
 
@@ -353,7 +434,7 @@ export function createEmptyDiagram(name = "Diagramma ER"): DiagramDocument {
   return {
     meta: {
       name,
-      version: 1,
+      version: CURRENT_DIAGRAM_VERSION,
     },
     nodes: [],
     edges: [],
@@ -383,6 +464,7 @@ export function createNode(
       isIdentifier: false,
       isCompositeInternal: false,
       isMultivalued: false,
+      cardinality: undefined,
     };
   }
 
@@ -397,6 +479,7 @@ export function createNode(
       height: size.height,
       isWeak: false,
       internalIdentifiers: [],
+      relationshipParticipations: [],
     };
   }
 
@@ -427,7 +510,6 @@ export function createEdge(
       targetId,
       label: defaultIdentity.label,
       lineStyle: "solid",
-      cardinality: CONNECTOR_CARDINALITY_PLACEHOLDER,
     };
   }
 
@@ -439,6 +521,115 @@ export function createEdge(
     label: defaultIdentity.label,
     lineStyle: "solid",
   } as DiagramEdge;
+}
+
+export function synchronizeEntityRelationshipParticipations(diagram: DiagramDocument): DiagramDocument {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const existingByEntityId = new Map(
+    diagram.nodes
+      .filter((node): node is EntityNode => node.type === "entity")
+      .map((entity) => [entity.id, entity.relationshipParticipations ?? []]),
+  );
+  const usedParticipationIdsByEntityId = new Map<string, Set<string>>();
+  const nextParticipationsByEntityId = new Map<string, EntityRelationshipParticipation[]>();
+  let edgeChanged = false;
+
+  const nextEdges = diagram.edges.map((edge) => {
+    if (edge.type !== "connector") {
+      return edge;
+    }
+
+    const sourceNode = nodeMap.get(edge.sourceId);
+    const targetNode = nodeMap.get(edge.targetId);
+    const context = getConnectorParticipationContext(sourceNode, targetNode);
+    if (!context) {
+      if (edge.participationId === undefined) {
+        return edge;
+      }
+
+      edgeChanged = true;
+      return {
+        ...edge,
+        participationId: undefined,
+      };
+    }
+
+    const entityParticipations = existingByEntityId.get(context.entity.id) ?? [];
+    const usedParticipationIds = usedParticipationIdsByEntityId.get(context.entity.id) ?? new Set<string>();
+    usedParticipationIdsByEntityId.set(context.entity.id, usedParticipationIds);
+
+    let participation =
+      typeof edge.participationId === "string" && edge.participationId.trim().length > 0
+        ? entityParticipations.find(
+            (candidate) =>
+              candidate.id === edge.participationId &&
+              candidate.relationshipId === context.relationship.id &&
+              !usedParticipationIds.has(candidate.id),
+          )
+        : undefined;
+
+    if (!participation) {
+      participation = entityParticipations.find(
+        (candidate) =>
+          candidate.relationshipId === context.relationship.id && !usedParticipationIds.has(candidate.id),
+      );
+    }
+
+    const nextParticipation =
+      participation ??
+      ({
+        id:
+          typeof edge.participationId === "string" && edge.participationId.trim().length > 0
+            ? edge.participationId
+            : createId("participation"),
+        relationshipId: context.relationship.id,
+        cardinality: undefined,
+      } satisfies EntityRelationshipParticipation);
+    usedParticipationIds.add(nextParticipation.id);
+
+    const nextEntityParticipations = nextParticipationsByEntityId.get(context.entity.id) ?? [];
+    nextEntityParticipations.push({
+      ...nextParticipation,
+      relationshipId: context.relationship.id,
+    });
+    nextParticipationsByEntityId.set(context.entity.id, nextEntityParticipations);
+
+    if (edge.participationId === nextParticipation.id) {
+      return edge;
+    }
+
+    edgeChanged = true;
+    return {
+      ...edge,
+      participationId: nextParticipation.id,
+    };
+  });
+
+  let nodeChanged = false;
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.type !== "entity") {
+      return node;
+    }
+
+    const nextParticipations = nextParticipationsByEntityId.get(node.id);
+    if (areEntityRelationshipParticipationsEqual(node.relationshipParticipations, nextParticipations)) {
+      return node;
+    }
+
+    nodeChanged = true;
+    return {
+      ...node,
+      relationshipParticipations: nextParticipations && nextParticipations.length > 0 ? nextParticipations : undefined,
+    };
+  });
+
+  return nodeChanged || edgeChanged
+    ? {
+        ...diagram,
+        nodes: nextNodes,
+        edges: nextEdges,
+      }
+    : diagram;
 }
 
 export function findNode(diagram: DiagramDocument, nodeId: string): DiagramNode | undefined {
@@ -764,7 +955,13 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
     if (node.type === "attribute") {
       const nextIsIdentifier = simpleMemberAttributeIds.has(node.id);
       const nextIsCompositeInternal = compositeMemberAttributeIds.has(node.id);
-      if (node.isIdentifier === nextIsIdentifier && node.isCompositeInternal === nextIsCompositeInternal) {
+      const nextCardinality =
+        nextIsIdentifier || nextIsCompositeInternal ? undefined : node.cardinality;
+      if (
+        node.isIdentifier === nextIsIdentifier &&
+        node.isCompositeInternal === nextIsCompositeInternal &&
+        node.cardinality === nextCardinality
+      ) {
         return node;
       }
 
@@ -773,41 +970,17 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
         ...node,
         isIdentifier: nextIsIdentifier,
         isCompositeInternal: nextIsCompositeInternal,
+        cardinality: nextCardinality,
       };
     }
 
     return node;
   });
 
-  let edgeChanged = false;
-  const nextNodeMap = new Map(nextNodes.map((node) => [node.id, node]));
-  const nextEdges = diagram.edges.map((edge) => {
-    if (edge.type !== "attribute" || edge.cardinality === undefined) {
-      return edge;
-    }
-
-    const sourceNode = nextNodeMap.get(edge.sourceId);
-    const targetNode = nextNodeMap.get(edge.targetId);
-    const touchesInternalIdentifierAttribute =
-      (sourceNode?.type === "attribute" && (sourceNode.isIdentifier === true || sourceNode.isCompositeInternal === true)) ||
-      (targetNode?.type === "attribute" && (targetNode.isIdentifier === true || targetNode.isCompositeInternal === true));
-
-    if (!touchesInternalIdentifierAttribute) {
-      return edge;
-    }
-
-    edgeChanged = true;
-    return {
-      ...edge,
-      cardinality: undefined,
-    };
-  });
-
-  return changed || edgeChanged
+  return changed
     ? {
         ...diagram,
         nodes: nextNodes,
-        edges: nextEdges,
       }
     : diagram;
 }
@@ -1037,7 +1210,7 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 }
 
 export function serializeDiagram(diagram: DiagramDocument): string {
-  const normalizedDiagram = synchronizeNodeNameIdentity(diagram).diagram;
+  const normalizedDiagram = synchronizeNodeNameIdentity(synchronizeEntityRelationshipParticipations(diagram)).diagram;
   const serializedNodes = normalizedDiagram.nodes.map((node) => {
     const { label: _unusedLabel, ...nodeWithoutLabel } = node as DiagramNode & { label: string };
     return nodeWithoutLabel;
@@ -1046,6 +1219,10 @@ export function serializeDiagram(diagram: DiagramDocument): string {
   return JSON.stringify(
     {
       ...normalizedDiagram,
+      meta: {
+        ...normalizedDiagram.meta,
+        version: CURRENT_DIAGRAM_VERSION,
+      },
       nodes: serializedNodes,
     },
     null,
@@ -1285,7 +1462,15 @@ export function validateExternalIdentifier(
   }
 
   const dependentConnector = participantByEntityId.get(targetEntity.id);
-  const dependentCardinality = normalizeCardinality(dependentConnector?.edge.cardinality);
+  const dependentCardinality = normalizeCardinality(
+    dependentConnector
+      ? getConnectorParticipation(
+          dependentConnector.edge,
+          nodeMap.get(dependentConnector.edge.sourceId),
+          nodeMap.get(dependentConnector.edge.targetId),
+        )?.cardinality
+      : undefined,
+  );
   if (dependentCardinality !== "1,1") {
     return fail(`la cardinalita sul lato dipendente "${targetEntity.label}" non e piu (1,1)`, {
       sourceEntityId: sourceEntity.id,
@@ -1419,9 +1604,134 @@ export function revalidateExternalIdentifiers(
   };
 }
 
+function migrateLegacyEdgeCardinalities(
+  diagram: DiagramDocument,
+  legacyCardinalityByEdgeId: Map<string, string | undefined>,
+): DiagramDocument {
+  if (legacyCardinalityByEdgeId.size === 0) {
+    return diagram;
+  }
+
+  const nextNodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  let nodeChanged = false;
+  let edgeChanged = false;
+
+  const nextEdges = diagram.edges.map((edge) => {
+    const legacyCardinality = normalizeSupportedCardinality(legacyCardinalityByEdgeId.get(edge.id));
+    if (!legacyCardinality) {
+      return edge;
+    }
+
+    const sourceNode = nextNodeById.get(edge.sourceId);
+    const targetNode = nextNodeById.get(edge.targetId);
+
+    if (edge.type === "attribute") {
+      const attributeNode = getAttributeCardinalityOwner(sourceNode, targetNode);
+      if (attributeNode && attributeNode.cardinality === undefined) {
+        const nextAttributeNode = {
+          ...attributeNode,
+          cardinality: legacyCardinality,
+        };
+        nextNodeById.set(attributeNode.id, nextAttributeNode);
+        nodeChanged = true;
+      }
+
+      return edge;
+    }
+
+    if (edge.type !== "connector") {
+      return edge;
+    }
+
+    const context = getConnectorParticipationContext(sourceNode, targetNode);
+    if (!context) {
+      return edge;
+    }
+
+    const currentEntity = nextNodeById.get(context.entity.id);
+    if (currentEntity?.type !== "entity") {
+      return edge;
+    }
+
+    const currentParticipations = currentEntity.relationshipParticipations ?? [];
+    const matchingParticipation =
+      typeof edge.participationId === "string" && edge.participationId.trim().length > 0
+        ? currentParticipations.find(
+            (participation) =>
+              participation.id === edge.participationId &&
+              participation.relationshipId === context.relationship.id,
+          )
+        : undefined;
+
+    if (matchingParticipation) {
+      if (matchingParticipation.cardinality === undefined) {
+        nextNodeById.set(context.entity.id, {
+          ...currentEntity,
+          relationshipParticipations: currentParticipations.map((participation) =>
+            participation.id === matchingParticipation.id
+              ? {
+                  ...participation,
+                  cardinality: legacyCardinality,
+                }
+              : participation,
+          ),
+        });
+        nodeChanged = true;
+      }
+
+      if (edge.participationId === matchingParticipation.id) {
+        return edge;
+      }
+
+      edgeChanged = true;
+      return {
+        ...edge,
+        participationId: matchingParticipation.id,
+      };
+    }
+
+    const nextParticipationId =
+      typeof edge.participationId === "string" && edge.participationId.trim().length > 0
+        ? edge.participationId
+        : createId("participation");
+    nextNodeById.set(context.entity.id, {
+      ...currentEntity,
+      relationshipParticipations: [
+        ...currentParticipations,
+        {
+          id: nextParticipationId,
+          relationshipId: context.relationship.id,
+          cardinality: legacyCardinality,
+        },
+      ],
+    });
+    nodeChanged = true;
+
+    if (edge.participationId === nextParticipationId) {
+      return edge;
+    }
+
+    edgeChanged = true;
+    return {
+      ...edge,
+      participationId: nextParticipationId,
+    };
+  });
+
+  if (!nodeChanged && !edgeChanged) {
+    return diagram;
+  }
+
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => nextNodeById.get(node.id) ?? node),
+    edges: nextEdges,
+  };
+}
+
 export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
-  const meta = parsed.meta ?? { name: "Diagramma importato", version: 1 };
+  const meta = parsed.meta ?? { name: "Diagramma importato", version: CURRENT_DIAGRAM_VERSION };
   const nodes = Array.isArray(parsed.nodes)
     ? parsed.nodes
         .filter(
@@ -1448,6 +1758,8 @@ export function parseDiagram(rawJson: string): DiagramDocument {
               isIdentifier: node.isIdentifier === true,
               isCompositeInternal: node.isCompositeInternal === true,
               isMultivalued,
+              cardinality:
+                typeof node.cardinality === "string" ? normalizeSupportedCardinality(node.cardinality) : undefined,
               width: isMultivalued
                 ? multivaluedSize.width
                 : node.width,
@@ -1499,6 +1811,9 @@ export function parseDiagram(rawJson: string): DiagramDocument {
               isWeak: node.isWeak === true,
               internalIdentifiers:
                 parsedInternalIdentifiers.length > 0 ? parsedInternalIdentifiers : undefined,
+              relationshipParticipations: sanitizeEntityRelationshipParticipations(
+                (node as { relationshipParticipations?: unknown }).relationshipParticipations,
+              ),
             };
           }
 
@@ -1544,6 +1859,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           };
         })
     : [];
+  const legacyCardinalityByEdgeId = new Map<string, string | undefined>();
   const edges = Array.isArray(parsed.edges)
     ? parsed.edges.filter(
         (edge): edge is DiagramEdge =>
@@ -1555,41 +1871,44 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           typeof edge.label === "string" &&
           typeof edge.type === "string" &&
           typeof edge.lineStyle === "string" &&
-          isEdgeKind(edge.type),
+            isEdgeKind(edge.type),
       )
         .map((edge) => {
-          if (edge.type === "inheritance") {
-            const rawInheritanceEdge = edge as DiagramEdge & {
-              isaDisjointness?: string;
-              isaCompleteness?: string;
-            };
+          const rawEdge = edge as DiagramEdge & {
+            cardinality?: unknown;
+            participationId?: unknown;
+            isaDisjointness?: string;
+            isaCompleteness?: string;
+          };
+          legacyCardinalityByEdgeId.set(
+            edge.id,
+            typeof rawEdge.cardinality === "string" ? rawEdge.cardinality : undefined,
+          );
 
+          if (edge.type === "inheritance") {
             return {
               ...edge,
-              isaDisjointness: isIsaDisjointness(rawInheritanceEdge.isaDisjointness)
-                ? rawInheritanceEdge.isaDisjointness
+              isaDisjointness: isIsaDisjointness(rawEdge.isaDisjointness)
+                ? rawEdge.isaDisjointness
                 : undefined,
-              isaCompleteness: isIsaCompleteness(rawInheritanceEdge.isaCompleteness)
-                ? rawInheritanceEdge.isaCompleteness
+              isaCompleteness: isIsaCompleteness(rawEdge.isaCompleteness)
+                ? rawEdge.isaCompleteness
                 : undefined,
             };
           }
 
-          const parsedCardinality =
-            typeof edge.cardinality === "string" ? edge.cardinality.trim() : "";
-
-          if (edge.type === "attribute") {
+          if (edge.type === "connector") {
             return {
               ...edge,
-              cardinality: isSupportedCardinality(parsedCardinality) ? parsedCardinality : undefined,
+              participationId:
+                typeof rawEdge.participationId === "string" && rawEdge.participationId.trim().length > 0
+                  ? rawEdge.participationId
+                  : undefined,
             };
           }
 
           return {
             ...edge,
-            cardinality: isSupportedCardinality(parsedCardinality)
-              ? parsedCardinality
-              : CONNECTOR_CARDINALITY_PLACEHOLDER,
           };
         })
     : [];
@@ -1597,14 +1916,18 @@ export function parseDiagram(rawJson: string): DiagramDocument {
   const parsedDiagram: DiagramDocument = {
     meta: {
       name: meta.name ?? "Diagramma importato",
-      version: meta.version ?? 1,
+      version: CURRENT_DIAGRAM_VERSION,
     },
     nodes,
     edges,
   };
 
-  const nodeNameIdentitySynchronized = synchronizeNodeNameIdentity(parsedDiagram).diagram;
-  const synchronizedDiagram = synchronizeInternalIdentifiers(nodeNameIdentitySynchronized);
+  const migratedDiagram = migrateLegacyEdgeCardinalities(parsedDiagram, legacyCardinalityByEdgeId);
+  const synchronizedParticipations = synchronizeEntityRelationshipParticipations(migratedDiagram);
+  const nodeNameIdentitySynchronized = synchronizeNodeNameIdentity(synchronizedParticipations).diagram;
+  const synchronizedDiagram = synchronizeInternalIdentifiers(
+    synchronizeEntityRelationshipParticipations(nodeNameIdentitySynchronized),
+  );
   return revalidateExternalIdentifiers(synchronizedDiagram).diagram;
 }
 
@@ -1919,8 +2242,9 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
     }
 
     if (edge.type === "connector") {
-      const cardinality = edge.cardinality?.trim();
-      const hasValidCardinality = isSupportedCardinality(cardinality ?? "");
+      const participation = getConnectorParticipation(edge, sourceNode, targetNode);
+      const hasValidCardinality =
+        participation !== undefined && isSupportedCardinality(participation.cardinality ?? "");
 
       if (!hasValidCardinality) {
         issues.push({

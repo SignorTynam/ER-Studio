@@ -14,6 +14,7 @@ import type {
   LogicalTableKind,
 } from "../types/logical";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./logicalLayout";
+import { getConnectorParticipation } from "./cardinality";
 
 interface ParsedCardinality {
   raw: string;
@@ -703,7 +704,13 @@ function mapRelationship(
       participantsByEntityId.set(otherNode.id, {
         entityId: otherNode.id,
         tableId: targetTableId,
-        cardinality: parseConnectorCardinality(connector.cardinality),
+        cardinality: parseConnectorCardinality(
+          getConnectorParticipation(
+            connector,
+            context.diagram.nodes.find((node) => node.id === connector.sourceId),
+            context.diagram.nodes.find((node) => node.id === connector.targetId),
+          )?.cardinality,
+        ),
       });
     }
   });
