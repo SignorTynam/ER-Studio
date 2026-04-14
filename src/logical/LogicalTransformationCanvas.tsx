@@ -74,6 +74,10 @@ const WORLD_EXTENT = 9200;
 const ROUTE_EXIT_OFFSET = 24;
 const LANE_STEP = 18;
 const VIEWPORT_PADDING = 140;
+const EDGE_BOUNDS_PADDING = 24;
+const EDGE_LABEL_HALF_WIDTH = 56;
+const EDGE_LABEL_HALF_HEIGHT = 12;
+const EDGE_LABEL_VERTICAL_OFFSET = 6;
 
 function getNodeCenter(node: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">): Point {
   return {
@@ -271,37 +275,45 @@ function getBoundsForNodes(nodes: LogicalTransformationNode[]): { x: number; y: 
   };
 }
 
-function hasTargetIntersection(relatedTargetKeys: string[], targetKeys: string[]): boolean {
-  return targetKeys.some((targetKey) => relatedTargetKeys.includes(targetKey));
-}
-
-function collectNodesForTargetKeys(
+function getBoundsForVisibleContent(
   nodes: LogicalTransformationNode[],
-  edges: LogicalTransformationEdge[],
-  targetKeys: string[],
-): LogicalTransformationNode[] {
-  if (targetKeys.length === 0) {
-    return [];
+  routes: EdgeRoute[],
+): { x: number; y: number; width: number; height: number } | null {
+  const nodeBounds = getBoundsForNodes(nodes);
+
+  let minX = nodeBounds ? nodeBounds.x : Number.POSITIVE_INFINITY;
+  let minY = nodeBounds ? nodeBounds.y : Number.POSITIVE_INFINITY;
+  let maxX = nodeBounds ? nodeBounds.x + nodeBounds.width : Number.NEGATIVE_INFINITY;
+  let maxY = nodeBounds ? nodeBounds.y + nodeBounds.height : Number.NEGATIVE_INFINITY;
+
+  function includePoint(point: Point) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
   }
 
-  const matchedNodeIds = new Set<string>();
+  routes.forEach((route) => {
+    route.points.forEach(includePoint);
 
-  nodes.forEach((node) => {
-    if (hasTargetIntersection(node.relatedTargetKeys, targetKeys)) {
-      matchedNodeIds.add(node.id);
-    }
+    const labelX = route.labelPoint.x;
+    const labelY = route.labelPoint.y - EDGE_LABEL_VERTICAL_OFFSET;
+    minX = Math.min(minX, labelX - EDGE_LABEL_HALF_WIDTH);
+    minY = Math.min(minY, labelY - EDGE_LABEL_HALF_HEIGHT);
+    maxX = Math.max(maxX, labelX + EDGE_LABEL_HALF_WIDTH);
+    maxY = Math.max(maxY, labelY + EDGE_LABEL_HALF_HEIGHT);
   });
 
-  edges.forEach((edge) => {
-    if (!hasTargetIntersection(edge.relatedTargetKeys, targetKeys)) {
-      return;
-    }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
 
-    matchedNodeIds.add(edge.sourceId);
-    matchedNodeIds.add(edge.targetId);
-  });
-
-  return nodes.filter((node) => matchedNodeIds.has(node.id));
+  return {
+    x: minX - EDGE_BOUNDS_PADDING,
+    y: minY - EDGE_BOUNDS_PADDING,
+    width: Math.max(1, maxX - minX + EDGE_BOUNDS_PADDING * 2),
+    height: Math.max(1, maxY - minY + EDGE_BOUNDS_PADDING * 2),
+  };
 }
 
 function getRowWorldPoint(tableNode: LogicalTransformationNode, rowIndex: number): Point {
@@ -404,7 +416,6 @@ function intersectingTargetKey(
 
 export function LogicalTransformationCanvas(props: LogicalTransformationCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const lastAutoFitTargetKeyRef = useRef<string | null>(null);
   const fitRetryFrameRef = useRef<number | null>(null);
   const fitRetryAttemptsRef = useRef(0);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
@@ -463,19 +474,6 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     return routes;
   }, [fkEdges, nodeById, laneByEdgeId]);
 
-  const focusedViewportNodes = useMemo(
-    () =>
-      props.focusedTargetKey
-        ? collectNodesForTargetKeys(graph.nodes, graph.edges, [props.focusedTargetKey])
-        : [],
-    [graph.edges, graph.nodes, props.focusedTargetKey],
-  );
-
-  const activeViewportNodes = useMemo(
-    () => collectNodesForTargetKeys(graph.nodes, graph.edges, props.activeTargetKeys),
-    [graph.edges, graph.nodes, props.activeTargetKeys],
-  );
-
   const attributeDirectionByNodeId = useMemo(() => buildAttributeDirectionMap(nodeById, erEdges), [nodeById, erEdges]);
 
   useEffect(() => {
@@ -502,17 +500,6 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     };
   }, [inlineEdit]);
 
-  function resolveViewportNodes(): LogicalTransformationNode[] {
-    const defaultViewportNodes = tableNodes.length > 0 ? tableNodes : graph.nodes;
-    return (
-      focusedViewportNodes.length > 0
-        ? focusedViewportNodes
-        : activeViewportNodes.length > 0
-          ? activeViewportNodes
-          : defaultViewportNodes
-    );
-  }
-
   function getViewportRect(): DOMRect | null {
     if (!containerRef.current) {
       return null;
@@ -531,8 +518,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return false;
     }
 
-    const viewportNodes = resolveViewportNodes();
-    const bounds = getBoundsForNodes(viewportNodes);
+    const bounds = getBoundsForVisibleContent(graph.nodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       return false;
     }
@@ -588,23 +574,6 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }, [props.fitRequestToken]);
 
   useEffect(() => {
-    if (!props.focusedTargetKey) {
-      lastAutoFitTargetKeyRef.current = null;
-      requestFitToContent();
-      return;
-    }
-
-    if (lastAutoFitTargetKeyRef.current === props.focusedTargetKey) {
-      return;
-    }
-
-    requestFitToContent();
-    lastAutoFitTargetKeyRef.current = props.focusedTargetKey;
-    // Intentionally react only to focus target changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.focusedTargetKey]);
-
-  useEffect(() => {
     requestFitToContent();
     // Refit after each transformation decision update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -641,7 +610,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       return;
     }
 
-    const bounds = getBoundsForNodes(resolveViewportNodes());
+    const bounds = getBoundsForVisibleContent(graph.nodes, [...routeByEdgeId.values()]);
     if (!bounds) {
       return;
     }

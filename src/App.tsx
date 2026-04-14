@@ -1057,10 +1057,10 @@ export default function App() {
     "--diagram-code-resizer-width": activeSidePanel ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const logicalWorkspaceShellStyle = {
-    "--toolbar-width": "0px",
+    "--toolbar-width": logicalGenerated ? "220px" : "0px",
     "--toolbar-resizer-width": "0px",
     "--inspector-resizer-width": "0px",
-    "--inspector-width": "0px",
+    "--inspector-width": logicalGenerated ? "360px" : "0px",
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
@@ -3595,7 +3595,6 @@ export default function App() {
             diagramView === "er" && effectiveToolbarCollapsed ? "toolbar-collapsed" : "",
             focusMode ? "workspace-shell-focus" : "",
             diagramView === "er" && hasSelection ? "workspace-has-selection" : "workspace-idle",
-            diagramView === "logical" ? "workspace-shell-logical" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -3714,9 +3713,8 @@ export default function App() {
                 </div>
               </div>
             </>
-          ) : (
-            <div className="workspace-main logical-main">
-              {!logicalGenerated ? (
+          ) : !logicalGenerated ? (
+            <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
                 <section className="logical-empty-state">
                   <h2>Workspace di traduzione</h2>
                   <p>Avvia la procedura guidata per trasformare lo schema ER in logico con regole esplicite e decisioni persistenti.</p>
@@ -3724,24 +3722,23 @@ export default function App() {
                     Inizia traduzione guidata
                   </button>
                 </section>
-              ) : (
-                <LogicalTranslationWorkspace
-                  diagram={history.present}
-                  workspace={logicalHistory.present}
-                  logicalViewport={logicalViewport}
-                  logicalSelection={logicalSelection}
-                  logicalFitRequestToken={logicalFitRequestToken}
-                  onLogicalViewportChange={setLogicalViewport}
-                  onLogicalSelectionChange={setLogicalSelection}
-                  onPreviewLogicalModel={previewLogicalModel}
-                  onCommitLogicalModel={commitLogicalModel}
-                  onRenameTable={handleLogicalTableRename}
-                  onRenameColumn={handleLogicalColumnRename}
-                  onApplyChoice={handleApplyLogicalTranslationChoice}
-                  onResetTranslation={handleGenerateLogicalModel}
-                />
-              )}
             </div>
+          ) : (
+            <LogicalTranslationWorkspace
+              diagram={history.present}
+              workspace={logicalHistory.present}
+              logicalViewport={logicalViewport}
+              logicalSelection={logicalSelection}
+              logicalFitRequestToken={logicalFitRequestToken}
+              onLogicalViewportChange={setLogicalViewport}
+              onLogicalSelectionChange={setLogicalSelection}
+              onPreviewLogicalModel={previewLogicalModel}
+              onCommitLogicalModel={commitLogicalModel}
+              onRenameTable={handleLogicalTableRename}
+              onRenameColumn={handleLogicalColumnRename}
+              onApplyChoice={handleApplyLogicalTranslationChoice}
+              onResetTranslation={handleGenerateLogicalModel}
+            />
           )}
         </div>
       </div>

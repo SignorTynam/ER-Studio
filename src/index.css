@@ -6644,19 +6644,16 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 /* Logical view */
-.workspace-shell.workspace-shell-logical {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-}
-
-.workspace-shell.workspace-shell-logical .workspace-main {
-  grid-column: 1 / -1;
-}
-
 .workspace-main.logical-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-column: 3;
   min-height: 0;
+}
+
+.inspector-panel.translation-panel {
+  grid-column: 5;
 }
 
 .logical-empty-state {
@@ -6723,6 +6720,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .logical-canvas-panel {
   position: relative;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(42, 39, 31, 0.08);
@@ -7159,31 +7157,14 @@ textarea.diagram-notes-editor::placeholder {
   }
 }
 
-.logical-translation-shell {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 360px;
-  gap: 10px;
-  min-height: 0;
-  height: 100%;
-  animation: logical-view-enter 180ms ease;
-}
-
 .translation-step-rail,
-.translation-stage-card,
-.translation-canvas-card,
 .translation-panel {
-  border: 1px solid rgba(42, 39, 31, 0.08);
-  border-radius: 16px;
-  background: rgba(252, 250, 245, 0.72);
-  backdrop-filter: blur(14px);
-}
-
-.translation-step-rail {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
   min-height: 0;
+  overflow: auto;
 }
 
 .translation-step-rail-header {
@@ -7324,6 +7305,9 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-stage-canvas {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -7334,6 +7318,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-stage-canvas .canvas-panel,
 .translation-stage-canvas .logical-canvas-panel {
+  flex: 1 1 auto;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -7347,15 +7332,6 @@ textarea.diagram-notes-editor::placeholder {
 .transformation-canvas-panel .transformation-er-node.focus-highlight .shape-label,
 .transformation-canvas-panel .transformation-er-node.focus-highlight .attribute-label {
   font-weight: 700;
-}
-
-.translation-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  min-height: 0;
-  overflow: auto;
 }
 
 .translation-panel-section {
@@ -7564,6 +7540,7 @@ textarea.diagram-notes-editor::placeholder {
 @media (max-width: 1280px) {
   .logical-translation-shell {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 }
 

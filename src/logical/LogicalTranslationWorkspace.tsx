@@ -276,8 +276,8 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   const transformedFkEdges = props.workspace.transformation.edges.filter((edge) => edge.kind === "foreign-key").length;
 
   return (
-    <div className="logical-translation-shell single-canvas">
-      <aside className="translation-step-rail" aria-label="Workflow di traduzione">
+    <>
+      <aside className="toolbar-panel translation-step-rail" aria-label="Workflow di traduzione">
         <div className="translation-step-rail-header">
           <span>Traduzione</span>
           <strong>{totalInvalid > 0 ? `${totalInvalid} warning aperti` : `${totalPending} step ancora da fissare`}</strong>
@@ -317,8 +317,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         </button>
       </aside>
 
-      <section className="translation-canvas-card">
-        <header className="translation-stage-header">
+      <section className="workspace-main logical-main">
+        <div className="translation-canvas-card canvas-panel">
+          <header className="translation-stage-header">
           <div>
             <span className="translation-stage-eyebrow">Canvas Logico</span>
             <h2>Trasformazione in-place</h2>
@@ -345,9 +346,10 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
             onRenameColumn={props.onRenameColumn}
           />
         </div>
+        </div>
       </section>
 
-      <aside className="translation-panel" aria-label="Pannello decisioni di traduzione">
+      <aside className="inspector-panel translation-panel" aria-label="Pannello decisioni di traduzione">
         <section className="translation-panel-section">
           <span className="translation-panel-eyebrow">Step corrente</span>
           <h2>{LOGICAL_TRANSLATION_STEPS.find((step) => step.id === activeStep)?.label}</h2>
@@ -537,6 +539,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
           </>
         )}
       </aside>
-    </div>
+    </>
   );
 }
