@@ -16,6 +16,7 @@ import type {
   DiagramNode,
   EntityNode,
   EditorMode,
+  ExternalIdentifier,
   Point,
   SelectionState,
   ToolKind,
@@ -41,6 +42,7 @@ import {
   removeSelection,
   serializeDiagram,
   synchronizeEntityRelationshipParticipations,
+  synchronizeExternalIdentifiers,
   synchronizeNodeNameIdentity,
   synchronizeInternalIdentifiers,
   validateDiagram,
@@ -599,33 +601,29 @@ function updateEdgeTextInDiagram(diagram: DiagramDocument, edgeId: string, value
   };
 }
 
-function clearExternalIdentifierFromRelationship(
+function clearExternalIdentifierFromEntity(
   diagram: DiagramDocument,
-  relationshipId: string,
+  entityId: string,
+  externalIdentifierId: string,
 ): DiagramDocument {
   return {
     ...diagram,
     nodes: diagram.nodes.map((node) => {
-      if (node.id !== relationshipId || node.type !== "relationship") {
+      if (node.id !== entityId || node.type !== "entity") {
         return node;
       }
 
       return {
         ...node,
-        isExternalIdentifier: false,
-        externalIdentifierMode: undefined,
-        externalIdentifierSourceAttributeId: undefined,
-        externalIdentifierTargetEntityId: undefined,
-        externalIdentifierTargetAttributeId: undefined,
-        externalIdentifierOffset: undefined,
-        externalIdentifierMarkerOffsetX: undefined,
-        externalIdentifierMarkerOffsetY: undefined,
+        externalIdentifiers: (node.externalIdentifiers ?? []).filter(
+          (identifier) => identifier.id !== externalIdentifierId,
+        ),
       };
     }),
   };
 }
 
-function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): DiagramNode | undefined {
+function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): EntityNode | undefined {
   const visited = new Set<string>();
   let currentAttributeId = attributeId;
 
@@ -681,6 +679,13 @@ function findRelationshipBetweenEntities(
   }
 
   return undefined;
+}
+
+function findInternalIdentifierContainingAttribute(
+  entity: EntityNode,
+  attributeId: string,
+): ExternalIdentifier["importedIdentifierId"] | undefined {
+  return entity.internalIdentifiers?.find((identifier) => identifier.attributeIds.includes(attributeId))?.id;
 }
 
 function getNodeKindLabel(node: DiagramNode): string {
@@ -1772,13 +1777,17 @@ export default function App() {
     status: string,
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(
-        synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(nextDiagram).diagram),
+      synchronizeExternalIdentifiers(
+        synchronizeInternalIdentifiers(
+          synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(nextDiagram).diagram),
+        ),
       ),
     );
     const normalizedCurrent = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(
-        synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+      synchronizeExternalIdentifiers(
+        synchronizeInternalIdentifiers(
+          synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+        ),
       ),
     );
     history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
@@ -1814,13 +1823,17 @@ export default function App() {
 
         if (parsedSerialized !== lastSerializedCodeRef.current) {
           const normalizedParsed = revalidateExternalIdentifiers(
-            synchronizeInternalIdentifiers(
-              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(parsed).diagram),
+            synchronizeExternalIdentifiers(
+              synchronizeInternalIdentifiers(
+                synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(parsed).diagram),
+              ),
             ),
           ).diagram;
           const normalizedCurrent = revalidateExternalIdentifiers(
-            synchronizeInternalIdentifiers(
-              synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+            synchronizeExternalIdentifiers(
+              synchronizeInternalIdentifiers(
+                synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(history.present).diagram),
+              ),
             ),
           ).diagram;
           history.commit(normalizedParsed, normalizedCurrent);
@@ -1982,8 +1995,10 @@ export default function App() {
     options?: { suppressExternalIdentifierWarnings?: boolean },
   ): DiagramDocument {
     const nodeIdentitySynchronizedNext = synchronizeNodeNameIdentity(nextDiagram);
-    const synchronizedNext = synchronizeInternalIdentifiers(
-      synchronizeEntityRelationshipParticipations(nodeIdentitySynchronizedNext.diagram),
+    const synchronizedNext = synchronizeExternalIdentifiers(
+      synchronizeInternalIdentifiers(
+        synchronizeEntityRelationshipParticipations(nodeIdentitySynchronizedNext.diagram),
+      ),
     );
     const normalizedNext = revalidateExternalIdentifiers(synchronizedNext);
     const previousIdentitySynchronized = previousDiagram
@@ -1991,7 +2006,9 @@ export default function App() {
       : undefined;
     const normalizedPrevious = previousIdentitySynchronized
       ? revalidateExternalIdentifiers(
-          synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(previousIdentitySynchronized)),
+          synchronizeExternalIdentifiers(
+            synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(previousIdentitySynchronized)),
+          ),
         ).diagram
       : undefined;
 
@@ -2020,7 +2037,9 @@ export default function App() {
   function handlePreviewDiagram(nextDiagram: DiagramDocument) {
     const withNodeIdentity = synchronizeNodeNameIdentity(nextDiagram).diagram;
     const normalized = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(withNodeIdentity)),
+      synchronizeExternalIdentifiers(
+        synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(withNodeIdentity)),
+      ),
     );
     history.setPresent(normalized.diagram);
   }
@@ -2272,12 +2291,12 @@ export default function App() {
 
   function handleCreateExternalIdentifierFromSelection(sourceAttributeId: string, targetId: string) {
     const sourceAttribute = history.present.nodes.find((node) => node.id === sourceAttributeId);
-    if (sourceAttribute?.type !== "attribute" || sourceAttribute.isIdentifier !== true) {
+    if (sourceAttribute?.type !== "attribute") {
       return {
         success: false,
         message: buildStructuredErrorMessage(
           "l'identificatore esterno non e stato creato",
-          "non hai selezionato un attributo sorgente marcato come identificatore",
+          "non hai selezionato un attributo sorgente valido",
           "seleziona prima un attributo identificatore e poi il target",
         ),
       };
@@ -2295,6 +2314,18 @@ export default function App() {
       };
     }
 
+    const importedIdentifierId = findInternalIdentifierContainingAttribute(sourceEntity, sourceAttribute.id);
+    if (!importedIdentifierId) {
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          `l'attributo sorgente "${sourceAttribute.label}" non appartiene a nessun identificatore interno disponibile`,
+          "seleziona un attributo che faccia parte di un identificatore interno della sorgente",
+        ),
+      };
+    }
+
     const targetNode = history.present.nodes.find((node) => node.id === targetId);
     if (!targetNode) {
       return {
@@ -2307,39 +2338,66 @@ export default function App() {
       };
     }
 
-    let targetEntity: DiagramNode | undefined;
-    let targetAttributeId: string | undefined;
-    let mode: "entity" | "composite";
+    let targetEntity: EntityNode | undefined;
+    let localAttributeIds: string[] = [];
 
     if (targetNode.type === "attribute") {
-      if (targetNode.isIdentifier === true) {
+      if (
+        targetNode.isIdentifier === true ||
+        targetNode.isCompositeInternal === true ||
+        targetNode.isMultivalued === true
+      ) {
         return {
           success: false,
           message: buildStructuredErrorMessage(
-            "l'identificatore esterno composto non e stato creato",
-            "l'attributo di destinazione e gia un identificatore",
-            "seleziona un attributo normale come destinazione",
+            "l'identificatore esterno non e stato creato",
+            "l'attributo locale selezionato non e eleggibile",
+            "usa solo attributi semplici locali non multivalore e non gia identificatori",
           ),
         };
       }
 
       targetEntity = findEntityHostForAttribute(history.present, targetNode.id);
-      if (!targetEntity) {
+      if (!targetEntity || targetEntity.type !== "entity") {
         return {
           success: false,
           message: buildStructuredErrorMessage(
-            "l'identificatore esterno composto non e stato creato",
+            "l'identificatore esterno non e stato creato",
             "l'attributo di destinazione non appartiene a nessuna entita",
             "collega l'attributo target a un'entita e riprova",
           ),
         };
       }
 
-      targetAttributeId = targetNode.id;
-      mode = "composite";
+      if (
+        (targetEntity.internalIdentifiers ?? []).some((identifier) => identifier.attributeIds.includes(targetNode.id))
+      ) {
+        return {
+          success: false,
+          message: buildStructuredErrorMessage(
+            "l'identificatore esterno non e stato creato",
+            `l'attributo locale "${targetNode.label}" e gia occupato da un identificatore interno`,
+            "scegli un attributo locale semplice non gia usato come identificatore",
+          ),
+        };
+      }
+
+      if (
+        (targetEntity.externalIdentifiers ?? []).some((identifier) => identifier.localAttributeIds.includes(targetNode.id))
+      ) {
+        return {
+          success: false,
+          message: buildStructuredErrorMessage(
+            "l'identificatore esterno non e stato creato",
+            `l'attributo locale "${targetNode.label}" e gia usato in un altro identificatore esterno`,
+            "seleziona un attributo locale libero oppure modifica l'identificatore esistente",
+          ),
+        };
+      }
+
+      localAttributeIds = [targetNode.id];
     } else if (targetNode.type === "entity") {
       targetEntity = targetNode;
-      mode = "entity";
     } else {
       return {
         success: false,
@@ -2374,19 +2432,48 @@ export default function App() {
       };
     }
 
-    const nextDiagram = updateNodeInDiagram(history.present, relationship.id, {
-      isExternalIdentifier: true,
-      externalIdentifierMode: mode,
-      externalIdentifierSourceAttributeId: sourceAttribute.id,
-      externalIdentifierTargetEntityId: targetEntity.id,
-      externalIdentifierTargetAttributeId: targetAttributeId,
+    const nextExternalIdentifier: ExternalIdentifier = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `externalIdentifier-${Math.random().toString(36).slice(2, 11)}`,
+      relationshipId: relationship.id,
+      sourceEntityId: sourceEntity.id,
+      importedIdentifierId,
+      localAttributeIds,
+    };
+    const duplicateExists = (targetEntity.externalIdentifiers ?? []).some(
+      (identifier) =>
+        identifier.relationshipId === nextExternalIdentifier.relationshipId &&
+        identifier.sourceEntityId === nextExternalIdentifier.sourceEntityId &&
+        identifier.importedIdentifierId === nextExternalIdentifier.importedIdentifierId &&
+        identifier.localAttributeIds.length === nextExternalIdentifier.localAttributeIds.length &&
+        identifier.localAttributeIds.every(
+          (attributeId, index) => nextExternalIdentifier.localAttributeIds[index] === attributeId,
+        ),
+    );
+    if (duplicateExists) {
+      return {
+        success: false,
+        message: buildStructuredErrorMessage(
+          "l'identificatore esterno non e stato creato",
+          "esiste gia un identificatore esterno con la stessa parte importata e gli stessi attributi locali",
+          "modifica l'identificatore esistente oppure scegli una combinazione diversa",
+        ),
+      };
+    }
+
+    const nextDiagram = updateNodeInDiagram(history.present, targetEntity.id, {
+      externalIdentifiers: [...(targetEntity.externalIdentifiers ?? []), nextExternalIdentifier],
     } as Partial<DiagramNode>);
 
     const externalIdentifierCheck = revalidateExternalIdentifiers(
-      synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(nextDiagram)),
+      synchronizeExternalIdentifiers(
+        synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(nextDiagram)),
+      ),
     );
     const blockedInvalidation = externalIdentifierCheck.invalidations.find(
-      (invalidation) => invalidation.relationshipId === relationship.id,
+      (invalidation) => invalidation.externalIdentifierId === nextExternalIdentifier.id,
     );
     if (blockedInvalidation) {
       return {
@@ -2400,13 +2487,13 @@ export default function App() {
     }
 
     commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [relationship.id], edgeIds: [] });
+    setSelection({ nodeIds: [targetEntity.id], edgeIds: [] });
     return {
       success: true,
       message:
-        mode === "composite"
-          ? "Identificatore esterno composto creato. Verifica cardinalita (1,1) e (0,1)."
-          : "Identificatore esterno creato. Verifica cardinalita (1,1) e (0,1).",
+        localAttributeIds.length > 0
+          ? "Identificatore esterno misto creato. Verifica cardinalita (1,1) sul lato host."
+          : "Identificatore esterno importato creato. Verifica cardinalita (1,1) sul lato host.",
       };
   }
 
@@ -2503,6 +2590,39 @@ export default function App() {
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
     setStatus("Identificatori interni aggiornati.");
+  }
+
+  function handleEntityExternalIdentifiersChange(entityId: string, patch: Partial<EntityNode>) {
+    if (mode === "view") {
+      return;
+    }
+
+    const entityNode = history.present.nodes.find(
+      (node): node is EntityNode => node.id === entityId && node.type === "entity",
+    );
+    if (!entityNode) {
+      return;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return;
+    }
+
+    const nextDiagram: DiagramDocument = {
+      ...history.present,
+      nodes: history.present.nodes.map((node) =>
+        node.id === entityId && node.type === "entity"
+          ? {
+              ...node,
+              ...patch,
+            }
+          : node,
+      ),
+    };
+
+    commitDiagram(nextDiagram);
+    setSelection({ nodeIds: [entityId], edgeIds: [] });
+    setStatus("Identificatori esterni aggiornati.");
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -2865,20 +2985,18 @@ export default function App() {
     setStatus("Collegamento eliminato.");
   }
 
-  function handleClearExternalIdentifier(relationshipId: string) {
-    const relationshipNode = history.present.nodes.find((node) => node.id === relationshipId);
-    if (
-      !relationshipNode ||
-      relationshipNode.type !== "relationship" ||
-      relationshipNode.isExternalIdentifier !== true
-    ) {
-      setStatusWarning("Nessun identificatore esterno da rimuovere sulla relazione selezionata.");
+  function handleDeleteExternalIdentifier(hostEntityId: string, externalIdentifierId: string) {
+    const hostEntity = history.present.nodes.find(
+      (node): node is EntityNode => node.id === hostEntityId && node.type === "entity",
+    );
+    if (!hostEntity || !(hostEntity.externalIdentifiers ?? []).some((identifier) => identifier.id === externalIdentifierId)) {
+      setStatusWarning("Nessun identificatore esterno da rimuovere sull'entita selezionata.");
       return;
     }
 
-    const nextDiagram = clearExternalIdentifierFromRelationship(history.present, relationshipId);
+    const nextDiagram = clearExternalIdentifierFromEntity(history.present, hostEntityId, externalIdentifierId);
     commitDiagram(nextDiagram);
-    setSelection({ nodeIds: [relationshipId], edgeIds: [] });
+    setSelection({ nodeIds: [hostEntityId], edgeIds: [] });
     setStatus("Identificatore esterno rimosso.");
   }
 
@@ -3249,11 +3367,11 @@ export default function App() {
                 onDeleteSelection={handleDeleteSelection}
                 onCreateAttributeForSelection={handleCreateAttributeFromSelection}
                 onEntityInternalIdentifiersChange={handleEntityInternalIdentifiersChange}
+                onEntityExternalIdentifiersChange={handleEntityExternalIdentifiersChange}
                 onRenameSelection={handleRenameSelectionQuick}
                 onNodeChange={handleNodeChange}
                 onNodesChange={handleNodesChange}
                 onEdgeChange={handleEdgeChange}
-                onClearExternalIdentifier={handleClearExternalIdentifier}
                 onAlign={handleAlignSelection}
                 onIssueSelect={handleIssueNotice}
                 onToggleCollapse={handleToggleToolRail}
@@ -3296,7 +3414,7 @@ export default function App() {
                   onDeleteNode={handleDeleteNodeById}
                   onDeleteEdge={handleDeleteEdgeById}
                   onDeleteSelection={handleDeleteSelection}
-                  onDeleteExternalIdentifier={handleClearExternalIdentifier}
+                  onDeleteExternalIdentifier={handleDeleteExternalIdentifier}
                   onRenameNode={handleRenameNode}
                   onRenameEdge={handleRenameEdge}
                   onStatusMessageChange={handleCanvasStatusMessage}

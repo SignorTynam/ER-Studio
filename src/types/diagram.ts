@@ -38,6 +38,17 @@ export interface InternalIdentifier {
   attributeIds: string[];
 }
 
+export interface ExternalIdentifier {
+  id: string;
+  relationshipId: string;
+  sourceEntityId: string;
+  importedIdentifierId: string;
+  localAttributeIds: string[];
+  offset?: number;
+  markerOffsetX?: number;
+  markerOffsetY?: number;
+}
+
 export interface EntityRelationshipParticipation {
   id: string;
   relationshipId: string;
@@ -48,19 +59,12 @@ export interface EntityNode extends BaseNode {
   type: "entity";
   isWeak?: boolean;
   internalIdentifiers?: InternalIdentifier[];
+  externalIdentifiers?: ExternalIdentifier[];
   relationshipParticipations?: EntityRelationshipParticipation[];
 }
 
 export interface RelationshipNode extends BaseNode {
   type: "relationship";
-  isExternalIdentifier?: boolean;
-  externalIdentifierMode?: "entity" | "composite";
-  externalIdentifierSourceAttributeId?: string;
-  externalIdentifierTargetEntityId?: string;
-  externalIdentifierTargetAttributeId?: string;
-  externalIdentifierOffset?: number;
-  externalIdentifierMarkerOffsetX?: number;
-  externalIdentifierMarkerOffsetY?: number;
 }
 
 export interface AttributeNode extends BaseNode {

@@ -3,6 +3,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  ExternalIdentifier,
   EntityRelationshipParticipation,
   InternalIdentifier,
   IsaCompleteness,
@@ -32,27 +33,32 @@ type AttributeNode = Extract<DiagramNode, { type: "attribute" }>;
 type EntityNode = Extract<DiagramNode, { type: "entity" }>;
 type ConnectorEdge = Extract<DiagramEdge, { type: "connector" }>;
 
-const CURRENT_DIAGRAM_VERSION = 2;
+const CURRENT_DIAGRAM_VERSION = 3;
+
+export type ExternalIdentifierKind = "imported_only" | "imported_plus_local";
 
 export interface ExternalIdentifierValidationResult {
   valid: boolean;
-  relationshipId: string;
-  relationshipLabel: string;
+  externalIdentifierId: string;
+  hostEntityId: string;
+  hostEntityLabel: string;
+  relationshipId?: string;
+  relationshipLabel?: string;
   sourceEntityId?: string;
   sourceEntityLabel?: string;
-  targetEntityId?: string;
-  targetEntityLabel?: string;
+  kind?: ExternalIdentifierKind;
   reason?: string;
   message?: string;
 }
 
 export interface ExternalIdentifierInvalidation {
-  relationshipId: string;
-  relationshipLabel: string;
+  externalIdentifierId: string;
+  hostEntityId: string;
+  hostEntityLabel: string;
+  relationshipId?: string;
+  relationshipLabel?: string;
   sourceEntityId?: string;
   sourceEntityLabel?: string;
-  targetEntityId?: string;
-  targetEntityLabel?: string;
   reason: string;
   message: string;
 }
@@ -128,6 +134,68 @@ function sanitizeEntityRelationshipParticipations(
   return parsedParticipations.length > 0 ? parsedParticipations : undefined;
 }
 
+function sanitizeExternalIdentifiers(rawIdentifiers: unknown): ExternalIdentifier[] | undefined {
+  const parsedIdentifiers: ExternalIdentifier[] = [];
+  if (Array.isArray(rawIdentifiers)) {
+    rawIdentifiers.forEach((identifier) => {
+      if (typeof identifier !== "object" || identifier === null) {
+        return;
+      }
+
+      const rawIdentifier = identifier as {
+        id?: unknown;
+        relationshipId?: unknown;
+        sourceEntityId?: unknown;
+        importedIdentifierId?: unknown;
+        localAttributeIds?: unknown;
+        offset?: unknown;
+        markerOffsetX?: unknown;
+        markerOffsetY?: unknown;
+      };
+      if (
+        typeof rawIdentifier.relationshipId !== "string" ||
+        rawIdentifier.relationshipId.trim().length === 0 ||
+        typeof rawIdentifier.sourceEntityId !== "string" ||
+        rawIdentifier.sourceEntityId.trim().length === 0 ||
+        typeof rawIdentifier.importedIdentifierId !== "string" ||
+        rawIdentifier.importedIdentifierId.trim().length === 0
+      ) {
+        return;
+      }
+
+      parsedIdentifiers.push({
+        id:
+          typeof rawIdentifier.id === "string" && rawIdentifier.id.trim().length > 0
+            ? rawIdentifier.id
+            : createId("externalIdentifier"),
+        relationshipId: rawIdentifier.relationshipId,
+        sourceEntityId: rawIdentifier.sourceEntityId,
+        importedIdentifierId: rawIdentifier.importedIdentifierId,
+        localAttributeIds: Array.isArray(rawIdentifier.localAttributeIds)
+          ? rawIdentifier.localAttributeIds.filter(
+              (attributeId): attributeId is string =>
+                typeof attributeId === "string" && attributeId.trim().length > 0,
+            )
+          : [],
+        offset:
+          typeof rawIdentifier.offset === "number" && Number.isFinite(rawIdentifier.offset)
+            ? rawIdentifier.offset
+            : undefined,
+        markerOffsetX:
+          typeof rawIdentifier.markerOffsetX === "number" && Number.isFinite(rawIdentifier.markerOffsetX)
+            ? rawIdentifier.markerOffsetX
+            : undefined,
+        markerOffsetY:
+          typeof rawIdentifier.markerOffsetY === "number" && Number.isFinite(rawIdentifier.markerOffsetY)
+            ? rawIdentifier.markerOffsetY
+            : undefined,
+      });
+    });
+  }
+
+  return parsedIdentifiers.length > 0 ? parsedIdentifiers : undefined;
+}
+
 function areEntityRelationshipParticipationsEqual(
   left: EntityRelationshipParticipation[] | undefined,
   right: EntityRelationshipParticipation[] | undefined,
@@ -146,6 +214,39 @@ function areEntityRelationshipParticipationsEqual(
       other.id === participation.id &&
       other.relationshipId === participation.relationshipId &&
       other.cardinality === participation.cardinality
+    );
+  });
+}
+
+function areExternalIdentifierListsEqual(
+  left: ExternalIdentifier[] | undefined,
+  right: ExternalIdentifier[] | undefined,
+): boolean {
+  const leftList = left ?? [];
+  const rightList = right ?? [];
+
+  if (leftList.length !== rightList.length) {
+    return false;
+  }
+
+  return leftList.every((identifier, index) => {
+    const other = rightList[index];
+    if (
+      other === undefined ||
+      other.id !== identifier.id ||
+      other.relationshipId !== identifier.relationshipId ||
+      other.sourceEntityId !== identifier.sourceEntityId ||
+      other.importedIdentifierId !== identifier.importedIdentifierId ||
+      other.localAttributeIds.length !== identifier.localAttributeIds.length ||
+      other.offset !== identifier.offset ||
+      other.markerOffsetX !== identifier.markerOffsetX ||
+      other.markerOffsetY !== identifier.markerOffsetY
+    ) {
+      return false;
+    }
+
+    return other.localAttributeIds.every((attributeId, attributeIndex) =>
+      attributeId === identifier.localAttributeIds[attributeIndex],
     );
   });
 }
@@ -239,10 +340,22 @@ function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, strin
             relationshipId: nodeIdMap.get(participation.relationshipId) ?? participation.relationshipId,
           }))
         : undefined;
+    const nextExternalIdentifiers =
+      Array.isArray(node.externalIdentifiers) && node.externalIdentifiers.length > 0
+        ? node.externalIdentifiers.map((identifier) => ({
+            ...identifier,
+            relationshipId: nodeIdMap.get(identifier.relationshipId) ?? identifier.relationshipId,
+            sourceEntityId: nodeIdMap.get(identifier.sourceEntityId) ?? identifier.sourceEntityId,
+            localAttributeIds: identifier.localAttributeIds.map(
+              (attributeId) => nodeIdMap.get(attributeId) ?? attributeId,
+            ),
+          }))
+        : undefined;
 
     if (
       areEntityRelationshipParticipationsEqual(node.relationshipParticipations, nextParticipations) &&
-      areInternalIdentifierListsEqual(node.internalIdentifiers, nextInternalIdentifiers)
+      areInternalIdentifierListsEqual(node.internalIdentifiers, nextInternalIdentifiers) &&
+      areExternalIdentifierListsEqual(node.externalIdentifiers, nextExternalIdentifiers)
     ) {
       return node;
     }
@@ -250,16 +363,8 @@ function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, strin
     return {
       ...node,
       internalIdentifiers: nextInternalIdentifiers,
+      externalIdentifiers: nextExternalIdentifiers,
       relationshipParticipations: nextParticipations,
-    };
-  }
-
-  if (node.type === "relationship") {
-    return {
-      ...node,
-      externalIdentifierSourceAttributeId: remapNodeReference(nodeIdMap, node.externalIdentifierSourceAttributeId),
-      externalIdentifierTargetEntityId: remapNodeReference(nodeIdMap, node.externalIdentifierTargetEntityId),
-      externalIdentifierTargetAttributeId: remapNodeReference(nodeIdMap, node.externalIdentifierTargetAttributeId),
     };
   }
 
@@ -479,6 +584,7 @@ export function createNode(
       height: size.height,
       isWeak: false,
       internalIdentifiers: [],
+      externalIdentifiers: [],
       relationshipParticipations: [],
     };
   }
@@ -985,6 +1091,245 @@ export function synchronizeInternalIdentifiers(diagram: DiagramDocument): Diagra
     : diagram;
 }
 
+export function getExternalIdentifierKind(identifier: ExternalIdentifier): ExternalIdentifierKind {
+  return identifier.localAttributeIds.length > 0 ? "imported_plus_local" : "imported_only";
+}
+
+export function getEntityDirectAttributes(
+  diagram: DiagramDocument,
+  entityId: string,
+): AttributeNode[] {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  return Array.from(getDirectAttributeIdsByEntityId(diagram, nodeMap).get(entityId) ?? [])
+    .map((attributeId) => nodeMap.get(attributeId))
+    .filter((candidate): candidate is AttributeNode => candidate?.type === "attribute");
+}
+
+export function findInternalIdentifierByAttribute(
+  entity: EntityNode,
+  attributeId: string,
+): InternalIdentifier | undefined {
+  return (entity.internalIdentifiers ?? []).find((identifier) => identifier.attributeIds.includes(attributeId));
+}
+
+export function getExternalIdentifierSourceEntity(
+  diagram: DiagramDocument,
+  identifier: ExternalIdentifier,
+): EntityNode | undefined {
+  const sourceEntity = diagram.nodes.find((node) => node.id === identifier.sourceEntityId);
+  return sourceEntity?.type === "entity" ? sourceEntity : undefined;
+}
+
+export function getExternalIdentifierImportedIdentifier(
+  diagram: DiagramDocument,
+  identifier: ExternalIdentifier,
+): InternalIdentifier | undefined {
+  const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
+  return sourceEntity?.internalIdentifiers?.find(
+    (candidate) => candidate.id === identifier.importedIdentifierId,
+  );
+}
+
+export function getExternalIdentifierImportedAttributes(
+  diagram: DiagramDocument,
+  identifier: ExternalIdentifier,
+): AttributeNode[] {
+  const sourceEntity = getExternalIdentifierSourceEntity(diagram, identifier);
+  const importedIdentifier = getExternalIdentifierImportedIdentifier(diagram, identifier);
+  if (!sourceEntity || !importedIdentifier) {
+    return [];
+  }
+
+  const sourceAttributeMap = new Map(
+    getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => [attribute.id, attribute]),
+  );
+  return importedIdentifier.attributeIds
+    .map((attributeId) => sourceAttributeMap.get(attributeId))
+    .filter((attribute): attribute is AttributeNode => attribute !== undefined);
+}
+
+function isEligibleLocalExternalIdentifierAttribute(
+  attribute: AttributeNode,
+  internalIdentifierAttributeIds: Set<string>,
+): boolean {
+  if (attribute.isMultivalued === true) {
+    return false;
+  }
+
+  if (attribute.isIdentifier === true || attribute.isCompositeInternal === true) {
+    return false;
+  }
+
+  if (internalIdentifierAttributeIds.has(attribute.id)) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeExternalIdentifierSet(
+  diagram: DiagramDocument,
+  entity: EntityNode,
+  nodeMap: Map<string, DiagramNode>,
+  directAttributeIdsByEntityId: Map<string, Set<string>>,
+): ExternalIdentifier[] {
+  const directAttributes = Array.from(directAttributeIdsByEntityId.get(entity.id) ?? [])
+    .map((attributeId) => nodeMap.get(attributeId))
+    .filter((candidate): candidate is AttributeNode => candidate?.type === "attribute");
+  const directAttributeMap = new Map(directAttributes.map((attribute) => [attribute.id, attribute]));
+  const internalIdentifierAttributeIds = new Set(
+    (entity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
+  );
+  const usedLocalAttributeIds = new Set<string>();
+  const usedIdentifierSignatures = new Set<string>();
+  const normalizedIdentifiers: ExternalIdentifier[] = [];
+  const rawIdentifiers = Array.isArray(entity.externalIdentifiers) ? entity.externalIdentifiers : [];
+
+  rawIdentifiers.forEach((identifier) => {
+    const relationshipNode = nodeMap.get(identifier.relationshipId);
+    if (relationshipNode?.type !== "relationship") {
+      return;
+    }
+
+    const sourceEntity = nodeMap.get(identifier.sourceEntityId);
+    if (sourceEntity?.type !== "entity" || sourceEntity.id === entity.id) {
+      return;
+    }
+
+    const importedIdentifier = sourceEntity.internalIdentifiers?.find(
+      (candidate) => candidate.id === identifier.importedIdentifierId,
+    );
+    if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+      return;
+    }
+
+    const sourceDirectAttributeIds = directAttributeIdsByEntityId.get(sourceEntity.id) ?? new Set<string>();
+    if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+      return;
+    }
+
+    const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
+    const participantIds = new Set(participants.map((participant) => participant.entity.id));
+    if (
+      participantIds.size !== 2 ||
+      !participantIds.has(entity.id) ||
+      !participantIds.has(sourceEntity.id)
+    ) {
+      return;
+    }
+
+    const dependentParticipant = participants.find((participant) => participant.entity.id === entity.id);
+    const dependentCardinality = normalizeCardinality(
+      dependentParticipant
+        ? getConnectorParticipation(
+            dependentParticipant.edge,
+            nodeMap.get(dependentParticipant.edge.sourceId),
+            nodeMap.get(dependentParticipant.edge.targetId),
+          )?.cardinality
+        : undefined,
+    );
+    if (dependentCardinality !== "1,1") {
+      return;
+    }
+
+    const seenLocalAttributeIds = new Set<string>();
+    const normalizedLocalAttributeIds = (Array.isArray(identifier.localAttributeIds)
+      ? identifier.localAttributeIds
+      : []
+    )
+      .filter((attributeId): attributeId is string => typeof attributeId === "string" && attributeId.length > 0)
+      .filter((attributeId) => {
+        if (seenLocalAttributeIds.has(attributeId)) {
+          return false;
+        }
+
+        seenLocalAttributeIds.add(attributeId);
+        return true;
+      })
+      .filter((attributeId) => {
+        const attribute = directAttributeMap.get(attributeId);
+        return (
+          attribute !== undefined &&
+          isEligibleLocalExternalIdentifierAttribute(attribute, internalIdentifierAttributeIds) &&
+          !usedLocalAttributeIds.has(attributeId)
+        );
+      });
+
+    normalizedLocalAttributeIds.forEach((attributeId) => usedLocalAttributeIds.add(attributeId));
+    const signature = [
+      relationshipNode.id,
+      sourceEntity.id,
+      importedIdentifier.id,
+      normalizedLocalAttributeIds.join(","),
+    ].join("|");
+    if (usedIdentifierSignatures.has(signature)) {
+      return;
+    }
+
+    usedIdentifierSignatures.add(signature);
+    normalizedIdentifiers.push({
+      id:
+        typeof identifier.id === "string" && identifier.id.trim().length > 0
+          ? identifier.id
+          : createId("externalIdentifier"),
+      relationshipId: relationshipNode.id,
+      sourceEntityId: sourceEntity.id,
+      importedIdentifierId: importedIdentifier.id,
+      localAttributeIds: normalizedLocalAttributeIds,
+      offset:
+        typeof identifier.offset === "number" && Number.isFinite(identifier.offset)
+          ? identifier.offset
+          : undefined,
+      markerOffsetX:
+        typeof identifier.markerOffsetX === "number" && Number.isFinite(identifier.markerOffsetX)
+          ? identifier.markerOffsetX
+          : undefined,
+      markerOffsetY:
+        typeof identifier.markerOffsetY === "number" && Number.isFinite(identifier.markerOffsetY)
+          ? identifier.markerOffsetY
+          : undefined,
+    });
+  });
+
+  return normalizedIdentifiers;
+}
+
+export function synchronizeExternalIdentifiers(diagram: DiagramDocument): DiagramDocument {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const directAttributeIdsByEntityId = getDirectAttributeIdsByEntityId(diagram, nodeMap);
+  let changed = false;
+
+  const nextNodes = diagram.nodes.map((node) => {
+    if (node.type !== "entity") {
+      return node;
+    }
+
+    const normalizedIdentifiers = normalizeExternalIdentifierSet(
+      diagram,
+      node,
+      nodeMap,
+      directAttributeIdsByEntityId,
+    );
+    const nextIdentifiers = normalizedIdentifiers.length > 0 ? normalizedIdentifiers : undefined;
+    if (areExternalIdentifierListsEqual(node.externalIdentifiers, nextIdentifiers)) {
+      return node;
+    }
+
+    changed = true;
+    return {
+      ...node,
+      externalIdentifiers: nextIdentifiers,
+    };
+  });
+
+  return changed
+    ? {
+        ...diagram,
+        nodes: nextNodes,
+      }
+    : diagram;
+}
+
 export function removeSelection(
   diagram: DiagramDocument,
   selection: SelectionState,
@@ -1065,12 +1410,22 @@ export function duplicateSelection(
     };
   });
 
+  const internalIdentifierIdMap = new Map<string, string>();
+  duplicatedNodes.forEach((node) => {
+    if (node.type !== "entity") {
+      return;
+    }
+
+    (node.internalIdentifiers ?? []).forEach((identifier) => {
+      internalIdentifierIdMap.set(identifier.id, createId("internalIdentifier"));
+    });
+  });
   const duplicatedNodesWithIdentifiers = duplicatedNodes.map((node) => {
-    if (node.type !== "entity" || !Array.isArray(node.internalIdentifiers)) {
+    if (node.type !== "entity") {
       return node;
     }
 
-    const remappedIdentifiers = node.internalIdentifiers
+    const remappedIdentifiers = (node.internalIdentifiers ?? [])
       .map((identifier) => {
         const remappedAttributeIds = identifier.attributeIds
           .map((attributeId) => idMap.get(attributeId))
@@ -1081,15 +1436,28 @@ export function duplicateSelection(
         }
 
         return {
-          id: createId("internalIdentifier"),
+          id: internalIdentifierIdMap.get(identifier.id) ?? createId("internalIdentifier"),
           attributeIds: remappedAttributeIds,
         };
       })
       .filter((identifier): identifier is InternalIdentifier => identifier !== null);
+    const remappedExternalIdentifiers = (node.externalIdentifiers ?? [])
+      .map((identifier) => ({
+        ...identifier,
+        id: createId("externalIdentifier"),
+        relationshipId: idMap.get(identifier.relationshipId) ?? identifier.relationshipId,
+        sourceEntityId: idMap.get(identifier.sourceEntityId) ?? identifier.sourceEntityId,
+        importedIdentifierId:
+          internalIdentifierIdMap.get(identifier.importedIdentifierId) ?? identifier.importedIdentifierId,
+        localAttributeIds: identifier.localAttributeIds
+          .map((attributeId) => idMap.get(attributeId) ?? attributeId)
+          .filter((attributeId, index, source) => source.indexOf(attributeId) === index),
+      }));
 
     return {
       ...node,
       internalIdentifiers: remappedIdentifiers.length > 0 ? remappedIdentifiers : undefined,
+      externalIdentifiers: remappedExternalIdentifiers.length > 0 ? remappedExternalIdentifiers : undefined,
     };
   });
 
@@ -1210,7 +1578,11 @@ export function expandNodeIdsForMove(diagram: DiagramDocument, nodeIds: string[]
 }
 
 export function serializeDiagram(diagram: DiagramDocument): string {
-  const normalizedDiagram = synchronizeNodeNameIdentity(synchronizeEntityRelationshipParticipations(diagram)).diagram;
+  const normalizedDiagram = synchronizeExternalIdentifiers(
+    synchronizeInternalIdentifiers(
+      synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(diagram).diagram),
+    ),
+  );
   const serializedNodes = normalizedDiagram.nodes.map((node) => {
     const { label: _unusedLabel, ...nodeWithoutLabel } = node as DiagramNode & { label: string };
     return nodeWithoutLabel;
@@ -1257,40 +1629,13 @@ function normalizeCardinality(value: string | undefined): string {
     .replace(":", ",");
 }
 
-function relationshipHasExternalIdentifierMetadata(node: RelationshipNode): boolean {
-  return (
-    node.isExternalIdentifier === true ||
-    node.externalIdentifierMode !== undefined ||
-    node.externalIdentifierSourceAttributeId !== undefined ||
-    node.externalIdentifierTargetEntityId !== undefined ||
-    node.externalIdentifierTargetAttributeId !== undefined ||
-    node.externalIdentifierOffset !== undefined ||
-    node.externalIdentifierMarkerOffsetX !== undefined ||
-    node.externalIdentifierMarkerOffsetY !== undefined
-  );
-}
-
-function clearExternalIdentifierMetadata(node: RelationshipNode): RelationshipNode {
-  return {
-    ...node,
-    isExternalIdentifier: false,
-    externalIdentifierMode: undefined,
-    externalIdentifierSourceAttributeId: undefined,
-    externalIdentifierTargetEntityId: undefined,
-    externalIdentifierTargetAttributeId: undefined,
-    externalIdentifierOffset: undefined,
-    externalIdentifierMarkerOffsetX: undefined,
-    externalIdentifierMarkerOffsetY: undefined,
-  };
-}
-
 function buildExternalIdentifierInvalidationMessage(
-  relationshipLabel: string,
-  sourceEntityLabel: string | undefined,
+  hostEntityLabel: string,
+  relationshipLabel: string | undefined,
   reason: string,
 ): string {
-  const target = sourceEntityLabel ? ` su "${sourceEntityLabel}"` : "";
-  return `L'identificatore esterno${target} collegato alla relazione "${relationshipLabel}" non e piu valido perche ${reason}.`;
+  const relationshipSegment = relationshipLabel ? ` collegato alla relazione "${relationshipLabel}"` : "";
+  return `L'identificatore esterno su "${hostEntityLabel}"${relationshipSegment} non e piu valido perche ${reason}.`;
 }
 
 function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: string): EntityNode | undefined {
@@ -1339,16 +1684,6 @@ function findEntityHostForAttribute(diagram: DiagramDocument, attributeId: strin
   return undefined;
 }
 
-function entityHasIdentifierContribution(diagram: DiagramDocument, entityId: string): boolean {
-  const identifierAttributes = diagram.nodes.filter(
-    (node): node is AttributeNode =>
-      node.type === "attribute" &&
-      (node.isIdentifier === true || node.isCompositeInternal === true),
-  );
-
-  return identifierAttributes.some((attribute) => findEntityHostForAttribute(diagram, attribute.id)?.id === entityId);
-}
-
 function normalizeRelationshipExternalIdentifierParticipants(
   diagram: DiagramDocument,
   relationshipId: string,
@@ -1369,99 +1704,70 @@ function normalizeRelationshipExternalIdentifierParticipants(
 
 export function validateExternalIdentifier(
   diagram: DiagramDocument,
-  relationship: RelationshipNode,
+  hostEntity: EntityNode,
+  externalIdentifier: ExternalIdentifier,
 ): ExternalIdentifierValidationResult {
   const baseResult: ExternalIdentifierValidationResult = {
     valid: true,
-    relationshipId: relationship.id,
-    relationshipLabel: relationship.label,
+    externalIdentifierId: externalIdentifier.id,
+    hostEntityId: hostEntity.id,
+    hostEntityLabel: hostEntity.label,
+    relationshipId: externalIdentifier.relationshipId,
   };
 
-  if (relationship.isExternalIdentifier !== true) {
-    return baseResult;
-  }
-
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const relationshipNode = nodeMap.get(externalIdentifier.relationshipId);
+  const relationshipLabel = relationshipNode?.type === "relationship" ? relationshipNode.label : undefined;
   const fail = (
     reason: string,
-    context?: Pick<
-      ExternalIdentifierValidationResult,
-      "sourceEntityId" | "sourceEntityLabel" | "targetEntityId" | "targetEntityLabel"
-    >,
+    context?: Pick<ExternalIdentifierValidationResult, "sourceEntityId" | "sourceEntityLabel" | "kind">,
   ): ExternalIdentifierValidationResult => ({
     ...baseResult,
     ...context,
+    relationshipLabel,
     valid: false,
     reason,
     message: buildExternalIdentifierInvalidationMessage(
-      relationship.label,
-      context?.targetEntityLabel ?? context?.sourceEntityLabel,
+      hostEntity.label,
+      relationshipLabel,
       reason,
     ),
   });
 
-  if (!relationship.externalIdentifierSourceAttributeId) {
-    return fail("manca il riferimento all'attributo identificatore sorgente");
+  if (!relationshipNode || relationshipNode.type !== "relationship") {
+    return fail("la relazione identificante non e piu disponibile");
   }
 
-  const sourceAttribute = nodeMap.get(relationship.externalIdentifierSourceAttributeId);
-  if (!sourceAttribute || sourceAttribute.type !== "attribute") {
-    return fail("l'attributo identificatore sorgente e stato rimosso");
+  const sourceEntity = nodeMap.get(externalIdentifier.sourceEntityId);
+  if (!sourceEntity || sourceEntity.type !== "entity") {
+    return fail("l'entita sorgente importata e stata rimossa");
   }
 
-  if (sourceAttribute.isIdentifier !== true) {
-    return fail(`l'attributo sorgente "${sourceAttribute.label}" non e piu marcato come identificatore`);
-  }
-
-  const sourceEntity = findEntityHostForAttribute(diagram, sourceAttribute.id);
-  if (!sourceEntity) {
-    return fail(`l'attributo sorgente "${sourceAttribute.label}" non e piu collegato a un'entita`);
-  }
-
-  if (!relationship.externalIdentifierTargetEntityId) {
-    return fail("manca il riferimento all'entita dipendente target", {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
-  }
-
-  const targetEntity = nodeMap.get(relationship.externalIdentifierTargetEntityId);
-  if (!targetEntity || targetEntity.type !== "entity") {
-    return fail("l'entita dipendente target e stata rimossa", {
-      sourceEntityId: sourceEntity.id,
-      sourceEntityLabel: sourceEntity.label,
-    });
-  }
-
-  if (sourceEntity.id === targetEntity.id) {
+  if (sourceEntity.id === hostEntity.id) {
     return fail("origine e destinazione coincidono sulla stessa entita", {
       sourceEntityId: sourceEntity.id,
       sourceEntityLabel: sourceEntity.label,
-      targetEntityId: targetEntity.id,
-      targetEntityLabel: targetEntity.label,
     });
   }
 
-  const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationship.id);
+  const participants = normalizeRelationshipExternalIdentifierParticipants(diagram, relationshipNode.id);
   const participantByEntityId = new Map(participants.map((participant) => [participant.entity.id, participant]));
   const distinctParticipantIds = new Set(participants.map((participant) => participant.entity.id));
   if (
     distinctParticipantIds.size !== 2 ||
     !participantByEntityId.has(sourceEntity.id) ||
-    !participantByEntityId.has(targetEntity.id)
+    !participantByEntityId.has(hostEntity.id)
   ) {
     return fail(
-      `la relazione non collega piu in modo coerente "${sourceEntity.label}" e "${targetEntity.label}"`,
+      `la relazione non collega piu in modo coerente "${sourceEntity.label}" e "${hostEntity.label}"`,
       {
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
-        targetEntityId: targetEntity.id,
-        targetEntityLabel: targetEntity.label,
       },
     );
   }
 
-  const dependentConnector = participantByEntityId.get(targetEntity.id);
+  const dependentConnector = participantByEntityId.get(hostEntity.id);
   const dependentCardinality = normalizeCardinality(
     dependentConnector
       ? getConnectorParticipation(
@@ -1472,134 +1778,144 @@ export function validateExternalIdentifier(
       : undefined,
   );
   if (dependentCardinality !== "1,1") {
-    return fail(`la cardinalita sul lato dipendente "${targetEntity.label}" non e piu (1,1)`, {
+    return fail(`la cardinalita sul lato dipendente "${hostEntity.label}" non e piu (1,1)`, {
       sourceEntityId: sourceEntity.id,
       sourceEntityLabel: sourceEntity.label,
-      targetEntityId: targetEntity.id,
-      targetEntityLabel: targetEntity.label,
     });
   }
 
-  if (!entityHasIdentifierContribution(diagram, sourceEntity.id)) {
-    return fail(
-      `l'entita "${sourceEntity.label}" non fornisce piu un contributo identificante attivo`,
-      {
-        sourceEntityId: sourceEntity.id,
-        sourceEntityLabel: sourceEntity.label,
-        targetEntityId: targetEntity.id,
-        targetEntityLabel: targetEntity.label,
-      },
-    );
+  const importedIdentifier = sourceEntity.internalIdentifiers?.find(
+    (candidate) => candidate.id === externalIdentifier.importedIdentifierId,
+  );
+  if (!importedIdentifier || importedIdentifier.attributeIds.length === 0) {
+    return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu disponibile`, {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+    });
   }
 
-  if (relationship.externalIdentifierMode === "composite") {
-    if (!relationship.externalIdentifierTargetAttributeId) {
-      return fail("manca il riferimento all'attributo target della composizione", {
+  const sourceDirectAttributeIds = new Set(getEntityDirectAttributes(diagram, sourceEntity.id).map((attribute) => attribute.id));
+  if (importedIdentifier.attributeIds.some((attributeId) => !sourceDirectAttributeIds.has(attributeId))) {
+    return fail(`l'identificatore importato da "${sourceEntity.label}" non e piu composto da attributi validi`, {
+      sourceEntityId: sourceEntity.id,
+      sourceEntityLabel: sourceEntity.label,
+    });
+  }
+
+  const hostDirectAttributes = getEntityDirectAttributes(diagram, hostEntity.id);
+  const hostDirectAttributeMap = new Map(hostDirectAttributes.map((attribute) => [attribute.id, attribute]));
+  const hostInternalAttributeIds = new Set(
+    (hostEntity.internalIdentifiers ?? []).flatMap((identifier) => identifier.attributeIds),
+  );
+  const seenLocalAttributeIds = new Set<string>();
+  for (const attributeId of externalIdentifier.localAttributeIds) {
+    if (seenLocalAttributeIds.has(attributeId)) {
+      return fail("contiene piu volte lo stesso attributo locale", {
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
-        targetEntityId: targetEntity.id,
-        targetEntityLabel: targetEntity.label,
+        kind: getExternalIdentifierKind(externalIdentifier),
       });
     }
 
-    const targetAttribute = nodeMap.get(relationship.externalIdentifierTargetAttributeId);
-    if (!targetAttribute || targetAttribute.type !== "attribute") {
-      return fail("l'attributo target della composizione e stato rimosso", {
+    seenLocalAttributeIds.add(attributeId);
+    const attributeNode = hostDirectAttributeMap.get(attributeId);
+    if (!attributeNode) {
+      return fail("contiene un attributo locale non piu diretto o non piu disponibile", {
         sourceEntityId: sourceEntity.id,
         sourceEntityLabel: sourceEntity.label,
-        targetEntityId: targetEntity.id,
-        targetEntityLabel: targetEntity.label,
+        kind: getExternalIdentifierKind(externalIdentifier),
       });
     }
 
-    const targetAttributeHost = findEntityHostForAttribute(diagram, targetAttribute.id);
-    if (!targetAttributeHost || targetAttributeHost.id !== targetEntity.id) {
-      return fail(
-        `l'attributo target "${targetAttribute.label}" non appartiene piu a "${targetEntity.label}"`,
-        {
-          sourceEntityId: sourceEntity.id,
-          sourceEntityLabel: sourceEntity.label,
-          targetEntityId: targetEntity.id,
-          targetEntityLabel: targetEntity.label,
-        },
-      );
+    if (!isEligibleLocalExternalIdentifierAttribute(attributeNode, hostInternalAttributeIds)) {
+      return fail(`l'attributo locale "${attributeNode.label}" non e piu eleggibile`, {
+        sourceEntityId: sourceEntity.id,
+        sourceEntityLabel: sourceEntity.label,
+        kind: getExternalIdentifierKind(externalIdentifier),
+      });
     }
   }
 
   return {
     ...baseResult,
+    relationshipLabel,
     sourceEntityId: sourceEntity.id,
     sourceEntityLabel: sourceEntity.label,
-    targetEntityId: targetEntity.id,
-    targetEntityLabel: targetEntity.label,
+    kind: getExternalIdentifierKind(externalIdentifier),
   };
 }
 
-export function isExternalIdentifierStillValid(diagram: DiagramDocument, relationshipId: string): boolean {
-  const relationshipNode = diagram.nodes.find(
-    (node): node is RelationshipNode => node.id === relationshipId && node.type === "relationship",
+export function isExternalIdentifierStillValid(
+  diagram: DiagramDocument,
+  hostEntityId: string,
+  externalIdentifierId: string,
+): boolean {
+  const hostEntity = diagram.nodes.find(
+    (node): node is EntityNode => node.id === hostEntityId && node.type === "entity",
   );
-  if (!relationshipNode || relationshipNode.isExternalIdentifier !== true) {
+  if (!hostEntity) {
     return false;
   }
 
-  return validateExternalIdentifier(diagram, relationshipNode).valid;
+  const externalIdentifier = hostEntity.externalIdentifiers?.find(
+    (identifier) => identifier.id === externalIdentifierId,
+  );
+  if (!externalIdentifier) {
+    return false;
+  }
+
+  return validateExternalIdentifier(diagram, hostEntity, externalIdentifier).valid;
 }
 
 export function revalidateExternalIdentifiers(
   diagram: DiagramDocument,
 ): { diagram: DiagramDocument; invalidations: ExternalIdentifierInvalidation[] } {
   const invalidations: ExternalIdentifierInvalidation[] = [];
-  let changed = false;
+  const synchronizedDiagram = synchronizeExternalIdentifiers(diagram);
+  const synchronizedEntityById = new Map(
+    synchronizedDiagram.nodes
+      .filter((node): node is EntityNode => node.type === "entity")
+      .map((entity) => [entity.id, entity]),
+  );
 
-  const nextNodes = diagram.nodes.map((node) => {
-    if (node.type !== "relationship") {
-      return node;
+  diagram.nodes.forEach((node) => {
+    if (node.type !== "entity") {
+      return;
     }
 
-    if (node.isExternalIdentifier === true) {
-      const validation = validateExternalIdentifier(diagram, node);
-      if (validation.valid) {
-        return node;
+    const synchronizedEntity = synchronizedEntityById.get(node.id);
+    const synchronizedExternalIdentifierIds = new Set(
+      synchronizedEntity?.externalIdentifiers?.map((identifier) => identifier.id) ?? [],
+    );
+
+    (node.externalIdentifiers ?? []).forEach((identifier) => {
+      if (synchronizedExternalIdentifierIds.has(identifier.id)) {
+        return;
       }
 
-      changed = true;
+      const validation = validateExternalIdentifier(diagram, node, identifier);
       invalidations.push({
-        relationshipId: node.id,
-        relationshipLabel: node.label,
+        externalIdentifierId: identifier.id,
+        hostEntityId: node.id,
+        hostEntityLabel: node.label,
+        relationshipId: validation.relationshipId,
+        relationshipLabel: validation.relationshipLabel,
         sourceEntityId: validation.sourceEntityId,
         sourceEntityLabel: validation.sourceEntityLabel,
-        targetEntityId: validation.targetEntityId,
-        targetEntityLabel: validation.targetEntityLabel,
         reason: validation.reason ?? "la dipendenza identificante non e piu soddisfatta",
         message:
           validation.message ??
           buildExternalIdentifierInvalidationMessage(
             node.label,
-            validation.targetEntityLabel ?? validation.sourceEntityLabel,
+            validation.relationshipLabel,
             validation.reason ?? "la dipendenza identificante non e piu soddisfatta",
           ),
       });
-      return clearExternalIdentifierMetadata(node);
-    }
-
-    if (relationshipHasExternalIdentifierMetadata(node)) {
-      changed = true;
-      return clearExternalIdentifierMetadata(node);
-    }
-
-    return node;
+    });
   });
 
-  if (!changed) {
-    return { diagram, invalidations };
-  }
-
   return {
-    diagram: {
-      ...diagram,
-      nodes: nextNodes,
-    },
+    diagram: synchronizedDiagram,
     invalidations,
   };
 }
@@ -1729,9 +2045,105 @@ function migrateLegacyEdgeCardinalities(
   };
 }
 
+interface LegacyRelationshipExternalIdentifier {
+  relationshipId: string;
+  sourceAttributeId?: string;
+  hostEntityId?: string;
+  localAttributeId?: string;
+  offset?: number;
+  markerOffsetX?: number;
+  markerOffsetY?: number;
+}
+
+function migrateLegacyRelationshipExternalIdentifiers(
+  diagram: DiagramDocument,
+  legacyIdentifiers: LegacyRelationshipExternalIdentifier[],
+): DiagramDocument {
+  if (legacyIdentifiers.length === 0) {
+    return diagram;
+  }
+
+  const nextNodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  let changed = false;
+
+  legacyIdentifiers.forEach((legacyIdentifier, legacyIndex) => {
+    const relationshipNode = nextNodeById.get(legacyIdentifier.relationshipId);
+    if (relationshipNode?.type !== "relationship") {
+      return;
+    }
+
+    const sourceAttribute =
+      typeof legacyIdentifier.sourceAttributeId === "string"
+        ? nextNodeById.get(legacyIdentifier.sourceAttributeId)
+        : undefined;
+    if (sourceAttribute?.type !== "attribute") {
+      return;
+    }
+
+    const hostEntity =
+      typeof legacyIdentifier.hostEntityId === "string"
+        ? nextNodeById.get(legacyIdentifier.hostEntityId)
+        : undefined;
+    if (hostEntity?.type !== "entity") {
+      return;
+    }
+
+    const sourceEntity = findEntityHostForAttribute(diagram, sourceAttribute.id);
+    if (!sourceEntity || sourceEntity.id === hostEntity.id) {
+      return;
+    }
+
+    const sourceIdentifier = findInternalIdentifierByAttribute(sourceEntity, sourceAttribute.id);
+    if (!sourceIdentifier) {
+      return;
+    }
+
+    const existingExternalIdentifiers = hostEntity.externalIdentifiers ?? [];
+    const duplicate = existingExternalIdentifiers.some(
+      (identifier) =>
+        identifier.relationshipId === relationshipNode.id &&
+        identifier.sourceEntityId === sourceEntity.id &&
+        identifier.importedIdentifierId === sourceIdentifier.id &&
+        identifier.localAttributeIds.length === (legacyIdentifier.localAttributeId ? 1 : 0) &&
+        (legacyIdentifier.localAttributeId === undefined ||
+          identifier.localAttributeIds[0] === legacyIdentifier.localAttributeId),
+    );
+    if (duplicate) {
+      return;
+    }
+
+    nextNodeById.set(hostEntity.id, {
+      ...hostEntity,
+      externalIdentifiers: [
+        ...existingExternalIdentifiers,
+        {
+          id: `externalIdentifier-legacy-${hostEntity.id}-${legacyIndex + 1}`,
+          relationshipId: relationshipNode.id,
+          sourceEntityId: sourceEntity.id,
+          importedIdentifierId: sourceIdentifier.id,
+          localAttributeIds:
+            typeof legacyIdentifier.localAttributeId === "string" ? [legacyIdentifier.localAttributeId] : [],
+          offset: legacyIdentifier.offset,
+          markerOffsetX: legacyIdentifier.markerOffsetX,
+          markerOffsetY: legacyIdentifier.markerOffsetY,
+        },
+      ],
+    });
+    changed = true;
+  });
+
+  return changed
+    ? {
+        ...diagram,
+        nodes: diagram.nodes.map((node) => nextNodeById.get(node.id) ?? node),
+      }
+    : diagram;
+}
+
 export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
   const meta = parsed.meta ?? { name: "Diagramma importato", version: CURRENT_DIAGRAM_VERSION };
+  const legacyRelationshipExternalIdentifiers: LegacyRelationshipExternalIdentifier[] = [];
   const nodes = Array.isArray(parsed.nodes)
     ? parsed.nodes
         .filter(
@@ -1811,6 +2223,9 @@ export function parseDiagram(rawJson: string): DiagramDocument {
               isWeak: node.isWeak === true,
               internalIdentifiers:
                 parsedInternalIdentifiers.length > 0 ? parsedInternalIdentifiers : undefined,
+              externalIdentifiers: sanitizeExternalIdentifiers(
+                (node as { externalIdentifiers?: unknown }).externalIdentifiers,
+              ),
               relationshipParticipations: sanitizeEntityRelationshipParticipations(
                 (node as { relationshipParticipations?: unknown }).relationshipParticipations,
               ),
@@ -1818,38 +2233,56 @@ export function parseDiagram(rawJson: string): DiagramDocument {
           }
 
           if (node.type === "relationship") {
+            const rawNode = node as {
+              isExternalIdentifier?: unknown;
+              externalIdentifierSourceAttributeId?: unknown;
+              externalIdentifierTargetEntityId?: unknown;
+              externalIdentifierTargetAttributeId?: unknown;
+              externalIdentifierOffset?: unknown;
+              externalIdentifierMarkerOffsetX?: unknown;
+              externalIdentifierMarkerOffsetY?: unknown;
+            };
+            if (
+              rawNode.isExternalIdentifier === true ||
+              typeof rawNode.externalIdentifierSourceAttributeId === "string" ||
+              typeof rawNode.externalIdentifierTargetEntityId === "string" ||
+              typeof rawNode.externalIdentifierTargetAttributeId === "string"
+            ) {
+              legacyRelationshipExternalIdentifiers.push({
+                relationshipId: node.id,
+                sourceAttributeId:
+                  typeof rawNode.externalIdentifierSourceAttributeId === "string"
+                    ? rawNode.externalIdentifierSourceAttributeId
+                    : undefined,
+                hostEntityId:
+                  typeof rawNode.externalIdentifierTargetEntityId === "string"
+                    ? rawNode.externalIdentifierTargetEntityId
+                    : undefined,
+                localAttributeId:
+                  typeof rawNode.externalIdentifierTargetAttributeId === "string"
+                    ? rawNode.externalIdentifierTargetAttributeId
+                    : undefined,
+                offset:
+                  typeof rawNode.externalIdentifierOffset === "number" &&
+                  Number.isFinite(rawNode.externalIdentifierOffset)
+                    ? rawNode.externalIdentifierOffset
+                    : undefined,
+                markerOffsetX:
+                  typeof rawNode.externalIdentifierMarkerOffsetX === "number" &&
+                  Number.isFinite(rawNode.externalIdentifierMarkerOffsetX)
+                    ? rawNode.externalIdentifierMarkerOffsetX
+                    : undefined,
+                markerOffsetY:
+                  typeof rawNode.externalIdentifierMarkerOffsetY === "number" &&
+                  Number.isFinite(rawNode.externalIdentifierMarkerOffsetY)
+                    ? rawNode.externalIdentifierMarkerOffsetY
+                    : undefined,
+              });
+            }
+
             return {
               ...node,
               label: nodeLabel,
-              isExternalIdentifier: node.isExternalIdentifier === true,
-              externalIdentifierMode:
-                node.externalIdentifierMode === "entity" || node.externalIdentifierMode === "composite"
-                  ? node.externalIdentifierMode
-                  : undefined,
-              externalIdentifierSourceAttributeId:
-                typeof node.externalIdentifierSourceAttributeId === "string"
-                  ? node.externalIdentifierSourceAttributeId
-                  : undefined,
-              externalIdentifierTargetEntityId:
-                typeof node.externalIdentifierTargetEntityId === "string"
-                  ? node.externalIdentifierTargetEntityId
-                  : undefined,
-              externalIdentifierTargetAttributeId:
-                typeof node.externalIdentifierTargetAttributeId === "string"
-                  ? node.externalIdentifierTargetAttributeId
-                  : undefined,
-              externalIdentifierOffset:
-                typeof node.externalIdentifierOffset === "number" && Number.isFinite(node.externalIdentifierOffset)
-                  ? node.externalIdentifierOffset
-                  : undefined,
-              externalIdentifierMarkerOffsetX:
-                typeof node.externalIdentifierMarkerOffsetX === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetX)
-                  ? node.externalIdentifierMarkerOffsetX
-                  : undefined,
-              externalIdentifierMarkerOffsetY:
-                typeof node.externalIdentifierMarkerOffsetY === "number" && Number.isFinite(node.externalIdentifierMarkerOffsetY)
-                  ? node.externalIdentifierMarkerOffsetY
-                  : undefined,
             };
           }
 
@@ -1923,16 +2356,26 @@ export function parseDiagram(rawJson: string): DiagramDocument {
   };
 
   const migratedDiagram = migrateLegacyEdgeCardinalities(parsedDiagram, legacyCardinalityByEdgeId);
-  const synchronizedParticipations = synchronizeEntityRelationshipParticipations(migratedDiagram);
-  const nodeNameIdentitySynchronized = synchronizeNodeNameIdentity(synchronizedParticipations).diagram;
-  const synchronizedDiagram = synchronizeInternalIdentifiers(
-    synchronizeEntityRelationshipParticipations(nodeNameIdentitySynchronized),
+  const synchronizedBeforeLegacyExternal = synchronizeInternalIdentifiers(
+    synchronizeEntityRelationshipParticipations(migratedDiagram),
+  );
+  const migratedLegacyExternalDiagram = migrateLegacyRelationshipExternalIdentifiers(
+    synchronizedBeforeLegacyExternal,
+    legacyRelationshipExternalIdentifiers,
+  );
+  const nodeNameIdentitySynchronized = synchronizeNodeNameIdentity(migratedLegacyExternalDiagram).diagram;
+  const synchronizedDiagram = synchronizeExternalIdentifiers(
+    synchronizeInternalIdentifiers(
+      synchronizeEntityRelationshipParticipations(nodeNameIdentitySynchronized),
+    ),
   );
   return revalidateExternalIdentifiers(synchronizedDiagram).diagram;
 }
 
 export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
-  diagram = synchronizeInternalIdentifiers(diagram);
+  diagram = synchronizeExternalIdentifiers(
+    synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(diagram)),
+  );
   const issues: ValidationIssue[] = [];
   const edgesByNode = new Map<string, DiagramEdge[]>();
   const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
@@ -2018,20 +2461,6 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         });
       }
 
-      if (node.isExternalIdentifier === true) {
-        const externalValidation = validateExternalIdentifier(diagram, node);
-        if (!externalValidation.valid) {
-          issues.push({
-            id: `external-id-invalid-${node.id}`,
-            level: "warning",
-            message:
-              externalValidation.message ??
-              `L'identificatore esterno su "${node.label}" non e valido: controlla i legami identificanti.`,
-            targetId: node.id,
-            targetType: "node",
-          });
-        }
-      }
     }
 
     if (node.type === "entity") {
@@ -2067,15 +2496,9 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         const otherNode = nodeMap.get(otherId);
         return otherNode?.type === "attribute";
       });
-      const hasExternalIdentifierRelationship = diagram.nodes.some(
-        (candidate) =>
-          candidate.type === "relationship" &&
-          candidate.isExternalIdentifier === true &&
-          candidate.externalIdentifierTargetEntityId === node.id &&
-          typeof candidate.externalIdentifierSourceAttributeId === "string",
-      );
+      const hasExternalIdentifier = (node.externalIdentifiers ?? []).length > 0;
 
-      if (!hasAttribute && !hasExternalIdentifierRelationship) {
+      if (!hasAttribute && !hasExternalIdentifier) {
         issues.push({
           id: `entity-no-attributes-${node.id}`,
           level: "warning",
@@ -2085,7 +2508,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         });
       }
 
-      if (node.isWeak === true && !hasExternalIdentifierRelationship) {
+      if (node.isWeak === true && !hasExternalIdentifier) {
         issues.push({
           id: `weak-entity-${node.id}`,
           level: "warning",
@@ -2176,6 +2599,56 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
           }
 
           attributeOwnerByIdentifier.set(attributeId, identifierLabel);
+        });
+      });
+
+      const externalIdentifiers = node.externalIdentifiers ?? [];
+      const attributeOwnerByExternalIdentifier = new Map<string, string>();
+      externalIdentifiers.forEach((identifier, index) => {
+        const identifierLabel = identifier.id || `external-identifier-${index + 1}`;
+        const validation = validateExternalIdentifier(diagram, node, identifier);
+        if (!validation.valid) {
+          issues.push({
+            id: `external-identifier-invalid-${node.id}-${identifier.id}`,
+            level: "warning",
+            message:
+              validation.message ??
+              `L'identificatore esterno "${identifierLabel}" su "${node.label}" non e valido.`,
+            targetId: node.id,
+            targetType: "node",
+          });
+        }
+
+        identifier.localAttributeIds.forEach((attributeId) => {
+          const attributeNode = directAttributeById.get(attributeId);
+          if (!attributeNode) {
+            return;
+          }
+
+          const internalOwner = attributeOwnerByIdentifier.get(attributeId);
+          if (internalOwner) {
+            issues.push({
+              id: `external-identifier-internal-overlap-${node.id}-${identifier.id}-${attributeId}`,
+              level: "error",
+              message: `L'attributo "${attributeNode.label}" non puo completare l'identificatore esterno "${identifierLabel}" perche appartiene gia all'identificatore interno "${internalOwner}".`,
+              targetId: node.id,
+              targetType: "node",
+            });
+          }
+
+          const externalOwner = attributeOwnerByExternalIdentifier.get(attributeId);
+          if (externalOwner && externalOwner !== identifierLabel) {
+            issues.push({
+              id: `external-identifier-overlap-${node.id}-${identifier.id}-${attributeId}`,
+              level: "error",
+              message: `L'attributo "${attributeNode.label}" appartiene a piu identificatori esterni su "${node.label}".`,
+              targetId: node.id,
+              targetType: "node",
+            });
+            return;
+          }
+
+          attributeOwnerByExternalIdentifier.set(attributeId, identifierLabel);
         });
       });
     }

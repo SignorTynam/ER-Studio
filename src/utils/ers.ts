@@ -3,6 +3,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EdgeKind,
+  ExternalIdentifier,
   EntityRelationshipParticipation,
   InternalIdentifier,
   IsaCompleteness,
@@ -18,7 +19,12 @@ import {
   isSupportedCardinality,
   normalizeSupportedCardinality,
 } from "./cardinality";
-import { canConnect, getMultivaluedAttributeSize, validateDiagram } from "./diagram";
+import {
+  canConnect,
+  getExternalIdentifierImportedAttributes,
+  getMultivaluedAttributeSize,
+  validateDiagram,
+} from "./diagram";
 import { GRID_SIZE, snapValue } from "./geometry";
 
 const DEFAULT_NODE_SIZES: Record<NodeKind, { width: number; height: number }> = {
@@ -46,10 +52,9 @@ const LEGACY_NODE_DIRECTIVES = new Set([
 ]);
 
 interface RelationshipExternalSpec {
-  mode: "entity" | "composite";
-  sourceAttributeAlias?: string;
-  targetEntityAlias?: string;
-  targetAttributeAlias?: string;
+  hostEntityAlias?: string;
+  importedAttributeAliases: string[];
+  localAttributeAliases: string[];
   offset?: number;
   markerOffsetX?: number;
   markerOffsetY?: number;
@@ -79,6 +84,17 @@ interface ParsedInternalIdentifierSpec {
   line: number;
   entityAlias: string;
   attributeAliases: string[];
+}
+
+interface ParsedExternalIdentifierSpec {
+  line: number;
+  relationshipAlias: string;
+  hostEntityAlias: string;
+  importedAttributeAliases: string[];
+  localAttributeAliases: string[];
+  offset?: number;
+  markerOffsetX?: number;
+  markerOffsetY?: number;
 }
 
 interface StructuredExpansion {
@@ -674,6 +690,104 @@ function parseInternalIdentifierStatement(tokens: string[], line: number): Parse
   };
 }
 
+function parseQualifiedAliasList(value: string, line: number, label: string): string[] {
+  const aliases = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (aliases.length === 0) {
+    throw new ErsParseError(line, `${label} richiede almeno un riferimento qualificato.`);
+  }
+
+  aliases.forEach((alias) => {
+    if (!alias.includes(".")) {
+      throw new ErsParseError(line, `${label} deve usare la forma entita.attributo.`);
+    }
+  });
+
+  return aliases;
+}
+
+function parseExternalIdentifierStatement(tokens: string[], line: number): ParsedExternalIdentifierSpec {
+  const state = { index: 1 };
+  const relationshipAlias = readIdentifier(tokens, state, line, "Relazione identificatore esterno mancante.");
+  assertUnqualifiedAlias(relationshipAlias, line, "Il nome relazione");
+
+  let hostEntityAlias: string | undefined;
+  let importedAttributeAliases: string[] = [];
+  let localAttributeAliases: string[] = [];
+  let offset: number | undefined;
+  let markerOffsetX: number | undefined;
+  let markerOffsetY: number | undefined;
+
+  while (state.index < tokens.length) {
+    const directive = readIdentifier(tokens, state, line, "Direttiva identificatore esterno non valida.");
+
+    switch (directive) {
+      case "host":
+      case "to":
+        hostEntityAlias = readIdentifier(tokens, state, line, "Entita host identificatore esterno mancante.");
+        assertUnqualifiedAlias(hostEntityAlias, line, "Il nome entita");
+        break;
+      case "import":
+      case "fromIdentifier":
+        importedAttributeAliases = parseQualifiedAliasList(
+          readStringValue(tokens, state, line, "Identificatore importato mancante."),
+          line,
+          "fromIdentifier",
+        );
+        break;
+      case "from":
+      case "sourceAttribute":
+        importedAttributeAliases = [
+          readStructuredAttributeReference(tokens, state, line, "Attributo sorgente external"),
+        ];
+        break;
+      case "local":
+        localAttributeAliases = parseQualifiedAliasList(
+          readStringValue(tokens, state, line, "Attributi locali identificatore esterno mancanti."),
+          line,
+          "local",
+        );
+        break;
+      case "target":
+      case "targetAttribute":
+        localAttributeAliases = [
+          readStructuredAttributeReference(tokens, state, line, "Attributo locale external"),
+        ];
+        break;
+      case "offset":
+        offset = readNumberValue(tokens, state, line, "Offset external non valido.");
+        break;
+      case "markerOffset":
+        markerOffsetX = readNumberValue(tokens, state, line, "Marker offset X non valido.");
+        markerOffsetY = readNumberValue(tokens, state, line, "Marker offset Y non valido.");
+        break;
+      default:
+        throw new ErsParseError(line, `Direttiva identificatore esterno non riconosciuta: "${directive}".`);
+    }
+  }
+
+  if (!hostEntityAlias || importedAttributeAliases.length === 0) {
+    throw new ErsParseError(
+      line,
+      "external-identifier richiede almeno relazione, host e identificatore importato.",
+    );
+  }
+
+  return {
+    line,
+    relationshipAlias,
+    hostEntityAlias,
+    importedAttributeAliases,
+    localAttributeAliases,
+    offset,
+    markerOffsetX,
+    markerOffsetY,
+  };
+}
+
 function parseStructuredConnections(
   tokens: string[],
   state: { index: number },
@@ -717,35 +831,53 @@ function readStructuredAttributeReference(tokens: string[], state: { index: numb
 function parseStructuredExternal(tokens: string[], line: number): RelationshipExternalSpec {
   const state = { index: 1 };
   const external: RelationshipExternalSpec = {
-    mode: readEnumValue(tokens, state, line, ["entity", "composite"], "Modalita external"),
+    importedAttributeAliases: [],
+    localAttributeAliases: [],
   };
+
+  if (
+    state.index < tokens.length &&
+    (tokens[state.index] === "entity" || tokens[state.index] === "composite")
+  ) {
+    state.index += 1;
+  }
 
   while (state.index < tokens.length) {
     const directive = readIdentifier(tokens, state, line, "Direttiva external non valida.");
 
     switch (directive) {
+      case "import":
+      case "fromIdentifier":
+        external.importedAttributeAliases = parseQualifiedAliasList(
+          readStringValue(tokens, state, line, "Identificatore importato external mancante."),
+          line,
+          "fromIdentifier",
+        );
+        break;
       case "from":
       case "sourceAttribute":
-        external.sourceAttributeAlias = readStructuredAttributeReference(
-          tokens,
-          state,
-          line,
-          "Attributo sorgente external",
-        );
+        external.importedAttributeAliases = [
+          readStructuredAttributeReference(tokens, state, line, "Attributo sorgente external"),
+        ];
         break;
       case "to":
       case "targetEntity":
-        external.targetEntityAlias = readIdentifier(tokens, state, line, "Entita target external mancante.");
-        assertUnqualifiedAlias(external.targetEntityAlias, line, "Il nome entita");
+      case "host":
+        external.hostEntityAlias = readIdentifier(tokens, state, line, "Entita host external mancante.");
+        assertUnqualifiedAlias(external.hostEntityAlias, line, "Il nome entita");
+        break;
+      case "local":
+        external.localAttributeAliases = parseQualifiedAliasList(
+          readStringValue(tokens, state, line, "Attributi locali external mancanti."),
+          line,
+          "local",
+        );
         break;
       case "target":
       case "targetAttribute":
-        external.targetAttributeAlias = readStructuredAttributeReference(
-          tokens,
-          state,
-          line,
-          "Attributo target external",
-        );
+        external.localAttributeAliases = [
+          readStructuredAttributeReference(tokens, state, line, "Attributo locale external"),
+        ];
         break;
       case "offset":
         external.offset = readNumberValue(tokens, state, line, "Offset external non valido.");
@@ -759,12 +891,11 @@ function parseStructuredExternal(tokens: string[], line: number): RelationshipEx
     }
   }
 
-  if (!external.sourceAttributeAlias || !external.targetEntityAlias) {
-    throw new ErsParseError(line, "Una relazione external richiede almeno from/sourceAttribute e to/targetEntity.");
-  }
-
-  if (external.mode === "composite" && !external.targetAttributeAlias) {
-    throw new ErsParseError(line, "La modalita external composite richiede target/targetAttribute.");
+  if (!external.hostEntityAlias || external.importedAttributeAliases.length === 0) {
+    throw new ErsParseError(
+      line,
+      "Una relazione external richiede almeno un identificatore importato e l'entita host.",
+    );
   }
 
   return external;
@@ -793,34 +924,42 @@ function emitLegacyAttributeLines(hostAlias: string, attribute: StructuredAttrib
   return [parts.join(" "), `attribute-link ${qualifiedAlias} -> ${hostAlias}`];
 }
 
-function buildLegacyRelationshipLine(alias: string, label: string, externalSpec?: RelationshipExternalSpec): string {
+function buildLegacyRelationshipLine(alias: string, label: string): string {
   const parts = ["relationship", alias, "label", quoteValue(label)];
 
-  if (externalSpec) {
-    parts.push("external", externalSpec.mode);
+  return parts.join(" ");
+}
 
-    if (externalSpec.sourceAttributeAlias) {
-      parts.push("sourceAttribute", externalSpec.sourceAttributeAlias);
-    }
-    if (externalSpec.targetEntityAlias) {
-      parts.push("targetEntity", externalSpec.targetEntityAlias);
-    }
-    if (externalSpec.targetAttributeAlias) {
-      parts.push("targetAttribute", externalSpec.targetAttributeAlias);
-    }
-    if (typeof externalSpec.offset === "number" && externalSpec.offset !== 0) {
-      parts.push("offset", formatNumber(externalSpec.offset));
-    }
-    if (
-      typeof externalSpec.markerOffsetX === "number" ||
-      typeof externalSpec.markerOffsetY === "number"
-    ) {
-      parts.push(
-        "markerOffset",
-        formatNumber(externalSpec.markerOffsetX ?? 0),
-        formatNumber(externalSpec.markerOffsetY ?? 0),
-      );
-    }
+function buildLegacyExternalIdentifierLine(
+  relationshipAlias: string,
+  externalSpec: RelationshipExternalSpec,
+): string {
+  const parts = [
+    "external-identifier",
+    relationshipAlias,
+    "host",
+    externalSpec.hostEntityAlias as string,
+    "fromIdentifier",
+    quoteValue(externalSpec.importedAttributeAliases.join(",")),
+  ];
+
+  if (externalSpec.localAttributeAliases.length > 0) {
+    parts.push("local", quoteValue(externalSpec.localAttributeAliases.join(",")));
+  }
+
+  if (typeof externalSpec.offset === "number" && externalSpec.offset !== 0) {
+    parts.push("offset", formatNumber(externalSpec.offset));
+  }
+
+  if (
+    typeof externalSpec.markerOffsetX === "number" ||
+    typeof externalSpec.markerOffsetY === "number"
+  ) {
+    parts.push(
+      "markerOffset",
+      formatNumber(externalSpec.markerOffsetX ?? 0),
+      formatNumber(externalSpec.markerOffsetY ?? 0),
+    );
   }
 
   return parts.join(" ");
@@ -990,7 +1129,7 @@ function expandStructuredRelation(
 
   const allConnections = [...inlineConnections];
   const relationAttributes: StructuredAttributeSpec[] = [];
-  let externalSpec: RelationshipExternalSpec | undefined;
+  const externalSpecs: RelationshipExternalSpec[] = [];
   let nextIndex = startIndex;
 
   if (hasBlock) {
@@ -1028,7 +1167,7 @@ function expandStructuredRelation(
       }
 
       if (keyword === "external") {
-        externalSpec = parseStructuredExternal(entry.tokens, entry.line);
+        externalSpecs.push(parseStructuredExternal(entry.tokens, entry.line));
         return;
       }
 
@@ -1037,8 +1176,15 @@ function expandStructuredRelation(
   }
 
   const emitted: Array<{ line: number; text: string }> = [
-    { line, text: buildLegacyRelationshipLine(alias, label, externalSpec) },
+    { line, text: buildLegacyRelationshipLine(alias, label) },
   ];
+
+  externalSpecs.forEach((externalSpec) => {
+    emitted.push({
+      line,
+      text: buildLegacyExternalIdentifierLine(alias, externalSpec),
+    });
+  });
 
   relationAttributes.forEach((attribute) => {
     emitLegacyAttributeLines(alias, attribute).forEach((text) => {
@@ -1229,57 +1375,92 @@ function parseNodeStatement(
         if (node.type !== "relationship") {
           throw new ErsParseError(line, "La direttiva external e valida solo per le relazioni.");
         }
-        externalSpec = externalSpec ?? { mode: "entity" };
-        externalSpec.mode = readEnumValue(tokens, state, line, ["entity", "composite"], "Modalita external");
+        externalSpec = externalSpec ?? {
+          importedAttributeAliases: [],
+          localAttributeAliases: [],
+        };
+        if (
+          state.index < tokens.length &&
+          (tokens[state.index] === "entity" || tokens[state.index] === "composite")
+        ) {
+          state.index += 1;
+        }
         break;
       case "sourceAttribute":
-        if (node.type !== "relationship") {
-          throw new ErsParseError(line, "La direttiva sourceAttribute e valida solo per le relazioni.");
-        }
-        externalSpec = externalSpec ?? { mode: "entity" };
-        externalSpec.sourceAttributeAlias = readIdentifier(
-          tokens,
-          state,
-          line,
-          "sourceAttribute richiede un attributo sorgente.",
-        );
-        break;
       case "targetEntity":
-        if (node.type !== "relationship") {
-          throw new ErsParseError(line, "La direttiva targetEntity e valida solo per le relazioni.");
-        }
-        externalSpec = externalSpec ?? { mode: "entity" };
-        externalSpec.targetEntityAlias = readIdentifier(
-          tokens,
-          state,
-          line,
-          "targetEntity richiede un'entita.",
-        );
-        break;
       case "targetAttribute":
+      case "from":
+      case "to":
+      case "target":
+      case "host":
+      case "fromIdentifier":
+      case "import":
+      case "local":
         if (node.type !== "relationship") {
-          throw new ErsParseError(line, "La direttiva targetAttribute e valida solo per le relazioni.");
+          throw new ErsParseError(line, `La direttiva ${directive} e valida solo per le relazioni.`);
         }
-        externalSpec = externalSpec ?? { mode: "composite" };
-        externalSpec.targetAttributeAlias = readIdentifier(
-          tokens,
-          state,
-          line,
-          "targetAttribute richiede un attributo.",
-        );
+        externalSpec = externalSpec ?? {
+          importedAttributeAliases: [],
+          localAttributeAliases: [],
+        };
+        switch (directive) {
+          case "sourceAttribute":
+          case "from":
+            externalSpec.importedAttributeAliases = [
+              readIdentifier(tokens, state, line, "sourceAttribute richiede un attributo sorgente."),
+            ];
+            break;
+          case "targetEntity":
+          case "to":
+          case "host":
+            externalSpec.hostEntityAlias = readIdentifier(
+              tokens,
+              state,
+              line,
+              "targetEntity richiede un'entita.",
+            );
+            break;
+          case "targetAttribute":
+          case "target":
+            externalSpec.localAttributeAliases = [
+              readIdentifier(tokens, state, line, "targetAttribute richiede un attributo."),
+            ];
+            break;
+          case "fromIdentifier":
+          case "import":
+            externalSpec.importedAttributeAliases = parseQualifiedAliasList(
+              readStringValue(tokens, state, line, "Identificatore importato mancante."),
+              line,
+              "fromIdentifier",
+            );
+            break;
+          case "local":
+            externalSpec.localAttributeAliases = parseQualifiedAliasList(
+              readStringValue(tokens, state, line, "Attributi locali mancanti."),
+              line,
+              "local",
+            );
+            break;
+        }
         break;
       case "offset":
         if (node.type !== "relationship") {
           throw new ErsParseError(line, "La direttiva offset e valida solo per le relazioni in external mode.");
         }
-        externalSpec = externalSpec ?? { mode: "entity" };
+        externalSpec = externalSpec ?? {
+          importedAttributeAliases: [],
+          localAttributeAliases: [],
+        };
         externalSpec.offset = readNumberValue(tokens, state, line, "Offset external non valido.");
         break;
       case "markerOffset":
         if (node.type !== "relationship") {
           throw new ErsParseError(line, "La direttiva markerOffset e valida solo per le relazioni in external mode.");
         }
-        externalSpec = externalSpec ?? { mode: "entity" };
+        externalSpec = externalSpec ?? {
+          importedAttributeAliases: [],
+          localAttributeAliases: [],
+        };
         externalSpec.markerOffsetX = readNumberValue(tokens, state, line, "Marker offset X non valido.");
         externalSpec.markerOffsetY = readNumberValue(tokens, state, line, "Marker offset Y non valido.");
         break;
@@ -1308,16 +1489,12 @@ function parseNodeStatement(
   if (
     node.type === "relationship" &&
     externalSpec &&
-    (!externalSpec.sourceAttributeAlias || !externalSpec.targetEntityAlias)
+    (externalSpec.importedAttributeAliases.length === 0 || !externalSpec.hostEntityAlias)
   ) {
     throw new ErsParseError(
       line,
-      "Una relazione external richiede almeno sourceAttribute e targetEntity.",
+      "Una relazione external richiede almeno un identificatore importato e l'entita host.",
     );
-  }
-
-  if (node.type === "relationship" && externalSpec?.mode === "composite" && !externalSpec.targetAttributeAlias) {
-    throw new ErsParseError(line, "La modalita external composite richiede targetAttribute.");
   }
 
   return { line, alias, node, externalSpec };
@@ -1672,12 +1849,19 @@ function buildRelationLines(
   const attributes = (attributesByHostId.get(relationship.id) ?? [])
     .filter((node): node is Extract<DiagramNode, { type: "attribute" }> => node.type === "attribute")
     .sort(compareNodes);
+  const relationshipExternalIdentifiers = diagram.nodes
+    .filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity")
+    .flatMap((entity) =>
+      (entity.externalIdentifiers ?? [])
+        .filter((identifier) => identifier.relationshipId === relationship.id)
+        .map((identifier) => ({ entity, identifier })),
+    );
   const relationSimpleIdentifierAttributeIds = new Set<string>();
 
   if (
     connectors.length === 2 &&
     attributes.length === 0 &&
-    relationship.isExternalIdentifier !== true
+    relationshipExternalIdentifiers.length === 0
   ) {
     return [
       `${formatNamedDefinition("relation", relationAlias, relationship.label)} ${connectors[0].entityAlias} ${quoteValue(
@@ -1698,34 +1882,47 @@ function buildRelationLines(
     );
   });
 
-  if (relationship.isExternalIdentifier === true) {
-    const sourceAttributeAlias =
-      relationship.externalIdentifierSourceAttributeId &&
-      aliasByNodeId.get(relationship.externalIdentifierSourceAttributeId);
-    const targetEntityAlias =
-      relationship.externalIdentifierTargetEntityId &&
-      aliasByNodeId.get(relationship.externalIdentifierTargetEntityId);
-    const targetAttributeAlias =
-      relationship.externalIdentifierTargetAttributeId &&
-      aliasByNodeId.get(relationship.externalIdentifierTargetAttributeId);
-
-    if (sourceAttributeAlias && targetEntityAlias) {
-      const externalParts = [
-        "  external",
-        relationship.externalIdentifierMode ?? "entity",
-        "from",
-        sourceAttributeAlias,
-        "to",
-        targetEntityAlias,
-      ];
-
-      if (targetAttributeAlias) {
-        externalParts.push("target", targetAttributeAlias);
-      }
-
-      lines.push(externalParts.join(" "));
+  relationshipExternalIdentifiers.forEach(({ entity, identifier }) => {
+    const importedAttributeAliases = getExternalIdentifierImportedAttributes(diagram, identifier)
+      .map((attribute) => aliasByNodeId.get(attribute.id))
+      .filter((alias): alias is string => typeof alias === "string" && alias.length > 0);
+    const hostEntityAlias = aliasByNodeId.get(entity.id);
+    if (!hostEntityAlias || importedAttributeAliases.length === 0) {
+      return;
     }
-  }
+
+    const externalParts = [
+      "  external",
+      "fromIdentifier",
+      quoteValue(importedAttributeAliases.join(",")),
+      "to",
+      hostEntityAlias,
+    ];
+    const localAttributeAliases = identifier.localAttributeIds
+      .map((attributeId) => aliasByNodeId.get(attributeId))
+      .filter((alias): alias is string => typeof alias === "string" && alias.length > 0);
+
+    if (localAttributeAliases.length > 0) {
+      externalParts.push("local", quoteValue(localAttributeAliases.join(",")));
+    }
+
+    if (typeof identifier.offset === "number" && identifier.offset !== 0) {
+      externalParts.push("offset", formatNumber(identifier.offset));
+    }
+
+    if (
+      typeof identifier.markerOffsetX === "number" ||
+      typeof identifier.markerOffsetY === "number"
+    ) {
+      externalParts.push(
+        "markerOffset",
+        formatNumber(identifier.markerOffsetX ?? 0),
+        formatNumber(identifier.markerOffsetY ?? 0),
+      );
+    }
+
+    lines.push(externalParts.join(" "));
+  });
 
   lines.push("}");
   return lines;
@@ -2092,6 +2289,7 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   const parsedNodes: ParsedNodeSpec[] = [];
   const parsedEdges: ParsedEdgeSpec[] = [];
   const parsedInternalIdentifiers: ParsedInternalIdentifierSpec[] = [];
+  const parsedExternalIdentifiers: ParsedExternalIdentifierSpec[] = [];
   const aliasMap = new Map<string, ParsedNodeSpec>();
   let diagramName = "Diagramma ER";
 
@@ -2153,6 +2351,11 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
 
     if (keyword === "internal-identifier" || keyword === "internalIdentifier") {
       parsedInternalIdentifiers.push(parseInternalIdentifierStatement(tokens, line));
+      return;
+    }
+
+    if (keyword === "external-identifier" || keyword === "externalIdentifier") {
+      parsedExternalIdentifiers.push(parseExternalIdentifierStatement(tokens, line));
       return;
     }
 
@@ -2304,6 +2507,23 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
     internalIdentifiersByEntityId.set(entity.id, nextIdentifiers);
   });
 
+  parsedNodes.forEach((entry) => {
+    if (entry.node.type !== "relationship" || !entry.externalSpec || !entry.externalSpec.hostEntityAlias) {
+      return;
+    }
+
+    parsedExternalIdentifiers.push({
+      line: entry.line,
+      relationshipAlias: entry.alias,
+      hostEntityAlias: entry.externalSpec.hostEntityAlias,
+      importedAttributeAliases: entry.externalSpec.importedAttributeAliases,
+      localAttributeAliases: entry.externalSpec.localAttributeAliases,
+      offset: entry.externalSpec.offset,
+      markerOffsetX: entry.externalSpec.markerOffsetX,
+      markerOffsetY: entry.externalSpec.markerOffsetY,
+    });
+  });
+
   const nodes = parsedNodes.map((entry) => {
     if (entry.node.type === "entity") {
       const internalIdentifiers = internalIdentifiersByEntityId.get(entry.node.id);
@@ -2317,43 +2537,67 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       return entry.node;
     }
 
-    if (entry.node.type !== "relationship" || !entry.externalSpec) {
-      return entry.node;
+    return entry.node;
+  });
+
+  const entityNodeById = new Map(
+    nodes.filter((node): node is Extract<DiagramNode, { type: "entity" }> => node.type === "entity").map((node) => [node.id, node]),
+  );
+
+  parsedExternalIdentifiers.forEach((spec, index) => {
+    const relationship = resolveNodeAlias(spec.relationshipAlias, aliasMap, spec.line, "relationship");
+    const hostEntity = resolveNodeAlias(spec.hostEntityAlias, aliasMap, spec.line, "entity");
+    const importedAttributes = spec.importedAttributeAliases.map((attributeAlias) =>
+      resolveNodeAlias(attributeAlias, aliasMap, spec.line, "attribute"),
+    );
+    const localAttributes = spec.localAttributeAliases.map((attributeAlias) =>
+      resolveNodeAlias(attributeAlias, aliasMap, spec.line, "attribute"),
+    );
+    const sourceEntityAliases = new Set(spec.importedAttributeAliases.map((attributeAlias) => attributeAlias.split(".")[0]));
+    if (sourceEntityAliases.size > 1) {
+      throw new ErsParseError(spec.line, "Le parti importate devono appartenere alla stessa entita sorgente.");
     }
 
-    const sourceAttribute = resolveNodeAlias(
-      entry.externalSpec.sourceAttributeAlias as string,
-      aliasMap,
-      entry.line,
-      "attribute",
-    );
-    const targetEntity = resolveNodeAlias(
-      entry.externalSpec.targetEntityAlias as string,
-      aliasMap,
-      entry.line,
-      "entity",
-    );
-    const targetAttribute =
-      entry.externalSpec.targetAttributeAlias
-        ? resolveNodeAlias(
-            entry.externalSpec.targetAttributeAlias,
-            aliasMap,
-            entry.line,
-            "attribute",
-          )
-        : undefined;
+    const [sourceEntityAlias] = Array.from(sourceEntityAliases);
+    if (!sourceEntityAlias) {
+      throw new ErsParseError(spec.line, "Impossibile risolvere l'entita sorgente dell'identificatore esterno.");
+    }
 
-    return {
-      ...entry.node,
-      isExternalIdentifier: true,
-      externalIdentifierMode: entry.externalSpec.mode,
-      externalIdentifierSourceAttributeId: sourceAttribute.id,
-      externalIdentifierTargetEntityId: targetEntity.id,
-      externalIdentifierTargetAttributeId: targetAttribute?.id,
-      externalIdentifierOffset: entry.externalSpec.offset,
-      externalIdentifierMarkerOffsetX: entry.externalSpec.markerOffsetX,
-      externalIdentifierMarkerOffsetY: entry.externalSpec.markerOffsetY,
-    };
+    const sourceEntity = resolveNodeAlias(sourceEntityAlias, aliasMap, spec.line, "entity");
+
+    const importedAttributeIds = importedAttributes.map((attribute) => attribute.id);
+    const importedIdentifier = (entityNodeById.get(sourceEntity.id)?.internalIdentifiers ?? []).find((identifier) => {
+      if (identifier.attributeIds.length !== importedAttributeIds.length) {
+        return false;
+      }
+
+      return identifier.attributeIds.every((attributeId, attributeIndex) => importedAttributeIds[attributeIndex] === attributeId);
+    });
+    if (!importedIdentifier) {
+      throw new ErsParseError(
+        spec.line,
+        `Nessun identificatore interno di "${sourceEntity.label}" corrisponde alla parte importata indicata.`,
+      );
+    }
+
+    const hostEntityNode = entityNodeById.get(hostEntity.id);
+    if (!hostEntityNode) {
+      throw new ErsParseError(spec.line, `Entita host non trovata: "${spec.hostEntityAlias}".`);
+    }
+
+    hostEntityNode.externalIdentifiers = [
+      ...(hostEntityNode.externalIdentifiers ?? []),
+      {
+        id: `externalIdentifier-ers-${hostEntityNode.id}-${index + 1}`,
+        relationshipId: relationship.id,
+        sourceEntityId: sourceEntity.id,
+        importedIdentifierId: importedIdentifier.id,
+        localAttributeIds: localAttributes.map((attribute) => attribute.id),
+        offset: spec.offset,
+        markerOffsetX: spec.markerOffsetX,
+        markerOffsetY: spec.markerOffsetY,
+      } as ExternalIdentifier,
+    ];
   });
 
   const diagram: DiagramDocument = {

@@ -44,11 +44,11 @@ interface ToolbarProps {
     patch: Partial<EntityNode>,
     attributePatches: Record<string, Partial<AttributeNode>>,
   ) => void;
+  onEntityExternalIdentifiersChange: (entityId: string, patch: Partial<EntityNode>) => void;
   onRenameSelection: () => void;
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
-  onClearExternalIdentifier: (relationshipId: string) => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onToggleCollapse: () => void;
@@ -569,12 +569,12 @@ export function Toolbar(props: ToolbarProps) {
           onNodeChange={props.onNodeChange}
           onNodesChange={props.onNodesChange}
           onEdgeChange={props.onEdgeChange}
-          onClearExternalIdentifier={props.onClearExternalIdentifier}
           onDeleteSelection={props.onDeleteSelection}
           onDuplicateSelection={props.onDuplicateSelection}
           onAlign={props.onAlign}
           onCreateAttributeForSelection={props.onCreateAttributeForSelection}
           onEntityInternalIdentifiersChange={props.onEntityInternalIdentifiersChange}
+          onEntityExternalIdentifiersChange={props.onEntityExternalIdentifiersChange}
           onIssueSelect={props.onIssueSelect}
           onRenameSelection={props.onRenameSelection}
         />

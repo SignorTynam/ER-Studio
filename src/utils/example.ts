@@ -236,8 +236,7 @@ const COMPLETE_EXAMPLE_JSON_SOURCE = `{
       "x": 463.81340937427416,
       "y": 119.9024341002217,
       "width": 130,
-      "height": 78,
-      "isExternalIdentifier": false
+      "height": 78
     },
     {
       "id": "RECAPITI",

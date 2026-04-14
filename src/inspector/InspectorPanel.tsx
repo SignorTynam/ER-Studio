@@ -16,6 +16,7 @@ import {
   getConnectorParticipationContext,
   normalizeSupportedCardinality,
 } from "../utils/cardinality";
+import { ExternalIdentifierSection } from "./ExternalIdentifierSection";
 import { InternalIdentifierSection } from "./InternalIdentifierSection";
 
 interface InspectorPanelProps {
@@ -29,7 +30,6 @@ interface InspectorPanelProps {
   onNodeChange: (nodeId: string, patch: Partial<DiagramNode>) => void;
   onNodesChange: (nodeIds: string[], patch: Partial<DiagramNode>) => void;
   onEdgeChange: (edgeId: string, patch: Partial<DiagramEdge>) => void;
-  onClearExternalIdentifier: (relationshipId: string) => void;
   onDeleteSelection: () => void;
   onDuplicateSelection: () => void;
   onAlign: (axis: "left" | "center" | "top" | "middle") => void;
@@ -39,6 +39,7 @@ interface InspectorPanelProps {
     patch: Partial<EntityNode>,
     attributePatches: Record<string, Partial<AttributeNode>>,
   ) => void;
+  onEntityExternalIdentifiersChange: (entityId: string, patch: Partial<EntityNode>) => void;
   onIssueSelect: (issue: ValidationIssue) => void;
   onRenameSelection: () => void;
   onToggleCollapse?: () => void;
@@ -357,6 +358,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
             readOnly={!canEdit}
             onEntityChange={props.onEntityInternalIdentifiersChange}
           />
+          <ExternalIdentifierSection
+            entity={node}
+            diagram={props.diagram}
+            readOnly={!canEdit}
+            onEntityChange={props.onEntityExternalIdentifiersChange}
+          />
           {renderSelectionActions()}
         </>
       );
@@ -365,25 +372,12 @@ export function InspectorPanel(props: InspectorPanelProps) {
     if (node.type === "relationship") {
       return (
         <>
-          {node.isExternalIdentifier === true ? (
-            <section className="context-card">
-              <div className="context-card-title">Stato associazione</div>
-              <div className="inspector-stack">
-                <p className="action-hint">
-                  Questa associazione usa un identificatore esterno. Puoi rimuoverlo da qui.
-                </p>
-                <div className="context-action-row">
-                  <button
-                    type="button"
-                    onClick={() => props.onClearExternalIdentifier(node.id)}
-                    disabled={!canEdit}
-                  >
-                    Rimuovi identificatore esterno
-                  </button>
-                </div>
-              </div>
-            </section>
-          ) : null}
+          <section className="context-card">
+            <div className="context-card-title">Stato associazione</div>
+            <p className="action-hint">
+              Gli identificatori esterni che dipendono da questa associazione si gestiscono dal pannello dell&apos;entita host.
+            </p>
+          </section>
           {renderSelectionActions()}
         </>
       );
