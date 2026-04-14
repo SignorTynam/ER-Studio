@@ -262,9 +262,13 @@ export function AppHeader(props: AppHeaderProps) {
                   type="button"
                   className="header-button header-quick-button"
                   onClick={props.onGenerateLogicalModel}
-                  title={props.logicalOutOfDate ? "Rigenera modello logico aggiornato" : "Rigenera modello logico"}
+                  title={
+                    props.logicalOutOfDate
+                      ? "Resetta la traduzione e risolvi i mapping da rivedere"
+                      : "Resetta la procedura guidata di traduzione"
+                  }
                 >
-                  {props.logicalOutOfDate ? "Rigenera*" : "Rigenera"}
+                  {props.logicalOutOfDate ? "Reset*" : "Reset"}
                 </button>
                 <button
                   type="button"

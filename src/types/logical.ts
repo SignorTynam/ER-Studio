@@ -2,6 +2,34 @@ import type { Viewport } from "./diagram";
 
 export type LogicalTableKind = "entity" | "associative" | "relationship";
 export type LogicalIssueLevel = "warning" | "error";
+export type LogicalTranslationStep =
+  | "entities"
+  | "weak-entities"
+  | "relationships"
+  | "multivalued-attributes"
+  | "generalizations"
+  | "review";
+export type LogicalTranslationTargetType =
+  | "entity"
+  | "weak-entity"
+  | "relationship"
+  | "attribute"
+  | "generalization";
+export type LogicalTranslationDecisionStatus = "applied" | "invalid";
+export type LogicalTranslationArtifactKind = "table" | "column" | "foreignKey" | "edge";
+export type LogicalTranslationItemStatus = "pending" | "applied" | "invalid";
+export type LogicalTranslationRuleKind =
+  | "entity-table-internal"
+  | "entity-table-external"
+  | "entity-table-without-key"
+  | "weak-entity-table"
+  | "relationship-foreign-key"
+  | "relationship-table"
+  | "multivalued-table"
+  | "generalization-table-per-type"
+  | "generalization-subtypes-only"
+  | "generalization-single-table";
+export type LogicalTranslationPreviewMode = "source" | "logical";
 
 export type LogicalIssueCode =
   | "ENTITY_WITHOUT_PK"
@@ -12,7 +40,9 @@ export type LogicalIssueCode =
   | "COLUMN_NAME_COLLISION"
   | "FK_NAME_COLLISION"
   | "AMBIGUOUS_MAPPING"
-  | "MULTIVALUED_ATTRIBUTE";
+  | "MULTIVALUED_ATTRIBUTE"
+  | "UNRESOLVED_TRANSFORMATION"
+  | "INVALID_TRANSFORMATION";
 
 export interface LogicalIssue {
   id: string;
@@ -35,6 +65,8 @@ export interface LogicalColumn {
   name: string;
   sourceAttributeId?: string;
   sourceRelationshipId?: string;
+  generatedByDecisionId?: string;
+  originLabel?: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
   isNullable: boolean;
@@ -49,6 +81,8 @@ export interface LogicalTable {
   kind: LogicalTableKind;
   sourceEntityId?: string;
   sourceRelationshipId?: string;
+  generatedByDecisionId?: string;
+  originLabel?: string;
   columns: LogicalColumn[];
   x: number;
   y: number;
@@ -68,6 +102,7 @@ export interface LogicalForeignKey {
   toTableId: string;
   mappings: LogicalForeignKeyMapping[];
   sourceRelationshipId?: string;
+  generatedByDecisionId?: string;
   required: boolean;
   unique?: boolean;
 }
@@ -91,6 +126,82 @@ export interface LogicalModel {
   foreignKeys: LogicalForeignKey[];
   edges: LogicalEdge[];
   issues: LogicalIssue[];
+}
+
+export interface LogicalTranslationDecision {
+  id: string;
+  targetType: LogicalTranslationTargetType;
+  targetId: string;
+  step: LogicalTranslationStep;
+  rule: LogicalTranslationRuleKind;
+  summary: string;
+  appliedAt: string;
+  status: LogicalTranslationDecisionStatus;
+  configuration?: Record<string, string | string[] | boolean | number | null | undefined>;
+}
+
+export interface LogicalTranslationArtifactRef {
+  kind: LogicalTranslationArtifactKind;
+  id: string;
+  label: string;
+}
+
+export interface LogicalTranslationMapping {
+  decisionId: string;
+  targetType: LogicalTranslationTargetType;
+  targetId: string;
+  summary: string;
+  artifacts: LogicalTranslationArtifactRef[];
+}
+
+export interface LogicalTranslationConflict {
+  id: string;
+  targetType: LogicalTranslationTargetType;
+  targetId: string;
+  level: LogicalIssueLevel;
+  message: string;
+  decisionId?: string;
+}
+
+export interface LogicalTranslationChoice {
+  id: string;
+  step: LogicalTranslationStep;
+  rule: LogicalTranslationRuleKind;
+  label: string;
+  description: string;
+  summary: string;
+  configuration?: Record<string, string | string[] | boolean | number | null | undefined>;
+  previewLines?: string[];
+  recommended?: boolean;
+}
+
+export interface LogicalTranslationItem {
+  id: string;
+  targetType: LogicalTranslationTargetType;
+  step: LogicalTranslationStep;
+  label: string;
+  description: string;
+  status: LogicalTranslationItemStatus;
+  currentDecisionId?: string;
+  currentSummary?: string;
+  choiceIds: string[];
+  conflictMessages: string[];
+}
+
+export interface LogicalTranslationState {
+  meta: {
+    createdAt: string;
+    updatedAt: string;
+    sourceSignature: string;
+  };
+  decisions: LogicalTranslationDecision[];
+  mappings: LogicalTranslationMapping[];
+  conflicts: LogicalTranslationConflict[];
+}
+
+export interface LogicalWorkspaceDocument {
+  model: LogicalModel;
+  translation: LogicalTranslationState;
 }
 
 export interface LogicalSelection {
