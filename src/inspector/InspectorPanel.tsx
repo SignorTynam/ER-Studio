@@ -482,8 +482,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
                     }
                   >
                     <option value="">Nessun vincolo</option>
-                    <option value="disjoint">Disjoint</option>
-                    <option value="overlap">Overlap</option>
+                    <option value="disjoint">Disgiunto (Disjoint)</option>
+                    <option value="overlap">Sovrapposto (Overlap)</option>
                   </select>
                 </label>
                 <label className="field">
@@ -501,8 +501,8 @@ export function InspectorPanel(props: InspectorPanelProps) {
                     }
                   >
                     <option value="">Nessuna copertura</option>
-                    <option value="total">Total</option>
-                    <option value="partial">Partial</option>
+                    <option value="total">Totale (Total)</option>
+                    <option value="partial">Parziale (Partial)</option>
                   </select>
                 </label>
               </>
