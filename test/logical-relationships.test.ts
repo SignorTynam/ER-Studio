@@ -9,6 +9,7 @@ import {
   getLogicalTranslationChoicesForItem,
 } from "../src/utils/logicalTranslation.ts";
 import { generateLogicalModel } from "../src/utils/logicalMapping.ts";
+import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 
 function createEntity(
   id: string,
@@ -46,6 +47,39 @@ function createEntity(
   };
 
   return [entity, attribute];
+}
+
+function createEntityWithIdentifiers(
+  id: string,
+  label: string,
+  identifiers: Array<{ id: string; attributeIds: string[] }>,
+  attributes: Array<{ id: string; label: string; isIdentifier?: boolean }>,
+  relationshipParticipations: NonNullable<Extract<DiagramNode, { type: "entity" }>["relationshipParticipations"]> = [],
+): DiagramNode[] {
+  const entity: Extract<DiagramNode, { type: "entity" }> = {
+    id,
+    type: "entity",
+    label,
+    x: 0,
+    y: 0,
+    width: 160,
+    height: 80,
+    internalIdentifiers: identifiers,
+    relationshipParticipations,
+  };
+
+  const attributeNodes: DiagramNode[] = attributes.map((attribute) => ({
+    id: attribute.id,
+    type: "attribute",
+    label: attribute.label,
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 40,
+    isIdentifier: attribute.isIdentifier === true,
+  }));
+
+  return [entity, ...attributeNodes];
 }
 
 function createAttributeEdge(id: string, sourceId: string, targetId: string): DiagramEdge {
@@ -167,6 +201,13 @@ function createRelationshipRegressionDiagram(): DiagramDocument {
     nodes,
     edges,
   };
+}
+
+function extractCreateTable(sql: string, tableName: string): string {
+  const escapedName = tableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = sql.match(new RegExp(`CREATE TABLE "${escapedName}" \\([\\s\\S]*?\\n\\);`, "i"));
+  assert.ok(match, `CREATE TABLE per ${tableName} non trovato`);
+  return match[0];
 }
 
 function getItemByLabel(
@@ -612,4 +653,202 @@ test("la pipeline materializza prima le PK derivate dei sottotipi e poi le FK di
     false,
     "Le relazioni assorbite o trasformate non devono restare come rombi attivi sul canvas logico",
   );
+});
+
+function createAlternateIdentifierSubtypeDiagram(): DiagramDocument {
+  const personaNodes = createEntity("entity-persona", "PERSONA", "attr-persona-cf", "CF", []);
+  const partecipanteNodes = createEntity("entity-partecipante", "PARTECIPANTE", "attr-partecipante-codice", "Codice", []);
+  const dipendenteNode = createEntityWithoutKey("entity-dipendente", "DIPENDENTE");
+  const professionistaNode = createEntityWithoutKey("entity-professionista", "PROFESSIONISTA");
+  const partecipanteNome = createAttachedAttribute("entity-partecipante", "attr-partecipante-nome", "Nome");
+
+  const nodes: DiagramNode[] = [
+    ...personaNodes,
+    ...partecipanteNodes,
+    dipendenteNode,
+    professionistaNode,
+    partecipanteNome.node,
+  ];
+
+  const edges: DiagramEdge[] = [
+    createAttributeEdge("edge-attr-persona-cf", "attr-persona-cf", "entity-persona"),
+    createAttributeEdge("edge-attr-partecipante-codice", "attr-partecipante-codice", "entity-partecipante"),
+    partecipanteNome.edge,
+    createInheritanceEdge("edge-partecipante-persona", "entity-partecipante", "entity-persona"),
+    createInheritanceEdge("edge-dipendente-partecipante", "entity-dipendente", "entity-partecipante"),
+    createInheritanceEdge("edge-professionista-partecipante", "entity-professionista", "entity-partecipante"),
+  ];
+
+  return {
+    meta: {
+      name: "Identificatori alternativi su sottotipo",
+      version: 1,
+    },
+    notes: "",
+    nodes,
+    edges,
+  };
+}
+
+function createAlternateIdentifierEntityDiagram(): DiagramDocument {
+  const customerNodes = createEntityWithIdentifiers(
+    "entity-cliente",
+    "CLIENTE",
+    [
+      { id: "cliente-id-codice", attributeIds: ["attr-cliente-codice"] },
+      { id: "cliente-id-email", attributeIds: ["attr-cliente-email"] },
+    ],
+    [
+      { id: "attr-cliente-codice", label: "Codice", isIdentifier: true },
+      { id: "attr-cliente-email", label: "Email", isIdentifier: true },
+      { id: "attr-cliente-nome", label: "Nome" },
+    ],
+  );
+
+  const edges: DiagramEdge[] = [
+    createAttributeEdge("edge-attr-cliente-codice", "attr-cliente-codice", "entity-cliente"),
+    createAttributeEdge("edge-attr-cliente-email", "attr-cliente-email", "entity-cliente"),
+    createAttributeEdge("edge-attr-cliente-nome", "attr-cliente-nome", "entity-cliente"),
+  ];
+
+  return {
+    meta: {
+      name: "Identificatori alternativi semplici",
+      version: 1,
+    },
+    notes: "",
+    nodes: customerNodes,
+    edges,
+  };
+}
+
+test("un sottotipo con PK derivata e identificatore locale usa UNIQUE invece di una PK composta", () => {
+  const diagram = createAlternateIdentifierSubtypeDiagram();
+  let workspace = createEmptyLogicalWorkspace(diagram);
+  let overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  for (const label of ["PERSONA", "PARTECIPANTE", "DIPENDENTE", "PROFESSIONISTA"]) {
+    const item = getItemByLabel(overview, "entities", label);
+    const choice = getRecommendedChoice(overview, item);
+    workspace = applyLogicalTranslationChoice(diagram, workspace, choice, item.targetType, item.id);
+    overview = buildLogicalTranslationOverview(diagram, workspace);
+  }
+
+  for (const label of ["PARTECIPANTE", "PERSONA"]) {
+    const item = getItemByLabel(overview, "generalizations", label);
+    const choice = getRecommendedChoice(overview, item);
+    workspace = applyLogicalTranslationChoice(diagram, workspace, choice, item.targetType, item.id);
+    overview = buildLogicalTranslationOverview(diagram, workspace);
+  }
+
+  const tableBySourceEntityId = new Map(
+    workspace.model.tables
+      .filter((table) => typeof table.sourceEntityId === "string")
+      .map((table) => [table.sourceEntityId as string, table]),
+  );
+  const personaTable = tableBySourceEntityId.get("entity-persona");
+  const partecipanteTable = tableBySourceEntityId.get("entity-partecipante");
+  const dipendenteTable = tableBySourceEntityId.get("entity-dipendente");
+  const professionistaTable = tableBySourceEntityId.get("entity-professionista");
+
+  assert.ok(personaTable, "Tabella PERSONA non generata");
+  assert.ok(partecipanteTable, "Tabella PARTECIPANTE non generata");
+  assert.ok(dipendenteTable, "Tabella DIPENDENTE non generata");
+  assert.ok(professionistaTable, "Tabella PROFESSIONISTA non generata");
+
+  const partecipantePkColumns = partecipanteTable.columns.filter((column) => column.isPrimaryKey);
+  assert.equal(partecipantePkColumns.length, 1, "PARTECIPANTE deve avere una sola PK effettiva");
+  assert.ok(
+    partecipantePkColumns[0].references.some((reference) => reference.targetTableId === personaTable.id),
+    "La PK di PARTECIPANTE deve derivare da PERSONA",
+  );
+
+  const codiceColumn = partecipanteTable.columns.find((column) => column.sourceAttributeId === "attr-partecipante-codice");
+  assert.ok(codiceColumn, "La colonna Codice deve esistere in PARTECIPANTE");
+  assert.equal(codiceColumn.isPrimaryKey, false, "Codice non deve restare parte della PK");
+  assert.equal(codiceColumn.isUnique, true, "Codice deve essere marcato come identificatore alternativo UNIQUE");
+  assert.equal(codiceColumn.isNullable, false, "Un identificatore alternativo deve restare NOT NULL");
+
+  const partecipanteUnique = workspace.model.uniqueConstraints.find(
+    (constraint) =>
+      constraint.tableId === partecipanteTable.id &&
+      constraint.columnIds.length === 1 &&
+      constraint.columnIds[0] === codiceColumn.id,
+  );
+  assert.ok(partecipanteUnique, "La tabella PARTECIPANTE deve registrare un vincolo UNIQUE per Codice");
+
+  assert.ok(
+    dipendenteTable.columns.filter((column) => column.isPrimaryKey).every((column) =>
+      column.references.some((reference) => reference.targetTableId === partecipanteTable.id),
+    ),
+    "DIPENDENTE deve ereditare solo la PK corretta di PARTECIPANTE",
+  );
+  assert.ok(
+    professionistaTable.columns.filter((column) => column.isPrimaryKey).every((column) =>
+      column.references.some((reference) => reference.targetTableId === partecipanteTable.id),
+    ),
+    "PROFESSIONISTA deve ereditare solo la PK corretta di PARTECIPANTE",
+  );
+
+  const transformationPartecipante = workspace.transformation.nodes.find((node) => node.tableId === partecipanteTable.id);
+  const transformationCodice = transformationPartecipante?.columns?.find((column) => column.id === codiceColumn.id);
+  assert.ok(transformationCodice, "Il canvas logico deve esporre la colonna Codice");
+  assert.equal(transformationCodice.isUnique, true, "Il canvas logico deve distinguere le colonne UNIQUE");
+
+  const entitySummaries = new Map(
+    workspace.translation.decisions
+      .filter((decision) => decision.targetType === "entity")
+      .map((decision) => [decision.targetId, decision.summary]),
+  );
+  assert.match(
+    entitySummaries.get("entity-partecipante") ?? "",
+    /PK derivata da "PERSONA".*Codice.*UNIQUE/i,
+  );
+
+  const sql = generateLogicalSql(workspace.model);
+  const partecipanteSql = extractCreateTable(sql, "PARTECIPANTE");
+  assert.match(partecipanteSql, /PRIMARY KEY \("PERSONA_CF"\)/);
+  assert.match(partecipanteSql, /UNIQUE \("Codice"\)/);
+  assert.doesNotMatch(partecipanteSql, /PRIMARY KEY \("Codice", "PERSONA_CF"\)/);
+});
+
+test("una tabella con piu identificatori alternativi sceglie una sola PK e traduce gli altri come UNIQUE", () => {
+  const diagram = createAlternateIdentifierEntityDiagram();
+  let workspace = createEmptyLogicalWorkspace(diagram);
+  let overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  const item = getItemByLabel(overview, "entities", "CLIENTE");
+  const choice = getRecommendedChoice(overview, item);
+  workspace = applyLogicalTranslationChoice(diagram, workspace, choice, item.targetType, item.id);
+  overview = buildLogicalTranslationOverview(diagram, workspace);
+
+  const clienteTable = workspace.model.tables.find((table) => table.sourceEntityId === "entity-cliente");
+  assert.ok(clienteTable, "Tabella CLIENTE non generata");
+
+  const pkColumns = clienteTable.columns.filter((column) => column.isPrimaryKey);
+  assert.deepEqual(
+    pkColumns.map((column) => column.name),
+    ["Codice"],
+    "Solo l'identificatore scelto deve restare PK",
+  );
+
+  const emailColumn = clienteTable.columns.find((column) => column.sourceAttributeId === "attr-cliente-email");
+  assert.ok(emailColumn, "La colonna Email deve esistere");
+  assert.equal(emailColumn.isPrimaryKey, false);
+  assert.equal(emailColumn.isUnique, true, "Email deve essere tradotto come alternate key UNIQUE");
+  assert.equal(emailColumn.isNullable, false, "Un alternate key deve restare NOT NULL");
+
+  const uniqueConstraint = workspace.model.uniqueConstraints.find(
+    (constraint) =>
+      constraint.tableId === clienteTable.id &&
+      constraint.columnIds.length === 1 &&
+      constraint.columnIds[0] === emailColumn.id,
+  );
+  assert.ok(uniqueConstraint, "Il modello logico deve tracciare l'alternate key come uniqueConstraint");
+
+  const sql = generateLogicalSql(workspace.model);
+  const clienteSql = extractCreateTable(sql, "CLIENTE");
+  assert.match(clienteSql, /PRIMARY KEY \("Codice"\)/);
+  assert.match(clienteSql, /UNIQUE \("Email"\)/);
+  assert.doesNotMatch(clienteSql, /PRIMARY KEY \("Codice", "Email"\)/);
 });

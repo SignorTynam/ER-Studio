@@ -146,6 +146,20 @@ function resolveArtifactSelection(
     };
   }
 
+  if (artifact.kind === "uniqueConstraint") {
+    const constraint = workspace.model.uniqueConstraints.find((candidate) => candidate.id === artifact.id);
+    if (!constraint) {
+      return { nodeId: null, columnId: null, edgeId: null };
+    }
+
+    const ownerNode = workspace.transformation.nodes.find((node) => node.tableId === constraint.tableId);
+    return {
+      nodeId: ownerNode?.id ?? null,
+      columnId: constraint.columnIds[0] ?? null,
+      edgeId: null,
+    };
+  }
+
   if (artifact.kind === "foreignKey") {
     const ownerEdge = workspace.transformation.edges.find((edge) => edge.foreignKeyId === artifact.id);
     return {

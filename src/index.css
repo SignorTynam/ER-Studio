@@ -6861,6 +6861,14 @@ textarea.diagram-notes-editor::placeholder {
   fill: #6a4727;
 }
 
+.logical-badge.uk rect {
+  fill: rgba(36, 86, 122, 0.18);
+}
+
+.logical-badge.uk text {
+  fill: #1f4e70;
+}
+
 .logical-inspector {
   min-height: 0;
   overflow: auto;

@@ -16,7 +16,7 @@ export type LogicalTranslationTargetType =
   | "attribute"
   | "generalization";
 export type LogicalTranslationDecisionStatus = "applied" | "invalid";
-export type LogicalTranslationArtifactKind = "table" | "column" | "foreignKey" | "edge";
+export type LogicalTranslationArtifactKind = "table" | "column" | "uniqueConstraint" | "foreignKey" | "edge";
 export type LogicalTranslationItemStatus = "pending" | "applied" | "invalid";
 export type LogicalTranslationRuleKind =
   | "entity-table-internal"
@@ -68,6 +68,7 @@ export interface LogicalColumn {
   originLabel?: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
+  isUnique?: boolean;
   isNullable: boolean;
   isGenerated?: boolean;
   dataType?: string;
@@ -107,6 +108,14 @@ export interface LogicalForeignKey {
   unique?: boolean;
 }
 
+export interface LogicalUniqueConstraint {
+  id: string;
+  tableId: string;
+  columnIds: string[];
+  generatedByDecisionId?: string;
+  originLabel?: string;
+}
+
 export interface LogicalEdge {
   id: string;
   foreignKeyId: string;
@@ -124,6 +133,7 @@ export interface LogicalModel {
   };
   tables: LogicalTable[];
   foreignKeys: LogicalForeignKey[];
+  uniqueConstraints: LogicalUniqueConstraint[];
   edges: LogicalEdge[];
   issues: LogicalIssue[];
 }
@@ -216,6 +226,7 @@ export interface LogicalTransformationColumn {
   name: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
+  isUnique: boolean;
   isNullable: boolean;
   generatedByDecisionId?: string;
   references: LogicalColumnReference[];

@@ -255,6 +255,9 @@ function getColumnBadgeTokens(column: LogicalColumn): string[] {
   if (column.isForeignKey) {
     tokens.push("FK");
   }
+  if (column.isUnique === true) {
+    tokens.push("UK");
+  }
   return tokens;
 }
 
@@ -1192,9 +1195,11 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
                         const totalWidth = badges.length * badgeWidth + Math.max(0, badges.length - 1) * badgeGap;
                         const startX = tableNode.x + tableNode.width - totalWidth - 10;
                         const badgeX = startX + badgeIndex * (badgeWidth + badgeGap);
+                        const badgeClass =
+                          badge === "PK" ? "logical-badge pk" : badge === "FK" ? "logical-badge fk" : "logical-badge uk";
 
                         return (
-                          <g key={`${column.id}-${badge}`} className={badge === "PK" ? "logical-badge pk" : "logical-badge fk"}>
+                          <g key={`${column.id}-${badge}`} className={badgeClass}>
                             <rect
                               x={badgeX}
                               y={rowY + 6}

@@ -12,6 +12,7 @@ import type {
   LogicalModel,
   LogicalTable,
   LogicalTableKind,
+  LogicalUniqueConstraint,
 } from "../types/logical";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./logicalLayout";
 import { getConnectorParticipation } from "./cardinality";
@@ -35,6 +36,7 @@ interface MappingContext {
   diagram: DiagramDocument;
   tables: LogicalTable[];
   foreignKeys: LogicalForeignKey[];
+  uniqueConstraints: LogicalUniqueConstraint[];
   edges: LogicalEdge[];
   issues: LogicalIssue[];
   tableById: Map<string, LogicalTable>;
@@ -45,6 +47,7 @@ interface MappingContext {
   tableSequence: number;
   columnSequence: number;
   fkSequence: number;
+  uniqueConstraintSequence: number;
   edgeSequence: number;
   issueSequence: number;
 }
@@ -266,6 +269,7 @@ function createContext(diagram: DiagramDocument): MappingContext {
     diagram,
     tables: [],
     foreignKeys: [],
+    uniqueConstraints: [],
     edges: [],
     issues: [],
     tableById: new Map<string, LogicalTable>(),
@@ -276,6 +280,7 @@ function createContext(diagram: DiagramDocument): MappingContext {
     tableSequence: 1,
     columnSequence: 1,
     fkSequence: 1,
+    uniqueConstraintSequence: 1,
     edgeSequence: 1,
     issueSequence: 1,
   };
@@ -372,6 +377,7 @@ function addColumn(
     sourceRelationshipId: options.sourceRelationshipId,
     isPrimaryKey: options.isPrimaryKey,
     isForeignKey: options.isForeignKey,
+    isUnique: false,
     isNullable: options.isNullable,
     isGenerated: options.isGenerated,
     references: [],
@@ -412,6 +418,50 @@ function ensurePrimaryKey(context: MappingContext, table: LogicalTable): void {
       relationshipId: table.sourceRelationshipId,
     },
   );
+}
+
+function addUniqueConstraint(
+  context: MappingContext,
+  tableId: string,
+  columnIds: string[],
+  originLabel?: string,
+): LogicalUniqueConstraint | null {
+  const table = context.tableById.get(tableId);
+  if (!table) {
+    throw new Error(`Tabella logica non trovata: ${tableId}`);
+  }
+
+  const normalizedColumnIds = [...new Set(columnIds)].filter((columnId) => table.columns.some((column) => column.id === columnId));
+  if (normalizedColumnIds.length === 0) {
+    return null;
+  }
+
+  const signature = normalizedColumnIds.slice().sort((left, right) => left.localeCompare(right)).join("|");
+  const existing = context.uniqueConstraints.find(
+    (constraint) =>
+      constraint.tableId === tableId &&
+      constraint.columnIds.slice().sort((left, right) => left.localeCompare(right)).join("|") === signature,
+  );
+  if (existing) {
+    return existing;
+  }
+
+  table.columns.forEach((column) => {
+    if (normalizedColumnIds.includes(column.id)) {
+      column.isUnique = true;
+      column.isNullable = false;
+    }
+  });
+
+  const constraint: LogicalUniqueConstraint = {
+    id: `unique-${context.uniqueConstraintSequence++}`,
+    tableId,
+    columnIds: normalizedColumnIds,
+    originLabel,
+  };
+
+  context.uniqueConstraints.push(constraint);
+  return constraint;
 }
 
 function buildForeignKeyColumnBase(
@@ -839,6 +889,7 @@ export function createEmptyLogicalModel(name = "Modello logico"): LogicalModel {
     },
     tables: [],
     foreignKeys: [],
+    uniqueConstraints: [],
     edges: [],
     issues: [],
   };
@@ -861,6 +912,9 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
 
     context.entityTableByEntityId.set(entity.id, table.id);
     const entityAttributes = ownerAttributesByNodeId.get(entity.id) ?? [];
+    const internalIdentifiers = entity.internalIdentifiers ?? [];
+    const selectedIdentifier = internalIdentifiers[0];
+    const selectedIdentifierAttributeIds = new Set(selectedIdentifier?.attributeIds ?? []);
 
     entityAttributes.forEach((attribute) => {
       if (attribute.isMultivalued === true) {
@@ -879,10 +933,23 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
       addColumn(context, table.id, {
         baseName: attribute.label,
         sourceAttributeId: attribute.id,
-        isPrimaryKey: attribute.isIdentifier === true || attribute.isCompositeInternal === true,
+        isPrimaryKey:
+          internalIdentifiers.length > 0
+            ? selectedIdentifierAttributeIds.has(attribute.id)
+            : attribute.isIdentifier === true || attribute.isCompositeInternal === true,
         isForeignKey: false,
-        isNullable: !(attribute.isIdentifier === true || attribute.isCompositeInternal === true),
+        isNullable:
+          internalIdentifiers.length > 0
+            ? !selectedIdentifierAttributeIds.has(attribute.id)
+            : !(attribute.isIdentifier === true || attribute.isCompositeInternal === true),
       });
+    });
+
+    internalIdentifiers.slice(1).forEach((identifier) => {
+      const columnIds = table.columns
+        .filter((column) => column.sourceAttributeId && identifier.attributeIds.includes(column.sourceAttributeId))
+        .map((column) => column.id);
+      addUniqueConstraint(context, table.id, columnIds, `Identificatore alternativo ${identifier.id}`);
     });
 
     ensurePrimaryKey(context, table);
@@ -905,6 +972,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
     },
     tables: context.tables,
     foreignKeys: context.foreignKeys,
+    uniqueConstraints: context.uniqueConstraints,
     edges: context.edges,
     issues: context.issues,
   };

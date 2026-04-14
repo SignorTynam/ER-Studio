@@ -31,7 +31,8 @@ function estimateColumnVisualWidth(table: LogicalTable): number {
   const referenceHintWidth = 36;
 
   const rowWidths = table.columns.map((column) => {
-    const badgeCount = (column.isPrimaryKey ? 1 : 0) + (column.isForeignKey ? 1 : 0);
+    const badgeCount =
+      (column.isPrimaryKey ? 1 : 0) + (column.isForeignKey ? 1 : 0) + (column.isUnique === true ? 1 : 0);
     return estimateTextWidth(column.name) + badgeCount * badgeWidth + (column.isForeignKey ? referenceHintWidth : 0);
   });
 

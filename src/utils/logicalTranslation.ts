@@ -18,6 +18,7 @@ import type {
   LogicalModel,
   LogicalTable,
   LogicalTableKind,
+  LogicalUniqueConstraint,
   LogicalTranslationChoice,
   LogicalTranslationConflict,
   LogicalTranslationDecision,
@@ -71,6 +72,7 @@ interface MappingContext {
   diagram: DiagramDocument;
   tables: LogicalTable[];
   foreignKeys: LogicalForeignKey[];
+  uniqueConstraints: LogicalUniqueConstraint[];
   edges: LogicalEdge[];
   issues: LogicalIssue[];
   tableById: Map<string, LogicalTable>;
@@ -78,6 +80,7 @@ interface MappingContext {
   usedTableNames: Set<string>;
   usedColumnNamesByTable: Map<string, Set<string>>;
   usedFkNames: Set<string>;
+  uniqueConstraintSequence: number;
   tableSequence: number;
   columnSequence: number;
   fkSequence: number;
@@ -129,6 +132,7 @@ interface ColumnCreationOptions {
   originLabel?: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
+  isUnique?: boolean;
   isNullable: boolean;
   isGenerated?: boolean;
 }
@@ -790,23 +794,40 @@ function buildEntityChoices(
   state: LogicalTranslationState,
   directSupertypesBySubtypeId: Map<string, EntityNode[]>,
 ): TranslationChoiceRecord[] {
+  const subtypeGeneralizationSupport = getSubtypeGeneralizationSupport(entity, state, directSupertypesBySubtypeId);
   const internalChoices = (entity.internalIdentifiers ?? []).map((identifier) => ({
     id: `entity-internal-${entity.id}-${identifier.id}`,
     targetType: "entity" as const,
     targetId: entity.id,
     step: "entities" as const,
     rule: "entity-table-internal" as const,
-    label: `Tabella con PK interna: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
-    description: "Crea una tabella per l'entita forte usando l'identificatore interno selezionato come PK.",
-    summary: `Tabella "${entity.label}" fissata con PK interna ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}.`,
+    label:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Tabella sottotipo con PK derivata + UNIQUE locale: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`
+        : `Tabella con PK interna: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+    description:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Con la gerarchia table-per-type gia fissata, la PK della tabella resta derivata dal supertipo "${subtypeGeneralizationSupport.supertype.label}" e l'identificatore interno selezionato viene tradotto come vincolo UNIQUE alternativo.`
+        : "Crea una tabella per l'entita forte usando l'identificatore interno selezionato come PK.",
+    summary:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Tabella sottotipo "${entity.label}" fissata con PK derivata da "${subtypeGeneralizationSupport.supertype.label}"; identificatore locale ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)} tradotto come UNIQUE.`
+        : `Tabella "${entity.label}" fissata con PK interna ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}.`,
     configuration: {
       keySourceType: "internal",
       keySourceId: identifier.id,
     },
-    previewLines: [
-      `Tabella: ${entity.label}`,
-      `PK: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
-    ],
+    previewLines:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? [
+            `Tabella: ${entity.label}`,
+            `PK: derivata da ${subtypeGeneralizationSupport.supertype.label}`,
+            `UNIQUE: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+          ]
+        : [
+            `Tabella: ${entity.label}`,
+            `PK: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+          ],
     recommended: true,
   }));
 
@@ -820,17 +841,33 @@ function buildEntityChoices(
     targetId: entity.id,
     step: "entities" as const,
     rule: "entity-table-external" as const,
-    label: `Tabella con PK esterna: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
-    description: "Crea la tabella usando un identificatore esterno importato come base della PK.",
-    summary: `Tabella "${entity.label}" fissata con PK esterna ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}.`,
+    label:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Tabella sottotipo con PK derivata + UNIQUE esterna: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`
+        : `Tabella con PK esterna: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+    description:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Con la gerarchia table-per-type gia fissata, la PK della tabella resta derivata dal supertipo "${subtypeGeneralizationSupport.supertype.label}" e l'identificatore esterno selezionato viene tradotto come vincolo UNIQUE alternativo.`
+        : "Crea la tabella usando un identificatore esterno importato come base della PK.",
+    summary:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? `Tabella sottotipo "${entity.label}" fissata con PK derivata da "${subtypeGeneralizationSupport.supertype.label}"; identificatore esterno ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)} tradotto come UNIQUE.`
+        : `Tabella "${entity.label}" fissata con PK esterna ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}.`,
     configuration: {
       keySourceType: "external",
       keySourceId: identifier.id,
     },
-    previewLines: [
-      `Tabella: ${entity.label}`,
-      `PK: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
-    ],
+    previewLines:
+      subtypeGeneralizationSupport?.hasAppliedTablePerType === true
+        ? [
+            `Tabella: ${entity.label}`,
+            `PK: derivata da ${subtypeGeneralizationSupport.supertype.label}`,
+            `UNIQUE: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+          ]
+        : [
+            `Tabella: ${entity.label}`,
+            `PK: ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+          ],
     recommended: true,
   }));
 
@@ -838,7 +875,6 @@ function buildEntityChoices(
     return externalChoices;
   }
 
-  const subtypeGeneralizationSupport = getSubtypeGeneralizationSupport(entity, state, directSupertypesBySubtypeId);
   if (subtypeGeneralizationSupport) {
     const { supertype, hasAppliedTablePerType } = subtypeGeneralizationSupport;
     return [
@@ -1313,6 +1349,7 @@ function createMappingContext(diagram: DiagramDocument): MappingContext {
     diagram,
     tables: [],
     foreignKeys: [],
+    uniqueConstraints: [],
     edges: [],
     issues: [],
     tableById: new Map<string, LogicalTable>(),
@@ -1320,6 +1357,7 @@ function createMappingContext(diagram: DiagramDocument): MappingContext {
     usedTableNames: new Set<string>(),
     usedColumnNamesByTable: new Map<string, Set<string>>(),
     usedFkNames: new Set<string>(),
+    uniqueConstraintSequence: 1,
     tableSequence: 1,
     columnSequence: 1,
     fkSequence: 1,
@@ -1428,6 +1466,7 @@ function addColumn(
     originLabel: options.originLabel,
     isPrimaryKey: options.isPrimaryKey,
     isForeignKey: options.isForeignKey,
+    isUnique: options.isUnique,
     isNullable: options.isNullable,
     isGenerated: options.isGenerated,
     references: [],
@@ -1454,6 +1493,101 @@ function addColumn(
 
 function getPrimaryKeyColumns(table: LogicalTable): LogicalColumn[] {
   return table.columns.filter((column) => column.isPrimaryKey);
+}
+
+function getColumnsBySourceAttributeIds(
+  table: LogicalTable,
+  sourceAttributeIds: string[],
+): LogicalColumn[] {
+  const pending = new Set(sourceAttributeIds);
+  const matches: LogicalColumn[] = [];
+
+  table.columns.forEach((column) => {
+    if (!column.sourceAttributeId || !pending.has(column.sourceAttributeId)) {
+      return;
+    }
+
+    matches.push(column);
+    pending.delete(column.sourceAttributeId);
+  });
+
+  return matches;
+}
+
+function markColumnsNotNull(table: LogicalTable, columnIds: Iterable<string>): void {
+  const targetIds = new Set(columnIds);
+  if (targetIds.size === 0) {
+    return;
+  }
+
+  table.columns.forEach((column) => {
+    if (targetIds.has(column.id)) {
+      column.isNullable = false;
+    }
+  });
+}
+
+function applyPrimaryKeyToTable(
+  table: LogicalTable,
+  primaryKeyColumnIds: Iterable<string>,
+): void {
+  const targetIds = new Set(primaryKeyColumnIds);
+  table.columns.forEach((column) => {
+    column.isPrimaryKey = targetIds.has(column.id);
+    if (column.isPrimaryKey) {
+      column.isNullable = false;
+    }
+  });
+}
+
+function buildColumnSetSignature(columnIds: Iterable<string>): string {
+  return [...new Set(columnIds)].sort((left, right) => left.localeCompare(right)).join("|");
+}
+
+function addUniqueConstraint(
+  context: MappingContext,
+  tableId: string,
+  columnIds: string[],
+  options: {
+    decisionId: string;
+    originLabel?: string;
+  },
+): LogicalUniqueConstraint | null {
+  const table = context.tableById.get(tableId);
+  if (!table) {
+    throw new Error(`Tabella logica non trovata: ${tableId}`);
+  }
+
+  const uniqueColumnIds = [...new Set(columnIds)].filter((columnId) => table.columns.some((column) => column.id === columnId));
+  if (uniqueColumnIds.length === 0) {
+    return null;
+  }
+
+  const signature = buildColumnSetSignature(uniqueColumnIds);
+  const existing = context.uniqueConstraints.find(
+    (constraint) => constraint.tableId === tableId && buildColumnSetSignature(constraint.columnIds) === signature,
+  );
+  if (existing) {
+    return existing;
+  }
+
+  table.columns.forEach((column) => {
+    if (uniqueColumnIds.includes(column.id)) {
+      column.isUnique = true;
+      column.isNullable = false;
+    }
+  });
+
+  const constraint: LogicalUniqueConstraint = {
+    id: `unique-${context.uniqueConstraintSequence++}`,
+    tableId,
+    columnIds: uniqueColumnIds,
+    generatedByDecisionId: options.decisionId,
+    originLabel: options.originLabel,
+  };
+
+  context.uniqueConstraints.push(constraint);
+  return constraint;
 }
 
 function buildForeignKeyColumnBase(
@@ -1622,6 +1756,189 @@ function findExternalIdentifierById(
     : undefined;
 }
 
+function collectInternalIdentifierColumnIds(
+  table: LogicalTable,
+  identifier: InternalIdentifier | undefined,
+  ownership: AttributeOwnershipContext,
+): string[] {
+  if (!identifier) {
+    return [];
+  }
+
+  return getColumnsBySourceAttributeIds(
+    table,
+    expandAttributeIdsToLeafAttributes(identifier.attributeIds, ownership).map((attribute) => attribute.id),
+  ).map((column) => column.id);
+}
+
+function collectExternalIdentifierColumnIds(
+  context: MappingContext,
+  table: LogicalTable,
+  identifier: ExternalIdentifier | undefined,
+  decisionId: string,
+  ownership: AttributeOwnershipContext,
+): string[] {
+  if (!identifier) {
+    return [];
+  }
+
+  const columnIds = new Set<string>();
+  getColumnsBySourceAttributeIds(
+    table,
+    expandAttributeIdsToLeafAttributes(identifier.localAttributeIds, ownership).map((attribute) => attribute.id),
+  ).forEach((column) => columnIds.add(column.id));
+
+  const sourceTableId = context.entityTableByEntityId.get(identifier.sourceEntityId);
+  if (!sourceTableId) {
+    return [...columnIds];
+  }
+
+  table.columns
+    .filter(
+      (column) =>
+        column.generatedByDecisionId === decisionId &&
+        column.sourceRelationshipId === identifier.relationshipId &&
+        column.references.some((reference) => reference.targetTableId === sourceTableId),
+    )
+    .forEach((column) => columnIds.add(column.id));
+
+  return [...columnIds];
+}
+
+function collectAppliedTablePerTypePrimaryKeyColumnIds(
+  context: MappingContext,
+  entity: EntityNode,
+  directSupertypesBySubtypeId: Map<string, EntityNode[]>,
+  appliedTablePerTypeDecisionBySupertypeId: Map<string, LogicalTranslationDecision>,
+): string[] {
+  const tableId = context.entityTableByEntityId.get(entity.id);
+  const table = tableId ? context.tableById.get(tableId) : undefined;
+  if (!table) {
+    return [];
+  }
+
+  const columnIds = new Set<string>();
+  const directSupertypes = directSupertypesBySubtypeId.get(entity.id) ?? [];
+  directSupertypes.forEach((supertype) => {
+    const decision = appliedTablePerTypeDecisionBySupertypeId.get(supertype.id);
+    const supertypeTableId = context.entityTableByEntityId.get(supertype.id);
+    if (!decision || !supertypeTableId) {
+      return;
+    }
+
+    table.columns
+      .filter(
+        (column) =>
+          column.generatedByDecisionId === decision.id &&
+          column.references.some((reference) => reference.targetTableId === supertypeTableId),
+      )
+      .forEach((column) => columnIds.add(column.id));
+  });
+
+  return [...columnIds];
+}
+
+function finalizeEntityKeys(
+  context: MappingContext,
+  diagram: DiagramDocument,
+  ownership: AttributeOwnershipContext,
+  validDecisions: LogicalTranslationDecision[],
+  entityById: Map<string, EntityNode>,
+  directSupertypesBySubtypeId: Map<string, EntityNode[]>,
+  appliedTablePerTypeDecisionBySupertypeId: Map<string, LogicalTranslationDecision>,
+): void {
+  validDecisions
+    .filter((decision) => decision.targetType === "entity" || decision.targetType === "weak-entity")
+    .forEach((decision) => {
+      const entity = entityById.get(decision.targetId);
+      const tableId = entity ? context.entityTableByEntityId.get(entity.id) : undefined;
+      const table = tableId ? context.tableById.get(tableId) : undefined;
+      if (!entity || !table) {
+        return;
+      }
+
+      const inheritedPrimaryKeyColumnIds = collectAppliedTablePerTypePrimaryKeyColumnIds(
+        context,
+        entity,
+        directSupertypesBySubtypeId,
+        appliedTablePerTypeDecisionBySupertypeId,
+      );
+      const hasInheritedPrimaryKey = inheritedPrimaryKeyColumnIds.length > 0;
+
+      const primaryKeyColumnIds = hasInheritedPrimaryKey
+        ? inheritedPrimaryKeyColumnIds
+        : decision.rule === "entity-table-internal"
+          ? collectInternalIdentifierColumnIds(
+              table,
+              entity.internalIdentifiers?.find((identifier) => identifier.id === getStrongEntityMode(decision.configuration).keySourceId),
+              ownership,
+            )
+          : decision.rule === "entity-table-external" || decision.rule === "weak-entity-table"
+            ? collectExternalIdentifierColumnIds(
+                context,
+                table,
+                findExternalIdentifierById(
+                  entity,
+                  decision.rule === "entity-table-external"
+                    ? getStrongEntityMode(decision.configuration).keySourceId
+                    : getWeakEntityMode(decision.configuration).externalIdentifierId,
+                ) ?? entity.externalIdentifiers?.[0],
+                decision.id,
+                ownership,
+              )
+            : [];
+
+      applyPrimaryKeyToTable(table, primaryKeyColumnIds);
+
+      const primaryKeySignature = buildColumnSetSignature(primaryKeyColumnIds);
+      (entity.internalIdentifiers ?? []).forEach((identifier) => {
+        const identifierColumnIds = collectInternalIdentifierColumnIds(table, identifier, ownership);
+        if (identifierColumnIds.length === 0) {
+          return;
+        }
+
+        markColumnsNotNull(table, identifierColumnIds);
+        if (buildColumnSetSignature(identifierColumnIds) === primaryKeySignature) {
+          return;
+        }
+
+        addUniqueConstraint(context, table.id, identifierColumnIds, {
+          decisionId: decision.id,
+          originLabel: `Identificatore alternativo ${describePrimaryKeyFromIdentifier(entity, identifier, ownership, diagram)}`,
+        });
+      });
+
+      if (decision.rule === "entity-table-external" || decision.rule === "weak-entity-table") {
+        const externalIdentifier =
+          findExternalIdentifierById(
+            entity,
+            decision.rule === "entity-table-external"
+              ? getStrongEntityMode(decision.configuration).keySourceId
+              : getWeakEntityMode(decision.configuration).externalIdentifierId,
+          ) ?? entity.externalIdentifiers?.[0];
+        const externalIdentifierColumnIds = collectExternalIdentifierColumnIds(
+          context,
+          table,
+          externalIdentifier,
+          decision.id,
+          ownership,
+        );
+
+        if (
+          externalIdentifier &&
+          externalIdentifierColumnIds.length > 0 &&
+          buildColumnSetSignature(externalIdentifierColumnIds) !== primaryKeySignature
+        ) {
+          markColumnsNotNull(table, externalIdentifierColumnIds);
+          addUniqueConstraint(context, table.id, externalIdentifierColumnIds, {
+            decisionId: decision.id,
+            originLabel: `Identificatore alternativo ${describePrimaryKeyFromIdentifier(entity, externalIdentifier, ownership, diagram)}`,
+          });
+        }
+      }
+    });
+}
+
 function buildSubtypeToSupertypeMap(
   diagram: DiagramDocument,
   decisions: LogicalTranslationDecision[],
@@ -1713,6 +2030,7 @@ function buildModelFromDecisions(
   const entityById = new Map(
     diagram.nodes.filter((node): node is EntityNode => node.type === "entity").map((node) => [node.id, node]),
   );
+  const directSupertypesBySubtypeId = buildDirectSupertypesBySubtypeId(diagram);
   const generalizationBySupertypeId = new Map(
     buildGeneralizationHierarchies(diagram).map((hierarchy) => [hierarchy.supertype.id, hierarchy]),
   );
@@ -1720,6 +2038,11 @@ function buildModelFromDecisions(
   const generalizationDecisions = sortGeneralizationDecisionsForExecution(
     diagram,
     validDecisions.filter((decision) => decision.targetType === "generalization"),
+  );
+  const appliedTablePerTypeDecisionBySupertypeId = new Map(
+    generalizationDecisions
+      .filter((decision) => decision.rule === "generalization-table-per-type")
+      .map((decision) => [decision.targetId, decision] as const),
   );
   const singleTableSubtypeToSupertype = buildSubtypeToSupertypeMap(diagram, validDecisions);
   const subtypeOnlySupertypes = new Set(
@@ -1918,6 +2241,16 @@ function buildModelFromDecisions(
       }
     });
 
+  finalizeEntityKeys(
+    context,
+    diagram,
+    ownership,
+    validDecisions,
+    entityById,
+    directSupertypesBySubtypeId,
+    appliedTablePerTypeDecisionBySupertypeId,
+  );
+
   validDecisions
     .filter((decision) => decision.rule === "relationship-foreign-key" || decision.rule === "relationship-table")
     .forEach((decision) => {
@@ -2056,6 +2389,7 @@ function buildModelFromDecisions(
     },
     tables: context.tables,
     foreignKeys: context.foreignKeys,
+    uniqueConstraints: context.uniqueConstraints,
     edges: context.edges,
     issues: context.issues,
   });
@@ -2153,6 +2487,7 @@ function createTransformationColumns(
     name: column.name,
     isPrimaryKey: column.isPrimaryKey,
     isForeignKey: column.isForeignKey,
+    isUnique: column.isUnique === true,
     isNullable: column.isNullable,
     generatedByDecisionId: column.generatedByDecisionId,
     references: column.references,
@@ -2626,6 +2961,7 @@ function buildMappings(
   model: LogicalModel,
   translation: LogicalTranslationState,
 ): LogicalTranslationState["mappings"] {
+  const tableById = new Map(model.tables.map((table) => [table.id, table]));
   return translation.decisions.map((decision) => {
     const artifacts = [
       ...model.tables
@@ -2636,6 +2972,21 @@ function buildMappings(
             .filter((column) => column.generatedByDecisionId === decision.id)
             .map((column) => ({ kind: "column" as const, id: column.id, label: `${table.name}.${column.name}` })),
         ]),
+      ...model.uniqueConstraints
+        .filter((constraint) => constraint.generatedByDecisionId === decision.id)
+        .map((constraint) => {
+          const table = tableById.get(constraint.tableId);
+          const labels =
+            table?.columns
+              .filter((column) => constraint.columnIds.includes(column.id))
+              .map((column) => column.name)
+              .join(", ") ?? constraint.columnIds.join(", ");
+          return {
+            kind: "uniqueConstraint" as const,
+            id: constraint.id,
+            label: `${table?.name ?? constraint.tableId} UNIQUE (${labels})`,
+          };
+        }),
       ...model.foreignKeys
         .filter((foreignKey) => foreignKey.generatedByDecisionId === decision.id)
         .flatMap((foreignKey) => {
@@ -2671,6 +3022,7 @@ export function createEmptyLogicalModel(name = "Modello logico"): LogicalModel {
     },
     tables: [],
     foreignKeys: [],
+    uniqueConstraints: [],
     edges: [],
     issues: [],
   };

@@ -306,13 +306,17 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
     typeof meta.sourceSignature !== "string" ||
     !Array.isArray(candidate.tables) ||
     !Array.isArray(candidate.foreignKeys) ||
+    ("uniqueConstraints" in candidate && !Array.isArray(candidate.uniqueConstraints)) ||
     !Array.isArray(candidate.edges) ||
     !Array.isArray(candidate.issues)
   ) {
     return fallback;
   }
 
-  return candidate as LogicalModel;
+  return {
+    ...candidate,
+    uniqueConstraints: Array.isArray(candidate.uniqueConstraints) ? candidate.uniqueConstraints : [],
+  } as LogicalModel;
 }
 
 function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
