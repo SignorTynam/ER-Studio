@@ -781,19 +781,65 @@ test("un sottotipo con PK derivata e identificatore locale usa UNIQUE invece di 
     dipendenteTable.columns.filter((column) => column.isPrimaryKey).every((column) =>
       column.references.some((reference) => reference.targetTableId === partecipanteTable.id),
     ),
-    "DIPENDENTE deve ereditare solo la PK corretta di PARTECIPANTE",
+    "DIPENDENTE deve ereditare la PK di PARTECIPANTE",
   );
   assert.ok(
     professionistaTable.columns.filter((column) => column.isPrimaryKey).every((column) =>
       column.references.some((reference) => reference.targetTableId === partecipanteTable.id),
     ),
-    "PROFESSIONISTA deve ereditare solo la PK corretta di PARTECIPANTE",
+    "PROFESSIONISTA deve ereditare la PK di PARTECIPANTE",
+  );
+
+  const dipendentePkColumns = dipendenteTable.columns.filter((column) => column.isPrimaryKey);
+  const professionistaPkColumns = professionistaTable.columns.filter((column) => column.isPrimaryKey);
+  assert.deepEqual(
+    dipendentePkColumns.map((column) => column.name),
+    ["PARTECIPANTE_PERSONA_CF"],
+    "DIPENDENTE deve ereditare solo la PK effettiva di PARTECIPANTE",
+  );
+  assert.deepEqual(
+    professionistaPkColumns.map((column) => column.name),
+    ["PARTECIPANTE_PERSONA_CF"],
+    "PROFESSIONISTA deve ereditare solo la PK effettiva di PARTECIPANTE",
+  );
+  assert.equal(
+    dipendenteTable.columns.some((column) => column.name === "Partecipante_Codice" && column.isPrimaryKey),
+    false,
+    "DIPENDENTE non deve propagare Codice come PK/FK strutturale",
+  );
+  assert.equal(
+    professionistaTable.columns.some((column) => column.name === "Partecipante_Codice" && column.isPrimaryKey),
+    false,
+    "PROFESSIONISTA non deve propagare Codice come PK/FK strutturale",
+  );
+  assert.equal(
+    dipendenteTable.columns.some((column) => column.name === "Partecipante_Codice"),
+    false,
+    "DIPENDENTE non deve nemmeno materializzare una colonna Partecipante_Codice ereditaria",
+  );
+  assert.equal(
+    professionistaTable.columns.some((column) => column.name === "Partecipante_Codice"),
+    false,
+    "PROFESSIONISTA non deve nemmeno materializzare una colonna Partecipante_Codice ereditaria",
   );
 
   const transformationPartecipante = workspace.transformation.nodes.find((node) => node.tableId === partecipanteTable.id);
   const transformationCodice = transformationPartecipante?.columns?.find((column) => column.id === codiceColumn.id);
   assert.ok(transformationCodice, "Il canvas logico deve esporre la colonna Codice");
   assert.equal(transformationCodice.isUnique, true, "Il canvas logico deve distinguere le colonne UNIQUE");
+
+  const transformationDipendente = workspace.transformation.nodes.find((node) => node.tableId === dipendenteTable.id);
+  const transformationProfessionista = workspace.transformation.nodes.find((node) => node.tableId === professionistaTable.id);
+  assert.equal(
+    transformationDipendente?.columns?.some((column) => column.name === "Partecipante_Codice" && column.isPrimaryKey),
+    false,
+    "Il canvas logico non deve mostrare Partecipante_Codice come PK/FK in DIPENDENTE",
+  );
+  assert.equal(
+    transformationProfessionista?.columns?.some((column) => column.name === "Partecipante_Codice" && column.isPrimaryKey),
+    false,
+    "Il canvas logico non deve mostrare Partecipante_Codice come PK/FK in PROFESSIONISTA",
+  );
 
   const entitySummaries = new Map(
     workspace.translation.decisions
@@ -807,9 +853,15 @@ test("un sottotipo con PK derivata e identificatore locale usa UNIQUE invece di 
 
   const sql = generateLogicalSql(workspace.model);
   const partecipanteSql = extractCreateTable(sql, "PARTECIPANTE");
+  const dipendenteSql = extractCreateTable(sql, "DIPENDENTE");
+  const professionistaSql = extractCreateTable(sql, "PROFESSIONISTA");
   assert.match(partecipanteSql, /PRIMARY KEY \("PERSONA_CF"\)/);
   assert.match(partecipanteSql, /UNIQUE \("Codice"\)/);
   assert.doesNotMatch(partecipanteSql, /PRIMARY KEY \("Codice", "PERSONA_CF"\)/);
+  assert.match(dipendenteSql, /PRIMARY KEY \("PARTECIPANTE_PERSONA_CF"\)/);
+  assert.match(professionistaSql, /PRIMARY KEY \("PARTECIPANTE_PERSONA_CF"\)/);
+  assert.doesNotMatch(dipendenteSql, /Partecipante_Codice/);
+  assert.doesNotMatch(professionistaSql, /Partecipante_Codice/);
 });
 
 test("una tabella con piu identificatori alternativi sceglie una sola PK e traduce gli altri come UNIQUE", () => {

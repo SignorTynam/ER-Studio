@@ -1590,6 +1590,26 @@ function addUniqueConstraint(
   return constraint;
 }
 
+function refreshUniqueFlagsForTable(
+  context: MappingContext,
+  tableId: string,
+): void {
+  const table = context.tableById.get(tableId);
+  if (!table) {
+    return;
+  }
+
+  const constrainedColumnIds = new Set(
+    context.uniqueConstraints
+      .filter((constraint) => constraint.tableId === tableId)
+      .flatMap((constraint) => constraint.columnIds),
+  );
+
+  table.columns.forEach((column) => {
+    column.isUnique = constrainedColumnIds.has(column.id);
+  });
+}
+
 function buildForeignKeyColumnBase(
   targetTable: LogicalTable,
   targetColumn: LogicalColumn,
@@ -1857,6 +1877,11 @@ function finalizeEntityKeys(
         return;
       }
 
+      context.uniqueConstraints = context.uniqueConstraints.filter(
+        (constraint) => !(constraint.tableId === table.id && constraint.generatedByDecisionId === decision.id),
+      );
+      refreshUniqueFlagsForTable(context, table.id);
+
       const inheritedPrimaryKeyColumnIds = collectAppliedTablePerTypePrimaryKeyColumnIds(
         context,
         entity,
@@ -2044,6 +2069,7 @@ function buildModelFromDecisions(
       .filter((decision) => decision.rule === "generalization-table-per-type")
       .map((decision) => [decision.targetId, decision] as const),
   );
+  const processedTablePerTypeDecisionBySupertypeId = new Map<string, LogicalTranslationDecision>();
   const singleTableSubtypeToSupertype = buildSubtypeToSupertypeMap(diagram, validDecisions);
   const subtypeOnlySupertypes = new Set(
     validDecisions
@@ -2111,17 +2137,17 @@ function buildModelFromDecisions(
 
   const entityTableByEntityId = context.entityTableByEntityId;
 
-  generalizationDecisions.forEach((decision) => {
+  for (const decision of generalizationDecisions) {
       const hierarchy = generalizationBySupertypeId.get(decision.targetId);
       if (!hierarchy) {
-        return;
+        continue;
       }
 
       const mode = getGeneralizationMode(decision.configuration);
       if (mode.strategy === "table-per-type") {
         const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
         if (!supertypeTableId) {
-          return;
+          continue;
         }
 
         hierarchy.subtypes.forEach((subtype) => {
@@ -2138,13 +2164,23 @@ function buildModelFromDecisions(
             includeInPrimaryKey: true,
           });
         });
-        return;
+        processedTablePerTypeDecisionBySupertypeId.set(decision.targetId, decision);
+        finalizeEntityKeys(
+          context,
+          diagram,
+          ownership,
+          validDecisions,
+          entityById,
+          directSupertypesBySubtypeId,
+          processedTablePerTypeDecisionBySupertypeId,
+        );
+        continue;
       }
 
       if (mode.strategy === "single-table") {
         const supertypeTableId = entityTableByEntityId.get(hierarchy.supertype.id);
         if (!supertypeTableId) {
-          return;
+          continue;
         }
 
         addColumn(context, supertypeTableId, {
@@ -2162,7 +2198,7 @@ function buildModelFromDecisions(
             decisionId: decision.id,
           });
         });
-        return;
+        continue;
       }
 
       if (mode.strategy === "subtypes-only") {
@@ -2178,7 +2214,7 @@ function buildModelFromDecisions(
           });
         });
       }
-    });
+    }
 
   validDecisions
     .filter((decision) => decision.rule === "entity-table-external" || decision.rule === "weak-entity-table")
