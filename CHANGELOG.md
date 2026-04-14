@@ -7,6 +7,17 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ## [Unreleased]
 
 ### Added
+- Inserire qui nuove funzionalita non ancora rilasciate.
+
+### Changed
+- Inserire qui modifiche a funzionalita esistenti.
+
+### Fixed
+- Inserire qui bug fix.
+
+## [3.5.0] - 2026-04-14
+
+### Added
 - Aggiunto `security.md` con una prima policy per la segnalazione responsabile delle vulnerabilita.
 - Aggiunto `LICENSE` con licenza MIT per definire i diritti d'uso del codice.
 - Aggiunto `CONTRIBUTING.md` con linee guida su setup locale, naming branch, PR e standard di codice.
@@ -19,9 +30,10 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 - In `src/types/diagram.ts` i connector edge usano ora `participationId` invece del campo testuale `cardinality`.
 - In `src/types/diagram.ts` la cardinalita degli attribute edge non e piu salvata direttamente sull'edge ma risolta dal nodo attributo.
 - In `src/utils/cardinality.ts` la lettura della cardinalita e stata centralizzata tramite `getEdgeCardinalityValue` e `getEdgeCardinalityLabel`.
+- In `src/inspector/InspectorPanel.tsx` rimossa la card "Impostazioni associazione": la rinomina resta disponibile tramite azioni rapide.
 
 ### Fixed
-- Nessuna correzione registrata in questa fase.
+- Nessuna correzione registrata in questa release.
 
 ## [3.4.0] - 2026-04-14
 

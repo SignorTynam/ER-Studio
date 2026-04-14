@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.4";
+export const APP_VERSION = "3.5";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,17 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.5",
+    date: "2026-04-14",
+    updates: [
+      "Versione applicativa aggiornata alla release 3.5.",
+      "Gestione cardinalita rivista: partecipazioni entity-relazione tipizzate e cardinalita attributo spostata sul nodo attributo.",
+      "Utility cardinalita centralizzate per normalizzazione e risoluzione etichette dei collegamenti.",
+      "Inspector relazione semplificato: rinomina tramite azione rapida senza campo nome dedicato.",
+      "Documentazione e governance allineate con SECURITY, LICENSE, CONTRIBUTING e CHANGELOG.",
+    ],
+  },
   {
     version: "3.4",
     date: "2026-04-14",
