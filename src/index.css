@@ -6774,6 +6774,14 @@ textarea.diagram-notes-editor::placeholder {
   --logical-table-stroke: rgba(43, 88, 81, 0.88);
 }
 
+.logical-table.step-highlight {
+  --logical-table-stroke: rgba(184, 123, 62, 0.82);
+}
+
+.logical-table.focus-highlight {
+  --logical-table-stroke: rgba(37, 74, 68, 0.98);
+}
+
 .logical-table.target-highlight {
   --logical-table-stroke: rgba(184, 123, 62, 0.82);
 }
@@ -7153,7 +7161,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .logical-translation-shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr) 360px;
   gap: 10px;
   min-height: 0;
   height: 100%;
@@ -7162,6 +7170,7 @@ textarea.diagram-notes-editor::placeholder {
 
 .translation-step-rail,
 .translation-stage-card,
+.translation-canvas-card,
 .translation-panel {
   border: 1px solid rgba(42, 39, 31, 0.08);
   border-radius: 16px;
@@ -7265,21 +7274,8 @@ textarea.diagram-notes-editor::placeholder {
   font-weight: 700;
 }
 
-.translation-workbench {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) 360px;
-  gap: 10px;
-  min-height: 0;
-}
-
-.translation-canvas-stack {
-  display: grid;
-  grid-template-rows: minmax(280px, 1fr) minmax(280px, 1fr);
-  gap: 10px;
-  min-height: 0;
-}
-
-.translation-stage-card {
+.translation-stage-card,
+.translation-canvas-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
@@ -7332,11 +7328,25 @@ textarea.diagram-notes-editor::placeholder {
   overflow: hidden;
 }
 
+.translation-stage-canvas-single {
+  min-height: 0;
+}
+
 .translation-stage-canvas .canvas-panel,
 .translation-stage-canvas .logical-canvas-panel {
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.transformation-canvas-panel .logical-edge.focus-highlight {
+  --logical-edge-stroke: rgba(37, 74, 68, 0.98);
+}
+
+.transformation-canvas-panel .transformation-er-node.focus-highlight .entity-label,
+.transformation-canvas-panel .transformation-er-node.focus-highlight .shape-label,
+.transformation-canvas-panel .transformation-er-node.focus-highlight .attribute-label {
+  font-weight: 700;
 }
 
 .translation-panel {
@@ -7555,17 +7565,9 @@ textarea.diagram-notes-editor::placeholder {
   .logical-translation-shell {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .translation-workbench {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 860px) {
-  .translation-canvas-stack {
-    grid-template-rows: minmax(260px, 1fr) minmax(260px, 1fr);
-  }
-
   .translation-review-grid {
     grid-template-columns: minmax(0, 1fr);
   }

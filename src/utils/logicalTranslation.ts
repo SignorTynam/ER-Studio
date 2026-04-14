@@ -1,6 +1,7 @@
 import type {
   AttributeNode,
   DiagramDocument,
+  DiagramEdge,
   DiagramNode,
   EntityNode,
   ExternalIdentifier,
@@ -20,15 +21,19 @@ import type {
   LogicalTranslationChoice,
   LogicalTranslationConflict,
   LogicalTranslationDecision,
+  LogicalTransformationColumn,
+  LogicalTransformationEdge,
+  LogicalTransformationElementStatus,
+  LogicalTransformationNode,
+  LogicalTransformationState,
   LogicalTranslationItem,
   LogicalTranslationRuleKind,
   LogicalTranslationState,
   LogicalTranslationStep,
   LogicalWorkspaceDocument,
 } from "../types/logical";
-import { getConnectorParticipation } from "./cardinality";
-import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./logicalLayout";
-import { preserveLogicalTablePositions } from "./logicalMapping";
+import { getConnectorParticipation, getEdgeCardinalityLabel } from "./cardinality";
+import { normalizeLogicalModelGeometry } from "./logicalLayout";
 
 interface ParsedCardinality {
   raw: string;
@@ -112,6 +117,7 @@ interface TableCreationOptions {
   decisionId: string;
   sourceEntityId?: string;
   sourceRelationshipId?: string;
+  sourceAttributeId?: string;
   originLabel?: string;
 }
 
@@ -489,6 +495,13 @@ function getDecisionForTarget(
   return state.decisions.find((decision) => decision.targetType === targetType && decision.targetId === targetId);
 }
 
+function buildTargetKey(
+  targetType: LogicalTranslationDecision["targetType"],
+  targetId: string,
+): string {
+  return `${targetType}:${targetId}`;
+}
+
 function buildChoiceKey(
   targetType: LogicalTranslationDecision["targetType"],
   targetId: string,
@@ -496,6 +509,116 @@ function buildChoiceKey(
   configuration?: LogicalTranslationDecision["configuration"],
 ): string {
   return `${targetType}:${targetId}:${rule}:${stableJson(configuration ?? null)}`;
+}
+
+function getDecisionTargetKeyMap(
+  translation: LogicalTranslationState,
+): Map<string, string> {
+  return new Map(
+    translation.decisions.map((decision) => [decision.id, buildTargetKey(decision.targetType, decision.targetId)]),
+  );
+}
+
+function getTransformationStatus(
+  translation: LogicalTranslationState,
+  targetType: LogicalTranslationDecision["targetType"],
+  targetId: string,
+): LogicalTransformationElementStatus {
+  const conflicts = translation.conflicts.filter(
+    (conflict) => conflict.targetType === targetType && conflict.targetId === targetId,
+  );
+  if (conflicts.length > 0) {
+    return "invalid";
+  }
+
+  const decision = getDecisionForTarget(translation, targetType, targetId);
+  if (decision?.status === "applied") {
+    return "transformed";
+  }
+
+  return "unresolved";
+}
+
+function getAbsorbedExternalIdentifierRelationshipIds(
+  diagram: DiagramDocument,
+  translation: LogicalTranslationState,
+): Set<string> {
+  const entityById = new Map(
+    diagram.nodes.filter((node): node is EntityNode => node.type === "entity").map((node) => [node.id, node]),
+  );
+  const absorbed = new Set<string>();
+
+  translation.decisions
+    .filter(
+      (decision) =>
+        decision.status === "applied" &&
+        (decision.rule === "entity-table-external" || decision.rule === "weak-entity-table"),
+    )
+    .forEach((decision) => {
+      const entity = entityById.get(decision.targetId);
+      if (!entity) {
+        return;
+      }
+
+      const identifierId =
+        decision.rule === "entity-table-external"
+          ? getStrongEntityMode(decision.configuration).keySourceId
+          : getWeakEntityMode(decision.configuration).externalIdentifierId;
+      const identifier =
+        findExternalIdentifierById(entity, identifierId) ?? entity.externalIdentifiers?.[0];
+      if (identifier?.relationshipId) {
+        absorbed.add(identifier.relationshipId);
+      }
+    });
+
+  return absorbed;
+}
+
+function collectAttributeSubtreeIds(
+  attributeId: string,
+  ownership: AttributeOwnershipContext,
+): string[] {
+  const result = new Set<string>();
+  const stack = [attributeId];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop() as string;
+    if (result.has(currentId)) {
+      continue;
+    }
+
+    result.add(currentId);
+    (ownership.childrenByHostId.get(currentId) ?? []).forEach((childId) => stack.push(childId));
+  }
+
+  return [...result];
+}
+
+function getAttributeRoot(
+  attributeId: string,
+  ownership: AttributeOwnershipContext,
+): AttributeNode | undefined {
+  let currentId = attributeId;
+  const visited = new Set<string>();
+
+  while (!visited.has(currentId)) {
+    visited.add(currentId);
+    const parentId = ownership.parentByAttributeId.get(currentId);
+    if (!parentId) {
+      const node = ownership.nodeById.get(currentId);
+      return node?.type === "attribute" ? node : undefined;
+    }
+    currentId = parentId;
+  }
+
+  return undefined;
+}
+
+function isAttributeUnderMultivaluedRoot(
+  attributeId: string,
+  ownership: AttributeOwnershipContext,
+): boolean {
+  return getAttributeRoot(attributeId, ownership)?.isMultivalued === true;
 }
 
 function classifyBinaryRelationship(
@@ -920,6 +1043,7 @@ function createTranslationItemsByStep(
   state: LogicalTranslationState,
 ): TranslationOverview {
   const ownership = buildAttributeOwnershipContext(diagram);
+  const absorbedExternalRelationshipIds = getAbsorbedExternalIdentifierRelationshipIds(diagram, state);
   const choicesByKey = new Map<string, TranslationChoiceRecord>();
   const itemsByStep = {
     entities: [] as LogicalTranslationItem[],
@@ -981,7 +1105,10 @@ function createTranslationItemsByStep(
   });
 
   sortByLabel(
-    diagram.nodes.filter((node): node is RelationshipNode => node.type === "relationship"),
+    diagram.nodes.filter(
+      (node): node is RelationshipNode =>
+        node.type === "relationship" && !absorbedExternalRelationshipIds.has(node.id),
+    ),
   ).forEach((relationship) => {
     const participants = buildRelationshipParticipants(diagram, relationship);
     const choices = buildRelationshipChoices(relationship, participants, getRelationshipLeafAttributes(relationship.id, ownership));
@@ -1116,6 +1243,7 @@ function createLogicalTable(
     kind: options.kind,
     sourceEntityId: options.sourceEntityId,
     sourceRelationshipId: options.sourceRelationshipId,
+    sourceAttributeId: options.sourceAttributeId,
     generatedByDecisionId: options.decisionId,
     originLabel: options.originLabel,
     columns: [],
@@ -1643,6 +1771,7 @@ function buildModelFromDecisions(
         kind: "relationship",
         decisionId: decision.id,
         sourceEntityId: owner.id,
+        sourceAttributeId: attribute.id,
         originLabel: attribute.label,
       });
       addForeignKey(context, {
@@ -1732,20 +1861,544 @@ function buildModelFromDecisions(
       }
     });
 
-  return autoLayoutLogicalModel(
-    normalizeLogicalModelGeometry({
-      meta: {
-        name: `${normalizeTableName(diagram.meta.name)} (traduzione logica)`,
-        generatedAt: nowIso(),
-        sourceDiagramVersion: diagram.meta.version,
-        sourceSignature: buildLogicalSourceSignatureInternal(diagram),
-      },
-      tables: context.tables,
-      foreignKeys: context.foreignKeys,
-      edges: context.edges,
-      issues: context.issues,
+  return normalizeLogicalModelGeometry({
+    meta: {
+      name: `${normalizeTableName(diagram.meta.name)} (traduzione logica)`,
+      generatedAt: nowIso(),
+      sourceDiagramVersion: diagram.meta.version,
+      sourceSignature: buildLogicalSourceSignatureInternal(diagram),
+    },
+    tables: context.tables,
+    foreignKeys: context.foreignKeys,
+    edges: context.edges,
+    issues: context.issues,
+  });
+}
+
+function buildTablePersistenceKey(table: LogicalTable): string {
+  if (table.generatedByDecisionId) {
+    return `decision:${table.generatedByDecisionId}`;
+  }
+
+  if (table.sourceAttributeId) {
+    return `attribute:${table.sourceAttributeId}`;
+  }
+
+  if (table.sourceEntityId) {
+    return `entity:${table.kind}:${table.sourceEntityId}`;
+  }
+
+  if (table.sourceRelationshipId) {
+    return `relationship:${table.kind}:${table.sourceRelationshipId}`;
+  }
+
+  return `name:${table.kind}:${normalizeSpaces(table.name).toLowerCase()}`;
+}
+
+function getSourceNodeForTable(
+  table: LogicalTable,
+  nodeById: Map<string, DiagramNode>,
+): DiagramNode | undefined {
+  if (table.sourceAttributeId) {
+    return nodeById.get(table.sourceAttributeId);
+  }
+
+  if (table.sourceRelationshipId) {
+    return nodeById.get(table.sourceRelationshipId);
+  }
+
+  if (table.sourceEntityId) {
+    return nodeById.get(table.sourceEntityId);
+  }
+
+  return undefined;
+}
+
+function alignTableToSource(table: LogicalTable, sourceNode: DiagramNode): LogicalTable {
+  return {
+    ...table,
+    x: Math.round(sourceNode.x + (sourceNode.width - table.width) / 2),
+    y: Math.round(sourceNode.y + (sourceNode.height - table.height) / 2),
+  };
+}
+
+function positionLogicalModelInPlace(
+  diagram: DiagramDocument,
+  nextModel: LogicalModel,
+  previousModel?: LogicalModel,
+): LogicalModel {
+  const previousByKey = new Map<string, LogicalTable>();
+  previousModel?.tables.forEach((table) => {
+    previousByKey.set(buildTablePersistenceKey(table), table);
+  });
+
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+
+  return {
+    ...nextModel,
+    tables: nextModel.tables.map((table) => {
+      const previous = previousByKey.get(buildTablePersistenceKey(table));
+      if (previous) {
+        return {
+          ...table,
+          x: previous.x,
+          y: previous.y,
+        };
+      }
+
+      const sourceNode = getSourceNodeForTable(table, nodeById);
+      return sourceNode ? alignTableToSource(table, sourceNode) : table;
     }),
+  };
+}
+
+function collectTargetKeysFromColumns(columns: LogicalTransformationColumn[]): string[] {
+  return Array.from(
+    new Set(columns.flatMap((column) => column.relatedTargetKeys)),
   );
+}
+
+function createTransformationColumns(
+  table: LogicalTable,
+  decisionTargetKeyById: Map<string, string>,
+): LogicalTransformationColumn[] {
+  return table.columns.map((column) => ({
+    id: column.id,
+    name: column.name,
+    isPrimaryKey: column.isPrimaryKey,
+    isForeignKey: column.isForeignKey,
+    isNullable: column.isNullable,
+    generatedByDecisionId: column.generatedByDecisionId,
+    references: column.references,
+    relatedTargetKeys:
+      column.generatedByDecisionId && decisionTargetKeyById.has(column.generatedByDecisionId)
+        ? [decisionTargetKeyById.get(column.generatedByDecisionId) as string]
+        : [],
+  }));
+}
+
+function addTargetKeyEntry(
+  bucketById: Map<string, Set<string>>,
+  id: string,
+  targetKey: string,
+): void {
+  const bucket = bucketById.get(id) ?? new Set<string>();
+  bucket.add(targetKey);
+  bucketById.set(id, bucket);
+}
+
+function buildTransformationGraph(
+  diagram: DiagramDocument,
+  translation: LogicalTranslationState,
+  model: LogicalModel,
+): LogicalTransformationState {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const decisionTargetKeyById = getDecisionTargetKeyMap(translation);
+  const absorbedExternalRelationshipIds = getAbsorbedExternalIdentifierRelationshipIds(diagram, translation);
+  const tableBySourceEntityId = new Map(
+    model.tables
+      .filter((table) => typeof table.sourceEntityId === "string")
+      .map((table) => [table.sourceEntityId as string, table]),
+  );
+  const tableBySourceRelationshipId = new Map(
+    model.tables
+      .filter((table) => typeof table.sourceRelationshipId === "string")
+      .map((table) => [table.sourceRelationshipId as string, table]),
+  );
+  const tableBySourceAttributeId = new Map(
+    model.tables
+      .filter((table) => typeof table.sourceAttributeId === "string")
+      .map((table) => [table.sourceAttributeId as string, table]),
+  );
+  const extraTableTargetKeys = new Map<string, Set<string>>();
+  const hiddenSourceNodeIds = new Set<string>();
+  const representativeNodeIdBySourceId = new Map<string, string>();
+  const tableNodes: LogicalTransformationNode[] = [];
+
+  model.tables.forEach((table) => {
+    const columns = createTransformationColumns(table, decisionTargetKeyById);
+    const relatedTargetKeys = new Set<string>(collectTargetKeysFromColumns(columns));
+    if (table.generatedByDecisionId && decisionTargetKeyById.has(table.generatedByDecisionId)) {
+      relatedTargetKeys.add(decisionTargetKeyById.get(table.generatedByDecisionId) as string);
+    }
+
+    tableNodes.push({
+      id: table.id,
+      kind: "logical-table",
+      renderType: "table",
+      label: table.name,
+      x: table.x,
+      y: table.y,
+      width: table.width,
+      height: table.height,
+      status: "transformed",
+      sourceNodeId: table.sourceAttributeId ?? table.sourceRelationshipId ?? table.sourceEntityId,
+      sourceNodeType:
+        table.sourceAttributeId != null
+          ? "attribute"
+          : table.sourceRelationshipId != null
+            ? "relationship"
+            : table.sourceEntityId != null
+              ? "entity"
+              : undefined,
+      tableId: table.id,
+      generatedByDecisionIds: table.generatedByDecisionId ? [table.generatedByDecisionId] : [],
+      relatedTargetKeys: [...relatedTargetKeys],
+      columns,
+    });
+
+    if (table.sourceEntityId) {
+      hiddenSourceNodeIds.add(table.sourceEntityId);
+      representativeNodeIdBySourceId.set(table.sourceEntityId, table.id);
+    }
+
+    if (table.sourceRelationshipId) {
+      hiddenSourceNodeIds.add(table.sourceRelationshipId);
+      representativeNodeIdBySourceId.set(table.sourceRelationshipId, table.id);
+    }
+
+    if (table.sourceAttributeId) {
+      collectAttributeSubtreeIds(table.sourceAttributeId, ownership).forEach((attributeId) => {
+        hiddenSourceNodeIds.add(attributeId);
+      });
+      representativeNodeIdBySourceId.set(table.sourceAttributeId, table.id);
+    }
+  });
+
+  model.tables.forEach((table) => {
+    if (!table.sourceEntityId) {
+      return;
+    }
+
+    getDirectOwnedAttributes(table.sourceEntityId, ownership).forEach((attribute) => {
+      if (isAttributeUnderMultivaluedRoot(attribute.id, ownership)) {
+        return;
+      }
+
+      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => {
+        hiddenSourceNodeIds.add(attributeId);
+      });
+    });
+  });
+
+  model.edges.forEach((edge) => {
+    const foreignKey = model.foreignKeys.find((candidate) => candidate.id === edge.foreignKeyId);
+    if (!foreignKey?.sourceRelationshipId) {
+      return;
+    }
+
+    getDirectOwnedAttributes(foreignKey.sourceRelationshipId, ownership).forEach((attribute) => {
+      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
+    });
+  });
+
+  absorbedExternalRelationshipIds.forEach((relationshipId) => {
+    hiddenSourceNodeIds.add(relationshipId);
+    getDirectOwnedAttributes(relationshipId, ownership).forEach((attribute) => {
+      collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
+    });
+  });
+
+  const hierarchies = buildGeneralizationHierarchies(diagram);
+  const hierarchyBySupertypeId = new Map(hierarchies.map((hierarchy) => [hierarchy.supertype.id, hierarchy]));
+  translation.decisions
+    .filter((decision) => decision.status === "applied" && decision.targetType === "generalization")
+    .forEach((decision) => {
+      const hierarchy = hierarchyBySupertypeId.get(decision.targetId);
+      if (!hierarchy) {
+        return;
+      }
+
+      const targetKey = buildTargetKey("generalization", decision.targetId);
+      if (decision.rule === "generalization-table-per-type") {
+        const supertypeTable = tableBySourceEntityId.get(hierarchy.supertype.id);
+        if (supertypeTable) {
+          addTargetKeyEntry(extraTableTargetKeys, supertypeTable.id, targetKey);
+        }
+        hierarchy.subtypes.forEach((subtype) => {
+          const subtypeTable = tableBySourceEntityId.get(subtype.id);
+          if (subtypeTable) {
+            addTargetKeyEntry(extraTableTargetKeys, subtypeTable.id, targetKey);
+          }
+        });
+        return;
+      }
+
+      if (decision.rule === "generalization-single-table") {
+        const supertypeTable = tableBySourceEntityId.get(hierarchy.supertype.id);
+        if (supertypeTable) {
+          addTargetKeyEntry(extraTableTargetKeys, supertypeTable.id, targetKey);
+        }
+        hierarchy.subtypes.forEach((subtype) => {
+          hiddenSourceNodeIds.add(subtype.id);
+          getDirectOwnedAttributes(subtype.id, ownership).forEach((attribute) => {
+            collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
+          });
+          if (supertypeTable) {
+            representativeNodeIdBySourceId.set(subtype.id, supertypeTable.id);
+          }
+        });
+        return;
+      }
+
+      if (decision.rule === "generalization-subtypes-only") {
+        hiddenSourceNodeIds.add(hierarchy.supertype.id);
+        getDirectOwnedAttributes(hierarchy.supertype.id, ownership).forEach((attribute) => {
+          collectAttributeSubtreeIds(attribute.id, ownership).forEach((attributeId) => hiddenSourceNodeIds.add(attributeId));
+        });
+        hierarchy.subtypes.forEach((subtype) => {
+          const subtypeTable = tableBySourceEntityId.get(subtype.id);
+          if (subtypeTable) {
+            addTargetKeyEntry(extraTableTargetKeys, subtypeTable.id, targetKey);
+          }
+        });
+      }
+    });
+
+  const transformationNodes = tableNodes.map((node) => {
+    const extraKeys = extraTableTargetKeys.get(node.id);
+    if (!extraKeys || extraKeys.size === 0) {
+      return node;
+    }
+
+    const relatedTargetKeys = Array.from(new Set([...node.relatedTargetKeys, ...extraKeys]));
+    return {
+      ...node,
+      relatedTargetKeys,
+    };
+  });
+
+  diagram.nodes.forEach((node) => {
+    if (hiddenSourceNodeIds.has(node.id)) {
+      return;
+    }
+
+    let renderType: LogicalTransformationNode["renderType"];
+    let relatedTargetKeys: string[] = [];
+    let status: LogicalTransformationElementStatus = "unresolved";
+
+    if (node.type === "entity") {
+      renderType = node.isWeak === true ? "weak-entity" : "entity";
+      relatedTargetKeys = [buildTargetKey(node.isWeak === true ? "weak-entity" : "entity", node.id)];
+      status = getTransformationStatus(translation, node.isWeak === true ? "weak-entity" : "entity", node.id);
+    } else if (node.type === "relationship") {
+      renderType = "relationship";
+      relatedTargetKeys = [buildTargetKey("relationship", node.id)];
+      status = getTransformationStatus(translation, "relationship", node.id);
+    } else {
+      const rootAttribute = getAttributeRoot(node.id, ownership);
+      if (rootAttribute?.isMultivalued === true) {
+        renderType = rootAttribute.id === node.id ? "multivalued-attribute" : "attribute";
+        relatedTargetKeys = [buildTargetKey("attribute", rootAttribute.id)];
+        status = getTransformationStatus(translation, "attribute", rootAttribute.id);
+      } else {
+        renderType = "attribute";
+        const owner = getAttributeOwner(node.id, ownership);
+        if (owner?.type === "entity") {
+          const targetType = owner.isWeak === true ? "weak-entity" : "entity";
+          relatedTargetKeys = [buildTargetKey(targetType, owner.id)];
+          status = getTransformationStatus(translation, targetType, owner.id);
+        } else if (owner?.type === "relationship") {
+          relatedTargetKeys = [buildTargetKey("relationship", owner.id)];
+          status = getTransformationStatus(translation, "relationship", owner.id);
+        }
+      }
+    }
+
+    transformationNodes.push({
+      id: node.id,
+      kind: "er-node",
+      renderType,
+      label: node.label,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+      status,
+      sourceNodeId: node.id,
+      sourceNodeType: node.type,
+      generatedByDecisionIds: [],
+      relatedTargetKeys,
+    });
+  });
+
+  function resolveRenderedNodeId(sourceNodeId: string): string | null {
+    if (!hiddenSourceNodeIds.has(sourceNodeId)) {
+      return sourceNodeId;
+    }
+
+    return representativeNodeIdBySourceId.get(sourceNodeId) ?? null;
+  }
+
+  const transformationEdges: LogicalTransformationEdge[] = [];
+
+  model.edges.forEach((edge) => {
+    const foreignKey = model.foreignKeys.find((candidate) => candidate.id === edge.foreignKeyId);
+    const relatedTargetKeys =
+      foreignKey?.generatedByDecisionId && decisionTargetKeyById.has(foreignKey.generatedByDecisionId)
+        ? [decisionTargetKeyById.get(foreignKey.generatedByDecisionId) as string]
+        : [];
+
+    transformationEdges.push({
+      id: edge.id,
+      kind: "foreign-key",
+      renderType: "foreign-key",
+      sourceId: edge.fromTableId,
+      targetId: edge.toTableId,
+      label: edge.label,
+      status: "transformed",
+      foreignKeyId: edge.foreignKeyId,
+      generatedByDecisionIds: foreignKey?.generatedByDecisionId ? [foreignKey.generatedByDecisionId] : [],
+      relatedTargetKeys,
+    });
+  });
+
+  diagram.edges.forEach((edge) => {
+    if (edge.type === "inheritance") {
+      const status = getTransformationStatus(translation, "generalization", edge.targetId);
+      if (status === "transformed") {
+        return;
+      }
+
+      const sourceId = resolveRenderedNodeId(edge.sourceId);
+      const targetId = resolveRenderedNodeId(edge.targetId);
+      if (!sourceId || !targetId) {
+        return;
+      }
+
+      transformationEdges.push({
+        id: edge.id,
+        kind: "er-edge",
+        renderType: "inheritance",
+        sourceId,
+        targetId,
+        label: edge.label,
+        status,
+        sourceEdgeId: edge.id,
+        sourceEdgeType: edge.type,
+        lineStyle: edge.lineStyle,
+        manualOffset: edge.manualOffset,
+        isaDisjointness: edge.isaDisjointness,
+        isaCompleteness: edge.isaCompleteness,
+        generatedByDecisionIds: [],
+        relatedTargetKeys: [buildTargetKey("generalization", edge.targetId)],
+      });
+      return;
+    }
+
+    if (edge.type === "connector") {
+      const relationshipId =
+        nodeById.get(edge.sourceId)?.type === "relationship"
+          ? edge.sourceId
+          : nodeById.get(edge.targetId)?.type === "relationship"
+            ? edge.targetId
+            : null;
+      if (!relationshipId || absorbedExternalRelationshipIds.has(relationshipId)) {
+        return;
+      }
+
+      const status = getTransformationStatus(translation, "relationship", relationshipId);
+      if (status === "transformed") {
+        return;
+      }
+
+      const sourceId = resolveRenderedNodeId(edge.sourceId);
+      const targetId = resolveRenderedNodeId(edge.targetId);
+      if (!sourceId || !targetId) {
+        return;
+      }
+
+      transformationEdges.push({
+        id: edge.id,
+        kind: "er-edge",
+        renderType: "connector",
+        sourceId,
+        targetId,
+        label: edge.label,
+        status,
+        sourceEdgeId: edge.id,
+        sourceEdgeType: edge.type,
+        lineStyle: edge.lineStyle,
+        manualOffset: edge.manualOffset,
+        cardinalityLabel: getEdgeCardinalityLabel(edge, nodeById.get(edge.sourceId), nodeById.get(edge.targetId)),
+        generatedByDecisionIds: [],
+        relatedTargetKeys: [buildTargetKey("relationship", relationshipId)],
+      });
+      return;
+    }
+
+    const sourceNode = nodeById.get(edge.sourceId);
+    const targetNode = nodeById.get(edge.targetId);
+    const attributeNode =
+      sourceNode?.type === "attribute"
+        ? sourceNode
+        : targetNode?.type === "attribute"
+          ? targetNode
+          : undefined;
+    if (!attributeNode || hiddenSourceNodeIds.has(attributeNode.id)) {
+      return;
+    }
+
+    const rootAttribute = getAttributeRoot(attributeNode.id, ownership);
+    const isMultivalued = rootAttribute?.isMultivalued === true;
+    const relatedTargetKeys = isMultivalued
+      ? [buildTargetKey("attribute", rootAttribute?.id ?? attributeNode.id)]
+      : (() => {
+          const owner = getAttributeOwner(attributeNode.id, ownership);
+          if (owner?.type === "entity") {
+            return [buildTargetKey(owner.isWeak === true ? "weak-entity" : "entity", owner.id)];
+          }
+
+          if (owner?.type === "relationship") {
+            return [buildTargetKey("relationship", owner.id)];
+          }
+
+          return [] as string[];
+        })();
+
+    const status = isMultivalued
+      ? getTransformationStatus(translation, "attribute", rootAttribute?.id ?? attributeNode.id)
+      : relatedTargetKeys[0]
+        ? getTransformationStatus(
+            translation,
+            relatedTargetKeys[0].split(":")[0] as LogicalTranslationDecision["targetType"],
+            relatedTargetKeys[0].split(":")[1] as string,
+          )
+        : "unresolved";
+
+    const sourceId = resolveRenderedNodeId(edge.sourceId);
+    const targetId = resolveRenderedNodeId(edge.targetId);
+    if (!sourceId || !targetId) {
+      return;
+    }
+
+    transformationEdges.push({
+      id: edge.id,
+      kind: "er-edge",
+      renderType: "attribute",
+      sourceId,
+      targetId,
+      label: edge.label,
+      status,
+      sourceEdgeId: edge.id,
+      sourceEdgeType: edge.type,
+      lineStyle: edge.lineStyle,
+      manualOffset: edge.manualOffset,
+      cardinalityLabel: getEdgeCardinalityLabel(edge, sourceNode, targetNode),
+      generatedByDecisionIds: [],
+      relatedTargetKeys,
+    });
+  });
+
+  return {
+    meta: {
+      updatedAt: nowIso(),
+      sourceSignature: buildLogicalSourceSignatureInternal(diagram),
+    },
+    nodes: transformationNodes,
+    edges: transformationEdges,
+  };
 }
 
 function validateDecisionAgainstOverview(
@@ -1828,23 +2481,24 @@ export function createEmptyLogicalWorkspace(
   diagram: DiagramDocument,
   previousWorkspace?: LogicalWorkspaceDocument,
 ): LogicalWorkspaceDocument {
-  const emptyModel = autoLayoutLogicalModel(
-    normalizeLogicalModelGeometry(createEmptyLogicalModel(`${normalizeTableName(diagram.meta.name)} (traduzione logica)`)),
+  const model = normalizeLogicalModelGeometry(
+    createEmptyLogicalModel(`${normalizeTableName(diagram.meta.name)} (traduzione logica)`),
   );
-  const model = previousWorkspace ? preserveLogicalTablePositions(emptyModel, previousWorkspace.model) : emptyModel;
+  const translation: LogicalTranslationState = {
+    meta: {
+      createdAt: previousWorkspace?.translation.meta.createdAt ?? nowIso(),
+      updatedAt: nowIso(),
+      sourceSignature: buildLogicalSourceSignatureInternal(diagram),
+    },
+    decisions: [],
+    mappings: [],
+    conflicts: [],
+  };
 
   return {
     model,
-    translation: {
-      meta: {
-        createdAt: previousWorkspace?.translation.meta.createdAt ?? nowIso(),
-        updatedAt: nowIso(),
-        sourceSignature: buildLogicalSourceSignatureInternal(diagram),
-      },
-      decisions: [],
-      mappings: [],
-      conflicts: [],
-    },
+    translation,
+    transformation: buildTransformationGraph(diagram, translation, model),
   };
 }
 
@@ -1879,13 +2533,31 @@ export function refreshLogicalWorkspace(
     mappings: [],
   };
   const rebuiltModel = buildModelFromDecisions(diagram, translation);
-  const positionedModel = workspace.model.tables.length > 0 ? preserveLogicalTablePositions(rebuiltModel, workspace.model) : rebuiltModel;
+  const positionedModel = positionLogicalModelInPlace(diagram, rebuiltModel, workspace.model);
+  const transformation = buildTransformationGraph(diagram, translation, positionedModel);
   return {
     model: positionedModel,
     translation: {
       ...translation,
       mappings: buildMappings(positionedModel, translation),
     },
+    transformation,
+  };
+}
+
+export function updateLogicalWorkspaceModel(
+  diagram: DiagramDocument,
+  workspace: LogicalWorkspaceDocument,
+  model: LogicalModel,
+): LogicalWorkspaceDocument {
+  return {
+    ...workspace,
+    model,
+    translation: {
+      ...workspace.translation,
+      mappings: buildMappings(model, workspace.translation),
+    },
+    transformation: buildTransformationGraph(diagram, workspace.translation, model),
   };
 }
 

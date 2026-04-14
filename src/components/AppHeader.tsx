@@ -180,7 +180,7 @@ export function AppHeader(props: AppHeaderProps) {
               type="button"
               onClick={() => props.onDiagramViewChange("logical")}
             >
-              Logica
+              Logico
             </button>
           </div>
         </div>

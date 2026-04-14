@@ -65,6 +65,7 @@ import {
   createEmptyLogicalWorkspace,
   createEmptyLogicalModel,
   refreshLogicalWorkspace,
+  updateLogicalWorkspaceModel,
 } from "./utils/logicalTranslation";
 import { normalizeSupportedCardinality } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
@@ -270,7 +271,12 @@ function sanitizeLogicalSelectionState(value: unknown): LogicalSelection {
   }
 
   return {
-    tableId: typeof value.tableId === "string" ? value.tableId : null,
+    nodeId:
+      typeof value.nodeId === "string"
+        ? value.nodeId
+        : typeof value.tableId === "string"
+          ? value.tableId
+          : null,
     columnId: typeof value.columnId === "string" ? value.columnId : null,
     edgeId: typeof value.edgeId === "string" ? value.edgeId : null,
   };
@@ -338,6 +344,7 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
     return refreshLogicalWorkspace(diagram, {
       model: sanitizeLogicalModel(candidate.model),
       translation: translation as LogicalTranslationState,
+      transformation: fallback.transformation,
     });
   } catch {
     return fallback;
@@ -2231,25 +2238,16 @@ export default function App() {
   }
 
   function previewLogicalModel(nextModel: LogicalModel) {
-    logicalHistory.setPresent({
-      ...logicalHistory.present,
-      model: nextModel,
-    });
+    logicalHistory.setPresent(updateLogicalWorkspaceModel(history.present, logicalHistory.present, nextModel));
   }
 
   function commitLogicalModel(nextModel: LogicalModel, previousModel?: LogicalModel) {
     const previousWorkspace = logicalHistory.present;
-    const nextWorkspace = {
-      ...previousWorkspace,
-      model: nextModel,
-    };
+    const nextWorkspace = updateLogicalWorkspaceModel(history.present, previousWorkspace, nextModel);
     const previousSnapshot =
       previousModel == null
         ? previousWorkspace
-        : {
-            ...previousWorkspace,
-            model: previousModel,
-          };
+        : updateLogicalWorkspaceModel(history.present, previousWorkspace, previousModel);
     commitLogicalWorkspace(nextWorkspace, previousSnapshot);
   }
 
@@ -3730,11 +3728,9 @@ export default function App() {
                 <LogicalTranslationWorkspace
                   diagram={history.present}
                   workspace={logicalHistory.present}
-                  sourceViewport={viewport}
                   logicalViewport={logicalViewport}
                   logicalSelection={logicalSelection}
                   logicalFitRequestToken={logicalFitRequestToken}
-                  onSourceViewportChange={setViewport}
                   onLogicalViewportChange={setLogicalViewport}
                   onLogicalSelectionChange={setLogicalSelection}
                   onPreviewLogicalModel={previewLogicalModel}

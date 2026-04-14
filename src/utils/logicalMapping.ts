@@ -885,8 +885,16 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
 }
 
 function buildTableMatchKey(table: LogicalTable): string {
+  if (table.generatedByDecisionId) {
+    return `decision:${table.generatedByDecisionId}`;
+  }
+
+  if (table.sourceAttributeId) {
+    return `attribute:${table.sourceAttributeId}`;
+  }
+
   if (table.sourceEntityId) {
-    return `entity:${table.sourceEntityId}`;
+    return `entity:${table.kind}:${table.sourceEntityId}`;
   }
 
   if (table.sourceRelationshipId) {

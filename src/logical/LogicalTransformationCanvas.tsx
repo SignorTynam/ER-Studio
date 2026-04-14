@@ -5,13 +5,15 @@ import type {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
-import type { Point, Viewport } from "../types/diagram";
+import { DiagramEdgeView } from "../canvas/DiagramEdge";
+import { DiagramNodeView } from "../canvas/DiagramNode";
+import type { DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
-  LogicalEdge,
-  LogicalModel,
   LogicalSelection,
-  LogicalTable,
+  LogicalTransformationEdge,
+  LogicalTransformationNode,
+  LogicalWorkspaceDocument,
 } from "../types/logical";
 import {
   LOGICAL_TABLE_HEADER_HEIGHT,
@@ -24,15 +26,17 @@ import {
   worldPointFromClient,
 } from "../utils/geometry";
 
-interface LogicalCanvasProps {
-  model: LogicalModel;
+interface LogicalTransformationCanvasProps {
+  workspace: LogicalWorkspaceDocument;
   selection: LogicalSelection;
   viewport: Viewport;
   fitRequestToken: number;
+  activeTargetKeys: string[];
+  focusedTargetKey: string | null;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
-  onPreviewModel: (model: LogicalModel) => void;
-  onCommitModel: (nextModel: LogicalModel, previousModel: LogicalModel) => void;
+  onPreviewModel: (model: LogicalWorkspaceDocument["model"]) => void;
+  onCommitModel: (nextModel: LogicalWorkspaceDocument["model"], previousModel: LogicalWorkspaceDocument["model"]) => void;
   onRenameTable: (tableId: string, nextName: string) => void;
   onRenameColumn: (tableId: string, columnId: string, nextName: string) => void;
 }
@@ -58,7 +62,7 @@ type InteractionState =
       tableId: string;
       startClient: Point;
       startTablePosition: Point;
-      originalModel: LogicalModel;
+      originalModel: LogicalWorkspaceDocument["model"];
     };
 
 type InlineEditState =
@@ -71,16 +75,19 @@ const ROUTE_EXIT_OFFSET = 24;
 const LANE_STEP = 18;
 const VIEWPORT_PADDING = 140;
 
-function getTableCenter(table: LogicalTable): Point {
+function getNodeCenter(node: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">): Point {
   return {
-    x: table.x + table.width / 2,
-    y: table.y + table.height / 2,
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
   };
 }
 
-function chooseAnchorSide(from: LogicalTable, to: LogicalTable): ConnectionSide {
-  const fromCenter = getTableCenter(from);
-  const toCenter = getTableCenter(to);
+function chooseAnchorSide(
+  from: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">,
+  to: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">,
+): ConnectionSide {
+  const fromCenter = getNodeCenter(from);
+  const toCenter = getNodeCenter(to);
   const deltaX = toCenter.x - fromCenter.x;
   const deltaY = toCenter.y - fromCenter.y;
 
@@ -91,20 +98,23 @@ function chooseAnchorSide(from: LogicalTable, to: LogicalTable): ConnectionSide 
   return deltaY >= 0 ? "bottom" : "top";
 }
 
-function anchorPointForSide(table: LogicalTable, side: ConnectionSide): Point {
+function anchorPointForSide(
+  node: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">,
+  side: ConnectionSide,
+): Point {
   if (side === "left") {
-    return { x: table.x, y: table.y + table.height / 2 };
+    return { x: node.x, y: node.y + node.height / 2 };
   }
 
   if (side === "right") {
-    return { x: table.x + table.width, y: table.y + table.height / 2 };
+    return { x: node.x + node.width, y: node.y + node.height / 2 };
   }
 
   if (side === "top") {
-    return { x: table.x + table.width / 2, y: table.y };
+    return { x: node.x + node.width / 2, y: node.y };
   }
 
-  return { x: table.x + table.width / 2, y: table.y + table.height };
+  return { x: node.x + node.width / 2, y: node.y + node.height };
 }
 
 function moveAlongSide(point: Point, side: ConnectionSide, distance: number): Point {
@@ -136,18 +146,15 @@ function dedupePoints(points: Point[]): Point[] {
 
 function simplifyPoints(points: Point[]): Point[] {
   const deduped = dedupePoints(points);
-
   if (deduped.length < 3) {
     return deduped;
   }
 
   const simplified: Point[] = [deduped[0]];
-
   for (let index = 1; index < deduped.length - 1; index += 1) {
     const previous = simplified[simplified.length - 1];
     const current = deduped[index];
     const next = deduped[index + 1];
-
     const cross =
       (current.x - previous.x) * (next.y - current.y) -
       (current.y - previous.y) * (next.x - current.x);
@@ -165,23 +172,17 @@ function simplifyPoints(points: Point[]): Point[] {
 
 function getPolylineLength(points: Point[]): number {
   let length = 0;
-
   for (let index = 1; index < points.length; index += 1) {
     const start = points[index - 1];
     const end = points[index];
     length += Math.hypot(end.x - start.x, end.y - start.y);
   }
-
   return length;
 }
 
 function pointAlongPolyline(points: Point[], progress: number): Point {
-  if (points.length === 0) {
-    return { x: 0, y: 0 };
-  }
-
-  if (points.length === 1) {
-    return points[0];
+  if (points.length <= 1) {
+    return points[0] ?? { x: 0, y: 0 };
   }
 
   const totalLength = getPolylineLength(points);
@@ -196,7 +197,6 @@ function pointAlongPolyline(points: Point[], progress: number): Point {
     const start = points[index - 1];
     const end = points[index];
     const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
-
     if (consumed + segmentLength >= targetDistance) {
       const ratio = (targetDistance - consumed) / Math.max(segmentLength, 0.001);
       return {
@@ -204,7 +204,6 @@ function pointAlongPolyline(points: Point[], progress: number): Point {
         y: start.y + (end.y - start.y) * ratio,
       };
     }
-
     consumed += segmentLength;
   }
 
@@ -212,19 +211,16 @@ function pointAlongPolyline(points: Point[], progress: number): Point {
 }
 
 function getRoute(
-  fromTable: LogicalTable,
-  toTable: LogicalTable,
+  fromNode: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">,
+  toNode: Pick<LogicalTransformationNode, "x" | "y" | "width" | "height">,
   laneOffset: number,
 ): EdgeRoute {
-  const fromSide = chooseAnchorSide(fromTable, toTable);
-  const toSide = chooseAnchorSide(toTable, fromTable);
-
-  const fromAnchor = anchorPointForSide(fromTable, fromSide);
-  const toAnchor = anchorPointForSide(toTable, toSide);
-
+  const fromSide = chooseAnchorSide(fromNode, toNode);
+  const toSide = chooseAnchorSide(toNode, fromNode);
+  const fromAnchor = anchorPointForSide(fromNode, fromSide);
+  const toAnchor = anchorPointForSide(toNode, toSide);
   const fromOuter = moveAlongSide(fromAnchor, fromSide, ROUTE_EXIT_OFFSET);
   const toOuter = moveAlongSide(toAnchor, toSide, ROUTE_EXIT_OFFSET);
-
   const points: Point[] = [fromAnchor, fromOuter];
 
   if (fromSide === "left" || fromSide === "right") {
@@ -258,16 +254,15 @@ function getColumnBadgeTokens(column: LogicalColumn): string[] {
   return tokens;
 }
 
-function getTableBounds(tables: LogicalTable[]): { x: number; y: number; width: number; height: number } | null {
-  if (tables.length === 0) {
+function getBoundsForNodes(nodes: LogicalTransformationNode[]): { x: number; y: number; width: number; height: number } | null {
+  if (nodes.length === 0) {
     return null;
   }
 
-  const left = Math.min(...tables.map((table) => table.x));
-  const top = Math.min(...tables.map((table) => table.y));
-  const right = Math.max(...tables.map((table) => table.x + table.width));
-  const bottom = Math.max(...tables.map((table) => table.y + table.height));
-
+  const left = Math.min(...nodes.map((node) => node.x));
+  const top = Math.min(...nodes.map((node) => node.y));
+  const right = Math.max(...nodes.map((node) => node.x + node.width));
+  const bottom = Math.max(...nodes.map((node) => node.y + node.height));
   return {
     x: left,
     y: top,
@@ -276,28 +271,133 @@ function getTableBounds(tables: LogicalTable[]): { x: number; y: number; width: 
   };
 }
 
-function getRowWorldPoint(table: LogicalTable, rowIndex: number): Point {
+function getRowWorldPoint(tableNode: LogicalTransformationNode, rowIndex: number): Point {
   return {
-    x: table.x + 12,
-    y: table.y + LOGICAL_TABLE_HEADER_HEIGHT + rowIndex * LOGICAL_TABLE_ROW_HEIGHT + 6,
+    x: tableNode.x + 12,
+    y: tableNode.y + LOGICAL_TABLE_HEADER_HEIGHT + rowIndex * LOGICAL_TABLE_ROW_HEIGHT + 6,
   };
 }
 
-export function LogicalCanvas(props: LogicalCanvasProps) {
+function toSyntheticDiagramNode(node: LogicalTransformationNode): DiagramNode {
+  if (node.renderType === "relationship") {
+    return {
+      id: node.id,
+      type: "relationship",
+      label: node.label,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+    };
+  }
+
+  if (node.renderType === "attribute" || node.renderType === "multivalued-attribute") {
+    return {
+      id: node.id,
+      type: "attribute",
+      label: node.label,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+      isMultivalued: node.renderType === "multivalued-attribute",
+    };
+  }
+
+  return {
+    id: node.id,
+    type: "entity",
+    label: node.label,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    isWeak: node.renderType === "weak-entity",
+  };
+}
+
+function buildAttributeDirectionMap(
+  nodeById: Map<string, LogicalTransformationNode>,
+  edges: LogicalTransformationEdge[],
+): Map<string, Point> {
+  const directions = new Map<string, Point>();
+
+  edges.forEach((edge) => {
+    if (edge.renderType !== "attribute") {
+      return;
+    }
+
+    const sourceNode = nodeById.get(edge.sourceId);
+    const targetNode = nodeById.get(edge.targetId);
+    if (!sourceNode || !targetNode) {
+      return;
+    }
+
+    const attributeNode =
+      sourceNode.renderType === "attribute" || sourceNode.renderType === "multivalued-attribute"
+        ? sourceNode
+        : targetNode.renderType === "attribute" || targetNode.renderType === "multivalued-attribute"
+          ? targetNode
+          : null;
+    if (!attributeNode || directions.has(attributeNode.id)) {
+      return;
+    }
+
+    const hostNode = attributeNode.id === sourceNode.id ? targetNode : sourceNode;
+    const attributeCenter = getNodeCenter(attributeNode);
+    const hostCenter = getNodeCenter(hostNode);
+    directions.set(attributeNode.id, {
+      x: hostCenter.x - attributeCenter.x,
+      y: hostCenter.y - attributeCenter.y,
+    });
+  });
+
+  return directions;
+}
+
+function hasAnyTargetKey(
+  element: { relatedTargetKeys: string[] },
+  activeTargetKeys: string[],
+): boolean {
+  return activeTargetKeys.some((targetKey) => element.relatedTargetKeys.includes(targetKey));
+}
+
+function intersectingTargetKey(
+  element: { relatedTargetKeys: string[] },
+  targetKey: string | null,
+): boolean {
+  return targetKey != null && element.relatedTargetKeys.includes(targetKey);
+}
+
+export function LogicalTransformationCanvas(props: LogicalTransformationCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [hoverTableId, setHoverTableId] = useState<string | null>(null);
 
-  const tableById = useMemo(() => new Map(props.model.tables.map((table) => [table.id, table])), [props.model.tables]);
-  const edgeById = useMemo(() => new Map(props.model.edges.map((edge) => [edge.id, edge])), [props.model.edges]);
+  const graph = props.workspace.transformation;
+  const nodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes]);
+  const erNodes = useMemo(() => graph.nodes.filter((node) => node.kind === "er-node"), [graph.nodes]);
+  const tableNodes = useMemo(() => graph.nodes.filter((node) => node.kind === "logical-table"), [graph.nodes]);
+  const erEdges = useMemo(() => graph.edges.filter((edge) => edge.kind === "er-edge"), [graph.edges]);
+  const fkEdges = useMemo(() => graph.edges.filter((edge) => edge.kind === "foreign-key"), [graph.edges]);
+  const syntheticNodeById = useMemo(
+    () => new Map(graph.nodes.map((node) => [node.id, toSyntheticDiagramNode(node)])),
+    [graph.nodes],
+  );
+  const tableColumnsById = useMemo(() => {
+    const result = new Map<string, LogicalColumn[]>();
+    props.workspace.model.tables.forEach((table) => {
+      result.set(table.id, table.columns);
+    });
+    return result;
+  }, [props.workspace.model.tables]);
 
   const laneByEdgeId = useMemo(() => {
     const grouping = new Map<string, string[]>();
-
-    props.model.edges.forEach((edge) => {
-      const key = `${edge.fromTableId}::${edge.toTableId}`;
+    fkEdges.forEach((edge) => {
+      const key = `${edge.sourceId}::${edge.targetId}`;
       const bucket = grouping.get(key) ?? [];
       bucket.push(edge.id);
       grouping.set(key, bucket);
@@ -310,65 +410,30 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
         lanes.set(edgeId, (index - center) * LANE_STEP);
       });
     });
-
     return lanes;
-  }, [props.model.edges]);
+  }, [fkEdges]);
 
   const routeByEdgeId = useMemo(() => {
     const routes = new Map<string, EdgeRoute>();
-
-    props.model.edges.forEach((edge) => {
-      const fromTable = tableById.get(edge.fromTableId);
-      const toTable = tableById.get(edge.toTableId);
-      if (!fromTable || !toTable) {
+    fkEdges.forEach((edge) => {
+      const fromNode = nodeById.get(edge.sourceId);
+      const toNode = nodeById.get(edge.targetId);
+      if (!fromNode || !toNode) {
         return;
       }
 
-      routes.set(edge.id, getRoute(fromTable, toTable, laneByEdgeId.get(edge.id) ?? 0));
+      routes.set(edge.id, getRoute(fromNode, toNode, laneByEdgeId.get(edge.id) ?? 0));
     });
-
     return routes;
-  }, [props.model.edges, tableById, laneByEdgeId]);
+  }, [fkEdges, nodeById, laneByEdgeId]);
 
-  const selectedTable = props.selection.tableId ? tableById.get(props.selection.tableId) : undefined;
-  const selectedColumn = selectedTable?.columns.find((column) => column.id === props.selection.columnId);
-  const selectedEdge = props.selection.edgeId ? edgeById.get(props.selection.edgeId) : undefined;
-
-  const highlightedTargetTableId =
-    selectedColumn?.references[0]?.targetTableId ??
-    (selectedEdge ? tableById.get(selectedEdge.toTableId)?.id ?? null : null);
-
-  const highlightedEdgeIds = useMemo(() => {
-    if (props.selection.edgeId) {
-      return new Set<string>([props.selection.edgeId]);
-    }
-
-    if (props.selection.columnId && selectedColumn) {
-      const fkIds = new Set(selectedColumn.references.map((reference) => reference.foreignKeyId));
-      return new Set(
-        props.model.edges
-          .filter((edge) => fkIds.has(edge.foreignKeyId))
-          .map((edge) => edge.id),
-      );
-    }
-
-    if (props.selection.tableId) {
-      return new Set(
-        props.model.edges
-          .filter((edge) => edge.fromTableId === props.selection.tableId || edge.toTableId === props.selection.tableId)
-          .map((edge) => edge.id),
-      );
-    }
-
-    return new Set<string>();
-  }, [props.selection, props.model.edges, selectedColumn]);
+  const attributeDirectionByNodeId = useMemo(() => buildAttributeDirectionMap(nodeById, erEdges), [nodeById, erEdges]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === " ") {
         setSpacePressed(true);
       }
-
       if (event.key === "Escape" && inlineEdit) {
         setInlineEdit(null);
       }
@@ -382,35 +447,18 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, [inlineEdit]);
 
-  function getWorldPoint(event: ReactPointerEvent<HTMLElement>): Point | null {
-    if (!containerRef.current) {
-      return null;
-    }
-
-    const rect = containerRef.current.getBoundingClientRect();
-    return worldPointFromClient(
-      {
-        x: event.clientX,
-        y: event.clientY,
-      },
-      props.viewport,
-      rect,
-    );
-  }
-
   function fitToContent() {
     if (!containerRef.current) {
       return;
     }
 
-    const bounds = getTableBounds(props.model.tables);
+    const bounds = getBoundsForNodes(graph.nodes);
     if (!bounds) {
       return;
     }
@@ -418,7 +466,6 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
     const rect = containerRef.current.getBoundingClientRect();
     const paddedWidth = bounds.width + VIEWPORT_PADDING * 2;
     const paddedHeight = bounds.height + VIEWPORT_PADDING * 2;
-
     const nextZoom = clampZoom(Math.min(rect.width / paddedWidth, rect.height / paddedHeight));
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
@@ -432,7 +479,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
 
   useEffect(() => {
     fitToContent();
-    // Intentional trigger-only effect.
+    // Trigger only on token changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.fitRequestToken]);
 
@@ -441,7 +488,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
       return;
     }
 
-    const bounds = getTableBounds(props.model.tables);
+    const bounds = getBoundsForNodes(graph.nodes);
     if (!bounds) {
       return;
     }
@@ -449,7 +496,6 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
     const rect = containerRef.current.getBoundingClientRect();
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
-
     props.onViewportChange({
       ...props.viewport,
       x: rect.width / 2 - centerX * props.viewport.zoom,
@@ -466,14 +512,12 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
     const nextZoom = clampZoom(props.viewport.zoom * factor);
-
     if (Math.abs(nextZoom - props.viewport.zoom) < 0.001) {
       return;
     }
 
     const worldX = (centerX - props.viewport.x) / props.viewport.zoom;
     const worldY = (centerY - props.viewport.y) / props.viewport.zoom;
-
     props.onViewportChange({
       zoom: nextZoom,
       x: centerX - worldX * nextZoom,
@@ -493,14 +537,12 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
     const deltaScale = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? rect.height : 1;
     const zoomFactor = Math.exp((-event.deltaY * deltaScale) / 720);
     const nextZoom = clampZoom(props.viewport.zoom * zoomFactor);
-
     if (Math.abs(nextZoom - props.viewport.zoom) < 0.001) {
       return;
     }
 
     const worldX = (localX - props.viewport.x) / props.viewport.zoom;
     const worldY = (localY - props.viewport.y) / props.viewport.zoom;
-
     props.onViewportChange({
       zoom: nextZoom,
       x: localX - worldX * nextZoom,
@@ -525,10 +567,10 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
       return;
     }
 
-    props.onSelectionChange({ tableId: null, columnId: null, edgeId: null });
+    props.onSelectionChange({ nodeId: null, columnId: null, edgeId: null });
   }
 
-  function handleTableHeaderPointerDown(event: ReactPointerEvent<SVGGElement>, table: LogicalTable) {
+  function handleTableHeaderPointerDown(event: ReactPointerEvent<SVGGElement>, tableNode: LogicalTransformationNode) {
     if (event.button !== 0) {
       return;
     }
@@ -547,59 +589,64 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
 
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    props.onSelectionChange({ tableId: table.id, columnId: null, edgeId: null });
-
+    props.onSelectionChange({ nodeId: tableNode.id, columnId: null, edgeId: null });
     setInteraction({
       kind: "drag",
       pointerId: event.pointerId,
-      tableId: table.id,
+      tableId: tableNode.id,
       startClient: { x: event.clientX, y: event.clientY },
-      startTablePosition: { x: table.x, y: table.y },
-      originalModel: props.model,
+      startTablePosition: { x: tableNode.x, y: tableNode.y },
+      originalModel: props.workspace.model,
     });
   }
 
   function handleColumnPointerDown(
     event: ReactPointerEvent<SVGRectElement>,
-    table: LogicalTable,
+    tableNode: LogicalTransformationNode,
     column: LogicalColumn,
   ) {
     event.stopPropagation();
-
     const connectedEdgeId =
       column.references.length > 0
-        ? props.model.edges.find((edge) => edge.foreignKeyId === column.references[0].foreignKeyId)?.id ?? null
+        ? fkEdges.find((edge) => edge.foreignKeyId === column.references[0].foreignKeyId)?.id ?? null
         : null;
 
     props.onSelectionChange({
-      tableId: table.id,
+      nodeId: tableNode.id,
       columnId: column.id,
       edgeId: connectedEdgeId,
     });
   }
 
-  function handleEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: LogicalEdge) {
+  function handleErNodePointerDown(_event: ReactPointerEvent<SVGGElement>, node: LogicalTransformationNode) {
+    props.onSelectionChange({ nodeId: node.id, columnId: null, edgeId: null });
+  }
+
+  function handleErEdgePointerDown(_event: ReactPointerEvent<SVGGElement>, edge: LogicalTransformationEdge) {
+    props.onSelectionChange({ nodeId: null, columnId: null, edgeId: edge.id });
+  }
+
+  function handleErEdgeLabelPointerDown(_event: ReactPointerEvent<SVGTextElement>, edge: LogicalTransformationEdge) {
+    props.onSelectionChange({ nodeId: null, columnId: null, edgeId: edge.id });
+  }
+
+  function handleLogicalEdgePointerDown(event: ReactPointerEvent<SVGGElement>, edge: LogicalTransformationEdge) {
     event.stopPropagation();
     props.onSelectionChange({
-      tableId: edge.fromTableId,
+      nodeId: edge.sourceId,
       columnId: null,
       edgeId: edge.id,
     });
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (interaction.kind === "idle") {
-      return;
-    }
-
-    if (interaction.pointerId !== event.pointerId) {
+    if (interaction.kind === "idle" || interaction.pointerId !== event.pointerId) {
       return;
     }
 
     if (interaction.kind === "pan") {
       const deltaX = event.clientX - interaction.startClient.x;
       const deltaY = event.clientY - interaction.startClient.y;
-
       props.onViewportChange({
         ...interaction.startViewport,
         x: interaction.startViewport.x + deltaX,
@@ -608,60 +655,51 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
       return;
     }
 
-    if (interaction.kind === "drag") {
-      const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
-      const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
+    const deltaX = (event.clientX - interaction.startClient.x) / props.viewport.zoom;
+    const deltaY = (event.clientY - interaction.startClient.y) / props.viewport.zoom;
+    const nextX = Math.round(interaction.startTablePosition.x + deltaX);
+    const nextY = Math.round(interaction.startTablePosition.y + deltaY);
 
-      const nextX = Math.round(interaction.startTablePosition.x + deltaX);
-      const nextY = Math.round(interaction.startTablePosition.y + deltaY);
+    const nextModel = {
+      ...props.workspace.model,
+      tables: props.workspace.model.tables.map((table) =>
+        table.id === interaction.tableId
+          ? {
+              ...table,
+              x: nextX,
+              y: nextY,
+            }
+          : table,
+      ),
+    };
 
-      const nextTables = props.model.tables.map((table) => {
-        if (table.id !== interaction.tableId) {
-          return table;
-        }
-
-        return {
-          ...table,
-          x: nextX,
-          y: nextY,
-        };
-      });
-
-      props.onPreviewModel({
-        ...props.model,
-        tables: nextTables,
-      });
-    }
+    props.onPreviewModel(nextModel);
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (interaction.kind === "idle") {
-      return;
-    }
-
-    if (interaction.pointerId !== event.pointerId) {
+    if (interaction.kind === "idle" || interaction.pointerId !== event.pointerId) {
       return;
     }
 
     if (interaction.kind === "drag") {
-      props.onCommitModel(props.model, interaction.originalModel);
+      props.onCommitModel(props.workspace.model, interaction.originalModel);
     }
 
     setInteraction({ kind: "idle" });
   }
 
-  function startTableInlineEdit(event: MouseEvent<SVGGElement>, table: LogicalTable) {
+  function startTableInlineEdit(event: MouseEvent<SVGGElement>, tableNode: LogicalTransformationNode) {
     event.stopPropagation();
-    setInlineEdit({ kind: "table", tableId: table.id, value: table.name });
+    setInlineEdit({ kind: "table", tableId: tableNode.id, value: tableNode.label });
   }
 
   function startColumnInlineEdit(
     event: MouseEvent<SVGGElement>,
-    table: LogicalTable,
+    tableNode: LogicalTransformationNode,
     column: LogicalColumn,
   ) {
     event.stopPropagation();
-    setInlineEdit({ kind: "column", tableId: table.id, columnId: column.id, value: column.name });
+    setInlineEdit({ kind: "column", tableId: tableNode.id, columnId: column.id, value: column.name });
   }
 
   function commitInlineEdit() {
@@ -690,38 +728,30 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
     }
 
     const rect = containerRef.current.getBoundingClientRect();
-
-    if (inlineEdit.kind === "table") {
-      const table = tableById.get(inlineEdit.tableId);
-      if (!table) {
-        return undefined;
-      }
-
-      const worldPoint = { x: table.x + 12, y: table.y + 8 };
-      const clientPoint = clientPointFromWorld(worldPoint, props.viewport, rect);
-      return {
-        left: clientPoint.x - rect.left,
-        top: clientPoint.y - rect.top,
-        width: Math.max(180, (table.width - 24) * props.viewport.zoom),
-      };
-    }
-
-    const table = tableById.get(inlineEdit.tableId);
-    if (!table) {
+    const tableNode = nodeById.get(inlineEdit.tableId);
+    if (!tableNode) {
       return undefined;
     }
 
-    const rowIndex = table.columns.findIndex((column) => column.id === inlineEdit.columnId);
+    if (inlineEdit.kind === "table") {
+      const clientPoint = clientPointFromWorld({ x: tableNode.x + 12, y: tableNode.y + 8 }, props.viewport, rect);
+      return {
+        left: clientPoint.x - rect.left,
+        top: clientPoint.y - rect.top,
+        width: Math.max(180, (tableNode.width - 24) * props.viewport.zoom),
+      };
+    }
+
+    const rowIndex = (tableColumnsById.get(tableNode.id) ?? []).findIndex((column) => column.id === inlineEdit.columnId);
     if (rowIndex < 0) {
       return undefined;
     }
 
-    const worldPoint = getRowWorldPoint(table, rowIndex);
-    const clientPoint = clientPointFromWorld(worldPoint, props.viewport, rect);
+    const clientPoint = clientPointFromWorld(getRowWorldPoint(tableNode, rowIndex), props.viewport, rect);
     return {
       left: clientPoint.x - rect.left,
       top: clientPoint.y - rect.top,
-      width: Math.max(160, (table.width - 24) * props.viewport.zoom),
+      width: Math.max(160, (tableNode.width - 24) * props.viewport.zoom),
     };
   }
 
@@ -730,13 +760,13 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
   return (
     <div
       ref={containerRef}
-      className="logical-canvas-panel"
+      className="logical-canvas-panel transformation-canvas-panel"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       onWheel={handleCanvasWheel}
     >
-      <svg className="logical-canvas" role="img" aria-label="Canvas schema logico">
+      <svg className="logical-canvas" role="img" aria-label="Canvas Logico con trasformazione in-place">
         <defs>
           <marker
             id="logical-arrow"
@@ -748,6 +778,17 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
             markerUnits="strokeWidth"
           >
             <path d="M0 0 L11 5.5 L0 11 z" fill="context-stroke" />
+          </marker>
+          <marker
+            id="arrowhead"
+            markerWidth="12"
+            markerHeight="12"
+            refX="10"
+            refY="6"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M 0 0 L 12 6 L 0 12 z" fill="context-stroke" />
           </marker>
         </defs>
 
@@ -761,27 +802,111 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
             onPointerDown={handleBackgroundPointerDown}
           />
 
-          {props.model.edges.map((edge) => {
+          {erEdges.map((edge) => {
+            const sourceNode = syntheticNodeById.get(edge.sourceId);
+            const targetNode = syntheticNodeById.get(edge.targetId);
+            if (!sourceNode || !targetNode) {
+              return null;
+            }
+
+            const syntheticEdge: DiagramEdge =
+              edge.renderType === "inheritance"
+                ? {
+                    id: edge.id,
+                    type: "inheritance",
+                    sourceId: edge.sourceId,
+                    targetId: edge.targetId,
+                    label: edge.label,
+                    lineStyle: edge.lineStyle ?? "solid",
+                    manualOffset: edge.manualOffset,
+                    isaDisjointness: edge.isaDisjointness,
+                    isaCompleteness: edge.isaCompleteness,
+                  }
+                : edge.renderType === "connector"
+                  ? {
+                      id: edge.id,
+                      type: "connector",
+                      sourceId: edge.sourceId,
+                      targetId: edge.targetId,
+                      label: edge.label,
+                      lineStyle: edge.lineStyle ?? "solid",
+                      manualOffset: edge.manualOffset,
+                    }
+                  : {
+                      id: edge.id,
+                      type: "attribute",
+                      sourceId: edge.sourceId,
+                      targetId: edge.targetId,
+                      label: edge.label,
+                      lineStyle: edge.lineStyle ?? "solid",
+                      manualOffset: edge.manualOffset,
+                    };
+
+            const selected = props.selection.edgeId === edge.id;
+            const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
+            const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
+
+            return (
+              <g
+                key={edge.id}
+                className={[
+                  "transformation-er-edge",
+                  `status-${edge.status}`,
+                  stepHighlighted ? "step-highlight" : "",
+                  focusHighlighted ? "focus-highlight" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <DiagramEdgeView
+                  edge={syntheticEdge}
+                  sourceNode={sourceNode}
+                  targetNode={targetNode}
+                  displayLabelOverride={edge.cardinalityLabel}
+                  selected={selected}
+                  dragging={false}
+                  focused={focusHighlighted || stepHighlighted}
+                  focusable
+                  validationLevel={edge.status === "invalid" ? "error" : undefined}
+                  onFocus={() => props.onSelectionChange({ nodeId: null, columnId: null, edgeId: edge.id })}
+                  onBlur={() => undefined}
+                  onPointerDown={(event) => handleErEdgePointerDown(event, edge)}
+                  onLabelPointerDown={(event) => handleErEdgeLabelPointerDown(event, edge)}
+                  onDoubleClick={() => undefined}
+                />
+              </g>
+            );
+          })}
+
+          {fkEdges.map((edge) => {
             const route = routeByEdgeId.get(edge.id);
             if (!route) {
               return null;
             }
 
             const selected = props.selection.edgeId === edge.id;
-            const highlighted = selected || highlightedEdgeIds.has(edge.id);
+            const stepHighlighted = hasAnyTargetKey(edge, props.activeTargetKeys);
+            const focusHighlighted = intersectingTargetKey(edge, props.focusedTargetKey);
 
             return (
               <g
                 key={edge.id}
-                className={selected ? "logical-edge selected" : highlighted ? "logical-edge highlighted" : "logical-edge"}
-                onPointerDown={(event) => handleEdgePointerDown(event, edge)}
+                className={[
+                  "logical-edge",
+                  selected ? "selected" : "",
+                  stepHighlighted ? "highlighted" : "",
+                  focusHighlighted ? "focus-highlight" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onPointerDown={(event) => handleLogicalEdgePointerDown(event, edge)}
               >
                 <path d={pathFromPoints(route.points)} fill="none" stroke="transparent" strokeWidth={14} />
                 <path
                   d={pathFromPoints(route.points)}
                   fill="none"
                   stroke="var(--logical-edge-stroke)"
-                  strokeWidth={selected ? 2.8 : highlighted ? 2.4 : 1.9}
+                  strokeWidth={selected ? 2.8 : stepHighlighted || focusHighlighted ? 2.4 : 1.9}
                   markerEnd="url(#logical-arrow)"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -798,66 +923,112 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
             );
           })}
 
-          {props.model.tables.map((table) => {
-            const selected = props.selection.tableId === table.id;
-            const highlightedTarget = highlightedTargetTableId === table.id;
-            const hovering = hoverTableId === table.id;
+          {erNodes.map((node) => {
+            const selected = props.selection.nodeId === node.id;
+            const stepHighlighted = hasAnyTargetKey(node, props.activeTargetKeys);
+            const focusHighlighted = intersectingTargetKey(node, props.focusedTargetKey);
 
             return (
               <g
-                key={table.id}
+                key={node.id}
+                className={[
+                  "transformation-er-node",
+                  `status-${node.status}`,
+                  stepHighlighted ? "step-highlight" : "",
+                  focusHighlighted ? "focus-highlight" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <DiagramNodeView
+                  node={syntheticNodeById.get(node.id) as DiagramNode}
+                  selected={selected}
+                  dragging={false}
+                  pending={stepHighlighted || focusHighlighted}
+                  focused={focusHighlighted || stepHighlighted}
+                  focusable
+                  validationLevel={node.status === "invalid" ? "error" : undefined}
+                  attributeDirection={attributeDirectionByNodeId.get(node.id)}
+                  onFocus={() => props.onSelectionChange({ nodeId: node.id, columnId: null, edgeId: null })}
+                  onBlur={() => undefined}
+                  onPointerDown={(event) => handleErNodePointerDown(event, node)}
+                  onDoubleClick={() => undefined}
+                />
+              </g>
+            );
+          })}
+
+          {tableNodes.map((tableNode) => {
+            const selected = props.selection.nodeId === tableNode.id;
+            const columns = tableColumnsById.get(tableNode.id) ?? [];
+            const stepHighlighted = hasAnyTargetKey(tableNode, props.activeTargetKeys);
+            const focusHighlighted = intersectingTargetKey(tableNode, props.focusedTargetKey);
+            const hovering = hoverTableId === tableNode.id;
+
+            return (
+              <g
+                key={tableNode.id}
                 className={[
                   "logical-table",
+                  "transformation-table",
                   selected ? "selected" : "",
-                  highlightedTarget ? "target-highlight" : "",
+                  stepHighlighted ? "step-highlight" : "",
+                  focusHighlighted ? "focus-highlight" : "",
                   hovering ? "hover" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                onPointerEnter={() => setHoverTableId(table.id)}
-                onPointerLeave={() => setHoverTableId((current) => (current === table.id ? null : current))}
-                onDoubleClick={(event) => startTableInlineEdit(event, table)}
+                onPointerEnter={() => setHoverTableId(tableNode.id)}
+                onPointerLeave={() => setHoverTableId((current) => (current === tableNode.id ? null : current))}
+                onDoubleClick={(event) => startTableInlineEdit(event, tableNode)}
               >
                 <g
                   tabIndex={0}
                   role="button"
-                  aria-label={`Tabella ${table.name}`}
-                  onFocus={() => props.onSelectionChange({ tableId: table.id, columnId: null, edgeId: null })}
+                  aria-label={`Tabella ${tableNode.label}`}
+                  onFocus={() => props.onSelectionChange({ nodeId: tableNode.id, columnId: null, edgeId: null })}
                   onBlur={(event: ReactFocusEvent<SVGGElement>) => {
                     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      setHoverTableId((current) => (current === table.id ? null : current));
+                      setHoverTableId((current) => (current === tableNode.id ? null : current));
                     }
                   }}
-                  onPointerDown={(event) => handleTableHeaderPointerDown(event, table)}
+                  onPointerDown={(event) => handleTableHeaderPointerDown(event, tableNode)}
                 >
-                  <rect x={table.x} y={table.y} width={table.width} height={table.height} rx={12} className="logical-table-body" />
                   <rect
-                    x={table.x}
-                    y={table.y}
-                    width={table.width}
+                    x={tableNode.x}
+                    y={tableNode.y}
+                    width={tableNode.width}
+                    height={tableNode.height}
+                    rx={12}
+                    className="logical-table-body"
+                  />
+                  <rect
+                    x={tableNode.x}
+                    y={tableNode.y}
+                    width={tableNode.width}
                     height={LOGICAL_TABLE_HEADER_HEIGHT}
                     rx={12}
                     className="logical-table-header"
                   />
                   <line
-                    x1={table.x}
-                    y1={table.y + LOGICAL_TABLE_HEADER_HEIGHT}
-                    x2={table.x + table.width}
-                    y2={table.y + LOGICAL_TABLE_HEADER_HEIGHT}
+                    x1={tableNode.x}
+                    y1={tableNode.y + LOGICAL_TABLE_HEADER_HEIGHT}
+                    x2={tableNode.x + tableNode.width}
+                    y2={tableNode.y + LOGICAL_TABLE_HEADER_HEIGHT}
                     className="logical-table-divider"
                   />
                   <text
-                    x={table.x + 12}
-                    y={table.y + LOGICAL_TABLE_HEADER_HEIGHT / 2}
+                    x={tableNode.x + 12}
+                    y={tableNode.y + LOGICAL_TABLE_HEADER_HEIGHT / 2}
                     dominantBaseline="middle"
                     className="logical-table-title"
                   >
-                    {table.name}
+                    {tableNode.label}
                   </text>
                 </g>
 
-                {table.columns.map((column, rowIndex) => {
-                  const rowY = table.y + LOGICAL_TABLE_HEADER_HEIGHT + rowIndex * LOGICAL_TABLE_ROW_HEIGHT;
+                {columns.map((column, rowIndex) => {
+                  const rowY = tableNode.y + LOGICAL_TABLE_HEADER_HEIGHT + rowIndex * LOGICAL_TABLE_ROW_HEIGHT;
                   const badges = getColumnBadgeTokens(column);
                   const isSelectedColumn = props.selection.columnId === column.id;
 
@@ -865,28 +1036,28 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
                     <g
                       key={column.id}
                       className={isSelectedColumn ? "logical-column-row selected" : "logical-column-row"}
-                      onDoubleClick={(event) => startColumnInlineEdit(event, table, column)}
+                      onDoubleClick={(event) => startColumnInlineEdit(event, tableNode, column)}
                     >
                       <rect
-                        x={table.x + 1}
+                        x={tableNode.x + 1}
                         y={rowY}
-                        width={table.width - 2}
+                        width={tableNode.width - 2}
                         height={LOGICAL_TABLE_ROW_HEIGHT}
                         className="logical-column-hit"
-                        onPointerDown={(event) => handleColumnPointerDown(event, table, column)}
+                        onPointerDown={(event) => handleColumnPointerDown(event, tableNode, column)}
                       />
                       {rowIndex > 0 ? (
                         <line
-                          x1={table.x + 8}
+                          x1={tableNode.x + 8}
                           y1={rowY}
-                          x2={table.x + table.width - 8}
+                          x2={tableNode.x + tableNode.width - 8}
                           y2={rowY}
                           className="logical-column-divider"
                         />
                       ) : null}
 
                       <text
-                        x={table.x + 12}
+                        x={tableNode.x + 12}
                         y={rowY + LOGICAL_TABLE_ROW_HEIGHT / 2}
                         dominantBaseline="middle"
                         className="logical-column-name"
@@ -898,7 +1069,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
                         const badgeWidth = 32;
                         const badgeGap = 6;
                         const totalWidth = badges.length * badgeWidth + Math.max(0, badges.length - 1) * badgeGap;
-                        const startX = table.x + table.width - totalWidth - 10;
+                        const startX = tableNode.x + tableNode.width - totalWidth - 10;
                         const badgeX = startX + badgeIndex * (badgeWidth + badgeGap);
 
                         return (
@@ -930,7 +1101,7 @@ export function LogicalCanvas(props: LogicalCanvasProps) {
         </g>
       </svg>
 
-      <div className="canvas-viewport-hud" aria-label="Controlli viewport logico">
+      <div className="canvas-viewport-hud" aria-label="Controlli viewport Logico">
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
           <button type="button" className="canvas-hud-button" onClick={() => zoomAroundCenter(1 / 1.14)}>
             -

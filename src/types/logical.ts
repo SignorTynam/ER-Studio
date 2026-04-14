@@ -1,4 +1,4 @@
-import type { Viewport } from "./diagram";
+import type { EdgeKind, LineStyle, NodeKind, Viewport } from "./diagram";
 
 export type LogicalTableKind = "entity" | "associative" | "relationship";
 export type LogicalIssueLevel = "warning" | "error";
@@ -29,7 +29,6 @@ export type LogicalTranslationRuleKind =
   | "generalization-table-per-type"
   | "generalization-subtypes-only"
   | "generalization-single-table";
-export type LogicalTranslationPreviewMode = "source" | "logical";
 
 export type LogicalIssueCode =
   | "ENTITY_WITHOUT_PK"
@@ -81,6 +80,7 @@ export interface LogicalTable {
   kind: LogicalTableKind;
   sourceEntityId?: string;
   sourceRelationshipId?: string;
+  sourceAttributeId?: string;
   generatedByDecisionId?: string;
   originLabel?: string;
   columns: LogicalColumn[];
@@ -199,19 +199,90 @@ export interface LogicalTranslationState {
   conflicts: LogicalTranslationConflict[];
 }
 
+export type LogicalTransformationElementStatus = "unresolved" | "transformed" | "invalid";
+export type LogicalTransformationNodeKind = "er-node" | "logical-table";
+export type LogicalTransformationNodeRenderType =
+  | "entity"
+  | "weak-entity"
+  | "relationship"
+  | "attribute"
+  | "multivalued-attribute"
+  | "table";
+export type LogicalTransformationEdgeKind = "er-edge" | "foreign-key";
+export type LogicalTransformationEdgeRenderType = Extract<EdgeKind, "connector" | "attribute" | "inheritance"> | "foreign-key";
+
+export interface LogicalTransformationColumn {
+  id: string;
+  name: string;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  isNullable: boolean;
+  generatedByDecisionId?: string;
+  references: LogicalColumnReference[];
+  relatedTargetKeys: string[];
+}
+
+export interface LogicalTransformationNode {
+  id: string;
+  kind: LogicalTransformationNodeKind;
+  renderType: LogicalTransformationNodeRenderType;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  status: LogicalTransformationElementStatus;
+  sourceNodeId?: string;
+  sourceNodeType?: NodeKind;
+  tableId?: string;
+  generatedByDecisionIds: string[];
+  relatedTargetKeys: string[];
+  columns?: LogicalTransformationColumn[];
+}
+
+export interface LogicalTransformationEdge {
+  id: string;
+  kind: LogicalTransformationEdgeKind;
+  renderType: LogicalTransformationEdgeRenderType;
+  sourceId: string;
+  targetId: string;
+  label: string;
+  status: LogicalTransformationElementStatus;
+  sourceEdgeId?: string;
+  sourceEdgeType?: EdgeKind;
+  lineStyle?: LineStyle;
+  manualOffset?: number;
+  cardinalityLabel?: string;
+  isaDisjointness?: "disjoint" | "overlap";
+  isaCompleteness?: "total" | "partial";
+  foreignKeyId?: string;
+  generatedByDecisionIds: string[];
+  relatedTargetKeys: string[];
+}
+
+export interface LogicalTransformationState {
+  meta: {
+    updatedAt: string;
+    sourceSignature: string;
+  };
+  nodes: LogicalTransformationNode[];
+  edges: LogicalTransformationEdge[];
+}
+
 export interface LogicalWorkspaceDocument {
   model: LogicalModel;
   translation: LogicalTranslationState;
+  transformation: LogicalTransformationState;
 }
 
 export interface LogicalSelection {
-  tableId: string | null;
+  nodeId: string | null;
   columnId: string | null;
   edgeId: string | null;
 }
 
 export const EMPTY_LOGICAL_SELECTION: LogicalSelection = {
-  tableId: null,
+  nodeId: null,
   columnId: null,
   edgeId: null,
 };

@@ -23,6 +23,7 @@ interface DiagramEdgeProps {
   sourceNode: DiagramNode;
   targetNode: DiagramNode;
   laneInfo?: EdgeLaneInfo;
+  displayLabelOverride?: string;
   selected: boolean;
   dragging: boolean;
   ghost?: boolean;
@@ -110,8 +111,10 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const inheritanceConstraintLabel =
     props.edge.type === "inheritance" ? getInheritanceConstraintLabel(props.edge) : "";
   const displayLabel =
-    props.edge.type === "connector" || props.edge.type === "attribute"
-      ? getEdgeCardinalityLabel(props.edge, props.sourceNode, props.targetNode)
+    typeof props.displayLabelOverride === "string"
+      ? props.displayLabelOverride
+      : props.edge.type === "connector" || props.edge.type === "attribute"
+        ? getEdgeCardinalityLabel(props.edge, props.sourceNode, props.targetNode)
       : props.edge.type === "inheritance"
         ? props.edge.label
         : "";
