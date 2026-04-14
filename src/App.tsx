@@ -47,7 +47,6 @@ import {
   synchronizeInternalIdentifiers,
   validateDiagram,
 } from "./utils/diagram";
-import { createExampleDiagram } from "./utils/example";
 import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
@@ -204,7 +203,7 @@ const MIN_CODE_PANEL_WIDTH = 280;
 const MAX_CODE_PANEL_WIDTH = 760;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
-const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v1";
+const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v2";
 const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
 const TOOL_KIND_VALUES: ToolKind[] = [
   "move",
@@ -289,7 +288,7 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
 }
 
 function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
-  const diagram = synchronizeNodeNameIdentity(createExampleDiagram()).diagram;
+  const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
   return {
     diagram,
     logicalModel: createEmptyLogicalModel("modello-logico"),
@@ -2193,17 +2192,6 @@ export default function App() {
     );
   }
 
-  async function handleLoadExample() {
-    if (!(await confirmDiscardChanges("caricare l'esempio"))) {
-      return;
-    }
-
-    applyWorkspaceDocument(
-      createExampleDiagram(),
-      "Esempio Chen caricato.",
-    );
-  }
-
   function handleCreateNode(
     nodeType: Extract<ToolKind, "entity" | "relationship" | "attribute" | "text">,
     point: Point,
@@ -3272,7 +3260,6 @@ export default function App() {
         onLoadErs={handleLoadErsRequest}
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
-        onExample={handleLoadExample}
         onResetErs={handleResetCodeFromDiagram}
         onOpenErsGuide={openCodeTutorialSurface}
         onAbout={() => {

@@ -31,7 +31,6 @@ interface AppHeaderProps {
   onLoadErs: () => void;
   onExportPng: () => void;
   onExportSvg: () => void;
-  onExample: () => void;
   onResetErs: () => void;
   onOpenErsGuide: () => void;
   onAbout: () => void;
@@ -331,9 +330,6 @@ export function AppHeader(props: AppHeaderProps) {
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
                     Scarica ERS
-                  </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onExample)}>
-                    Carica esempio
                   </button>
                 </div>
 

@@ -6,25 +6,25 @@ interface CodeModeTutorialPageProps {
   onOpenCodeStudio: () => void;
 }
 
-const CODE_TUTORIAL_SAMPLE = `entity persona "PERSONA" {
-  identifier id "ID"
-  attribute nome "NOME"
-  multivalued indirizzo "INDIRIZZO"
+const CODE_TUTORIAL_SAMPLE = `entity base_entity "BASE_ENTITY" {
+  identifier base_id "BASE_ID"
+  attribute label "LABEL"
+  multivalued contact "CONTACT"
 }
 
-attribute via "Via"
-attribute civico "Civico"
-attribute citta "Citta"
+attribute detail_a "DetailA"
+attribute detail_b "DetailB"
+attribute detail_c "DetailC"
 
-attribute-link via -> indirizzo
-attribute-link civico -> indirizzo
-attribute-link citta -> indirizzo
+attribute-link detail_a -> contact
+attribute-link detail_b -> contact
+attribute-link detail_c -> contact
 
-entity dipendente "DIPENDENTE" weak
-entity consulente "CONSULENTE"
+entity subtype_a "SUBTYPE_A" weak
+entity subtype_b "SUBTYPE_B"
 
-inheritance dipendente -> persona disjoint total
-inheritance consulente -> persona overlap partial`;
+inheritance subtype_a -> base_entity disjoint total
+inheritance subtype_b -> base_entity overlap partial`;
 
 const WORKSPACE_MODES = [
   {
@@ -87,7 +87,7 @@ const SYNTAX_PATTERNS = [
   },
   {
     title: "Vincoli ISA avanzati",
-    code: `inheritance dipendente -> persona disjoint total`,
+    code: `inheritance subtype_a -> base_entity disjoint total`,
     text: "Disjoint/overlap e total/partial si impostano su ogni singolo collegamento di generalizzazione.",
   },
 ];

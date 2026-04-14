@@ -36,4 +36,3 @@ npm run preview
 - Undo/redo e validazioni per attributi, relazioni e link di ereditarieta con vincoli disjoint/overlap e total/partial.
 - Modalita modifica e sola lettura.
 - Salvataggio/caricamento JSON, export PNG/SVG e sorgente ERS con sincronizzazione live.
-- Pulsante `Carica esempio` con scenario `CITTA'`, `PERSONA`, `UOMO`, `DONNA`, `MILITARE`, `LAVORATRICE`.

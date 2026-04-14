@@ -27,7 +27,6 @@ export const APP_CHANGELOG: AppChangelogEntry[] = [
       "Nuova sintassi ERS per identificatori interni composti: `identifier att1, att2` con supporto a gruppi multipli distinti nella stessa entita.",
       "Compatibilita retroattiva mantenuta: il parser continua ad accettare la forma legacy `composite att1, att2`.",
       "Drag migliorato: spostando una relazione si spostano insieme anche gli attributi collegati, mantenendo comunque il drag singolo degli attributi.",
-      "Esempio di progetto aggiornato a scenario completo con layout e metadati allineati al JSON di riferimento.",
       "Versione applicativa e documentazione allineate alla release 3.4.",
     ],
   },
