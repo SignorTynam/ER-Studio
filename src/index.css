@@ -4539,13 +4539,13 @@ summary:focus-visible {
 
 .identifier-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px 12px;
   padding: 10px 12px;
   border: 1px solid var(--studio-line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.7);
-  align-items: center;
+  align-items: start;
 }
 
 .identifier-attrs {
@@ -4553,10 +4553,12 @@ summary:focus-visible {
   font-size: 0.9rem;
   line-height: 1.4;
   color: var(--studio-ink);
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .identifier-type {
+  grid-column: 1 / -1;
   align-self: center;
   justify-self: start;
   padding: 0.12rem 0.44rem;
@@ -4620,10 +4622,6 @@ summary:focus-visible {
 }
 
 @media (max-width: 760px) {
-  .identifier-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .identifier-type {
     justify-self: start;
   }
