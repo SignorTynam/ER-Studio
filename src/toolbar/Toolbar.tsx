@@ -12,10 +12,10 @@ import type {
 } from "../types/diagram";
 import { TOOL_DEFINITIONS } from "../utils/toolConfig";
 
-const PRIMARY_TOOLS: ToolKind[] = ["select", "move", "entity", "relationship", "connector", "inheritance", "text"];
+const PRIMARY_TOOLS: ToolKind[] = ["select", "move", "entity", "relationship", "connector", "inheritance"];
 type ToolbarContext = "empty" | "node" | "edge" | "multi";
 const TOOL_CONTEXT_MAP: Record<ToolbarContext, ToolKind[]> = {
-  empty: ["select", "move", "entity", "relationship", "connector", "inheritance", "text"],
+  empty: ["select", "move", "entity", "relationship", "connector", "inheritance"],
   node: ["select", "move", "connector"],
   edge: ["select", "move"],
   multi: ["select", "move"],
@@ -100,14 +100,6 @@ function ToolIcon({ tool }: { tool: ToolKind }) {
       <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
         <path d="M12 19V8" fill="none" stroke="currentColor" strokeWidth="1.8" />
         <path d="M8.5 11L12 7l3.5 4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (tool === "text") {
-    return (
-      <svg viewBox="0 0 24 24" className="tool-icon" aria-hidden="true">
-        <path d="M6 6h12M12 6v12" fill="none" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -224,7 +216,7 @@ function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge,
       return "Attributo selezionato";
     }
 
-    return "Testo selezionato";
+    return "Elemento selezionato";
   }
 
   if (selectedEdge) {

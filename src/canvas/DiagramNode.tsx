@@ -379,46 +379,5 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     );
   }
 
-  return (
-    <g
-      className={groupClassName}
-      tabIndex={groupTabIndex}
-      focusable={groupFocusable}
-      aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
-      aria-hidden={isGhost ? true : undefined}
-      pointerEvents={isGhost ? "none" : undefined}
-      onFocus={isGhost ? undefined : () => props.onFocus(node)}
-      onBlur={isGhost ? undefined : props.onBlur}
-      onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
-      onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
-    >
-      {!isGhost && props.validationLevel ? (
-        <rect
-          x={node.x - 8}
-          y={node.y - 14}
-          width={node.width + 16}
-          height={node.height + 18}
-          fill="none"
-          stroke={haloColor}
-          strokeWidth={6}
-        />
-      ) : null}
-      {!isGhost && props.focused ? (
-        <rect
-          x={node.x - 8}
-          y={node.y - 14}
-          width={node.width + 16}
-          height={node.height + 18}
-          fill="none"
-          stroke={DIAGRAM_FOCUS}
-          strokeWidth={1.8}
-          opacity={0.62}
-        />
-      ) : null}
-      <text x={node.x} y={node.y + node.height} className="free-text-label" fill={strokeColor} opacity={labelOpacity}>
-        {node.label}
-      </text>
-      {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount) : null}
-    </g>
-  );
+  return null;
 }

@@ -31,10 +31,9 @@ const DEFAULT_NODE_SIZES: Record<NodeKind, { width: number; height: number }> = 
   entity: { width: 140, height: 64 },
   relationship: { width: 130, height: 78 },
   attribute: { width: 150, height: 28 },
-  text: { width: 140, height: 24 },
 };
 
-const NODE_ORDER: NodeKind[] = ["entity", "relationship", "attribute", "text"];
+const NODE_ORDER: NodeKind[] = ["entity", "relationship", "attribute"];
 const EDGE_ORDER: EdgeKind[] = ["connector", "attribute", "inheritance"];
 const LEGACY_NODE_DIRECTIVES = new Set([
   "label",
@@ -165,7 +164,7 @@ function createGeneratedId(prefix: string): string {
 }
 
 function isGeneratedNodeId(value: string): boolean {
-  return /^(entity|relationship|attribute|text|connector|inheritance)-/i.test(value);
+  return /^(entity|relationship|attribute|connector|inheritance)-/i.test(value);
 }
 
 function normalizeAliasCandidate(value: string, allowDot: boolean): string {
@@ -1638,6 +1637,76 @@ function formatNamedDefinition(keyword: string, alias: string, label: string): s
   return `${keyword} ${alias} ${quoteValue(label)}`;
 }
 
+function normalizeNotesContent(value: string): string {
+  return value.replace(/\r\n/g, "\n").trim();
+}
+
+function formatLegacyTextNotes(notes: string[]): string {
+  const normalized = notes.map((value) => normalizeNotesContent(value)).filter((value) => value.length > 0);
+  if (normalized.length === 0) {
+    return "";
+  }
+
+  if (normalized.length === 1) {
+    return normalized[0];
+  }
+
+  return normalized.map((value, index) => `[Nota ${index + 1}]\n${value}`).join("\n\n");
+}
+
+function mergeParsedNotes(explicitNotes: string, migratedLegacyNotes: string): string {
+  if (!explicitNotes && !migratedLegacyNotes) {
+    return "";
+  }
+
+  if (!explicitNotes) {
+    return migratedLegacyNotes;
+  }
+
+  if (!migratedLegacyNotes) {
+    return explicitNotes;
+  }
+
+  return `${explicitNotes}\n\n[Migrazione Testo Libero]\n${migratedLegacyNotes}`;
+}
+
+function parseNotesDirective(tokens: string[], line: number): string {
+  const state = { index: 1 };
+  const value = readStringValue(tokens, state, line, "La direttiva notes richiede un contenuto.");
+  if (state.index < tokens.length) {
+    throw new ErsParseError(line, "Sintassi notes non valida.");
+  }
+
+  return normalizeNotesContent(value);
+}
+
+function parseLegacyTextDirectiveAsNote(tokens: string[], line: number): string {
+  const state = { index: 1 };
+  const alias = readIdentifier(tokens, state, line, "Sintassi text non valida: alias mancante.");
+  let content = getDefaultLabelForAlias(alias);
+
+  while (state.index < tokens.length) {
+    const directive = readIdentifier(tokens, state, line, "Direttiva text non valida.");
+    switch (directive) {
+      case "label":
+        content = readStringValue(tokens, state, line, "Label text mancante.");
+        break;
+      case "at":
+        readNumberValue(tokens, state, line, "Coordinata X text non valida.");
+        readNumberValue(tokens, state, line, "Coordinata Y text non valida.");
+        break;
+      case "size":
+        readNumberValue(tokens, state, line, "Larghezza text non valida.");
+        readNumberValue(tokens, state, line, "Altezza text non valida.");
+        break;
+      default:
+        throw new ErsParseError(line, `Direttiva text non riconosciuta: "${directive}".`);
+    }
+  }
+
+  return normalizeNotesContent(content);
+}
+
 function getAttributeKeyword(
   attribute: Extract<DiagramNode, { type: "attribute" }>,
   simpleIdentifierAttributeIds: Set<string>,
@@ -1971,10 +2040,8 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
     .sort(compareNodes)
     .map((attribute) => buildStandaloneAttributeLine(attribute, aliasByNodeId.get(attribute.id) ?? attribute.id));
   const nestedAttributeLines = buildNestedAttributeLegacyLines(diagram, aliasByNodeId);
-  const textLines = [...diagram.nodes]
-    .filter((node): node is Extract<DiagramNode, { type: "text" }> => node.type === "text")
-    .sort(compareNodes)
-    .map((node) => formatNamedDefinition("text", aliasByNodeId.get(node.id) ?? node.id, node.label));
+  const notesContent = normalizeNotesContent(diagram.notes);
+  const notesLines = notesContent.length > 0 ? [`notes ${quoteValue(notesContent)}`] : [];
   const inheritanceLines = [...diagram.edges]
     .filter((edge): edge is Extract<DiagramEdge, { type: "inheritance" }> => edge.type === "inheritance")
     .sort((left, right) => compareEdges(left, right, aliasByNodeId))
@@ -2017,10 +2084,10 @@ export function serializeDiagramToErs(diagram: DiagramDocument): string {
   if (
     orphanAttributeLines.length > 0 ||
     nestedAttributeLines.length > 0 ||
-    textLines.length > 0 ||
+    notesLines.length > 0 ||
     inheritanceLines.length > 0
   ) {
-    sections.push("", ...orphanAttributeLines, ...nestedAttributeLines, ...textLines, ...inheritanceLines);
+    sections.push("", ...orphanAttributeLines, ...nestedAttributeLines, ...notesLines, ...inheritanceLines);
   }
 
   return sections.join("\n");
@@ -2259,25 +2326,6 @@ function autoPlaceDiagram(diagram: DiagramDocument, lockedNodeIds: Set<string>):
     orphanAttributeX += attribute.width + 60;
   });
 
-  const textNodes = [...diagram.nodes]
-    .filter((node): node is Extract<DiagramNode, { type: "text" }> => node.type === "text")
-    .sort(compareNodes);
-  let textX = 160;
-  const textY = baseEntityY + 360;
-
-  textNodes.forEach((textNode) => {
-    if (lockedNodeIds.has(textNode.id)) {
-      return;
-    }
-
-    setNode({
-      ...textNode,
-      x: snapValue(textX, GRID_SIZE),
-      y: snapValue(textY, GRID_SIZE),
-    });
-    textX += textNode.width + 80;
-  });
-
   return {
     ...diagram,
     nodes: diagram.nodes.map((node) => nextNodes.get(node.id) ?? node),
@@ -2292,6 +2340,8 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
   const parsedExternalIdentifiers: ParsedExternalIdentifierSpec[] = [];
   const aliasMap = new Map<string, ParsedNodeSpec>();
   let diagramName = "Diagramma ER";
+  const explicitNotesChunks: string[] = [];
+  const migratedLegacyTextNotes: string[] = [];
 
   lines.forEach((lineText, index) => {
     const line = index + 1;
@@ -2316,8 +2366,24 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       return;
     }
 
+    if (keyword === "notes") {
+      const note = parseNotesDirective(tokens, line);
+      if (note.length > 0) {
+        explicitNotesChunks.push(note);
+      }
+      return;
+    }
+
+    if (keyword === "text") {
+      const migratedNote = parseLegacyTextDirectiveAsNote(tokens, line);
+      if (migratedNote.length > 0) {
+        migratedLegacyTextNotes.push(migratedNote);
+      }
+      return;
+    }
+
     if (
-      ["entity", "relationship", "attribute", "text", "identifier", "composite", "multivalued"].includes(
+      ["entity", "relationship", "attribute", "identifier", "composite", "multivalued"].includes(
         keyword,
       )
     ) {
@@ -2605,6 +2671,10 @@ function parseLegacyErsDiagram(rawSource: string): DiagramDocument {
       name: diagramName,
       version: 1,
     },
+    notes: mergeParsedNotes(
+      normalizeNotesContent(explicitNotesChunks.join("\n\n")),
+      formatLegacyTextNotes(migratedLegacyTextNotes),
+    ),
     nodes,
     edges,
   };

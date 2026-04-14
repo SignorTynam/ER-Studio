@@ -988,8 +988,7 @@ button:disabled {
 .entity-label,
 .shape-label,
 .edge-label,
-.attribute-label,
-.free-text-label {
+.attribute-label {
   fill: #111111;
   user-select: none;
 }
@@ -1001,8 +1000,7 @@ button:disabled {
 }
 
 .attribute-label,
-.edge-label,
-.free-text-label {
+.edge-label {
   font-size: 14px;
 }
 
@@ -4316,8 +4314,7 @@ summary:focus-visible {
 .entity-label,
 .shape-label,
 .edge-label,
-.attribute-label,
-.free-text-label {
+.attribute-label {
   fill: var(--diagram-text);
 }
 
@@ -6378,6 +6375,69 @@ textarea.diagram-code-panel-content::placeholder {
   font-size: 0.86rem;
   color: rgba(42, 39, 31, 0.58);
   text-align: center;
+}
+
+.diagram-notes-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 10px 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 39, 31, 0.08);
+  background:
+    linear-gradient(180deg, rgba(247, 250, 245, 0.95) 0%, rgba(239, 246, 238, 0.96) 100%);
+  box-shadow: none;
+}
+
+.diagram-notes-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 2px 10px;
+  border-bottom: 1px solid rgba(42, 39, 31, 0.08);
+}
+
+.diagram-notes-panel-head h2 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(42, 39, 31, 0.78);
+}
+
+.diagram-notes-panel-head span {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(42, 39, 31, 0.5);
+}
+
+.diagram-notes-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 6px 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-size: 0.9rem;
+  line-height: 1.52;
+  font-family: "IBM Plex Sans", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: rgba(28, 27, 23, 0.92);
+}
+
+textarea.diagram-notes-editor::placeholder {
+  color: rgba(42, 39, 31, 0.58);
 }
 
 .code-mode-panel.code-mode-panel-editor-only {

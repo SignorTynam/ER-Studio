@@ -4,6 +4,7 @@ import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { CodePanel } from "./components/CodePanel";
 import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
+import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { useHistory } from "./hooks/useHistory";
 import { LogicalCanvas } from "./logical/LogicalCanvas";
@@ -140,6 +141,8 @@ interface WorkspaceSessionSnapshot {
   codeDirty: boolean;
   codePanelOpen: boolean;
   codePanelWidth: number;
+  notesPanelOpen: boolean;
+  notesPanelWidth: number;
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
@@ -162,6 +165,8 @@ interface WorkspaceSessionBootstrap {
   codeDirty: boolean;
   codePanelOpen: boolean;
   codePanelWidth: number;
+  notesPanelOpen: boolean;
+  notesPanelWidth: number;
   toolbarCollapsed: boolean;
   focusMode: boolean;
   toolbarWidth: number;
@@ -201,9 +206,12 @@ const MAX_TOOLBAR_WIDTH = 320;
 const DEFAULT_CODE_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.32), 300, 640);
 const MIN_CODE_PANEL_WIDTH = 280;
 const MAX_CODE_PANEL_WIDTH = 760;
+const DEFAULT_NOTES_PANEL_WIDTH = clampValue(Math.round(INITIAL_WINDOW_WIDTH * 0.3), 280, 620);
+const MIN_NOTES_PANEL_WIDTH = 260;
+const MAX_NOTES_PANEL_WIDTH = 700;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
-const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v2";
+const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v3";
 const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
 const TOOL_KIND_VALUES: ToolKind[] = [
   "move",
@@ -214,7 +222,6 @@ const TOOL_KIND_VALUES: ToolKind[] = [
   "attribute",
   "connector",
   "inheritance",
-  "text",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -306,6 +313,8 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     codeDirty: false,
     codePanelOpen: false,
     codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
+    notesPanelOpen: false,
+    notesPanelWidth: DEFAULT_NOTES_PANEL_WIDTH,
     toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
     focusMode: false,
     toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
@@ -343,6 +352,8 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       typeof parsed.codeDraft === "string" && parsed.codeDraft.trim().length > 0
         ? parsed.codeDraft
         : serializeDiagramToErs(storedDiagram);
+    const storedNotesPanelOpen = parsed.notesPanelOpen === true;
+    const storedCodePanelOpen = parsed.codePanelOpen === true && !storedNotesPanelOpen;
 
     return {
       diagram: storedDiagram,
@@ -359,11 +370,16 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       logicalSelection: storedLogicalSelection,
       codeDraft: storedCodeDraft,
       codeDirty: parsed.codeDirty === true,
-      codePanelOpen: parsed.codePanelOpen === true,
+      codePanelOpen: storedCodePanelOpen,
       codePanelWidth:
         typeof parsed.codePanelWidth === "number" && Number.isFinite(parsed.codePanelWidth)
           ? parsed.codePanelWidth
           : fallback.codePanelWidth,
+      notesPanelOpen: storedNotesPanelOpen,
+      notesPanelWidth:
+        typeof parsed.notesPanelWidth === "number" && Number.isFinite(parsed.notesPanelWidth)
+          ? parsed.notesPanelWidth
+          : fallback.notesPanelWidth,
       toolbarCollapsed: typeof parsed.toolbarCollapsed === "boolean" ? parsed.toolbarCollapsed : fallback.toolbarCollapsed,
       focusMode: typeof parsed.focusMode === "boolean" ? parsed.focusMode : false,
       toolbarWidth:
@@ -507,7 +523,7 @@ function isDefaultNodeLabel(node: DiagramNode): boolean {
     return normalizedLabel.startsWith("nuovo attributo") || /^attributo\d+$/.test(normalizedLabel);
   }
 
-  return normalizedLabel === "testo" || /^testo\d+$/.test(normalizedLabel);
+  return false;
 }
 
 function createOnboardingSnapshot(diagram: DiagramDocument): OnboardingSnapshot {
@@ -700,7 +716,7 @@ function getNodeKindLabel(node: DiagramNode): string {
     return "attributo";
   }
 
-  return "testo";
+  return "elemento";
 }
 
 function getConnectionFailureReason(
@@ -869,6 +885,8 @@ export default function App() {
   const [codeError, setCodeError] = useState("");
   const [codePanelOpen, setCodePanelOpen] = useState(sessionBootstrap.codePanelOpen);
   const [codePanelWidth, setCodePanelWidth] = useState(sessionBootstrap.codePanelWidth);
+  const [notesPanelOpen, setNotesPanelOpen] = useState(sessionBootstrap.notesPanelOpen);
+  const [notesPanelWidth, setNotesPanelWidth] = useState(sessionBootstrap.notesPanelWidth);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(sessionBootstrap.toolbarCollapsed);
   const [focusMode, setFocusMode] = useState(sessionBootstrap.focusMode);
   const [windowWidth, setWindowWidth] = useState(INITIAL_WINDOW_WIDTH);
@@ -896,7 +914,7 @@ export default function App() {
   const promptDialogResolverRef = useRef<((value: string | null) => void) | null>(null);
   const promptInputRef = useRef<HTMLInputElement | null>(null);
   const panelResizeRef = useRef<{
-    panel: "toolbar" | "code";
+    panel: "toolbar" | "code" | "notes";
     startClientX: number;
     startWidth: number;
   } | null>(null);
@@ -944,12 +962,20 @@ export default function App() {
     min: clampValue(Math.floor(windowWidth * 0.22), MIN_CODE_PANEL_WIDTH, 420),
     max: clampValue(Math.floor(windowWidth * 0.5), 520, MAX_CODE_PANEL_WIDTH),
   };
+  const notesPanelResizeBounds = {
+    min: clampValue(Math.floor(windowWidth * 0.2), MIN_NOTES_PANEL_WIDTH, 380),
+    max: clampValue(Math.floor(windowWidth * 0.46), 500, MAX_NOTES_PANEL_WIDTH),
+  };
   const visibleToolbarWidth = focusMode
     ? 0
     : effectiveToolbarCollapsed
       ? TOOLBAR_COLLAPSED_WIDTH
       : clampValue(toolbarWidth, toolbarResizeBounds.min, toolbarResizeBounds.max);
   const visibleCodePanelWidth = clampValue(codePanelWidth, codePanelResizeBounds.min, codePanelResizeBounds.max);
+  const visibleNotesPanelWidth = clampValue(notesPanelWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max);
+  const activeSidePanel: "code" | "notes" | null = notesPanelOpen ? "notes" : codePanelOpen ? "code" : null;
+  const activeSidePanelWidth =
+    activeSidePanel === "notes" ? visibleNotesPanelWidth : visibleCodePanelWidth;
   const workspaceShellStyle = {
     "--toolbar-width": `${visibleToolbarWidth}px`,
     "--toolbar-resizer-width": !focusMode && !effectiveToolbarCollapsed ? `${RESIZER_WIDTH}px` : "0px",
@@ -957,8 +983,8 @@ export default function App() {
     "--inspector-width": "0px",
   } as CSSProperties;
   const erWorkspaceMainStyle = {
-    "--diagram-code-panel-width": codePanelOpen ? `${visibleCodePanelWidth}px` : "0px",
-    "--diagram-code-resizer-width": codePanelOpen ? `${RESIZER_WIDTH}px` : "0px",
+    "--diagram-code-panel-width": activeSidePanel ? `${activeSidePanelWidth}px` : "0px",
+    "--diagram-code-resizer-width": activeSidePanel ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const logicalWorkspaceShellStyle = {
     "--toolbar-width": "0px",
@@ -1045,6 +1071,8 @@ export default function App() {
       codeDirty: codeDirtyRef.current,
       codePanelOpen,
       codePanelWidth,
+      notesPanelOpen,
+      notesPanelWidth,
       toolbarCollapsed,
       focusMode,
       toolbarWidth,
@@ -1054,6 +1082,8 @@ export default function App() {
     codeDirty,
     codePanelOpen,
     codePanelWidth,
+    notesPanelOpen,
+    notesPanelWidth,
     diagramView,
     focusMode,
     history.present,
@@ -1086,6 +1116,8 @@ export default function App() {
     codeDirty,
     codePanelOpen,
     codePanelWidth,
+    notesPanelOpen,
+    notesPanelWidth,
     diagramView,
     focusMode,
     history.present,
@@ -1289,7 +1321,12 @@ export default function App() {
       }
 
       const nextWidth = currentResize.startWidth - (event.clientX - currentResize.startClientX);
-      setCodePanelWidth(clampValue(nextWidth, codePanelResizeBounds.min, codePanelResizeBounds.max));
+      if (currentResize.panel === "code") {
+        setCodePanelWidth(clampValue(nextWidth, codePanelResizeBounds.min, codePanelResizeBounds.max));
+        return;
+      }
+
+      setNotesPanelWidth(clampValue(nextWidth, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
     }
 
     function stopResize() {
@@ -1312,6 +1349,8 @@ export default function App() {
   }, [
     codePanelResizeBounds.max,
     codePanelResizeBounds.min,
+    notesPanelResizeBounds.max,
+    notesPanelResizeBounds.min,
     toolbarResizeBounds.max,
     toolbarResizeBounds.min,
   ]);
@@ -1729,11 +1768,45 @@ export default function App() {
   }
 
   function handleToggleCodePanel() {
-    setCodePanelOpen((current) => !current);
+    setCodePanelOpen((current) => {
+      const next = !current;
+      if (next) {
+        setNotesPanelOpen(false);
+      }
+
+      return next;
+    });
+  }
+
+  function handleToggleNotesPanel() {
+    setNotesPanelOpen((current) => {
+      const next = !current;
+      if (next) {
+        setCodePanelOpen(false);
+      }
+
+      return next;
+    });
+  }
+
+  function handleNotesChange(nextNotes: string) {
+    const normalizedNotes = nextNotes.replace(/\r\n/g, "\n");
+    if (normalizedNotes === history.present.notes) {
+      return;
+    }
+
+    commitDiagram(
+      {
+        ...history.present,
+        notes: normalizedNotes,
+      },
+      history.present,
+      { suppressExternalIdentifierWarnings: true },
+    );
   }
 
   function handlePanelResizeStart(
-    panel: "toolbar" | "code",
+    panel: "toolbar" | "code" | "notes",
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
     if (event.button !== 0) {
@@ -1744,18 +1817,23 @@ export default function App() {
     panelResizeRef.current = {
       panel,
       startClientX: event.clientX,
-      startWidth: panel === "toolbar" ? toolbarWidth : codePanelWidth,
+      startWidth: panel === "toolbar" ? toolbarWidth : panel === "code" ? codePanelWidth : notesPanelWidth,
     };
     document.body.classList.add("workspace-resizing");
   }
 
-  function resetPanelWidth(panel: "toolbar" | "code") {
+  function resetPanelWidth(panel: "toolbar" | "code" | "notes") {
     if (panel === "toolbar") {
       setToolbarWidth(clampValue(DEFAULT_TOOLBAR_WIDTH, toolbarResizeBounds.min, toolbarResizeBounds.max));
       return;
     }
 
-    setCodePanelWidth(clampValue(DEFAULT_CODE_PANEL_WIDTH, codePanelResizeBounds.min, codePanelResizeBounds.max));
+    if (panel === "code") {
+      setCodePanelWidth(clampValue(DEFAULT_CODE_PANEL_WIDTH, codePanelResizeBounds.min, codePanelResizeBounds.max));
+      return;
+    }
+
+    setNotesPanelWidth(clampValue(DEFAULT_NOTES_PANEL_WIDTH, notesPanelResizeBounds.min, notesPanelResizeBounds.max));
   }
 
   function replaceCodeDraft(nextCode: string) {
@@ -2193,7 +2271,7 @@ export default function App() {
   }
 
   function handleCreateNode(
-    nodeType: Extract<ToolKind, "entity" | "relationship" | "attribute" | "text">,
+    nodeType: Extract<ToolKind, "entity" | "relationship" | "attribute">,
     point: Point,
   ) {
     const nextNode = createNode(nodeType, point, history.present);
@@ -3239,6 +3317,7 @@ export default function App() {
         diagramName={history.present.meta.name}
         diagramView={diagramView}
         codePanelOpen={codePanelOpen}
+        notesPanelOpen={notesPanelOpen}
         mode={mode}
         canUndo={activeCanUndo}
         canRedo={activeCanRedo}
@@ -3254,6 +3333,7 @@ export default function App() {
         onAutoLayoutLogical={handleLogicalAutoLayout}
         onFitLogical={handleLogicalFit}
         onToggleCodePanel={handleToggleCodePanel}
+        onToggleNotesPanel={handleToggleNotesPanel}
         onSave={handleSaveJson}
         onSaveErs={handleSaveErs}
         onLoad={handleLoadRequest}
@@ -3379,7 +3459,7 @@ export default function App() {
               />
 
               <div
-                className={codePanelOpen ? "workspace-main diagram-with-code code-open" : "workspace-main diagram-with-code"}
+                className={activeSidePanel ? "workspace-main diagram-with-code code-open" : "workspace-main diagram-with-code"}
                 style={erWorkspaceMainStyle}
               >
                 <DiagramCanvas
@@ -3409,22 +3489,40 @@ export default function App() {
 
                 <button
                   type="button"
-                  className={codePanelOpen ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
-                  onPointerDown={(event) => handlePanelResizeStart("code", event)}
-                  onDoubleClick={() => resetPanelWidth("code")}
-                  aria-label="Ridimensiona pannello codice"
-                  title="Trascina per ridimensionare il pannello codice"
-                  disabled={!codePanelOpen}
+                  className={activeSidePanel ? "workspace-resizer workspace-resizer-active" : "workspace-resizer"}
+                  onPointerDown={(event) =>
+                    handlePanelResizeStart(activeSidePanel === "notes" ? "notes" : "code", event)
+                  }
+                  onDoubleClick={() => resetPanelWidth(activeSidePanel === "notes" ? "notes" : "code")}
+                  aria-label={
+                    activeSidePanel === "notes"
+                      ? "Ridimensiona pannello notes"
+                      : "Ridimensiona pannello codice"
+                  }
+                  title={
+                    activeSidePanel === "notes"
+                      ? "Trascina per ridimensionare il pannello notes"
+                      : "Trascina per ridimensionare il pannello codice"
+                  }
+                  disabled={!activeSidePanel}
                 />
 
                 <div className="diagram-code-column">
-                  <CodePanel
-                    code={codeDraft}
-                    editable={mode === "edit"}
-                    parseError={codeError}
-                    onCodeChange={updateCodeDraft}
-                    placeholder="Inserisci il codice ERS"
-                  />
+                  {activeSidePanel === "notes" ? (
+                    <NotesPanel
+                      notes={history.present.notes}
+                      editable={mode === "edit"}
+                      onChange={handleNotesChange}
+                    />
+                  ) : (
+                    <CodePanel
+                      code={codeDraft}
+                      editable={mode === "edit"}
+                      parseError={codeError}
+                      onCodeChange={updateCodeDraft}
+                      placeholder="Inserisci il codice ERS"
+                    />
+                  )}
                 </div>
               </div>
             </>
@@ -3652,15 +3750,16 @@ export default function App() {
               <details className="help-section" open>
                 <summary>Strumenti e scorciatoie</summary>
                 <ul className="help-list">
-                  <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione, T Testo.</li>
+                  <li>Selezione rapida strumenti: S Sposta, V Selezione, X Cancella, E Entita, R Relazione, A Attributo, C Collegamento, G Generalizzazione.</li>
                 </ul>
               </details>
 
               <details className="help-section">
                 <summary>Inserimento e Collegamenti</summary>
                 <ul className="help-list">
-                  <li>Con Entita, Relazione, Attributo o Testo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
+                  <li>Con Entita, Relazione o Attributo: clic sul canvas per inserire l'elemento; dopo l'inserimento il tool torna su Selezione.</li>
                   <li>Collegamenti: scegli Collegamento o Generalizzazione, clicca il nodo sorgente e poi il nodo destinazione.</li>
+                  <li>Le Notes del diagramma si gestiscono dal pannello Notes sulla destra e vengono salvate insieme al modello.</li>
                 </ul>
               </details>
 

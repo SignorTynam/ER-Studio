@@ -83,13 +83,6 @@ function getSelectionHeading(
     };
   }
 
-  if (selectedNode?.type === "text") {
-    return {
-      title: "Testo libero",
-      subtitle: "Modifica il testo senza altre impostazioni estranee.",
-    };
-  }
-
   if (selectedEdge) {
     return {
       title: "Collegamento",
@@ -429,24 +422,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       );
     }
 
-    return (
-      <>
-        <section className="context-card">
-          <div className="context-card-title">Impostazioni testo</div>
-          <div className="inspector-stack">
-            <label className="field">
-              <span>Contenuto</span>
-              <input
-                value={node.label}
-                disabled={!canEdit}
-                onChange={(event) => props.onNodeChange(node.id, { label: event.target.value })}
-              />
-            </label>
-          </div>
-        </section>
-        {renderSelectionActions()}
-      </>
-    );
+    return renderSelectionActions();
   }
 
   function renderEdgeContext(edge: DiagramEdge) {

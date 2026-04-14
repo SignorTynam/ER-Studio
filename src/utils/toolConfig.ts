@@ -15,7 +15,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { tool: "attribute", label: "Attributo", shortcut: "a" },
   { tool: "connector", label: "Collegamento", shortcut: "c" },
   { tool: "inheritance", label: "Generalizzazione", shortcut: "g" },
-  { tool: "text", label: "Testo libero", shortcut: "t" },
 ];
 
 export const TOOL_BY_SHORTCUT: Record<string, ToolKind> = TOOL_DEFINITIONS.reduce(

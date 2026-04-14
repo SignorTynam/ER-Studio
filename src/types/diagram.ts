@@ -1,6 +1,6 @@
 import type { ConnectorCardinality } from "../utils/cardinality";
 
-export type NodeKind = "entity" | "relationship" | "attribute" | "text";
+export type NodeKind = "entity" | "relationship" | "attribute";
 export type EdgeKind = "connector" | "attribute" | "inheritance";
 export type ToolKind =
   | "move"
@@ -10,8 +10,7 @@ export type ToolKind =
   | "relationship"
   | "attribute"
   | "connector"
-  | "inheritance"
-  | "text";
+  | "inheritance";
 export type EditorMode = "edit" | "view";
 export type LineStyle = "solid" | "dashed";
 export type IsaDisjointness = "disjoint" | "overlap";
@@ -75,15 +74,10 @@ export interface AttributeNode extends BaseNode {
   cardinality?: ConnectorCardinality;
 }
 
-export interface TextNode extends BaseNode {
-  type: "text";
-}
-
 export type DiagramNode =
   | EntityNode
   | RelationshipNode
-  | AttributeNode
-  | TextNode;
+  | AttributeNode;
 
 export interface BaseEdge {
   id: string;
@@ -117,6 +111,7 @@ export interface DiagramDocument {
     name: string;
     version: number;
   };
+  notes: string;
   nodes: DiagramNode[];
   edges: DiagramEdge[];
 }

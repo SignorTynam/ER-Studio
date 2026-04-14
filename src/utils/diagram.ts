@@ -255,14 +255,12 @@ const NODE_ID_PREFIX_BY_TYPE: Record<NodeKind, string> = {
   entity: "entity",
   relationship: "relationship",
   attribute: "attribute",
-  text: "text",
 };
 
 const NODE_LABEL_PREFIX_BY_TYPE: Record<NodeKind, string> = {
   entity: "ENTITA",
   relationship: "RELAZIONE",
   attribute: "ATTRIBUTO",
-  text: "TESTO",
 };
 
 const EDGE_ID_PREFIX_BY_TYPE: Record<EdgeKind, string> = {
@@ -528,8 +526,6 @@ function getNodeSize(nodeType: NodeKind) {
       return { width: 130, height: 78 };
     case "attribute":
       return { width: 150, height: 28 };
-    case "text":
-      return { width: 140, height: 24 };
     default:
       return { width: 120, height: 48 };
   }
@@ -541,6 +537,7 @@ export function createEmptyDiagram(name = "Diagramma ER"): DiagramDocument {
       name,
       version: CURRENT_DIAGRAM_VERSION,
     },
+    notes: "",
     nodes: [],
     edges: [],
   };
@@ -1583,6 +1580,7 @@ export function serializeDiagram(diagram: DiagramDocument): string {
       synchronizeEntityRelationshipParticipations(synchronizeNodeNameIdentity(diagram).diagram),
     ),
   );
+  const normalizedNotes = normalizeDiagramNotes((normalizedDiagram as { notes?: unknown }).notes);
   const serializedNodes = normalizedDiagram.nodes.map((node) => {
     const { label: _unusedLabel, ...nodeWithoutLabel } = node as DiagramNode & { label: string };
     return nodeWithoutLabel;
@@ -1595,6 +1593,7 @@ export function serializeDiagram(diagram: DiagramDocument): string {
         ...normalizedDiagram.meta,
         version: CURRENT_DIAGRAM_VERSION,
       },
+      notes: normalizedNotes,
       nodes: serializedNodes,
     },
     null,
@@ -1603,7 +1602,7 @@ export function serializeDiagram(diagram: DiagramDocument): string {
 }
 
 function isNodeKind(value: string): value is NodeKind {
-  return ["entity", "relationship", "attribute", "text"].includes(value);
+  return ["entity", "relationship", "attribute"].includes(value);
 }
 
 function isEdgeKind(value: string): value is EdgeKind {
@@ -2055,6 +2054,85 @@ interface LegacyRelationshipExternalIdentifier {
   markerOffsetY?: number;
 }
 
+function normalizeDiagramNotes(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.replace(/\r\n/g, "\n").trim();
+}
+
+function formatLegacyTextNodesAsNotes(rawNodes: unknown): string {
+  if (!Array.isArray(rawNodes)) {
+    return "";
+  }
+
+  const entries = rawNodes
+    .flatMap((node) => {
+      if (typeof node !== "object" || node === null) {
+        return [];
+      }
+
+      const rawNode = node as {
+        type?: unknown;
+        label?: unknown;
+        id?: unknown;
+        x?: unknown;
+        y?: unknown;
+      };
+
+      if (rawNode.type !== "text") {
+        return [];
+      }
+
+      const content = (typeof rawNode.label === "string" ? rawNode.label : typeof rawNode.id === "string" ? rawNode.id : "").trim();
+      if (!content) {
+        return [];
+      }
+
+      return [
+        {
+          content,
+          x: typeof rawNode.x === "number" && Number.isFinite(rawNode.x) ? rawNode.x : 0,
+          y: typeof rawNode.y === "number" && Number.isFinite(rawNode.y) ? rawNode.y : 0,
+        },
+      ];
+    })
+    .sort((left, right) => {
+      if (left.y !== right.y) {
+        return left.y - right.y;
+      }
+
+      return left.x - right.x;
+    });
+
+  if (entries.length === 0) {
+    return "";
+  }
+
+  if (entries.length === 1) {
+    return entries[0].content;
+  }
+
+  return entries.map((entry, index) => `[Nota ${index + 1}]\n${entry.content}`).join("\n\n");
+}
+
+function mergeDiagramNotes(explicitNotes: string, migratedNotes: string): string {
+  if (!explicitNotes && !migratedNotes) {
+    return "";
+  }
+
+  if (!explicitNotes) {
+    return migratedNotes;
+  }
+
+  if (!migratedNotes) {
+    return explicitNotes;
+  }
+
+  return `${explicitNotes}\n\n[Migrazione Testo Libero]\n${migratedNotes}`;
+}
+
 function migrateLegacyRelationshipExternalIdentifiers(
   diagram: DiagramDocument,
   legacyIdentifiers: LegacyRelationshipExternalIdentifier[],
@@ -2143,6 +2221,9 @@ function migrateLegacyRelationshipExternalIdentifiers(
 export function parseDiagram(rawJson: string): DiagramDocument {
   const parsed = JSON.parse(rawJson) as Partial<DiagramDocument>;
   const meta = parsed.meta ?? { name: "Diagramma importato", version: CURRENT_DIAGRAM_VERSION };
+  const explicitNotes = normalizeDiagramNotes((parsed as { notes?: unknown }).notes);
+  const migratedLegacyNotes = formatLegacyTextNodesAsNotes((parsed as { nodes?: unknown }).nodes);
+  const notes = mergeDiagramNotes(explicitNotes, migratedLegacyNotes);
   const legacyRelationshipExternalIdentifiers: LegacyRelationshipExternalIdentifier[] = [];
   const nodes = Array.isArray(parsed.nodes)
     ? parsed.nodes
@@ -2286,10 +2367,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
             };
           }
 
-          return {
-            ...node,
-            label: nodeLabel,
-          };
+          return node;
         })
     : [];
   const legacyCardinalityByEdgeId = new Map<string, string | undefined>();
@@ -2351,6 +2429,7 @@ export function parseDiagram(rawJson: string): DiagramDocument {
       name: meta.name ?? "Diagramma importato",
       version: CURRENT_DIAGRAM_VERSION,
     },
+    notes,
     nodes,
     edges,
   };

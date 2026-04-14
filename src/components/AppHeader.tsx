@@ -10,6 +10,7 @@ interface AppHeaderProps {
   diagramName: string;
   diagramView: DiagramWorkspaceView;
   codePanelOpen: boolean;
+  notesPanelOpen: boolean;
   mode: EditorMode;
   canUndo: boolean;
   canRedo: boolean;
@@ -25,6 +26,7 @@ interface AppHeaderProps {
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
   onToggleCodePanel: () => void;
+  onToggleNotesPanel: () => void;
   onSave: () => void;
   onSaveErs: () => void;
   onLoad: () => void;
@@ -227,18 +229,32 @@ export function AppHeader(props: AppHeaderProps) {
               Ripeti
             </button>
             {props.diagramView === "er" ? (
-              <button
-                type="button"
-                className={
-                  props.codePanelOpen
-                    ? "header-button header-quick-button active"
-                    : "header-button header-quick-button"
-                }
-                onClick={props.onToggleCodePanel}
-                title={props.codePanelOpen ? "Nascondi pannello codice" : "Mostra pannello codice"}
-              >
-                {props.codePanelOpen ? "Hide code" : "Show code"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={
+                    props.codePanelOpen
+                      ? "header-button header-quick-button active"
+                      : "header-button header-quick-button"
+                  }
+                  onClick={props.onToggleCodePanel}
+                  title={props.codePanelOpen ? "Nascondi pannello codice" : "Mostra pannello codice"}
+                >
+                  {props.codePanelOpen ? "Hide code" : "Show code"}
+                </button>
+                <button
+                  type="button"
+                  className={
+                    props.notesPanelOpen
+                      ? "header-button header-quick-button active"
+                      : "header-button header-quick-button"
+                  }
+                  onClick={props.onToggleNotesPanel}
+                  title={props.notesPanelOpen ? "Nascondi notes" : "Mostra notes"}
+                >
+                  {props.notesPanelOpen ? "Hide notes" : "Show notes"}
+                </button>
+              </>
             ) : null}
             {props.diagramView === "logical" ? (
               <>

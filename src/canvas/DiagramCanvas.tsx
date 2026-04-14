@@ -124,7 +124,7 @@ interface DiagramCanvasProps {
   onPreviewDiagram: (diagram: DiagramDocument) => void;
   onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
   onCreateNode: (
-    type: Extract<ToolKind, "entity" | "relationship" | "attribute" | "text">,
+    type: Extract<ToolKind, "entity" | "relationship" | "attribute">,
     point: Point,
   ) => string;
   onCreateEdge: (
@@ -278,8 +278,8 @@ function buildAttributeDirectionMap(diagram: DiagramDocument): Map<string, Point
   return directions;
 }
 
-function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "relationship" | "attribute" | "text"> {
-  return tool === "entity" || tool === "relationship" || tool === "attribute" || tool === "text";
+function editableTool(tool: ToolKind): tool is Extract<ToolKind, "entity" | "relationship" | "attribute"> {
+  return tool === "entity" || tool === "relationship" || tool === "attribute";
 }
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -1255,8 +1255,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return selectionBounds;
     }
 
-    const primaryNodes = props.diagram.nodes.filter((node) => node.type !== "text");
-    return getBoundsForViewport(primaryNodes) ?? getBoundsForViewport(props.diagram.nodes);
+    return getBoundsForViewport(props.diagram.nodes);
   }
 
   function setViewportFromBounds(bounds: Bounds, zoom: number) {
