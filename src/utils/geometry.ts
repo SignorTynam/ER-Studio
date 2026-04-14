@@ -325,17 +325,6 @@ function getParallelLaneOffset(laneInfo?: EdgeLaneInfo): number {
   return (laneInfo.laneIndex - center) * step;
 }
 
-function getAttributeLaneOffset(edgeId: string): number {
-  const lanes = [-18, -12, -6, 6, 12, 18];
-  let hash = 0;
-
-  for (let index = 0; index < edgeId.length; index += 1) {
-    hash = (hash * 31 + edgeId.charCodeAt(index)) | 0;
-  }
-
-  return lanes[Math.abs(hash) % lanes.length];
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -401,41 +390,6 @@ function getPointAlongPolyline(points: Point[], progress: number): Point {
   return points[points.length - 1];
 }
 
-function getAttributeEntityAnchor(node: DiagramNode, toward: Point, laneOffset: number): Point {
-  const endpoint = buildEdgeEndpointGeometry(node, toward);
-  return applyLaneOffsetToAnchor(node, endpoint.visualAttachmentPoint, endpoint.side, laneOffset);
-}
-
-function applyLaneOffsetToAnchor(
-  node: DiagramNode,
-  anchor: Point,
-  side: ConnectionSide,
-  laneOffset: number,
-): Point {
-  // Keep clipping clean on diamonds/ellipses/simple attributes; only rectangular bounds get tangential lane offsets.
-  if (
-    laneOffset === 0 ||
-    node.type === "relationship" ||
-    node.type === "attribute"
-  ) {
-    return anchor;
-  }
-
-  const margin = 8;
-
-  if (side === "left" || side === "right") {
-    return {
-      x: anchor.x,
-      y: clamp(anchor.y + laneOffset, node.y + margin, node.y + node.height - margin),
-    };
-  }
-
-  return {
-    x: clamp(anchor.x + laneOffset, node.x + margin, node.x + node.width - margin),
-    y: anchor.y,
-  };
-}
-
 function attachPolylineToNodeBounds(
   logicalPoints: Point[],
   sourceNode: DiagramNode,
@@ -489,17 +443,11 @@ export function getEdgeGeometry(
     const sourceIsAttribute = sourceNode.type === "attribute";
     const attributeNode = sourceIsAttribute ? sourceNode : targetNode;
     const hostNode = sourceIsAttribute ? targetNode : sourceNode;
-    const attributeLaneOffset =
-      attributeNode.type === "attribute" && attributeNode.isCompositeInternal === true ? 0 : getAttributeLaneOffset(edge.id);
-    const attributeEndpoint = buildEdgeEndpointGeometry(
-      attributeNode,
-      getNodeLogicalAnchor(hostNode),
-    );
 
-    // Attribute geometry stays normalized attribute -> host, but its direction now comes from logical centers.
+    // Keep attribute connections center-to-center to preserve the classic Chen-style visual behavior.
     points = simplifyPoints([
       getNodeLogicalAnchor(attributeNode),
-      getAttributeEntityAnchor(hostNode, attributeEndpoint.logicalAnchor, attributeLaneOffset),
+      getNodeLogicalAnchor(hostNode),
     ]);
   } else {
     const logicalPoints = buildNonAttributeLogicalPoints(edge, sourceNode, targetNode, laneInfo);
