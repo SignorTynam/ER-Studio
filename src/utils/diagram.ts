@@ -314,12 +314,191 @@ function createUniqueNodeName(baseName: string, usedNames: Set<string>): string 
   }
 }
 
-function remapNodeReference(nodeIdMap: Map<string, string>, nodeId: string | undefined): string | undefined {
-  if (typeof nodeId !== "string") {
-    return undefined;
+export type NodeNameNamespaceKind = "entity" | "relationship" | "attribute";
+
+export interface NodeNameValidationContext {
+  diagram: DiagramDocument;
+  nodeType: NodeKind;
+  candidateName: string;
+  nodeId?: string;
+  attributeOwnerId?: string;
+}
+
+export interface NodeNameValidationResult {
+  valid: boolean;
+  normalizedName: string;
+  namespaceKey: string;
+  conflictNodeId?: string;
+}
+
+function buildAttributeOwnerByAttributeId(diagram: DiagramDocument): Map<string, string> {
+  const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const ownerCandidatesByAttributeId = new Map<string, Set<string>>();
+
+  diagram.edges.forEach((edge) => {
+    const ownership = resolveAttributeOwnership(edge, nodeMap);
+    if (!ownership) {
+      return;
+    }
+
+    const ownerCandidates = ownerCandidatesByAttributeId.get(ownership.childId) ?? new Set<string>();
+    ownerCandidates.add(ownership.hostId);
+    ownerCandidatesByAttributeId.set(ownership.childId, ownerCandidates);
+  });
+
+  const ownerByAttributeId = new Map<string, string>();
+  ownerCandidatesByAttributeId.forEach((ownerCandidates, attributeId) => {
+    const [resolvedOwnerId] = [...ownerCandidates].sort((left, right) => left.localeCompare(right));
+    if (!resolvedOwnerId) {
+      return;
+    }
+
+    ownerByAttributeId.set(attributeId, resolvedOwnerId);
+  });
+
+  return ownerByAttributeId;
+}
+
+function getNodeNamespaceKey(
+  nodeType: NodeKind,
+  options?: {
+    nodeId?: string;
+    attributeOwnerId?: string;
+  },
+): string {
+  if (nodeType === "entity") {
+    return "entity";
   }
 
-  return nodeIdMap.get(nodeId) ?? nodeId;
+  if (nodeType === "relationship") {
+    return "relationship";
+  }
+
+  const ownerId = options?.attributeOwnerId;
+  if (ownerId) {
+    return `attribute:${ownerId}`;
+  }
+
+  return options?.nodeId ? `attribute:orphan:${options.nodeId}` : "attribute:orphan";
+}
+
+export function validateNodeNameInNamespace(context: NodeNameValidationContext): NodeNameValidationResult {
+  const ownerByAttributeId = buildAttributeOwnerByAttributeId(context.diagram);
+  const normalizedName = normalizeNodeNameCandidate(context.candidateName, context.nodeType);
+  const normalizedNameKey = normalizeNodeNameKey(normalizedName);
+  const namespaceKey = getNodeNamespaceKey(context.nodeType, {
+    nodeId: context.nodeId,
+    attributeOwnerId:
+      context.nodeType === "attribute"
+        ? context.attributeOwnerId ?? (context.nodeId ? ownerByAttributeId.get(context.nodeId) : undefined)
+        : undefined,
+  });
+
+  const conflictingNode = context.diagram.nodes.find((node) => {
+    if (context.nodeId && node.id === context.nodeId) {
+      return false;
+    }
+
+    const nodeNamespaceKey = getNodeNamespaceKey(node.type, {
+      nodeId: node.id,
+      attributeOwnerId: node.type === "attribute" ? ownerByAttributeId.get(node.id) : undefined,
+    });
+    if (nodeNamespaceKey !== namespaceKey) {
+      return false;
+    }
+
+    return normalizeNodeNameKey(node.label) === normalizedNameKey;
+  });
+
+  return {
+    valid: conflictingNode === undefined,
+    normalizedName,
+    namespaceKey,
+    conflictNodeId: conflictingNode?.id,
+  };
+}
+
+function getOrCreateNamespaceNameSet(
+  usedNamesByNamespace: Map<string, Set<string>>,
+  namespaceKey: string,
+): Set<string> {
+  const existing = usedNamesByNamespace.get(namespaceKey);
+  if (existing) {
+    return existing;
+  }
+
+  const created = new Set<string>();
+  usedNamesByNamespace.set(namespaceKey, created);
+  return created;
+}
+
+function assignUniqueNodeLabel(
+  node: DiagramNode,
+  nameCandidate: string,
+  usedNamesByNamespace: Map<string, Set<string>>,
+  ownerByAttributeId: Map<string, string>,
+): string {
+  const namespaceKey = getNodeNamespaceKey(node.type, {
+    nodeId: node.id,
+    attributeOwnerId: node.type === "attribute" ? ownerByAttributeId.get(node.id) : undefined,
+  });
+  const usedNames = getOrCreateNamespaceNameSet(usedNamesByNamespace, namespaceKey);
+  return createUniqueNodeName(normalizeNodeNameCandidate(nameCandidate, node.type), usedNames);
+}
+
+function synchronizeNodeLabelsByNamespace(
+  diagram: DiagramDocument,
+  preferredNamesByNodeId?: Record<string, string>,
+): Map<string, string> {
+  const usedNamesByNamespace = new Map<string, Set<string>>();
+  const ownerByAttributeId = buildAttributeOwnerByAttributeId(diagram);
+  const synchronizedLabelByNodeId = new Map<string, string>();
+  const preferredIds = new Set(Object.keys(preferredNamesByNodeId ?? {}));
+
+  diagram.nodes.forEach((node) => {
+    if (preferredIds.has(node.id)) {
+      return;
+    }
+
+    const uniqueLabel = assignUniqueNodeLabel(
+      node,
+      node.label ?? node.id,
+      usedNamesByNamespace,
+      ownerByAttributeId,
+    );
+    synchronizedLabelByNodeId.set(node.id, uniqueLabel);
+  });
+
+  diagram.nodes.forEach((node) => {
+    if (!preferredIds.has(node.id)) {
+      return;
+    }
+
+    const preferredLabel = preferredNamesByNodeId?.[node.id] ?? node.label ?? node.id;
+    const uniqueLabel = assignUniqueNodeLabel(
+      node,
+      preferredLabel,
+      usedNamesByNamespace,
+      ownerByAttributeId,
+    );
+    synchronizedLabelByNodeId.set(node.id, uniqueLabel);
+  });
+
+  return synchronizedLabelByNodeId;
+}
+
+function synchronizeNodeIds(diagram: DiagramDocument): Map<string, string> {
+  const usedNodeIds = new Set<string>();
+  const synchronizedNodeIds = new Map<string, string>();
+
+  diagram.nodes.forEach((node) => {
+    const normalizedIdCandidate = node.id.trim().replace(/\s+/g, " ");
+    const idCandidate = normalizedIdCandidate.length > 0 ? normalizedIdCandidate : createId("node");
+    const uniqueId = createUniqueNodeName(idCandidate, usedNodeIds);
+    synchronizedNodeIds.set(node.id, uniqueId);
+  });
+
+  return synchronizedNodeIds;
 }
 
 function remapNodeScopedMetadata(node: DiagramNode, nodeIdMap: Map<string, string>): DiagramNode {
@@ -373,15 +552,8 @@ export function synchronizeNodeNameIdentity(
   diagram: DiagramDocument,
   preferredNamesByNodeId?: Record<string, string>,
 ): NodeNameIdentitySyncResult {
-  const usedNames = new Set<string>();
-  const fullNodeIdMap = new Map<string, string>();
-
-  diagram.nodes.forEach((node) => {
-    const preferredName = preferredNamesByNodeId?.[node.id] ?? node.label ?? node.id;
-    const normalizedPreferredName = normalizeNodeNameCandidate(preferredName, node.type);
-    const uniqueName = createUniqueNodeName(normalizedPreferredName, usedNames);
-    fullNodeIdMap.set(node.id, uniqueName);
-  });
+  const synchronizedLabelsByNodeId = synchronizeNodeLabelsByNamespace(diagram, preferredNamesByNodeId);
+  const fullNodeIdMap = synchronizeNodeIds(diagram);
 
   const nodeIdMap = new Map<string, string>();
   fullNodeIdMap.forEach((nextId, previousId) => {
@@ -392,10 +564,11 @@ export function synchronizeNodeNameIdentity(
 
   const nextNodes = diagram.nodes.map((node) => {
     const nextNodeId = fullNodeIdMap.get(node.id) ?? node.id;
+    const nextNodeLabel = synchronizedLabelsByNodeId.get(node.id) ?? normalizeNodeNameCandidate(node.label, node.type);
     const nextNode = {
       ...node,
       id: nextNodeId,
-      label: nextNodeId,
+      label: nextNodeLabel,
     } as DiagramNode;
     return remapNodeScopedMetadata(nextNode, fullNodeIdMap);
   });
@@ -1392,16 +1565,16 @@ export function duplicateSelection(
   }
 
   const idMap = new Map<string, string>();
-  const usedNodeNames = new Set(diagram.nodes.map((node) => normalizeNodeNameKey(node.id)));
+  const usedNodeIds = new Set(diagram.nodes.map((node) => normalizeNodeNameKey(node.id)));
   const duplicatedNodes = selectedNodes.map((node) => {
-    const baseName = normalizeNodeNameCandidate(node.id, node.type);
-    const duplicateId = createUniqueNodeName(baseName, usedNodeNames);
+    const baseId = normalizeNodeNameCandidate(node.id, node.type);
+    const duplicateId = createUniqueNodeName(baseId, usedNodeIds);
     idMap.set(node.id, duplicateId);
 
     return {
       ...node,
       id: duplicateId,
-      label: duplicateId,
+      label: node.label,
       x: snapValue(node.x + GRID_SIZE * 2),
       y: snapValue(node.y + GRID_SIZE * 2),
     };
@@ -1581,10 +1754,6 @@ export function serializeDiagram(diagram: DiagramDocument): string {
     ),
   );
   const normalizedNotes = normalizeDiagramNotes((normalizedDiagram as { notes?: unknown }).notes);
-  const serializedNodes = normalizedDiagram.nodes.map((node) => {
-    const { label: _unusedLabel, ...nodeWithoutLabel } = node as DiagramNode & { label: string };
-    return nodeWithoutLabel;
-  });
 
   return JSON.stringify(
     {
@@ -1594,7 +1763,6 @@ export function serializeDiagram(diagram: DiagramDocument): string {
         version: CURRENT_DIAGRAM_VERSION,
       },
       notes: normalizedNotes,
-      nodes: serializedNodes,
     },
     null,
     2,

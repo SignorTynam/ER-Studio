@@ -42,6 +42,7 @@ import {
   parseDiagram,
   removeSelection,
   serializeDiagram,
+  validateNodeNameInNamespace,
   synchronizeEntityRelationshipParticipations,
   synchronizeExternalIdentifiers,
   synchronizeNodeNameIdentity,
@@ -2697,6 +2698,47 @@ export default function App() {
     let workingPatch: Partial<DiagramNode> = patch;
 
     if (typeof patch.label === "string") {
+      const currentNode = history.present.nodes.find((node) => node.id === nodeId);
+      if (!currentNode) {
+        return;
+      }
+
+      const renameValidation = validateNodeNameInNamespace({
+        diagram: history.present,
+        nodeType: currentNode.type,
+        candidateName: patch.label,
+        nodeId,
+      });
+      if (!renameValidation.valid) {
+        if (currentNode.type === "attribute") {
+          setStatusError(
+            buildStructuredErrorMessage(
+              "la rinomina dell'attributo non e stata applicata",
+              "esiste gia un attributo con lo stesso nome nello stesso owner semantico",
+              "scegli un nome diverso oppure rinomina l'attributo esistente",
+            ),
+          );
+        } else if (currentNode.type === "entity") {
+          setStatusError(
+            buildStructuredErrorMessage(
+              "la rinomina dell'entita non e stata applicata",
+              "esiste gia un'entita con lo stesso nome",
+              "scegli un nome entita univoco nel diagramma",
+            ),
+          );
+        } else {
+          setStatusError(
+            buildStructuredErrorMessage(
+              "la rinomina della relazione non e stata applicata",
+              "esiste gia una relazione con lo stesso nome",
+              "scegli un nome relazione univoco tra le relazioni",
+            ),
+          );
+        }
+
+        return;
+      }
+
       const identityRenamed = renameNodeAsNameIdentity(history.present, nodeId, patch.label);
       workingDiagram = identityRenamed.diagram;
       workingNodeId = identityRenamed.nodeIdMap.get(nodeId) ?? nodeId;
