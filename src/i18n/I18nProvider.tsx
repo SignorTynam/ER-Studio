@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 import {
   getCurrentLocale,
   getLanguageLabel,
+  getLanguageMenuLabel,
   getMessages,
   setCurrentLocale,
   subscribeToLocale,
@@ -19,6 +20,7 @@ export interface I18nContextValue {
   t: (key: MessageKey, params?: TranslationParams) => string;
   setLocale: (locale: Locale) => void;
   getLanguageLabel: (locale: Locale) => string;
+  getLanguageMenuLabel: (locale: Locale) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -34,6 +36,7 @@ export function I18nProvider({ children }: PropsWithChildren) {
       t: (key, params) => translate(key, params, locale),
       setLocale: setCurrentLocale,
       getLanguageLabel: (language) => getLanguageLabel(language, locale),
+      getLanguageMenuLabel: (language) => getLanguageMenuLabel(language, locale),
     }),
     [locale, messages],
   );

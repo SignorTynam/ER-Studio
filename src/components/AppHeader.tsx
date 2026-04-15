@@ -44,7 +44,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader(props: AppHeaderProps) {
-  const { locale, setLocale, t, getLanguageLabel } = useI18n();
+  const { locale, setLocale, t, getLanguageLabel, getLanguageMenuLabel } = useI18n();
   const navRef = useRef<HTMLElement | null>(null);
   const menuGroupRef = useRef<HTMLDetailsElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<{
@@ -396,7 +396,7 @@ export function AppHeader(props: AppHeaderProps) {
                       }
                       aria-pressed={locale === language}
                     >
-                      {getLanguageLabel(language)}
+                      {getLanguageMenuLabel(language)}
                       {locale === language ? " •" : ""}
                     </button>
                   ))}

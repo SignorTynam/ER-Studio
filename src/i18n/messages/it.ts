@@ -11,8 +11,8 @@ export const it = {
     switcherAria: "Selezione lingua interfaccia",
     names: {
       it: "Italiano",
-      en: "English",
-      sq: "Shqip",
+      en: "Inglese",
+      sq: "Albanese",
     },
   },
   common: {

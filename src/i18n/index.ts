@@ -265,3 +265,9 @@ export const t = translate;
 export function getLanguageLabel(locale: Locale, uiLocale: Locale = currentLocale): string {
   return getMessages(uiLocale).language.names[locale];
 }
+
+export function getLanguageMenuLabel(locale: Locale, uiLocale: Locale = currentLocale): string {
+  const localizedName = getLanguageLabel(locale, uiLocale);
+  const nativeName = getMessages(locale).language.names[locale];
+  return `${localizedName} (${nativeName})`;
+}
