@@ -243,7 +243,7 @@ export function AppHeader(props: AppHeaderProps) {
                   onClick={props.onToggleCodePanel}
                   title={props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
                 >
-                  {props.codePanelOpen ? t("common.actions.hide") : t("common.actions.show")} code
+                  {props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
                 </button>
                 <button
                   type="button"
@@ -255,7 +255,7 @@ export function AppHeader(props: AppHeaderProps) {
                   onClick={props.onToggleNotesPanel}
                   title={props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
                 >
-                  {props.notesPanelOpen ? t("common.actions.hide") : t("common.actions.show")} notes
+                  {props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
                 </button>
               </>
             ) : null}
