@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
+import { SUPPORTED_LOCALES } from "../i18n";
+import { useI18n } from "../i18n/useI18n";
 
 type DiagramWorkspaceView = "er" | "logical";
 
@@ -42,6 +44,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader(props: AppHeaderProps) {
+  const { locale, setLocale, t, getLanguageLabel } = useI18n();
   const navRef = useRef<HTMLElement | null>(null);
   const menuGroupRef = useRef<HTMLDetailsElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<{
@@ -167,7 +170,7 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-switches">
         <div className="header-control-group">
-          <div className="mode-switch mode-switch-primary" role="group" aria-label="Vista diagramma">
+          <div className="mode-switch mode-switch-primary" role="group" aria-label={t("header.viewGroupLabel")}>
             <button
               className={props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
@@ -180,20 +183,20 @@ export function AppHeader(props: AppHeaderProps) {
               type="button"
               onClick={() => props.onDiagramViewChange("logical")}
             >
-              Logico
+              {t("header.views.logical")}
             </button>
           </div>
         </div>
 
         <div className="header-control-group">
-          <div className="mode-switch mode-switch-secondary" role="group" aria-label="Modalita editor">
+          <div className="mode-switch mode-switch-secondary" role="group" aria-label={t("header.editorModeGroupLabel")}>
             <button
               className={props.mode === "edit" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onModeChange("edit")}
               disabled={props.diagramView !== "er"}
             >
-              Modifica
+              {t("header.modes.edit")}
             </button>
             <button
               className={props.mode === "view" && props.diagramView === "er" ? "mode-button active" : "mode-button"}
@@ -201,7 +204,7 @@ export function AppHeader(props: AppHeaderProps) {
               onClick={() => props.onModeChange("view")}
               disabled={props.diagramView !== "er"}
             >
-              Lettura
+              {t("header.modes.view")}
             </button>
           </div>
         </div>
@@ -209,24 +212,24 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="header-utility-bar">
         <div className="header-control-group header-control-group-actions">
-          <div className="header-quick-actions" role="group" aria-label="Azioni rapide workspace">
+          <div className="header-quick-actions" role="group" aria-label={t("header.quickActionsLabel")}>
             <button
               type="button"
               className="header-button header-quick-button"
               onClick={props.onUndo}
               disabled={!props.canUndo}
-              title="Annulla"
+              title={t("common.actions.undo")}
             >
-              Annulla
+              {t("common.actions.undo")}
             </button>
             <button
               type="button"
               className="header-button header-quick-button"
               onClick={props.onRedo}
               disabled={!props.canRedo}
-              title="Ripeti"
+              title={t("common.actions.redo")}
             >
-              Ripeti
+              {t("common.actions.redo")}
             </button>
             {props.diagramView === "er" ? (
               <>
@@ -238,9 +241,9 @@ export function AppHeader(props: AppHeaderProps) {
                       : "header-button header-quick-button"
                   }
                   onClick={props.onToggleCodePanel}
-                  title={props.codePanelOpen ? "Nascondi pannello codice" : "Mostra pannello codice"}
+                  title={props.codePanelOpen ? t("header.quickActions.hideCode") : t("header.quickActions.showCode")}
                 >
-                  {props.codePanelOpen ? "Hide code" : "Show code"}
+                  {props.codePanelOpen ? t("common.actions.hide") : t("common.actions.show")} code
                 </button>
                 <button
                   type="button"
@@ -250,9 +253,9 @@ export function AppHeader(props: AppHeaderProps) {
                       : "header-button header-quick-button"
                   }
                   onClick={props.onToggleNotesPanel}
-                  title={props.notesPanelOpen ? "Nascondi notes" : "Mostra notes"}
+                  title={props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
                 >
-                  {props.notesPanelOpen ? "Hide notes" : "Show notes"}
+                  {props.notesPanelOpen ? t("common.actions.hide") : t("common.actions.show")} notes
                 </button>
               </>
             ) : null}
@@ -264,27 +267,27 @@ export function AppHeader(props: AppHeaderProps) {
                   onClick={props.onGenerateLogicalModel}
                   title={
                     props.logicalOutOfDate
-                      ? "Resetta la traduzione e risolvi i mapping da rivedere"
-                      : "Resetta la procedura guidata di traduzione"
+                      ? t("header.quickActions.resetLogicalOutdatedTitle")
+                      : t("header.quickActions.resetLogicalTitle")
                   }
                 >
-                  {props.logicalOutOfDate ? "Reset*" : "Reset"}
+                  {props.logicalOutOfDate ? t("header.quickActions.resetLogicalOutdated") : t("header.quickActions.resetLogical")}
                 </button>
                 <button
                   type="button"
                   className="header-button header-quick-button"
                   onClick={props.onAutoLayoutLogical}
-                  title="Organizza automaticamente le tabelle"
+                  title={t("header.quickActions.autoLayoutTitle")}
                 >
-                  Layout auto
+                  {t("header.quickActions.autoLayout")}
                 </button>
                 <button
                   type="button"
                   className="header-button header-quick-button"
                   onClick={props.onFitLogical}
-                  title="Adatta il modello logico al viewport"
+                  title={t("header.quickActions.fitLogicalTitle")}
                 >
-                  Adatta
+                  {t("header.quickActions.fitLogical")}
                 </button>
               </>
             ) : null}
@@ -296,17 +299,17 @@ export function AppHeader(props: AppHeaderProps) {
                   : "header-button header-quick-button"
               }
               onClick={props.onToggleFocusMode}
-              title={props.focusMode ? "Esci dalla modalita focus" : "Attiva modalita focus"}
+              title={props.focusMode ? t("header.quickActions.exitFocusTitle") : t("header.quickActions.focusTitle")}
             >
-              {props.focusMode ? "Esci focus" : "Focus"}
+              {props.focusMode ? t("header.quickActions.exitFocus") : t("header.quickActions.focus")}
             </button>
           </div>
         </div>
 
         <div className="header-control-group header-control-group-menu">
-          <nav ref={navRef} className="header-nav" aria-label="Azioni secondarie">
+          <nav ref={navRef} className="header-nav" aria-label={t("header.secondaryActionsLabel")}>
             <details ref={menuGroupRef} className="nav-group nav-group-menu" onToggle={handleGroupToggle}>
-              <summary>Menu</summary>
+              <summary>{t("header.menu.trigger")}</summary>
               <div
                 className="nav-menu nav-menu-wide nav-menu-floating"
                 style={
@@ -321,40 +324,42 @@ export function AppHeader(props: AppHeaderProps) {
                 }
               >
                 <div className="nav-menu-section">
-                  <div className="nav-menu-label">Workspace</div>
+                  <div className="nav-menu-label">{t("header.menu.sections.workspace")}</div>
                   <button
                     type="button"
                     onClick={(event) => runMenuAction(event, props.onToggleToolRail)}
                     disabled={props.focusMode}
                   >
-                    {props.toolRailCollapsed ? "Apri strumenti" : "Comprimi strumenti"}
+                    {props.toolRailCollapsed
+                      ? t("header.menu.actions.openTools")
+                      : t("header.menu.actions.collapseTools")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onResetErs)}>
-                    Rigenera ERS
+                    {t("header.menu.actions.regenerateErs")}
                   </button>
                 </div>
 
                 <div className="nav-menu-section">
-                  <div className="nav-menu-label">File</div>
+                  <div className="nav-menu-label">{t("header.menu.sections.file")}</div>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onNewProject)}>
-                    Nuovo progetto
+                    {t("header.menu.actions.newProject")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onLoadProject)}>
-                    Carica progetto
+                    {t("header.menu.actions.loadProject")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
-                    Carica ERS
+                    {t("header.menu.actions.loadErs")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onSaveProject)}>
-                    Salva progetto
+                    {t("header.menu.actions.saveProject")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
-                    Scarica ERS
+                    {t("header.menu.actions.saveErs")}
                   </button>
                 </div>
 
                 <div className="nav-menu-section">
-                  <div className="nav-menu-label">Esporta</div>
+                  <div className="nav-menu-label">{t("header.menu.sections.export")}</div>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onExportPng)}>
                     PNG
                   </button>
@@ -364,15 +369,42 @@ export function AppHeader(props: AppHeaderProps) {
                 </div>
 
                 <div className="nav-menu-section">
-                  <div className="nav-menu-label">Aiuto</div>
+                  <div className="nav-menu-label">{t("header.menu.sections.help")}</div>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onOpenErsGuide)}>
-                    Guida ERS
+                    {t("header.menu.actions.ersGuide")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onAbout)}>
-                    Informazioni
+                    {t("header.menu.actions.about")}
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onWhatsNew)}>
-                    Novita
+                    {t("header.menu.actions.whatsNew")}
+                  </button>
+                </div>
+
+                <div className="nav-menu-section">
+                  <div className="nav-menu-label">
+                    {t("header.menu.sections.language")} · {getLanguageLabel(locale)}
+                  </div>
+                  {SUPPORTED_LOCALES.map((language) => (
+                    <button
+                      key={language}
+                      type="button"
+                      onClick={(event) =>
+                        runMenuAction(event, () => {
+                          setLocale(language);
+                        })
+                      }
+                      aria-pressed={locale === language}
+                    >
+                      {getLanguageLabel(language)}
+                      {locale === language ? " •" : ""}
+                    </button>
+                  ))}
+                </div>
+                <div className="nav-menu-section">
+                  <div className="nav-menu-label">{t("language.label")}</div>
+                  <button type="button" disabled>
+                    {t("language.current", { label: getLanguageLabel(locale) })}
                   </button>
                 </div>
               </div>

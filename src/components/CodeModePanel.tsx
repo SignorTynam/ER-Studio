@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n/useI18n";
 
 interface CodeModePanelProps {
   code: string;
@@ -92,6 +93,7 @@ function highlightLine(line: string, lineIndex: number): ReactNode[] {
 }
 
 export function CodeModePanel(props: CodeModePanelProps) {
+  const { t } = useI18n();
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
@@ -135,7 +137,7 @@ export function CodeModePanel(props: CodeModePanelProps) {
       ]
         .filter(Boolean)
         .join(" ")}
-      aria-label={`Editor ERS ${props.diagramName}`}
+      aria-label={`ERS ${props.diagramName}`}
       title={props.parseError || undefined}
     >
       <div className="code-editor-shell code-editor-shell-full">
@@ -160,7 +162,7 @@ export function CodeModePanel(props: CodeModePanelProps) {
               className="code-editor-input"
               value={props.code}
               spellCheck={false}
-              aria-label={`Codice ERS di ${props.diagramName}`}
+              aria-label={`${t("codePanel.editorAria")} ERS ${props.diagramName}`}
               aria-invalid={props.parseError ? "true" : "false"}
               onChange={(event) => props.onCodeChange(event.target.value)}
               onScroll={syncEditorScroll}

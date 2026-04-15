@@ -10,7 +10,8 @@ import type {
   ToolKind,
   ValidationIssue,
 } from "../types/diagram";
-import { TOOL_DEFINITIONS } from "../utils/toolConfig";
+import { useI18n } from "../i18n/useI18n";
+import { getToolDefinitions } from "../utils/toolConfig";
 
 const PRIMARY_TOOLS: ToolKind[] = ["select", "move", "entity", "relationship", "connector", "inheritance"];
 type ToolbarContext = "empty" | "node" | "edge" | "multi";
@@ -194,14 +195,6 @@ function ActionIcon({ kind }: { kind: "undo" | "redo" | "rename" | "delete" | "d
 
 function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge, selectionItemCount?: number, diagram?: DiagramDocument) {
   if (selectedNode) {
-    if (selectedNode.type === "entity") {
-      return "Entita selezionata";
-    }
-
-    if (selectedNode.type === "relationship") {
-      return "Associazione selezionata";
-    }
-
     if (selectedNode.type === "attribute") {
       if (diagram) {
         const attributeEdge = diagram.edges.find((edge) => edge.type === "attribute" && (edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id));
@@ -209,31 +202,25 @@ function getContextLabel(selectedNode?: DiagramNode, selectedEdge?: DiagramEdge,
           const hostId = attributeEdge.sourceId === selectedNode.id ? attributeEdge.targetId : attributeEdge.sourceId;
           const hostNode = diagram.nodes.find((node) => node.id === hostId);
           if (hostNode) {
-            return `Attributo di ${hostNode.label.toUpperCase()}`;
+            return hostNode.label.toUpperCase();
           }
         }
       }
-      return "Attributo selezionato";
+      return null;
     }
 
-    return "Elemento selezionato";
+    return null;
   }
 
-  if (selectedEdge) {
-    return "Collegamento selezionato";
-  }
-
-  if ((selectionItemCount ?? 0) > 1) {
-    return "Selezione multipla";
-  }
-
-  return "Canvas";
+  return selectedEdge || (selectionItemCount ?? 0) > 1 ? null : null;
 }
 
 export function Toolbar(props: ToolbarProps) {
+  const { t } = useI18n();
   const canEdit = props.mode === "edit";
-  const availableTools = PRIMARY_TOOLS.reduce<typeof TOOL_DEFINITIONS>((result, tool) => {
-    const match = TOOL_DEFINITIONS.find((item) => item.tool === tool);
+  const toolDefinitions = getToolDefinitions();
+  const availableTools = PRIMARY_TOOLS.reduce<typeof toolDefinitions>((result, tool) => {
+    const match = toolDefinitions.find((item) => item.tool === tool);
     if (match) {
       result.push(match);
     }
@@ -259,7 +246,7 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "node") {
       return (
         <section className="toolbar-section">
-          <div className="toolbar-section-label">Azioni selezione</div>
+          <div className="toolbar-section-label">{t("toolbar.sections.selectionActions")}</div>
           <div className="toolbar-list toolbar-list-tight">
             {props.selectedNode && props.selectedNode.type === "entity" ? (() => {
               const selectedEntity = props.selectedNode;
@@ -269,10 +256,10 @@ export function Toolbar(props: ToolbarProps) {
                   className={selectedEntity.isWeak ? "toolbar-action-button active" : "toolbar-action-button"}
                   onClick={() => props.onNodeChange(selectedEntity.id, { isWeak: !selectedEntity.isWeak })}
                   disabled={!canEdit}
-                  title="Entita debole"
+                  title={t("toolbar.actions.weakEntity")}
                 >
                   <ActionIcon kind="weak" />
-                  <span className="tool-label">Entita debole</span>
+                  <span className="tool-label">{t("toolbar.actions.weakEntity")}</span>
                 </button>
               );
             })() : null}
@@ -295,10 +282,10 @@ export function Toolbar(props: ToolbarProps) {
                       className={attrNode.isIdentifier ? "toolbar-action-button active" : "toolbar-action-button"}
                       onClick={() => props.onNodeChange(attrNode.id, { isIdentifier: !attrNode.isIdentifier })}
                       disabled={!canEdit || isLinkedToRel}
-                      title="Attributo identificatore"
+                      title={t("toolbar.actions.identifierAttribute")}
                     >
                       <ActionIcon kind="identifier" />
-                      <span className="tool-label">Identificatore</span>
+                      <span className="tool-label">{t("toolbar.actions.identifier")}</span>
                     </button>
                   )}
                   {!attrNode.isIdentifier && !attrNode.isCompositeInternal && (
@@ -307,10 +294,10 @@ export function Toolbar(props: ToolbarProps) {
                       className={attrNode.isMultivalued ? "toolbar-action-button active" : "toolbar-action-button"}
                       onClick={() => props.onNodeChange(attrNode.id, { isMultivalued: !attrNode.isMultivalued })}
                       disabled={!canEdit}
-                      title="Attributo multivalore"
+                      title={t("toolbar.actions.multivaluedAttribute")}
                     >
                       <ActionIcon kind="multivalue" />
-                      <span className="tool-label">Multivalore</span>
+                      <span className="tool-label">{t("toolbar.actions.multivalued")}</span>
                     </button>
                   )}
                 </>
@@ -325,11 +312,17 @@ export function Toolbar(props: ToolbarProps) {
                 className="toolbar-action-button"
                 onClick={props.onCreateAttributeForSelection}
                 disabled={!canEdit}
-                title={props.selectedNode.type === "attribute" ? "Aggiungi sotto-attributo" : "Aggiungi attributo"}
+                title={
+                  props.selectedNode.type === "attribute"
+                    ? t("toolbar.actions.addSubAttribute")
+                    : t("toolbar.actions.addAttribute")
+                }
               >
                 <ActionIcon kind="attribute" />
                 <span className="tool-label">
-                  {props.selectedNode.type === "attribute" ? "Sotto-attributo" : "Aggiungi attributo"}
+                  {props.selectedNode.type === "attribute"
+                    ? t("toolbar.actions.subAttribute")
+                    : t("toolbar.actions.addAttribute")}
                 </span>
               </button>
             ) : null}
@@ -338,30 +331,30 @@ export function Toolbar(props: ToolbarProps) {
               className="toolbar-action-button"
               onClick={props.onRenameSelection}
               disabled={!canEdit}
-              title="Rinomina selezione"
+              title={t("toolbar.actions.renameSelection")}
             >
               <ActionIcon kind="rename" />
-              <span className="tool-label">Rinomina</span>
+              <span className="tool-label">{t("common.actions.rename")}</span>
             </button>
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDuplicateSelection}
               disabled={!canEdit}
-              title="Duplica selezione"
+              title={t("toolbar.actions.duplicateSelection")}
             >
               <ActionIcon kind="duplicate" />
-              <span className="tool-label">Duplica</span>
+              <span className="tool-label">{t("common.actions.duplicate")}</span>
             </button>
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDeleteSelection}
               disabled={!canEdit}
-              title="Elimina selezione"
+              title={t("toolbar.actions.deleteSelection")}
             >
               <ActionIcon kind="delete" />
-              <span className="tool-label">Elimina</span>
+              <span className="tool-label">{t("common.actions.delete")}</span>
             </button>
           </div>
         </section>
@@ -371,37 +364,37 @@ export function Toolbar(props: ToolbarProps) {
     if (context === "edge") {
       return (
         <section className="toolbar-section">
-          <div className="toolbar-section-label">Azioni collegamento</div>
+          <div className="toolbar-section-label">{t("toolbar.sections.edgeActions")}</div>
           <div className="toolbar-list toolbar-list-tight">
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onRenameSelection}
               disabled={!canEdit}
-              title="Rinomina collegamento"
+              title={t("toolbar.actions.renameEdge")}
             >
               <ActionIcon kind="rename" />
-              <span className="tool-label">Rinomina</span>
+              <span className="tool-label">{t("common.actions.rename")}</span>
             </button>
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDuplicateSelection}
               disabled={!canEdit}
-              title="Duplica collegamento"
+              title={t("toolbar.actions.duplicateEdge")}
             >
               <ActionIcon kind="duplicate" />
-              <span className="tool-label">Duplica</span>
+              <span className="tool-label">{t("common.actions.duplicate")}</span>
             </button>
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDeleteSelection}
               disabled={!canEdit}
-              title="Elimina collegamento"
+              title={t("toolbar.actions.deleteEdge")}
             >
               <ActionIcon kind="delete" />
-              <span className="tool-label">Elimina</span>
+              <span className="tool-label">{t("common.actions.delete")}</span>
             </button>
           </div>
         </section>
@@ -411,27 +404,27 @@ export function Toolbar(props: ToolbarProps) {
     if (props.collapsed) {
       return (
         <section className="toolbar-section">
-          <div className="toolbar-section-label">Azioni multiple</div>
+          <div className="toolbar-section-label">{t("toolbar.sections.multiActions")}</div>
           <div className="toolbar-list toolbar-list-tight">
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDuplicateSelection}
               disabled={!canEdit}
-              title="Duplica selezione"
+              title={t("toolbar.actions.duplicateSelection")}
             >
               <ActionIcon kind="duplicate" />
-              <span className="tool-label">Duplica</span>
+              <span className="tool-label">{t("common.actions.duplicate")}</span>
             </button>
             <button
               type="button"
               className="toolbar-action-button"
               onClick={props.onDeleteSelection}
               disabled={!canEdit}
-              title="Elimina selezione"
+              title={t("toolbar.actions.deleteSelection")}
             >
               <ActionIcon kind="delete" />
-              <span className="tool-label">Elimina</span>
+              <span className="tool-label">{t("common.actions.delete")}</span>
             </button>
           </div>
         </section>
@@ -440,63 +433,63 @@ export function Toolbar(props: ToolbarProps) {
 
     return (
       <section className="toolbar-section">
-        <div className="toolbar-section-label">Azioni multiple</div>
+        <div className="toolbar-section-label">{t("toolbar.sections.multiActions")}</div>
         <div className="toolbar-list toolbar-list-tight">
           <button
             type="button"
             className="toolbar-action-button toolbar-action-button-text"
             onClick={() => props.onAlign("left")}
             disabled={!canEdit}
-            title="Allinea a sinistra"
+            title={t("toolbar.actions.alignLeft")}
           >
-            <span className="tool-label">Allinea SX</span>
+            <span className="tool-label">{t("toolbar.actions.alignLeftShort")}</span>
           </button>
           <button
             type="button"
             className="toolbar-action-button toolbar-action-button-text"
             onClick={() => props.onAlign("center")}
             disabled={!canEdit}
-            title="Allinea al centro"
+            title={t("toolbar.actions.alignCenter")}
           >
-            <span className="tool-label">Allinea centro</span>
+            <span className="tool-label">{t("toolbar.actions.alignCenterShort")}</span>
           </button>
           <button
             type="button"
             className="toolbar-action-button toolbar-action-button-text"
             onClick={() => props.onAlign("top")}
             disabled={!canEdit}
-            title="Allinea in alto"
+            title={t("toolbar.actions.alignTop")}
           >
-            <span className="tool-label">Allinea alto</span>
+            <span className="tool-label">{t("toolbar.actions.alignTopShort")}</span>
           </button>
           <button
             type="button"
             className="toolbar-action-button toolbar-action-button-text"
             onClick={() => props.onAlign("middle")}
             disabled={!canEdit}
-            title="Allinea a meta"
+            title={t("toolbar.actions.alignMiddle")}
           >
-            <span className="tool-label">Allinea meta</span>
+            <span className="tool-label">{t("toolbar.actions.alignMiddleShort")}</span>
           </button>
           <button
             type="button"
             className="toolbar-action-button"
             onClick={props.onDuplicateSelection}
             disabled={!canEdit}
-            title="Duplica selezione"
+            title={t("toolbar.actions.duplicateSelection")}
           >
             <ActionIcon kind="duplicate" />
-            <span className="tool-label">Duplica</span>
+            <span className="tool-label">{t("common.actions.duplicate")}</span>
           </button>
           <button
             type="button"
             className="toolbar-action-button"
             onClick={props.onDeleteSelection}
             disabled={!canEdit}
-            title="Elimina selezione"
+            title={t("toolbar.actions.deleteSelection")}
           >
             <ActionIcon kind="delete" />
-            <span className="tool-label">Elimina</span>
+            <span className="tool-label">{t("common.actions.delete")}</span>
           </button>
         </div>
       </section>
@@ -508,15 +501,37 @@ export function Toolbar(props: ToolbarProps) {
       <div className={props.collapsed ? "panel-head-row panel-head-row-compact" : "panel-head-row"}>
         {!props.collapsed ? (
           <div>
-            <div className="panel-heading">{getContextLabel(props.selectedNode, props.selectedEdge, props.selectionItemCount, props.diagram)}</div>
+            <div className="panel-heading">
+              {props.selectedNode?.type === "entity"
+                ? t("toolbar.context.entitySelected")
+                : props.selectedNode?.type === "relationship"
+                  ? t("toolbar.context.relationshipSelected")
+                  : props.selectedNode?.type === "attribute"
+                    ? (() => {
+                        const hostLabel = getContextLabel(
+                          props.selectedNode,
+                          props.selectedEdge,
+                          props.selectionItemCount,
+                          props.diagram,
+                        );
+                        return hostLabel
+                          ? t("toolbar.context.attributeOf", { label: hostLabel })
+                          : t("toolbar.context.attributeSelected");
+                      })()
+                    : props.selectedEdge
+                      ? t("toolbar.context.edgeSelected")
+                      : props.selectionItemCount > 1
+                        ? t("toolbar.context.multiSelection")
+                        : t("toolbar.context.canvas")}
+            </div>
           </div>
         ) : null}
         <button
           type="button"
           className="panel-toggle"
           onClick={props.onToggleCollapse}
-          aria-label={props.collapsed ? "Espandi pannello azioni" : "Comprimi pannello azioni"}
-          title={props.collapsed ? "Espandi" : "Comprimi"}
+          aria-label={props.collapsed ? t("toolbar.context.expandActions") : t("toolbar.context.collapseActions")}
+          title={props.collapsed ? t("common.actions.expand") : t("common.actions.collapse")}
         >
           {props.collapsed ? ">" : "<"}
         </button>
@@ -526,7 +541,7 @@ export function Toolbar(props: ToolbarProps) {
 
       {context === "empty" && (
         <section className="toolbar-section">
-          <div className="toolbar-section-label">Strumenti</div>
+          <div className="toolbar-section-label">{t("toolbar.sections.tools")}</div>
           <div className="toolbar-list">
             {visibleTools.map((item) => {
               const disabled = props.mode === "view" && item.tool !== "select" && item.tool !== "move";

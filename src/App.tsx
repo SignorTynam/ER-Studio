@@ -76,7 +76,7 @@ import {
   serializeProjectFile,
 } from "./utils/projectFile";
 import { normalizeSupportedCardinality } from "./utils/cardinality";
-import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
+import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
 
 const DEFAULT_VIEWPORT: Viewport = {
@@ -2119,7 +2119,7 @@ export default function App() {
           }
 
           setTool(nextTool);
-          setStatus(`Strumento attivo: ${TOOL_LABEL_BY_KIND[nextTool]}.`);
+          setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
           return;
         }
       }

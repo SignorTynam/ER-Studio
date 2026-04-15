@@ -1,4 +1,5 @@
 import type { ToolKind } from "../types/diagram";
+import { translate } from "../i18n";
 
 export interface ToolDefinition {
   tool: ToolKind;
@@ -6,18 +7,27 @@ export interface ToolDefinition {
   shortcut: string;
 }
 
-export const TOOL_DEFINITIONS: ToolDefinition[] = [
-  { tool: "move", label: "Sposta", shortcut: "s" },
-  { tool: "select", label: "Selezione", shortcut: "v" },
-  { tool: "delete", label: "Cancella", shortcut: "x" },
-  { tool: "entity", label: "Entita", shortcut: "e" },
-  { tool: "relationship", label: "Relazione", shortcut: "r" },
-  { tool: "attribute", label: "Attributo", shortcut: "a" },
-  { tool: "connector", label: "Collegamento", shortcut: "c" },
-  { tool: "inheritance", label: "Generalizzazione", shortcut: "g" },
-];
+const TOOL_DEFINITION_CONFIG: Array<{ tool: ToolKind; labelKey: Parameters<typeof translate>[0]; shortcut: string }> =
+  [
+    { tool: "move", labelKey: "toolbar.tools.move", shortcut: "s" },
+    { tool: "select", labelKey: "toolbar.tools.select", shortcut: "v" },
+    { tool: "delete", labelKey: "toolbar.tools.delete", shortcut: "x" },
+    { tool: "entity", labelKey: "toolbar.tools.entity", shortcut: "e" },
+    { tool: "relationship", labelKey: "toolbar.tools.relationship", shortcut: "r" },
+    { tool: "attribute", labelKey: "toolbar.tools.attribute", shortcut: "a" },
+    { tool: "connector", labelKey: "toolbar.tools.connector", shortcut: "c" },
+    { tool: "inheritance", labelKey: "toolbar.tools.inheritance", shortcut: "g" },
+  ];
 
-export const TOOL_BY_SHORTCUT: Record<string, ToolKind> = TOOL_DEFINITIONS.reduce(
+export function getToolDefinitions(): ToolDefinition[] {
+  return TOOL_DEFINITION_CONFIG.map((item) => ({
+    tool: item.tool,
+    label: translate(item.labelKey),
+    shortcut: item.shortcut,
+  }));
+}
+
+export const TOOL_BY_SHORTCUT: Record<string, ToolKind> = TOOL_DEFINITION_CONFIG.reduce(
   (result, item) => {
     result[item.shortcut] = item.tool;
     return result;
@@ -25,10 +35,16 @@ export const TOOL_BY_SHORTCUT: Record<string, ToolKind> = TOOL_DEFINITIONS.reduc
   {} as Record<string, ToolKind>,
 );
 
-export const TOOL_LABEL_BY_KIND: Record<ToolKind, string> = TOOL_DEFINITIONS.reduce(
-  (result, item) => {
-    result[item.tool] = item.label;
-    return result;
-  },
-  {} as Record<ToolKind, string>,
-);
+export function getToolLabelsByKind(): Record<ToolKind, string> {
+  return getToolDefinitions().reduce(
+    (result, item) => {
+      result[item.tool] = item.label;
+      return result;
+    },
+    {} as Record<ToolKind, string>,
+  );
+}
+
+export function getToolLabel(tool: ToolKind): string {
+  return getToolLabelsByKind()[tool];
+}

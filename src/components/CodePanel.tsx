@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
+import { useI18n } from "../i18n/useI18n";
 
 interface CodePanelProps {
   code: string;
@@ -30,6 +31,7 @@ function parseErrorLine(parseError?: string): number | null {
 }
 
 export function CodePanel(props: CodePanelProps) {
+  const { t } = useI18n();
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const gutterRef = useRef<HTMLDivElement | null>(null);
   const isReadOnly = !props.editable || !props.onCodeChange;
@@ -119,11 +121,15 @@ export function CodePanel(props: CodePanelProps) {
   }, [props.code]);
 
   return (
-    <aside className="diagram-code-panel" aria-label="Codice del diagramma ER">
+    <aside className="diagram-code-panel" aria-label={t("codePanel.shellAria")}>
       <header className="diagram-code-panel-head">
-        <h2>Codice del programma</h2>
+        <h2>{t("codePanel.title")}</h2>
         <span className={props.parseError ? "code-panel-status error" : "code-panel-status"}>
-          {props.parseError ? "Errore" : isReadOnly ? "Read only" : "Write"}
+          {props.parseError
+            ? t("codePanel.error")
+            : isReadOnly
+              ? t("common.status.readOnly")
+              : t("common.status.write")}
         </span>
       </header>
 
@@ -146,11 +152,11 @@ export function CodePanel(props: CodePanelProps) {
           onChange={(event) => props.onCodeChange?.(event.target.value)}
           onKeyDown={handleEditorKeyDown}
           onScroll={syncGutterScroll}
-          placeholder={props.placeholder ?? "Nessun codice disponibile"}
+          placeholder={props.placeholder ?? t("codePanel.placeholder")}
           spellCheck={false}
           wrap="soft"
           readOnly={isReadOnly}
-          aria-label="Editor codice del programma"
+          aria-label={t("codePanel.editorAria")}
         />
       </div>
     </aside>

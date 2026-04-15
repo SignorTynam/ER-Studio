@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n/useI18n";
+
 interface OnboardingGuideStep<StepId extends string> {
   id: StepId;
   title: string;
@@ -16,6 +18,7 @@ interface OnboardingGuideProps<StepId extends string> {
 }
 
 export function OnboardingGuide<StepId extends string>(props: OnboardingGuideProps<StepId>) {
+  const { t } = useI18n();
   if (props.steps.length === 0) {
     return null;
   }
@@ -24,15 +27,13 @@ export function OnboardingGuide<StepId extends string>(props: OnboardingGuidePro
   const completedCount = props.steps.filter((step) => step.complete).length;
 
   return (
-    <aside className="onboarding-guide" role="dialog" aria-modal="false" aria-label="Onboarding guidato">
+    <aside className="onboarding-guide" role="dialog" aria-modal="false" aria-label={t("onboarding.dialogAria")}>
       <div className="onboarding-guide-head">
-        <strong>Tour rapido</strong>
-        <span>{completedCount}/{props.steps.length} completati</span>
+        <strong>{t("onboarding.title")}</strong>
+        <span>{t("onboarding.progress", { completed: completedCount, total: props.steps.length })}</span>
       </div>
 
-      <p className="onboarding-guide-subtitle">
-        Completa 4 azioni reali nel canvas: entita, relazione, collegamento e rinomina.
-      </p>
+      <p className="onboarding-guide-subtitle">{t("onboarding.subtitle")}</p>
 
       <ol className="onboarding-guide-list">
         {props.steps.map((step, index) => (
@@ -58,14 +59,14 @@ export function OnboardingGuide<StepId extends string>(props: OnboardingGuidePro
       <div className="onboarding-guide-actions">
         {!props.canEdit ? (
           <button type="button" className="header-button" onClick={props.onEnableEdit}>
-            Passa a Modifica
+            {t("onboarding.enableEdit")}
           </button>
         ) : null}
         <button type="button" className="mode-button active" onClick={() => props.onStepAction(activeStep.id)}>
           {activeStep.actionLabel}
         </button>
         <button type="button" className="header-button" onClick={props.onSkip}>
-          Salta tour
+          {t("onboarding.skip")}
         </button>
       </div>
     </aside>

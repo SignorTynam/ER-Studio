@@ -1,5 +1,6 @@
 import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import type { DiagramNode, Point } from "../types/diagram";
+import { useI18n } from "../i18n/useI18n";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -125,6 +126,7 @@ interface DiagramNodeProps {
 }
 
 export function DiagramNodeView(props: DiagramNodeProps) {
+  const { t } = useI18n();
   const { node } = props;
   const isGhost = props.ghost === true;
   const strokeColor = isGhost ? DIAGRAM_DRAG : getValidationStroke(props.validationLevel);
@@ -148,7 +150,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         className={groupClassName}
         tabIndex={groupTabIndex}
         focusable={groupFocusable}
-        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-label={isGhost ? undefined : t("canvas.diagramNode", { type: node.type, label: node.label })}
         aria-hidden={isGhost ? true : undefined}
         pointerEvents={isGhost ? "none" : undefined}
         onFocus={isGhost ? undefined : () => props.onFocus(node)}
@@ -232,7 +234,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         className={groupClassName}
         tabIndex={groupTabIndex}
         focusable={groupFocusable}
-        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-label={isGhost ? undefined : t("canvas.diagramNode", { type: node.type, label: node.label })}
         aria-hidden={isGhost ? true : undefined}
         pointerEvents={isGhost ? "none" : undefined}
         onFocus={isGhost ? undefined : () => props.onFocus(node)}
@@ -286,7 +288,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         className={groupClassName}
         tabIndex={groupTabIndex}
         focusable={groupFocusable}
-        aria-label={isGhost ? undefined : `Nodo ${node.type}: ${node.label}`}
+        aria-label={isGhost ? undefined : t("canvas.diagramNode", { type: node.type, label: node.label })}
         aria-hidden={isGhost ? true : undefined}
         pointerEvents={isGhost ? "none" : undefined}
         onFocus={isGhost ? undefined : () => props.onFocus(node)}

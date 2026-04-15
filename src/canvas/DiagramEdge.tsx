@@ -2,6 +2,7 @@ import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { getRenderedEdgeGeometry, pathFromPoints } from "../utils/geometry";
 import type { DiagramEdge, DiagramNode, Point } from "../types/diagram";
 import { getEdgeCardinalityLabel } from "../utils/cardinality";
+import { useI18n } from "../i18n/useI18n";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
@@ -104,6 +105,7 @@ function getInheritanceConstraintLabel(edge: Extract<DiagramEdge, { type: "inher
 }
 
 export function DiagramEdgeView(props: DiagramEdgeProps) {
+  const { t } = useI18n();
   const isGhost = props.ghost === true;
   const geometry = getRenderedEdgeGeometry(props.edge, props.sourceNode, props.targetNode, props.laneInfo);
   const pathData = pathFromPoints(geometry.points);
@@ -134,7 +136,15 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       className={groupClassName}
       tabIndex={groupTabIndex}
       focusable={groupFocusable}
-      aria-label={isGhost ? undefined : `Collegamento ${props.edge.type} tra ${props.sourceNode.label} e ${props.targetNode.label}`}
+      aria-label={
+        isGhost
+          ? undefined
+          : t("canvas.diagramEdge", {
+              type: props.edge.type,
+              source: props.sourceNode.label,
+              target: props.targetNode.label,
+            })
+      }
       aria-hidden={isGhost ? true : undefined}
       pointerEvents={isGhost ? "none" : undefined}
       onFocus={isGhost ? undefined : () => props.onFocus(props.edge)}
