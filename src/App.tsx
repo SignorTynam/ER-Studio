@@ -67,6 +67,14 @@ import {
   refreshLogicalWorkspace,
   updateLogicalWorkspaceModel,
 } from "./utils/logicalTranslation";
+import {
+  parseProjectFile,
+  ProjectFileError,
+  PROJECT_FILE_ACCEPT,
+  PROJECT_FILE_EXTENSION,
+  PROJECT_FILE_MIME_TYPE,
+  serializeProjectFile,
+} from "./utils/projectFile";
 import { normalizeSupportedCardinality } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, TOOL_LABEL_BY_KIND } from "./utils/toolConfig";
 import { APP_CHANGELOG, APP_NAME, APP_TITLE, APP_VERSION } from "./utils/appMeta";
@@ -178,15 +186,6 @@ interface WorkspaceSessionBootstrap {
   focusMode: boolean;
   toolbarWidth: number;
   restored: boolean;
-}
-
-interface ProjectFileDocument {
-  version: 2;
-  kind: "er-studio-project";
-  savedAt: string;
-  diagram: DiagramDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
 }
 
 const ERROR_PATTERNS = [/^errore[:\s]/i, /\berrore\b/i, /impossibile/i, /non compatibile/i, /non valido/i, /non riuscit[oa]/i];
@@ -355,16 +354,6 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
   }
 }
 
-function isProjectFileDocument(value: unknown): value is ProjectFileDocument {
-  return (
-    isRecord(value) &&
-    value.version === 2 &&
-    value.kind === "er-studio-project" &&
-    isRecord(value.diagram) &&
-    isRecord(value.logicalWorkspace)
-  );
-}
-
 function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
   const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
   return {
@@ -516,6 +505,18 @@ function formatErsErrorMessage(message: string): string {
     "il codice ERS non e stato applicato",
     reason,
     "correggi la riga indicata e riprova",
+  );
+}
+
+function formatProjectFileErrorMessage(error: unknown): string {
+  if (error instanceof ProjectFileError) {
+    return buildStructuredErrorMessage(error.details.what, error.details.why, error.details.how);
+  }
+
+  return buildStructuredErrorMessage(
+    "il file progetto non e stato caricato",
+    "si e verificato un problema non previsto durante l'importazione",
+    "controlla il file selezionato e riprova",
   );
 }
 
@@ -971,7 +972,7 @@ export default function App() {
   });
 
   const svgRef = useRef<SVGSVGElement>(null);
-  const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
+  const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
@@ -1948,6 +1949,9 @@ export default function App() {
     options?: {
       logicalWorkspace?: LogicalWorkspaceDocument;
       logicalGenerated?: boolean;
+      diagramView?: DiagramWorkspaceView;
+      viewport?: Viewport;
+      logicalViewport?: Viewport;
     },
   ) {
     const normalizedIncoming = revalidateExternalIdentifiers(
@@ -1970,13 +1974,20 @@ export default function App() {
         ? refreshLogicalWorkspace(normalizedIncoming.diagram, options.logicalWorkspace)
         : createEmptyLogicalWorkspace(normalizedIncoming.diagram),
     );
-    setLogicalGenerated(options?.logicalGenerated === true);
+    const nextLogicalGenerated = options?.logicalGenerated === true;
+    const nextDiagramView = options?.diagramView === "logical" && nextLogicalGenerated ? "logical" : "er";
+    setSurface("studio");
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
+    setLogicalGenerated(nextLogicalGenerated);
+    setDiagramView(nextDiagramView);
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-    setLogicalViewport(DEFAULT_VIEWPORT);
+    setLogicalViewport(options?.logicalViewport ? { ...options.logicalViewport } : { ...DEFAULT_VIEWPORT });
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
     markDocumentBaseline(normalizedIncoming.diagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setViewport(DEFAULT_VIEWPORT);
+    setViewport(options?.viewport ? { ...options.viewport } : { ...DEFAULT_VIEWPORT });
     setTool("select");
     setStatus(status);
     reportExternalIdentifierInvalidations(normalizedIncoming.invalidations, "notice");
@@ -2061,7 +2072,7 @@ export default function App() {
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        handleSaveJson();
+        handleSaveProject();
         return;
       }
 
@@ -2393,14 +2404,14 @@ export default function App() {
     setStatus(choice.summary);
   }
 
-  async function handleNewDiagram() {
-    if (!(await confirmDiscardChanges("creare un nuovo diagramma"))) {
+  async function handleNewProject() {
+    if (!(await confirmDiscardChanges("creare un nuovo progetto"))) {
       return;
     }
 
     applyWorkspaceDocument(
       createEmptyDiagram("Nuovo diagramma"),
-      "Nuovo diagramma creato.",
+      "Nuovo progetto creato.",
     );
   }
 
@@ -3276,25 +3287,30 @@ export default function App() {
     setStatus("Allineamento applicato.");
   }
 
-  function handleSaveJson() {
-    const projectDocument: ProjectFileDocument = {
-      version: 2,
-      kind: "er-studio-project",
-      savedAt: new Date().toISOString(),
-      diagram: history.present,
-      logicalWorkspace: logicalHistory.present,
-      logicalGenerated,
-    };
-    downloadTextFile(
-      JSON.stringify(projectDocument, null, 2),
-      `${sanitizeFileNameBase(history.present.meta.name)}.json`,
-      "application/json;charset=utf-8",
-    );
-    markDiagramSaved(history.present);
-    if (!codeDirtyRef.current) {
-      markCodeSaved(serializeDiagramToErs(history.present));
+  function handleSaveProject() {
+    try {
+      const serializedProject = serializeProjectFile({
+        diagram: history.present,
+        logicalWorkspace: logicalHistory.present,
+        logicalGenerated,
+        diagramView,
+        viewport,
+        logicalViewport,
+      });
+      downloadTextFile(
+        serializedProject,
+        `${sanitizeFileNameBase(history.present.meta.name)}${PROJECT_FILE_EXTENSION}`,
+        PROJECT_FILE_MIME_TYPE,
+      );
+      markDiagramSaved(history.present);
+      if (!codeDirtyRef.current) {
+        markCodeSaved(serializeDiagramToErs(history.present));
+      }
+      setStatus("Progetto salvato.");
+    } catch (error) {
+      console.error(error);
+      setStatusError(formatProjectFileErrorMessage(error));
     }
-    setStatus("Progetto salvato in JSON.");
   }
 
   function handleSaveErs() {
@@ -3307,12 +3323,12 @@ export default function App() {
     setStatus(codeDirtyRef.current ? "Bozza ERS scaricata." : "Codice ERS scaricato.");
   }
 
-  async function handleLoadRequest() {
-    if (!(await confirmDiscardChanges("caricare un file JSON"))) {
+  async function handleLoadProjectRequest() {
+    if (!(await confirmDiscardChanges("caricare un progetto"))) {
       return;
     }
 
-    jsonFileInputRef.current?.click();
+    projectFileInputRef.current?.click();
   }
 
   async function handleLoadErsRequest() {
@@ -3323,7 +3339,7 @@ export default function App() {
     ersFileInputRef.current?.click();
   }
 
-  async function handleLoadFile(event: ChangeEvent<HTMLInputElement>) {
+  async function handleLoadProjectFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -3331,29 +3347,24 @@ export default function App() {
 
     try {
       const rawText = await file.text();
-      const rawJson = JSON.parse(rawText) as unknown;
-      if (isProjectFileDocument(rawJson)) {
-        const parsedDiagram = parseDiagram(JSON.stringify(rawJson.diagram));
-        applyWorkspaceDocument(parsedDiagram, "Progetto caricato.", {
-          logicalWorkspace: sanitizeLogicalWorkspace(rawJson.logicalWorkspace, parsedDiagram),
-          logicalGenerated: rawJson.logicalGenerated === true,
-        });
-      } else {
-        const parsed = parseDiagram(rawText);
-        applyWorkspaceDocument(
-          parsed,
-          "Diagramma caricato.",
-        );
-      }
+      const parsedProject = parseProjectFile(rawText, {
+        fallbackViewport: DEFAULT_VIEWPORT,
+        fallbackDiagramView: "er",
+      });
+      const loadStatus =
+        parsedProject.source === "legacy-diagram-json"
+          ? "Diagramma JSON legacy caricato come progetto."
+          : "Progetto caricato.";
+      applyWorkspaceDocument(parsedProject.state.diagram, loadStatus, {
+        logicalWorkspace: parsedProject.state.logicalWorkspace,
+        logicalGenerated: parsedProject.state.logicalGenerated,
+        diagramView: parsedProject.state.diagramView,
+        viewport: parsedProject.state.viewport,
+        logicalViewport: parsedProject.state.logicalViewport,
+      });
     } catch (error) {
       console.error(error);
-      setStatusError(
-        buildStructuredErrorMessage(
-          "il file JSON non e stato caricato",
-          "il contenuto non rispetta il formato del progetto o del diagramma",
-          "controlla la sintassi JSON o esporta di nuovo il file e riprova",
-        ),
-      );
+      setStatusError(formatProjectFileErrorMessage(error));
     } finally {
       event.target.value = "";
     }
@@ -3518,7 +3529,7 @@ export default function App() {
         toolRailCollapsed={effectiveToolbarCollapsed}
         onDiagramViewChange={handleDiagramViewChange}
         onModeChange={handleModeChange}
-        onNew={handleNewDiagram}
+        onNewProject={handleNewProject}
         onUndo={handleUndoAction}
         onRedo={handleRedoAction}
         onGenerateLogicalModel={handleGenerateLogicalModel}
@@ -3526,9 +3537,9 @@ export default function App() {
         onFitLogical={handleLogicalFit}
         onToggleCodePanel={handleToggleCodePanel}
         onToggleNotesPanel={handleToggleNotesPanel}
-        onSave={handleSaveJson}
+        onSaveProject={handleSaveProject}
         onSaveErs={handleSaveErs}
-        onLoad={handleLoadRequest}
+        onLoadProject={handleLoadProjectRequest}
         onLoadErs={handleLoadErsRequest}
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
@@ -3748,11 +3759,11 @@ export default function App() {
       </div>
 
       <input
-        ref={jsonFileInputRef}
+        ref={projectFileInputRef}
         className="hidden-input"
         type="file"
-        accept="application/json,.json"
-        onChange={handleLoadFile}
+        accept={PROJECT_FILE_ACCEPT}
+        onChange={handleLoadProjectFile}
       />
       <input
         ref={ersFileInputRef}
@@ -3955,7 +3966,7 @@ export default function App() {
               <details className="help-section">
                 <summary>Comandi Tastiera</summary>
                 <ul className="help-list">
-                  <li>Ctrl/Cmd+S salva JSON, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
+                  <li>Ctrl/Cmd+S salva il progetto `.ersp`, Ctrl/Cmd+D duplica selezione, Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y ripete.</li>
                   <li>Delete/Backspace elimina la selezione; Esc annulla la selezione corrente e chiude le finestre informazioni/novita.</li>
                   <li>Nel canvas usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare ed Esc per annullare un collegamento in corso.</li>
                 </ul>

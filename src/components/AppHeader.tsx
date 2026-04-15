@@ -19,7 +19,7 @@ interface AppHeaderProps {
   toolRailCollapsed: boolean;
   onDiagramViewChange: (view: DiagramWorkspaceView) => void;
   onModeChange: (mode: EditorMode) => void;
-  onNew: () => void;
+  onNewProject: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onGenerateLogicalModel: () => void;
@@ -27,9 +27,9 @@ interface AppHeaderProps {
   onFitLogical: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
-  onSave: () => void;
+  onSaveProject: () => void;
   onSaveErs: () => void;
-  onLoad: () => void;
+  onLoadProject: () => void;
   onLoadErs: () => void;
   onExportPng: () => void;
   onExportSvg: () => void;
@@ -336,17 +336,17 @@ export function AppHeader(props: AppHeaderProps) {
 
                 <div className="nav-menu-section">
                   <div className="nav-menu-label">File</div>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onNew)}>
-                    Nuovo diagramma
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onNewProject)}>
+                    Nuovo progetto
                   </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onLoad)}>
-                    Carica JSON
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onLoadProject)}>
+                    Carica progetto
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onLoadErs)}>
                     Carica ERS
                   </button>
-                  <button type="button" onClick={(event) => runMenuAction(event, props.onSave)}>
-                    Salva JSON
+                  <button type="button" onClick={(event) => runMenuAction(event, props.onSaveProject)}>
+                    Salva progetto
                   </button>
                   <button type="button" onClick={(event) => runMenuAction(event, props.onSaveErs)}>
                     Scarica ERS

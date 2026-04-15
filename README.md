@@ -1,6 +1,6 @@
 # Chen ER Diagram Studio (v3.7)
 
-Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, export PNG/SVG, salvataggio JSON e sincronizzazione ERS live.
+Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG e sincronizzazione ERS live.
 
 ## Novita 3.7
 
@@ -37,4 +37,4 @@ npm run preview
 - Drag-and-drop, snap to grid, zoom, pan, selezione multipla, duplicazione e allineamento.
 - Undo/redo e validazioni per attributi, relazioni e link di ereditarieta con vincoli disjoint/overlap e total/partial.
 - Modalita modifica e sola lettura.
-- Salvataggio/caricamento JSON, export PNG/SVG e sorgente ERS con sincronizzazione live.
+- Salvataggio/caricamento progetto `.ersp`, export PNG/SVG e sorgente ERS con sincronizzazione live.
