@@ -6719,6 +6719,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .logical-canvas-panel {
+  --diagram-canvas-fill: #ece9df;
   position: relative;
   height: 100%;
   min-height: 0;
@@ -6735,23 +6736,25 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .logical-edge {
-  --logical-edge-stroke: rgba(61, 76, 72, 0.56);
+  --logical-edge-stroke: rgba(21, 18, 15, 0.82);
 }
 
-.logical-edge.highlighted {
-  --logical-edge-stroke: rgba(48, 95, 88, 0.88);
+.logical-edge.highlighted,
+.logical-edge.focus-highlight {
+  --logical-edge-stroke: rgba(12, 11, 10, 0.9);
 }
 
 .logical-edge.selected {
-  --logical-edge-stroke: rgba(37, 74, 68, 0.98);
+  --logical-edge-stroke: rgba(0, 0, 0, 0.98);
 }
 
 .logical-edge-label {
-  font-size: 11px;
-  fill: rgba(44, 41, 33, 0.78);
+  font-family: "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+  font-size: 10px;
+  fill: rgba(33, 28, 22, 0.72);
   paint-order: stroke;
-  stroke: rgba(240, 240, 235, 0.96);
-  stroke-width: 5px;
+  stroke: #ece9df;
+  stroke-width: 4px;
 }
 
 .logical-edge path {
@@ -6761,33 +6764,39 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .logical-table {
-  --logical-table-stroke: rgba(42, 39, 31, 0.18);
+  --logical-table-stroke: rgba(18, 16, 13, 0.76);
+  --logical-table-fill: #f5f4ed;
+  --logical-table-header-fill: #ece9df;
+  --logical-table-stroke-width: 1.2px;
 }
 
 .logical-table.hover {
-  --logical-table-stroke: rgba(42, 39, 31, 0.34);
+  --logical-table-stroke: rgba(18, 16, 13, 0.88);
+  --logical-table-fill: #f8f7f1;
 }
 
 .logical-table.selected {
-  --logical-table-stroke: rgba(43, 88, 81, 0.88);
+  --logical-table-stroke: rgba(0, 0, 0, 0.96);
+  --logical-table-stroke-width: 1.45px;
 }
 
 .logical-table.step-highlight {
-  --logical-table-stroke: rgba(184, 123, 62, 0.82);
+  --logical-table-stroke: rgba(32, 29, 24, 0.88);
 }
 
 .logical-table.focus-highlight {
-  --logical-table-stroke: rgba(37, 74, 68, 0.98);
+  --logical-table-stroke: rgba(0, 0, 0, 0.98);
+  --logical-table-stroke-width: 1.45px;
 }
 
 .logical-table.target-highlight {
-  --logical-table-stroke: rgba(184, 123, 62, 0.82);
+  --logical-table-stroke: rgba(32, 29, 24, 0.88);
 }
 
 .logical-table-body {
-  fill: rgba(255, 255, 255, 0.94);
+  fill: var(--logical-table-fill);
   stroke: var(--logical-table-stroke);
-  stroke-width: 1.8;
+  stroke-width: var(--logical-table-stroke-width);
   transition:
     stroke 130ms ease,
     fill 130ms ease,
@@ -6795,78 +6804,61 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .logical-table-header {
-  fill: rgba(247, 244, 236, 0.96);
+  fill: var(--logical-table-header-fill);
   stroke: var(--logical-table-stroke);
-  stroke-width: 1.8;
+  stroke-width: var(--logical-table-stroke-width);
   transition:
     stroke 130ms ease,
     fill 130ms ease,
     stroke-width 130ms ease;
 }
 
-.logical-table-divider,
+.logical-table-divider {
+  stroke: var(--logical-table-stroke);
+  stroke-width: var(--logical-table-stroke-width);
+}
+
 .logical-column-divider {
-  stroke: rgba(42, 39, 31, 0.12);
-  stroke-width: 1;
+  stroke: rgba(33, 28, 22, 0.14);
+  stroke-width: 0.9;
 }
 
 .logical-table-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  fill: #1e1e1a;
+  font-family: "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  fill: #171512;
+}
+
+.logical-table [role="button"] {
+  cursor: move;
 }
 
 .logical-column-hit {
   fill: transparent;
+  transition: fill 110ms ease;
 }
 
 .logical-column-row:hover .logical-column-hit {
-  fill: rgba(48, 95, 88, 0.08);
+  fill: rgba(0, 0, 0, 0.035);
 }
 
 .logical-column-row.selected .logical-column-hit {
-  fill: rgba(48, 95, 88, 0.14);
+  fill: rgba(0, 0, 0, 0.08);
 }
 
 .logical-column-name {
-  font-size: 12.5px;
-  fill: rgba(29, 29, 25, 0.92);
+  font-family: "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+  font-size: 13.5px;
+  fill: rgba(18, 17, 15, 0.96);
   pointer-events: none;
 }
 
-.logical-badge rect {
-  stroke: transparent;
-}
-
-.logical-badge text {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.logical-badge.pk rect {
-  fill: rgba(58, 106, 88, 0.18);
-}
-
-.logical-badge.pk text {
-  fill: #254a3e;
-}
-
-.logical-badge.fk rect {
-  fill: rgba(181, 120, 51, 0.2);
-}
-
-.logical-badge.fk text {
-  fill: #6a4727;
-}
-
-.logical-badge.uk rect {
-  fill: rgba(36, 86, 122, 0.18);
-}
-
-.logical-badge.uk text {
-  fill: #1f4e70;
+.logical-column-name.underlined {
+  text-decoration: underline;
+  text-decoration-thickness: 1.2px;
+  text-underline-offset: 2px;
 }
 
 .logical-inspector {
@@ -7333,7 +7325,7 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 .transformation-canvas-panel .logical-edge.focus-highlight {
-  --logical-edge-stroke: rgba(37, 74, 68, 0.98);
+  --logical-edge-stroke: rgba(0, 0, 0, 0.98);
 }
 
 .transformation-canvas-panel .transformation-er-node.focus-highlight .entity-label,
