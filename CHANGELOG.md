@@ -15,6 +15,23 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [3.8.0] - 2026-04-16
+
+### Added
+- Introdotto il formato progetto `.ersp` con salvataggio e ripristino di diagramma ER, vista logica, viewport, selezioni e metadati del workspace.
+- Aggiunto supporto di import compatibile per i vecchi backup JSON versione 2, che vengono migrati nel formato progetto corrente.
+- Introdotta l'internazionalizzazione dell'app con provider dedicato e cataloghi in italiano, inglese e albanese.
+
+### Changed
+- Versione applicativa aggiornata alla release 3.8 su package, metadata applicativi e documentazione.
+- Serializzazione e parsing ERS allineati alla regola `ID = nome`: lo schema testuale usa il nome corrente delle shape e non piu id legacy casuali.
+- La vista Logica adotta ora un rendering classico ispirato a designER: tabelle rettangolari monocromatiche, header centrati, chiavi primarie sottolineate e collegamenti FK ortogonali sobri.
+- Aggiornati i contenuti di onboarding e tutorial per riflettere il nuovo comportamento dei file progetto e del codice ERS.
+
+### Fixed
+- La rinomina delle shape sincronizza correttamente id e riferimenti dipendenti, evitando incoerenze tra canvas e schema ER esportato.
+- L'apertura di file progetto invalidi o con `kind` errato restituisce un errore strutturato invece di produrre uno stato ambiguo nel workspace.
+
 ## [3.7.0] - 2026-04-15
 
 ### Added
@@ -23,7 +40,7 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Changed
 - Etichette dei menu a tendina Inspector per le associazioni ISA ("Vincolo ISA" e "Copertura ISA") tradotte in italiano per una maggiore congruenza linguistica.
 - Rifinito il rendering dei badge ISA con colori piu tenui e testo piu leggibile, per migliorare l'estetica e la chiarezza visiva.
-- Nuovo aggiornamento della vista Logica alla release 3.7, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.",
+- Nuovo aggiornamento della vista Logica alla release 3.7, con miglioramenti significativi all'usabilita, alla flessibilita del layout e alla coerenza visiva dei diagrammi logici.
 
 ### Fixed
 - Risolto bug sul componente `LogicalTransformationCanvas` che imponeva al browser l'altezza standard intrinseca degli SVG (150px) ignorando lo spazio verticale libero della UI.

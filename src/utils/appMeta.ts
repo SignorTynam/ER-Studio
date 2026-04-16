@@ -1,5 +1,5 @@
 export const APP_NAME = "Studio Diagrammi ER";
-export const APP_VERSION = "3.7";
+export const APP_VERSION = "3.8";
 export const APP_TITLE = `${APP_NAME}`;
 
 export interface AppChangelogEntry {
@@ -9,6 +9,18 @@ export interface AppChangelogEntry {
 }
 
 export const APP_CHANGELOG: AppChangelogEntry[] = [
+  {
+    version: "3.8",
+    date: "2026-04-16",
+    updates: [
+      "Versione applicativa aggiornata alla release 3.8.",
+      "Introdotto il formato progetto .ersp con salvataggio e ripristino di workspace, vista corrente e viewport, piu migrazione compatibile dei backup JSON legacy versione 2.",
+      "Aggiunto supporto i18n con interfaccia localizzata in italiano, inglese e albanese e catalogo centralizzato per i testi comuni della UI.",
+      "Serializzazione e parsing ERS allineati alla regola ID = nome: export e lettura usano il nome corrente delle shape invece degli id legacy casuali.",
+      "La rinomina delle shape aggiorna anche id e riferimenti collegati, evitando incoerenze nello schema ER esportato.",
+      "Vista Logica rifinita in stile designER/classico: tabelle rettangolari monocromatiche, nomi centrati, PK sottolineate e collegamenti FK ortogonali piu sobri.",
+    ],
+  },
   {
     version: "3.7",
     date: "2026-04-15",
