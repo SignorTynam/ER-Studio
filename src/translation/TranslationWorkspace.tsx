@@ -23,6 +23,8 @@ interface TranslationWorkspaceProps {
   onSelectionChange: (selection: SelectionState) => void;
   onApplyChoice: (item: ErTranslationItem, choice: ErTranslationChoice) => void;
   onResetTranslation: () => void;
+  onPreviewDiagram: (diagram: DiagramDocument) => void;
+  onCommitDiagram: (diagram: DiagramDocument, previous: DiagramDocument) => void;
 }
 
 function getPreferredItem(items: ErTranslationItem[]): ErTranslationItem | null {
@@ -185,15 +187,15 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
               diagram={props.workspace.translatedDiagram}
               selection={props.selection}
               tool="select"
-              mode="view"
+              mode="edit"
               viewport={props.viewport}
               issues={translatedIssues}
               statusMessage={canvasStatus}
               svgRef={svgRef}
               onViewportChange={props.onViewportChange}
               onSelectionChange={props.onSelectionChange}
-              onPreviewDiagram={() => {}}
-              onCommitDiagram={() => {}}
+              onPreviewDiagram={props.onPreviewDiagram}
+              onCommitDiagram={props.onCommitDiagram}
               onCreateNode={() => ""}
               onCreateEdge={() => ({ success: false, message: "Operazione non disponibile nella vista Traduzione." })}
               onCreateExternalIdentifier={() => ({ success: false, message: "Operazione non disponibile nella vista Traduzione." })}

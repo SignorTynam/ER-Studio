@@ -3912,6 +3912,18 @@ export default function App() {
               onSelectionChange={setTranslationSelection}
               onApplyChoice={handleApplyErTranslationChoice}
               onResetTranslation={handleResetTranslation}
+              onPreviewDiagram={(diagram) => {
+                translationHistory.setPresent({
+                  ...translationHistory.present,
+                  translatedDiagram: diagram,
+                });
+              }}
+              onCommitDiagram={(diagram, previous) => {
+                translationHistory.commit(
+                  { ...translationHistory.present, translatedDiagram: diagram },
+                  { ...translationHistory.present, translatedDiagram: previous }
+                );
+              }}
             />
           ) : !logicalGenerated ? (
             <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
