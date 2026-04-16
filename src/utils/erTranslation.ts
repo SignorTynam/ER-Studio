@@ -1,0 +1,1407 @@
+import type {
+  AttributeNode,
+  DiagramDocument,
+  DiagramEdge,
+  DiagramNode,
+  EntityNode,
+  InheritanceEdge,
+  ValidationIssue,
+} from "../types/diagram";
+import type {
+  ErTranslationArtifactRef,
+  ErTranslationChoice,
+  ErTranslationConflict,
+  ErTranslationDecision,
+  ErTranslationItem,
+  ErTranslationOverview,
+  ErTranslationRuleKind,
+  ErTranslationState,
+  ErTranslationStep,
+  ErTranslationStepState,
+  ErTranslationWorkspaceDocument,
+} from "../types/translation";
+import {
+  getMultivaluedAttributeSize,
+  synchronizeEntityRelationshipParticipations,
+  synchronizeExternalIdentifiers,
+  synchronizeInternalIdentifiers,
+  validateDiagram,
+} from "./diagram";
+import { buildLogicalSourceSignature } from "./logicalMapping";
+
+interface GeneralizationHierarchy {
+  supertype: EntityNode;
+  subtypes: EntityNode[];
+  edges: InheritanceEdge[];
+  disjointness?: InheritanceEdge["isaDisjointness"];
+  completeness?: InheritanceEdge["isaCompleteness"];
+}
+
+interface AttributeOwnershipContext {
+  nodeById: Map<string, DiagramNode>;
+  childrenByHostId: Map<string, string[]>;
+  parentByAttributeId: Map<string, string>;
+  directAttributeIdsByOwnerId: Map<string, string[]>;
+}
+
+interface LeafAttributePath {
+  node: AttributeNode;
+  pathLabels: string[];
+}
+
+interface TranslationChoiceRecord extends ErTranslationChoice {
+  targetType: ErTranslationDecision["targetType"];
+  targetId: string;
+}
+
+interface TranslationOverviewInternal extends ErTranslationOverview {
+  choicesByKey: Map<string, TranslationChoiceRecord>;
+}
+
+interface TranslationApplyResult {
+  diagram: DiagramDocument;
+  artifacts: ErTranslationArtifactRef[];
+}
+
+const ER_TRANSLATION_STEP_DEFS: Array<{
+  id: ErTranslationStep;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "generalizations",
+    label: "Gerarchie",
+    description: "Risolvi prima le generalizzazioni ISA e produci un ER intermedio coerente.",
+  },
+  {
+    id: "composite-attributes",
+    label: "Attributi composti",
+    description: "Poi appiattisci gli attributi composti ridisegnando l'owner ER senza creare tabelle.",
+  },
+  {
+    id: "review",
+    label: "Review",
+    description: "Controlla il diagramma ER tradotto prima di aprire la vista logica.",
+  },
+];
+
+const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attributes", "review"];
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function cloneDiagram(diagram: DiagramDocument): DiagramDocument {
+  return JSON.parse(JSON.stringify(diagram)) as DiagramDocument;
+}
+
+function normalizeSpaces(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function toAscii(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function canonicalKey(value: string): string {
+  return toAscii(normalizeSpaces(value)).toLowerCase();
+}
+
+function allocateUniqueLabel(usedKeys: Set<string>, preferredLabel: string): string {
+  const normalizedPreferred = normalizeSpaces(preferredLabel) || "Attributo";
+  let candidate = normalizedPreferred;
+  let suffix = 2;
+
+  while (usedKeys.has(canonicalKey(candidate))) {
+    candidate = `${normalizedPreferred} (${suffix})`;
+    suffix += 1;
+  }
+
+  usedKeys.add(canonicalKey(candidate));
+  return candidate;
+}
+
+function allocateUniqueId(existingIds: Set<string>, preferredId: string, fallbackPrefix: string): string {
+  const normalizedPreferred = preferredId.trim().length > 0 ? preferredId : fallbackPrefix;
+  let candidate = normalizedPreferred;
+  let suffix = 2;
+
+  while (existingIds.has(candidate)) {
+    candidate = `${normalizedPreferred}-${suffix}`;
+    suffix += 1;
+  }
+
+  existingIds.add(candidate);
+  return candidate;
+}
+
+function sortByLabel<T extends { id: string; label: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => {
+    const byLabel = left.label.localeCompare(right.label, "it", { sensitivity: "base" });
+    if (byLabel !== 0) {
+      return byLabel;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function normalizeTranslatedDiagram(diagram: DiagramDocument): DiagramDocument {
+  return synchronizeExternalIdentifiers(
+    synchronizeInternalIdentifiers(synchronizeEntityRelationshipParticipations(diagram)),
+  );
+}
+
+function resolveAttributeOwnership(
+  edge: DiagramEdge,
+  nodeMap: Map<string, DiagramNode>,
+): { hostId: string; childId: string } | null {
+  if (edge.type !== "attribute") {
+    return null;
+  }
+
+  const sourceNode = nodeMap.get(edge.sourceId);
+  const targetNode = nodeMap.get(edge.targetId);
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  if (sourceNode.type === "attribute" && targetNode.type !== "attribute") {
+    return { hostId: targetNode.id, childId: sourceNode.id };
+  }
+
+  if (targetNode.type === "attribute" && sourceNode.type !== "attribute") {
+    return { hostId: sourceNode.id, childId: targetNode.id };
+  }
+
+  if (sourceNode.type === "attribute" && targetNode.type === "attribute") {
+    if (sourceNode.isMultivalued === true && targetNode.isMultivalued !== true) {
+      return { hostId: sourceNode.id, childId: targetNode.id };
+    }
+
+    if (targetNode.isMultivalued === true && sourceNode.isMultivalued !== true) {
+      return { hostId: targetNode.id, childId: sourceNode.id };
+    }
+
+    return { hostId: targetNode.id, childId: sourceNode.id };
+  }
+
+  return null;
+}
+
+function buildAttributeOwnershipContext(diagram: DiagramDocument): AttributeOwnershipContext {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const childrenByHostId = new Map<string, string[]>();
+  const parentByAttributeId = new Map<string, string>();
+  const directAttributeIdsByOwnerId = new Map<string, string[]>();
+
+  diagram.edges.forEach((edge) => {
+    const ownership = resolveAttributeOwnership(edge, nodeById);
+    if (!ownership) {
+      return;
+    }
+
+    const currentChildren = childrenByHostId.get(ownership.hostId) ?? [];
+    if (!currentChildren.includes(ownership.childId)) {
+      childrenByHostId.set(ownership.hostId, [...currentChildren, ownership.childId]);
+    }
+
+    parentByAttributeId.set(ownership.childId, ownership.hostId);
+
+    const hostNode = nodeById.get(ownership.hostId);
+    if (hostNode?.type === "entity" || hostNode?.type === "relationship") {
+      const currentDirect = directAttributeIdsByOwnerId.get(hostNode.id) ?? [];
+      if (!currentDirect.includes(ownership.childId)) {
+        directAttributeIdsByOwnerId.set(hostNode.id, [...currentDirect, ownership.childId]);
+      }
+    }
+  });
+
+  return {
+    nodeById,
+    childrenByHostId,
+    parentByAttributeId,
+    directAttributeIdsByOwnerId,
+  };
+}
+
+function collectAttributeSubtreeIds(rootId: string, context: AttributeOwnershipContext): string[] {
+  const collected: string[] = [];
+  const visited = new Set<string>();
+  const stack = [rootId];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop() as string;
+    if (visited.has(currentId)) {
+      continue;
+    }
+
+    visited.add(currentId);
+    collected.push(currentId);
+    const children = context.childrenByHostId.get(currentId) ?? [];
+    children.forEach((childId) => stack.push(childId));
+  }
+
+  return collected;
+}
+
+function collectLeafAttributePaths(
+  rootId: string,
+  context: AttributeOwnershipContext,
+  parentPath: string[] = [],
+): LeafAttributePath[] {
+  const root = context.nodeById.get(rootId);
+  if (root?.type !== "attribute") {
+    return [];
+  }
+
+  const nextPath = [...parentPath, root.label];
+  const children = context.childrenByHostId.get(rootId) ?? [];
+  if (children.length === 0) {
+    return [{ node: root, pathLabels: nextPath }];
+  }
+
+  return children.flatMap((childId) => collectLeafAttributePaths(childId, context, nextPath));
+}
+
+function findAttributeEdgeId(
+  diagram: DiagramDocument,
+  leftId: string,
+  rightId: string,
+): string | undefined {
+  return diagram.edges.find(
+    (edge) =>
+      edge.type === "attribute" &&
+      ((edge.sourceId === leftId && edge.targetId === rightId) || (edge.sourceId === rightId && edge.targetId === leftId)),
+  )?.id;
+}
+
+function buildGeneralizationHierarchies(diagram: DiagramDocument): GeneralizationHierarchy[] {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const grouped = new Map<string, GeneralizationHierarchy>();
+
+  diagram.edges
+    .filter((edge): edge is InheritanceEdge => edge.type === "inheritance")
+    .forEach((edge) => {
+      const subtype = nodeById.get(edge.sourceId);
+      const supertype = nodeById.get(edge.targetId);
+      if (subtype?.type !== "entity" || supertype?.type !== "entity") {
+        return;
+      }
+
+      const current = grouped.get(supertype.id) ?? {
+        supertype,
+        subtypes: [],
+        edges: [],
+        disjointness: edge.isaDisjointness,
+        completeness: edge.isaCompleteness,
+      };
+      current.subtypes.push(subtype);
+      current.edges.push(edge);
+      current.disjointness ??= edge.isaDisjointness;
+      current.completeness ??= edge.isaCompleteness;
+      grouped.set(supertype.id, current);
+    });
+
+  return [...grouped.values()]
+    .map((hierarchy) => ({
+      ...hierarchy,
+      subtypes: sortByLabel(hierarchy.subtypes),
+    }))
+    .sort((left, right) => left.supertype.label.localeCompare(right.supertype.label, "it", { sensitivity: "base" }));
+}
+
+function getCompositeRootAttributes(diagram: DiagramDocument): AttributeNode[] {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  return sortByLabel(
+    diagram.nodes.filter(
+      (node): node is AttributeNode =>
+        node.type === "attribute" &&
+        node.isMultivalued === true &&
+        ownership.parentByAttributeId.has(node.id) &&
+        ownership.nodeById.get(ownership.parentByAttributeId.get(node.id) as string)?.type !== "attribute",
+    ),
+  );
+}
+
+function getDirectInheritanceDepthBySupertypeId(diagram: DiagramDocument): Map<string, number> {
+  const directParentBySubtypeId = new Map<string, string[]>();
+
+  diagram.edges
+    .filter((edge): edge is InheritanceEdge => edge.type === "inheritance")
+    .forEach((edge) => {
+      const current = directParentBySubtypeId.get(edge.sourceId) ?? [];
+      current.push(edge.targetId);
+      directParentBySubtypeId.set(edge.sourceId, current);
+    });
+
+  const memo = new Map<string, number>();
+  const visit = (supertypeId: string): number => {
+    if (memo.has(supertypeId)) {
+      return memo.get(supertypeId) as number;
+    }
+
+    const directParents = directParentBySubtypeId.get(supertypeId) ?? [];
+    const depth = directParents.length === 0 ? 0 : 1 + Math.max(...directParents.map((parentId) => visit(parentId)));
+    memo.set(supertypeId, depth);
+    return depth;
+  };
+
+  buildGeneralizationHierarchies(diagram).forEach((hierarchy) => {
+    visit(hierarchy.supertype.id);
+  });
+
+  return memo;
+}
+
+function buildChoiceKey(
+  targetType: ErTranslationDecision["targetType"],
+  targetId: string,
+  rule: ErTranslationDecision["rule"],
+  configuration?: ErTranslationDecision["configuration"],
+): string {
+  return JSON.stringify({
+    targetType,
+    targetId,
+    rule,
+    configuration: configuration ?? null,
+  });
+}
+
+function normalizeStepDecisionOrder(
+  diagram: DiagramDocument,
+  decisions: ErTranslationDecision[],
+): ErTranslationDecision[] {
+  const depthBySupertypeId = getDirectInheritanceDepthBySupertypeId(diagram);
+
+  return [...decisions].sort((left, right) => {
+    const stepDelta = STEP_ORDER.indexOf(left.step) - STEP_ORDER.indexOf(right.step);
+    if (stepDelta !== 0) {
+      return stepDelta;
+    }
+
+    if (left.step === "generalizations" && right.step === "generalizations") {
+      const leftDepth = depthBySupertypeId.get(left.targetId) ?? 0;
+      const rightDepth = depthBySupertypeId.get(right.targetId) ?? 0;
+      if (leftDepth !== rightDepth) {
+        return leftDepth - rightDepth;
+      }
+    }
+
+    return left.targetId.localeCompare(right.targetId);
+  });
+}
+
+function mergeInternalIdentifiers(
+  target: EntityNode,
+  incoming: EntityNode["internalIdentifiers"],
+  idRemap: Map<string, string> = new Map(),
+): EntityNode["internalIdentifiers"] {
+  const currentIdentifiers = Array.isArray(target.internalIdentifiers) ? target.internalIdentifiers : [];
+  const usedIdentifierIds = new Set(currentIdentifiers.map((identifier) => identifier.id));
+  const nextIdentifiers = [...currentIdentifiers];
+
+  (incoming ?? []).forEach((identifier) => {
+    const mappedAttributeIds = identifier.attributeIds.map((attributeId) => idRemap.get(attributeId) ?? attributeId);
+    if (mappedAttributeIds.length === 0) {
+      return;
+    }
+
+    const nextId = allocateUniqueId(usedIdentifierIds, identifier.id, `${target.id}-identifier`);
+    nextIdentifiers.push({
+      id: nextId,
+      attributeIds: mappedAttributeIds,
+    });
+  });
+
+  return nextIdentifiers;
+}
+
+function mergeExternalIdentifiers(
+  target: EntityNode,
+  sourceEntityId: string,
+  incoming: EntityNode["externalIdentifiers"],
+  idRemap: Map<string, string> = new Map(),
+): EntityNode["externalIdentifiers"] {
+  const currentExternal = Array.isArray(target.externalIdentifiers) ? target.externalIdentifiers : [];
+  const usedExternalIds = new Set(currentExternal.map((identifier) => identifier.id));
+  const nextExternal = [...currentExternal];
+
+  (incoming ?? []).forEach((identifier) => {
+    const nextId = allocateUniqueId(usedExternalIds, identifier.id, `${sourceEntityId}-external`);
+    nextExternal.push({
+      ...identifier,
+      id: nextId,
+      sourceEntityId,
+      localAttributeIds: identifier.localAttributeIds.map((attributeId) => idRemap.get(attributeId) ?? attributeId),
+    });
+  });
+
+  return nextExternal;
+}
+
+function cloneConnectorEdgeForEntity(
+  edge: Extract<DiagramEdge, { type: "connector" }>,
+  sourceEntityId: string,
+  targetEntityId: string,
+  existingIds: Set<string>,
+): Extract<DiagramEdge, { type: "connector" }> {
+  const nextId = allocateUniqueId(existingIds, edge.id, "connector");
+  return {
+    ...edge,
+    id: nextId,
+    sourceId: edge.sourceId === sourceEntityId ? targetEntityId : edge.sourceId,
+    targetId: edge.targetId === sourceEntityId ? targetEntityId : edge.targetId,
+    participationId: undefined,
+  };
+}
+
+function shiftAttributeSubtree(
+  diagram: DiagramDocument,
+  subtreeIds: Set<string>,
+  deltaX: number,
+  deltaY: number,
+): DiagramDocument {
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) =>
+      subtreeIds.has(node.id)
+        ? {
+            ...node,
+            x: node.x + deltaX,
+            y: node.y + deltaY,
+          }
+        : node,
+    ),
+  };
+}
+
+function applyCompositeAttributeTranslationDetailed(
+  diagram: DiagramDocument,
+  attributeId: string,
+  rule: Extract<ErTranslationRuleKind, "composite-flatten-preserve" | "composite-flatten-prefixed">,
+): TranslationApplyResult {
+  const working = cloneDiagram(diagram);
+  const ownership = buildAttributeOwnershipContext(working);
+  const root = ownership.nodeById.get(attributeId);
+  if (root?.type !== "attribute" || root.isMultivalued !== true) {
+    throw new Error(`L'attributo composto "${attributeId}" non e disponibile nel diagramma tradotto corrente.`);
+  }
+
+  const ownerId = ownership.parentByAttributeId.get(root.id);
+  if (!ownerId) {
+    throw new Error(`L'attributo composto "${root.label}" non ha un owner diretto valido.`);
+  }
+
+  const owner = ownership.nodeById.get(ownerId);
+  if (owner?.type !== "entity" && owner?.type !== "relationship") {
+    throw new Error(`L'attributo composto "${root.label}" non e collegato a un'entita o a una relazione traducibile.`);
+  }
+
+  const subtreeIds = new Set(collectAttributeSubtreeIds(root.id, ownership));
+  const leafPaths = collectLeafAttributePaths(root.id, ownership);
+  const leafIdSet = new Set(leafPaths.map((leaf) => leaf.node.id));
+  const remainingOwnerAttributes = (ownership.directAttributeIdsByOwnerId.get(owner.id) ?? [])
+    .map((currentId) => ownership.nodeById.get(currentId))
+    .filter((node): node is AttributeNode => node?.type === "attribute" && !subtreeIds.has(node.id));
+  const usedNames = new Set(remainingOwnerAttributes.map((attribute) => canonicalKey(attribute.label)));
+  const updatedLeafIds = new Set<string>();
+
+  const updatedNodes = working.nodes
+    .filter((node) => !subtreeIds.has(node.id) || leafIdSet.has(node.id))
+    .map((node) => {
+      if (!leafIdSet.has(node.id) || node.type !== "attribute") {
+        return node;
+      }
+
+      const leaf = leafPaths.find((candidate) => candidate.node.id === node.id) as LeafAttributePath;
+      const preferredLabel =
+        rule === "composite-flatten-prefixed"
+          ? leaf.pathLabels.join("_")
+          : leaf.pathLabels.length > 2
+            ? leaf.pathLabels.join("_")
+            : leaf.node.label;
+      const nextLabel = allocateUniqueLabel(usedNames, preferredLabel);
+      const nextSize = getMultivaluedAttributeSize(nextLabel);
+      const index = updatedLeafIds.size;
+      updatedLeafIds.add(node.id);
+
+      return {
+        ...node,
+        label: nextLabel,
+        isMultivalued: false,
+        width: Math.max(110, nextSize.width - 16),
+        height: 44,
+        x: owner.x + owner.width + 120,
+        y: owner.y - 40 + index * 62,
+      };
+    });
+
+  const remainingEdges = working.edges.filter((edge) => {
+    if (edge.type !== "attribute") {
+      return true;
+    }
+
+    return !subtreeIds.has(edge.sourceId) && !subtreeIds.has(edge.targetId);
+  });
+
+  const existingEdgeIds = new Set(remainingEdges.map((edge) => edge.id));
+  const addedEdges: DiagramEdge[] = [...updatedLeafIds].map((leafId) => ({
+    id: allocateUniqueId(existingEdgeIds, `translated-attribute-${owner.id}-${leafId}`, "attribute-edge"),
+    type: "attribute",
+    sourceId: leafId,
+    targetId: owner.id,
+    label: "",
+    lineStyle: "solid",
+  }));
+
+  const translatedDiagram = normalizeTranslatedDiagram({
+    ...working,
+    nodes: updatedNodes,
+    edges: [...remainingEdges, ...addedEdges],
+  });
+  const translatedNodeMap = new Map(translatedDiagram.nodes.map((node) => [node.id, node]));
+
+  return {
+    diagram: translatedDiagram,
+    artifacts: [...updatedLeafIds]
+      .map((leafId) => translatedNodeMap.get(leafId))
+      .filter((node): node is DiagramNode => node !== undefined)
+      .map((node) => ({
+        kind: "node",
+        id: node.id,
+        label: node.label,
+      })),
+  };
+}
+
+function moveSubtypeAttributesIntoSupertype(
+  diagram: DiagramDocument,
+  supertype: EntityNode,
+  subtype: EntityNode,
+  forceSubtypePrefix: boolean,
+): TranslationApplyResult {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  const targetAttributeIds = ownership.directAttributeIdsByOwnerId.get(supertype.id) ?? [];
+  const usedNames = new Set(
+    targetAttributeIds
+      .map((attributeId) => ownership.nodeById.get(attributeId))
+      .filter((node): node is AttributeNode => node?.type === "attribute")
+      .map((attribute) => canonicalKey(attribute.label)),
+  );
+  const subtypeAttributeIds = ownership.directAttributeIdsByOwnerId.get(subtype.id) ?? [];
+  const artifacts: ErTranslationArtifactRef[] = [];
+  let nextDiagram = diagram;
+
+  subtypeAttributeIds.forEach((rootAttributeId, index) => {
+    const currentOwnership = buildAttributeOwnershipContext(nextDiagram);
+    const root = currentOwnership.nodeById.get(rootAttributeId);
+    if (root?.type !== "attribute") {
+      return;
+    }
+
+    const subtreeIds = new Set(collectAttributeSubtreeIds(rootAttributeId, currentOwnership));
+    const ownerEdgeId = findAttributeEdgeId(nextDiagram, rootAttributeId, subtype.id);
+    const preferredLabel = forceSubtypePrefix ? `${subtype.label}_${root.label}` : root.label;
+    const nextLabel = allocateUniqueLabel(usedNames, preferredLabel);
+    const deltaX = supertype.x - subtype.x + 120;
+    const deltaY = supertype.y - subtype.y + index * 18;
+
+    nextDiagram = shiftAttributeSubtree(nextDiagram, subtreeIds, deltaX, deltaY);
+    nextDiagram = {
+      ...nextDiagram,
+      nodes: nextDiagram.nodes.map((node) =>
+        node.id === root.id
+          ? {
+              ...node,
+              label: nextLabel,
+            }
+          : node,
+      ),
+      edges: nextDiagram.edges.map((edge) =>
+        edge.id === ownerEdgeId
+          ? {
+              ...edge,
+              sourceId: edge.sourceId === subtype.id ? supertype.id : edge.sourceId,
+              targetId: edge.targetId === subtype.id ? supertype.id : edge.targetId,
+            }
+          : edge,
+      ),
+    };
+
+    artifacts.push({
+      kind: "node",
+      id: root.id,
+      label: nextLabel,
+    });
+  });
+
+  return {
+    diagram: nextDiagram,
+    artifacts,
+  };
+}
+
+function cloneAttributeSubtreeToSubtype(
+  diagram: DiagramDocument,
+  sourceOwner: EntityNode,
+  targetOwner: EntityNode,
+  rootAttributeId: string,
+): TranslationApplyResult {
+  const ownership = buildAttributeOwnershipContext(diagram);
+  const root = ownership.nodeById.get(rootAttributeId);
+  if (root?.type !== "attribute") {
+    return { diagram, artifacts: [] };
+  }
+
+  const subtreeIds = collectAttributeSubtreeIds(rootAttributeId, ownership);
+  const subtreeIdSet = new Set(subtreeIds);
+  const usedNodeIds = new Set(diagram.nodes.map((node) => node.id));
+  const usedEdgeIds = new Set(diagram.edges.map((edge) => edge.id));
+  const targetAttributeIds = ownership.directAttributeIdsByOwnerId.get(targetOwner.id) ?? [];
+  const usedNames = new Set(
+    targetAttributeIds
+      .map((attributeId) => ownership.nodeById.get(attributeId))
+      .filter((node): node is AttributeNode => node?.type === "attribute")
+      .map((attribute) => canonicalKey(attribute.label)),
+  );
+  const idRemap = new Map<string, string>();
+  const clonedNodes: DiagramNode[] = [];
+  const artifacts: ErTranslationArtifactRef[] = [];
+
+  subtreeIds.forEach((currentId, index) => {
+    const sourceNode = ownership.nodeById.get(currentId);
+    if (!sourceNode || sourceNode.type !== "attribute") {
+      return;
+    }
+
+    const nextId = allocateUniqueId(usedNodeIds, `${targetOwner.id}-${sourceNode.id}`, "attribute");
+    idRemap.set(currentId, nextId);
+    const nextNode: AttributeNode = {
+      ...sourceNode,
+      id: nextId,
+      x: sourceNode.x + (targetOwner.x - sourceOwner.x) + 120,
+      y: sourceNode.y + (targetOwner.y - sourceOwner.y) + index * 8,
+    };
+
+    if (currentId === rootAttributeId) {
+      nextNode.label = allocateUniqueLabel(
+        usedNames,
+        sourceNode.isMultivalued === true ? `${sourceOwner.label}_${sourceNode.label}` : sourceNode.label,
+      );
+      artifacts.push({
+        kind: "node",
+        id: nextId,
+        label: nextNode.label,
+      });
+    }
+
+    clonedNodes.push(nextNode);
+  });
+
+  const clonedEdges: DiagramEdge[] = diagram.edges
+    .filter((edge) => edge.type === "attribute" && (subtreeIdSet.has(edge.sourceId) || subtreeIdSet.has(edge.targetId)))
+    .flatMap((edge) => {
+      const isOwnerEdge =
+        (edge.sourceId === rootAttributeId && edge.targetId === sourceOwner.id) ||
+        (edge.targetId === rootAttributeId && edge.sourceId === sourceOwner.id);
+      if (isOwnerEdge) {
+        return [
+          {
+            ...edge,
+            id: allocateUniqueId(usedEdgeIds, `${targetOwner.id}-${edge.id}`, "attribute-edge"),
+            sourceId: edge.sourceId === rootAttributeId ? (idRemap.get(rootAttributeId) as string) : targetOwner.id,
+            targetId: edge.targetId === rootAttributeId ? (idRemap.get(rootAttributeId) as string) : targetOwner.id,
+          } satisfies DiagramEdge,
+        ];
+      }
+
+      if (!subtreeIdSet.has(edge.sourceId) || !subtreeIdSet.has(edge.targetId)) {
+        return [];
+      }
+
+      return [
+        {
+          ...edge,
+          id: allocateUniqueId(usedEdgeIds, `${targetOwner.id}-${edge.id}`, "attribute-edge"),
+          sourceId: idRemap.get(edge.sourceId) as string,
+          targetId: idRemap.get(edge.targetId) as string,
+        } satisfies DiagramEdge,
+      ];
+    });
+
+  return {
+    diagram: {
+      ...diagram,
+      nodes: [...diagram.nodes, ...clonedNodes],
+      edges: [...diagram.edges, ...clonedEdges],
+    },
+    artifacts,
+  };
+}
+
+function applyGeneralizationTranslationDetailed(
+  diagram: DiagramDocument,
+  supertypeId: string,
+  rule: Extract<
+    ErTranslationRuleKind,
+    "generalization-collapse-up" | "generalization-collapse-down" | "generalization-substitution"
+  >,
+): TranslationApplyResult {
+  let working = cloneDiagram(diagram);
+  const hierarchy = buildGeneralizationHierarchies(working).find((candidate) => candidate.supertype.id === supertypeId);
+  if (!hierarchy) {
+    throw new Error(`La gerarchia "${supertypeId}" non e disponibile nel diagramma tradotto corrente.`);
+  }
+
+  const artifacts: ErTranslationArtifactRef[] = [];
+  const currentNodeMap = new Map(working.nodes.map((node) => [node.id, node]));
+  const supertype = currentNodeMap.get(supertypeId);
+  if (supertype?.type !== "entity") {
+    throw new Error(`Il supertipo "${supertypeId}" non e piu valido nel diagramma tradotto corrente.`);
+  }
+
+  if (rule === "generalization-collapse-up" || rule === "generalization-substitution") {
+    hierarchy.subtypes.forEach((subtype) => {
+      const subtypeNode = currentNodeMap.get(subtype.id);
+      if (subtypeNode?.type !== "entity") {
+        return;
+      }
+
+      const moved = moveSubtypeAttributesIntoSupertype(
+        working,
+        supertype,
+        subtypeNode,
+        rule === "generalization-substitution",
+      );
+      working = moved.diagram;
+      artifacts.push(...moved.artifacts);
+
+      const subtypeCurrent = working.nodes.find((node): node is EntityNode => node.id === subtype.id && node.type === "entity");
+      const supertypeCurrent = working.nodes.find((node): node is EntityNode => node.id === supertype.id && node.type === "entity");
+      if (!subtypeCurrent || !supertypeCurrent) {
+        return;
+      }
+
+      const connectorEdges = working.edges.filter(
+        (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+          edge.type === "connector" && (edge.sourceId === subtypeCurrent.id || edge.targetId === subtypeCurrent.id),
+      );
+      const currentEdgeIds = new Set(working.edges.map((edge) => edge.id));
+      const supertypeRelationships = new Set(
+        working.edges
+          .filter(
+            (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+              edge.type === "connector" && (edge.sourceId === supertypeCurrent.id || edge.targetId === supertypeCurrent.id),
+          )
+          .map((edge) => (edge.sourceId === supertypeCurrent.id ? edge.targetId : edge.sourceId)),
+      );
+
+      const nextEdges: DiagramEdge[] = [];
+      connectorEdges.forEach((edge) => {
+        const relationshipId = edge.sourceId === subtypeCurrent.id ? edge.targetId : edge.sourceId;
+        if (supertypeRelationships.has(relationshipId)) {
+          return;
+        }
+
+        supertypeRelationships.add(relationshipId);
+        nextEdges.push({
+          ...edge,
+          id: allocateUniqueId(currentEdgeIds, edge.id, "connector"),
+          sourceId: edge.sourceId === subtypeCurrent.id ? supertypeCurrent.id : edge.sourceId,
+          targetId: edge.targetId === subtypeCurrent.id ? supertypeCurrent.id : edge.targetId,
+        });
+      });
+
+      working = {
+        ...working,
+        nodes: working.nodes
+          .map((node) => {
+            if (node.type !== "entity") {
+              return node;
+            }
+
+            if (node.id === supertypeCurrent.id) {
+              return {
+                ...node,
+                internalIdentifiers: mergeInternalIdentifiers(node, subtypeCurrent.internalIdentifiers),
+                externalIdentifiers: mergeExternalIdentifiers(node, supertypeCurrent.id, subtypeCurrent.externalIdentifiers),
+              };
+            }
+
+            return node;
+          })
+          .filter((node) => node.id !== subtypeCurrent.id),
+        edges: [
+          ...working.edges.filter((edge) => {
+            if (edge.type === "inheritance" && edge.sourceId === subtypeCurrent.id && edge.targetId === supertypeCurrent.id) {
+              return false;
+            }
+
+            if (edge.type === "connector" && (edge.sourceId === subtypeCurrent.id || edge.targetId === subtypeCurrent.id)) {
+              return false;
+            }
+
+            return true;
+          }),
+          ...nextEdges,
+        ].map((edge) =>
+          edge.type === "inheritance" && edge.targetId === subtypeCurrent.id
+            ? {
+                ...edge,
+                targetId: supertypeCurrent.id,
+              }
+            : edge,
+        ),
+      };
+
+      artifacts.push({
+        kind: "node",
+        id: supertypeCurrent.id,
+        label: supertypeCurrent.label,
+      });
+    });
+  } else {
+    hierarchy.subtypes.forEach((subtype) => {
+      const currentSupertype = working.nodes.find((node): node is EntityNode => node.id === supertypeId && node.type === "entity");
+      const currentSubtype = working.nodes.find((node): node is EntityNode => node.id === subtype.id && node.type === "entity");
+      if (!currentSupertype || !currentSubtype) {
+        return;
+      }
+
+      const ownership = buildAttributeOwnershipContext(working);
+      const supertypeAttributeIds = ownership.directAttributeIdsByOwnerId.get(currentSupertype.id) ?? [];
+      const idRemap = new Map<string, string>();
+
+      supertypeAttributeIds.forEach((rootAttributeId) => {
+        const cloned = cloneAttributeSubtreeToSubtype(working, currentSupertype, currentSubtype, rootAttributeId);
+        working = cloned.diagram;
+        cloned.artifacts.forEach((artifact) => {
+          artifacts.push(artifact);
+          idRemap.set(rootAttributeId, artifact.id);
+        });
+      });
+
+      const currentEdgeIds = new Set(working.edges.map((edge) => edge.id));
+      const existingSubtypeRelationships = new Set(
+        working.edges
+          .filter(
+            (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+              edge.type === "connector" && (edge.sourceId === currentSubtype.id || edge.targetId === currentSubtype.id),
+          )
+          .map((edge) => (edge.sourceId === currentSubtype.id ? edge.targetId : edge.sourceId)),
+      );
+      const inheritedConnectorEdges = working.edges.filter(
+        (edge): edge is Extract<DiagramEdge, { type: "connector" }> =>
+          edge.type === "connector" && (edge.sourceId === currentSupertype.id || edge.targetId === currentSupertype.id),
+      );
+
+      working = {
+        ...working,
+        edges: [
+          ...working.edges,
+          ...inheritedConnectorEdges.flatMap((edge) => {
+            const relationshipId = edge.sourceId === currentSupertype.id ? edge.targetId : edge.sourceId;
+            if (existingSubtypeRelationships.has(relationshipId)) {
+              return [];
+            }
+
+            existingSubtypeRelationships.add(relationshipId);
+            return [cloneConnectorEdgeForEntity(edge, currentSupertype.id, currentSubtype.id, currentEdgeIds)];
+          }),
+        ],
+        nodes: working.nodes.map((node) => {
+          if (node.type !== "entity" || node.id !== currentSubtype.id) {
+            return node;
+          }
+
+          return {
+            ...node,
+            internalIdentifiers: mergeInternalIdentifiers(node, currentSupertype.internalIdentifiers, idRemap),
+            externalIdentifiers: mergeExternalIdentifiers(node, currentSubtype.id, currentSupertype.externalIdentifiers, idRemap),
+          };
+        }),
+      };
+    });
+
+    const currentEdgeIds = new Set(working.edges.map((edge) => edge.id));
+    const parentInheritanceEdges = working.edges.filter(
+      (edge): edge is InheritanceEdge => edge.type === "inheritance" && edge.sourceId === supertypeId,
+    );
+
+    working = {
+      ...working,
+      nodes: working.nodes.filter((node) => node.id !== supertypeId),
+      edges: [
+        ...working.edges.filter((edge) => {
+          if (edge.type === "attribute" && (edge.sourceId === supertypeId || edge.targetId === supertypeId)) {
+            return false;
+          }
+
+          if (edge.type === "connector" && (edge.sourceId === supertypeId || edge.targetId === supertypeId)) {
+            return false;
+          }
+
+          if (edge.type === "inheritance" && edge.targetId === supertypeId) {
+            return false;
+          }
+
+          if (edge.type === "inheritance" && edge.sourceId === supertypeId) {
+            return false;
+          }
+
+          return true;
+        }),
+        ...parentInheritanceEdges.flatMap((edge) =>
+          hierarchy.subtypes.map((subtype) => ({
+            ...edge,
+            id: allocateUniqueId(currentEdgeIds, `${subtype.id}-${edge.id}`, "inheritance"),
+            sourceId: subtype.id,
+          })),
+        ),
+      ],
+    };
+
+    artifacts.push(
+      ...hierarchy.subtypes.map(
+        (subtype): ErTranslationArtifactRef => ({ kind: "node", id: subtype.id, label: subtype.label }),
+      ),
+    );
+  }
+
+  return {
+    diagram: normalizeTranslatedDiagram(working),
+    artifacts,
+  };
+}
+
+function buildGeneralizationChoices(hierarchy: GeneralizationHierarchy): TranslationChoiceRecord[] {
+  return [
+    {
+      id: `generalization-collapse-up-${hierarchy.supertype.id}`,
+      targetType: "generalization",
+      targetId: hierarchy.supertype.id,
+      step: "generalizations",
+      rule: "generalization-collapse-up",
+      label: "Collapse verso l'alto",
+      description: `Assorbe ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} dentro ${hierarchy.supertype.label}.`,
+      summary: `Gerarchia "${hierarchy.supertype.label}" collassata verso l'alto nel supertipo.`,
+      previewLines: ["Output ER: resta il supertipo, i sottotipi vengono assorbiti."],
+      recommended: hierarchy.completeness === "total",
+    },
+    {
+      id: `generalization-collapse-down-${hierarchy.supertype.id}`,
+      targetType: "generalization",
+      targetId: hierarchy.supertype.id,
+      step: "generalizations",
+      rule: "generalization-collapse-down",
+      label: "Collapse verso il basso",
+      description: `Duplica attributi e collegamenti di ${hierarchy.supertype.label} su ogni sottotipo e rimuove il supertipo.`,
+      summary: `Gerarchia "${hierarchy.supertype.label}" collassata verso il basso sui sottotipi.`,
+      previewLines: ["Output ER: restano i sottotipi, il supertipo viene distribuito."],
+      recommended: hierarchy.completeness === "partial",
+    },
+    {
+      id: `generalization-substitution-${hierarchy.supertype.id}`,
+      targetType: "generalization",
+      targetId: hierarchy.supertype.id,
+      step: "generalizations",
+      rule: "generalization-substitution",
+      label: "Sostituzione",
+      description: `Assorbe i sottotipi nel supertipo mantenendo i nomi migrati con prefisso stabile per preservare la provenienza.`,
+      summary: `Gerarchia "${hierarchy.supertype.label}" sostituita con un supertipo arricchito e attributi tracciabili.`,
+      previewLines: ["Output ER: resta il supertipo, gli attributi dei sottotipi vengono prefissati."],
+    },
+  ];
+}
+
+function buildCompositeChoices(attribute: AttributeNode, ownerLabel: string): TranslationChoiceRecord[] {
+  return [
+    {
+      id: `composite-preserve-${attribute.id}`,
+      targetType: "attribute",
+      targetId: attribute.id,
+      step: "composite-attributes",
+      rule: "composite-flatten-preserve",
+      label: "Espandi sull'owner",
+      description: `Porta i sotto-attributi foglia di ${attribute.label} direttamente su ${ownerLabel}, preservando i nomi quando non collidono.`,
+      summary: `Attributo composto "${attribute.label}" espanso direttamente sull'owner ER.`,
+      previewLines: ["Output ER: sparisce il nodo composto, restano solo attributi foglia sull'owner."],
+      recommended: true,
+    },
+    {
+      id: `composite-prefixed-${attribute.id}`,
+      targetType: "attribute",
+      targetId: attribute.id,
+      step: "composite-attributes",
+      rule: "composite-flatten-prefixed",
+      label: "Espandi con prefisso",
+      description: `Porta i foglia sull'owner e usa un naming prefissato stabile basato sul percorso del composto.`,
+      summary: `Attributo composto "${attribute.label}" espanso con naming prefissato e deterministico.`,
+      previewLines: ["Output ER: i nuovi attributi usano un prefisso coerente con il composto."],
+    },
+  ];
+}
+
+function createTranslationItemsByStep(
+  workspace: ErTranslationWorkspaceDocument,
+): TranslationOverviewInternal {
+  const itemsByStep: Record<ErTranslationStep, ErTranslationItem[]> = {
+    generalizations: [],
+    "composite-attributes": [],
+    review: [],
+  };
+  const choicesByKey = new Map<string, TranslationChoiceRecord>();
+  const translatedDiagram = workspace.translatedDiagram;
+  const ownership = buildAttributeOwnershipContext(translatedDiagram);
+
+  buildGeneralizationHierarchies(translatedDiagram).forEach((hierarchy) => {
+    const choices = buildGeneralizationChoices(hierarchy);
+    choices.forEach((choice) =>
+      choicesByKey.set(
+        buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration),
+        choice,
+      ),
+    );
+    itemsByStep.generalizations.push({
+      id: hierarchy.supertype.id,
+      targetType: "generalization",
+      step: "generalizations",
+      label: hierarchy.supertype.label,
+      description: `Gerarchia ISA con sottotipi ${hierarchy.subtypes.map((subtype) => subtype.label).join(", ")} da risolvere nell'ER tradotto.`,
+      status: "pending",
+      choiceIds: choices.map((choice) => choice.id),
+    });
+  });
+
+  const generalizationsPending = itemsByStep.generalizations.length > 0;
+  const compositeBlockReason = generalizationsPending
+    ? "Risolvi prima le generalizzazioni per poter tradurre gli attributi composti."
+    : undefined;
+
+  getCompositeRootAttributes(translatedDiagram).forEach((attribute) => {
+    const ownerId = ownership.parentByAttributeId.get(attribute.id) as string | undefined;
+    const owner = ownerId ? ownership.nodeById.get(ownerId) : undefined;
+    const ownerLabel = owner?.label ?? "owner";
+    const choices = buildCompositeChoices(attribute, ownerLabel);
+    choices.forEach((choice) =>
+      choicesByKey.set(
+        buildChoiceKey(choice.targetType, choice.targetId, choice.rule, choice.configuration),
+        choice,
+      ),
+    );
+
+    itemsByStep["composite-attributes"].push({
+      id: attribute.id,
+      targetType: "attribute",
+      step: "composite-attributes",
+      label: attribute.label,
+      description: `Attributo composto di ${ownerLabel} da espandere nel diagramma ER tradotto.`,
+      status: generalizationsPending ? "blocked" : "pending",
+      blockedReason: compositeBlockReason,
+      choiceIds: choices.map((choice) => choice.id),
+    });
+  });
+
+  const steps = ER_TRANSLATION_STEP_DEFS.map((definition): ErTranslationStepState => {
+    const items = itemsByStep[definition.id];
+    const applied = workspace.translation.decisions.filter((decision) => decision.step === definition.id).length;
+    const pending = items.filter((item) => item.status === "pending").length;
+    const blocked = items.some((item) => item.status === "blocked");
+    const completed = definition.id === "review" ? pending === 0 : pending === 0 && !blocked;
+
+    return {
+      id: definition.id,
+      label: definition.label,
+      description: definition.description,
+      total: pending + applied,
+      pending,
+      applied,
+      blocked,
+      completed,
+      blockReason: blocked ? items.find((item) => item.blockedReason)?.blockedReason : undefined,
+    };
+  });
+
+  const isComplete =
+    itemsByStep.generalizations.length === 0 &&
+    itemsByStep["composite-attributes"].filter((item) => item.status === "pending").length === 0 &&
+    workspace.translation.conflicts.length === 0;
+
+  return {
+    steps,
+    itemsByStep,
+    choicesByKey,
+    isComplete,
+    logicalBlockReason: !isComplete
+      ? compositeBlockReason ??
+        (itemsByStep.generalizations.length > 0
+          ? "La vista logica si abilita solo dopo aver risolto tutte le generalizzazioni."
+          : itemsByStep["composite-attributes"].length > 0
+            ? "La vista logica si abilita solo dopo aver tradotto tutti gli attributi composti."
+            : workspace.translation.conflicts[0]?.message)
+      : undefined,
+  };
+}
+
+function validateDecisionAgainstOverview(
+  decision: ErTranslationDecision,
+  overview: TranslationOverviewInternal,
+): ErTranslationConflict | null {
+  const choice = overview.choicesByKey.get(
+    buildChoiceKey(decision.targetType, decision.targetId, decision.rule, decision.configuration),
+  );
+  if (choice) {
+    return null;
+  }
+
+  return {
+    id: `translation-conflict-${decision.id}`,
+    targetType: decision.targetType,
+    targetId: decision.targetId,
+    level: "warning",
+    decisionId: decision.id,
+    message: `La decisione "${decision.summary}" non e piu coerente con il diagramma ER corrente e va rivista.`,
+  };
+}
+
+function applyDecisionToDiagram(
+  diagram: DiagramDocument,
+  decision: ErTranslationDecision,
+): TranslationApplyResult {
+  if (decision.targetType === "generalization") {
+    return applyGeneralizationTranslationDetailed(
+      diagram,
+      decision.targetId,
+      decision.rule as Extract<
+        ErTranslationRuleKind,
+        "generalization-collapse-up" | "generalization-collapse-down" | "generalization-substitution"
+      >,
+    );
+  }
+
+  return applyCompositeAttributeTranslationDetailed(
+    diagram,
+    decision.targetId,
+    decision.rule as Extract<ErTranslationRuleKind, "composite-flatten-preserve" | "composite-flatten-prefixed">,
+  );
+}
+
+export function buildErTranslationSourceSignature(diagram: DiagramDocument): string {
+  return buildLogicalSourceSignature(diagram);
+}
+
+export function createEmptyErTranslationWorkspace(
+  diagram: DiagramDocument,
+  previousWorkspace?: ErTranslationWorkspaceDocument,
+): ErTranslationWorkspaceDocument {
+  const normalizedSource = normalizeTranslatedDiagram(cloneDiagram(diagram));
+  const sourceSignature = buildErTranslationSourceSignature(normalizedSource);
+  const createdAt = previousWorkspace?.translation.meta.createdAt ?? nowIso();
+
+  return {
+    sourceDiagram: normalizedSource,
+    translatedDiagram: normalizedSource,
+    translation: {
+      meta: {
+        createdAt,
+        updatedAt: nowIso(),
+        sourceSignature,
+      },
+      decisions: [],
+      mappings: [],
+      conflicts: [],
+    },
+  };
+}
+
+export function refreshErTranslationWorkspace(
+  sourceDiagram: DiagramDocument,
+  workspace?: ErTranslationWorkspaceDocument,
+): ErTranslationWorkspaceDocument {
+  const baseWorkspace = createEmptyErTranslationWorkspace(sourceDiagram, workspace);
+  const orderedDecisions = normalizeStepDecisionOrder(
+    baseWorkspace.sourceDiagram,
+    workspace?.translation.decisions ?? [],
+  );
+  let translatedDiagram = baseWorkspace.sourceDiagram;
+  const nextDecisions: ErTranslationDecision[] = [];
+  const nextMappings: ErTranslationState["mappings"] = [];
+  const nextConflicts: ErTranslationConflict[] = [];
+
+  for (const decision of orderedDecisions) {
+    const previewWorkspace: ErTranslationWorkspaceDocument = {
+      ...baseWorkspace,
+      translatedDiagram,
+      translation: {
+        ...baseWorkspace.translation,
+        decisions: nextDecisions,
+        mappings: nextMappings,
+        conflicts: nextConflicts,
+      },
+    };
+    const overview = createTranslationItemsByStep(previewWorkspace);
+    const conflict = validateDecisionAgainstOverview(decision, overview);
+    if (conflict) {
+      nextConflicts.push(conflict);
+      continue;
+    }
+
+    try {
+      const applied = applyDecisionToDiagram(translatedDiagram, decision);
+      translatedDiagram = applied.diagram;
+      nextDecisions.push(decision);
+      nextMappings.push({
+        decisionId: decision.id,
+        targetType: decision.targetType,
+        targetId: decision.targetId,
+        summary: decision.summary,
+        artifacts: applied.artifacts,
+      });
+    } catch (error) {
+      nextConflicts.push({
+        id: `translation-conflict-${decision.id}`,
+        targetType: decision.targetType,
+        targetId: decision.targetId,
+        level: "warning",
+        decisionId: decision.id,
+        message: error instanceof Error ? error.message : `La decisione ${decision.id} non e stata applicata.`,
+      });
+    }
+  }
+
+  return {
+    sourceDiagram: baseWorkspace.sourceDiagram,
+    translatedDiagram,
+    translation: {
+      meta: {
+        createdAt: baseWorkspace.translation.meta.createdAt,
+        updatedAt: nowIso(),
+        sourceSignature: baseWorkspace.translation.meta.sourceSignature,
+      },
+      decisions: nextDecisions,
+      mappings: nextMappings,
+      conflicts: nextConflicts,
+    },
+  };
+}
+
+export function applyErTranslationChoice(
+  sourceDiagram: DiagramDocument,
+  workspace: ErTranslationWorkspaceDocument,
+  choice: ErTranslationChoice,
+  targetType: ErTranslationDecision["targetType"],
+  targetId: string,
+): ErTranslationWorkspaceDocument {
+  const previousDecision = workspace.translation.decisions.find(
+    (decision) => decision.targetType === targetType && decision.targetId === targetId,
+  );
+  const nextDecision: ErTranslationDecision = {
+    id: previousDecision?.id ?? `translation-${targetType}-${targetId}`,
+    targetType,
+    targetId,
+    step: choice.step,
+    rule: choice.rule,
+    summary: choice.summary,
+    appliedAt: previousDecision?.appliedAt ?? nowIso(),
+    status: "applied",
+    configuration: choice.configuration,
+  };
+
+  return refreshErTranslationWorkspace(sourceDiagram, {
+    ...workspace,
+    translation: {
+      ...workspace.translation,
+      decisions: [
+        ...workspace.translation.decisions.filter(
+          (decision) => !(decision.targetType === targetType && decision.targetId === targetId),
+        ),
+        nextDecision,
+      ],
+    },
+  });
+}
+
+export function buildErTranslationOverview(workspace: ErTranslationWorkspaceDocument): ErTranslationOverview {
+  const { choicesByKey: _choicesByKey, ...overview } = createTranslationItemsByStep(workspace);
+  return overview;
+}
+
+export function getErTranslationChoicesForItem(
+  workspace: ErTranslationWorkspaceDocument,
+  item: ErTranslationItem,
+): ErTranslationChoice[] {
+  const overview = createTranslationItemsByStep(workspace);
+  return [...overview.choicesByKey.values()]
+    .filter((choice) => choice.targetType === item.targetType && choice.targetId === item.id)
+    .sort((left, right) => left.label.localeCompare(right.label, "it", { sensitivity: "base" }));
+}
+
+export function getPreferredErTranslationStep(overview: ErTranslationOverview): ErTranslationStep {
+  const nextOpenStep = overview.steps.find((step) => !step.completed && !step.blocked && step.id !== "review" && step.pending > 0);
+  if (nextOpenStep) {
+    return nextOpenStep.id;
+  }
+
+  if (!overview.isComplete) {
+    const blockedStep = overview.steps.find((step) => step.blocked && step.id !== "review");
+    if (blockedStep) {
+      return blockedStep.id;
+    }
+  }
+
+  return "review";
+}
+
+export function canOpenTranslationView(
+  diagram: DiagramDocument,
+): { allowed: boolean; reason?: string; issues: ValidationIssue[] } {
+  const issues = validateDiagram(diagram);
+  const blockingIssues = issues.filter((issue) => issue.level === "error");
+  if (blockingIssues.length > 0) {
+    return {
+      allowed: false,
+      reason: "La vista Traduzione si apre solo quando lo schema ER non ha errori bloccanti.",
+      issues,
+    };
+  }
+
+  return { allowed: true, issues };
+}
+
+export function canOpenLogicalView(
+  workspace: ErTranslationWorkspaceDocument,
+): { allowed: boolean; reason?: string } {
+  const overview = createTranslationItemsByStep(workspace);
+  if (overview.isComplete) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    reason: overview.logicalBlockReason ?? "Completa prima la pipeline di traduzione ER->ER.",
+  };
+}
+
+export function applyGeneralizationTranslation(
+  diagram: DiagramDocument,
+  decision: {
+    supertypeId: string;
+    rule: Extract<
+      ErTranslationRuleKind,
+      "generalization-collapse-up" | "generalization-collapse-down" | "generalization-substitution"
+    >;
+  },
+): DiagramDocument {
+  return applyGeneralizationTranslationDetailed(diagram, decision.supertypeId, decision.rule).diagram;
+}
+
+export function applyCompositeAttributeTranslation(
+  diagram: DiagramDocument,
+  attributeId: string,
+  strategy: Extract<ErTranslationRuleKind, "composite-flatten-preserve" | "composite-flatten-prefixed">,
+): DiagramDocument {
+  return applyCompositeAttributeTranslationDetailed(diagram, attributeId, strategy).diagram;
+}
+
+export const ER_TRANSLATION_STEPS = ER_TRANSLATION_STEP_DEFS;

@@ -65,6 +65,7 @@ export const it = {
     quickActionsLabel: "Azioni rapide workspace",
     secondaryActionsLabel: "Azioni secondarie",
     views: {
+      translation: "Traduzione",
       logical: "Logico",
     },
     modes: {
@@ -76,6 +77,8 @@ export const it = {
       hideCode: "Nascondi pannello codice",
       showNotes: "Mostra notes",
       hideNotes: "Nascondi notes",
+      resetTranslation: "Reset traduzione",
+      resetTranslationTitle: "Resetta il workspace di traduzione ER->ER",
       resetLogical: "Reset",
       resetLogicalOutdated: "Reset*",
       resetLogicalTitle: "Resetta la procedura guidata di traduzione",
@@ -135,8 +138,8 @@ export const it = {
       weakEntity: "Entita debole",
       identifierAttribute: "Attributo identificatore",
       identifier: "Identificatore",
-      multivaluedAttribute: "Attributo multivalore",
-      multivalued: "Multivalore",
+      multivaluedAttribute: "Attributo composto",
+      multivalued: "Composto",
       addAttribute: "Aggiungi attributo",
       addSubAttribute: "Aggiungi sotto-attributo",
       subAttribute: "Sotto-attributo",
@@ -345,12 +348,12 @@ export const it = {
         description: "Decidi esplicitamente se una relazione sparisce in FK o diventa tabella autonoma.",
       },
       multivaluedAttributes: {
-        label: "Fissa multivalore",
-        description: "Trasforma ogni attributo multivalore in tabella separata con FK verso l'owner.",
+        label: "Fissa attributi composti",
+        description: "Espandi ogni attributo composto sull'owner ER prima di aprire la vista logica.",
       },
       generalizations: {
         label: "Fissa generalizzazioni",
-        description: "Scegli la strategia di mapping delle gerarchie ISA.",
+        description: "Scegli la strategia ER->ER delle gerarchie ISA prima della trasformazione logica.",
       },
       review: {
         label: "Revisione",

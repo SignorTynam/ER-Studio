@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createEmptyDiagram, serializeDiagram } from "../src/utils/diagram.ts";
-import { createEmptyLogicalWorkspace } from "../src/utils/logicalTranslation.ts";
+import { createEmptyErTranslationWorkspace } from "../src/utils/erTranslation.ts";
+import { createEmptyLogicalWorkspace } from "../src/utils/logicalWorkspace.ts";
 import {
   CURRENT_PROJECT_FILE_VERSION,
   parseProjectFile,
@@ -15,14 +16,17 @@ const DEFAULT_VIEWPORT = { x: 180, y: 110, zoom: 1 };
 
 test("il formato .ersp salva e ripristina vista corrente e viewport del progetto", () => {
   const diagram = createEmptyDiagram("Progetto completo");
-  const logicalWorkspace = createEmptyLogicalWorkspace(diagram);
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
 
   const serialized = serializeProjectFile({
     diagram,
+    translationWorkspace,
     logicalWorkspace,
     logicalGenerated: true,
     diagramView: "logical",
     viewport: { x: 42, y: -18, zoom: 1.35 },
+    translationViewport: { x: 64, y: 24, zoom: 0.92 },
     logicalViewport: { x: -120, y: 88, zoom: 0.75 },
     savedAt: "2026-04-15T10:00:00.000Z",
   });
@@ -39,12 +43,15 @@ test("il formato .ersp salva e ripristina vista corrente e viewport del progetto
   assert.equal(parsed.state.logicalGenerated, true);
   assert.equal(parsed.state.diagramView, "logical");
   assert.deepEqual(parsed.state.viewport, { x: 42, y: -18, zoom: 1.35 });
+  assert.deepEqual(parsed.state.translationViewport, { x: 64, y: 24, zoom: 0.92 });
   assert.deepEqual(parsed.state.logicalViewport, { x: -120, y: 88, zoom: 0.75 });
+  assert.equal(parsed.state.translationWorkspace.translatedDiagram.meta.name, "Progetto completo");
 });
 
 test("i vecchi project file JSON version 2 vengono migrati nel formato .ersp", () => {
   const diagram = createEmptyDiagram("Legacy project");
-  const logicalWorkspace = createEmptyLogicalWorkspace(diagram);
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
   const legacyProject = {
     version: 2,
     kind: PROJECT_FILE_KIND,
@@ -62,9 +69,11 @@ test("i vecchi project file JSON version 2 vengono migrati nel formato .ersp", (
   assert.equal(parsed.source, "legacy-project-json");
   assert.equal(parsed.document.version, CURRENT_PROJECT_FILE_VERSION);
   assert.equal(parsed.state.diagram.meta.name, "Legacy project");
-  assert.equal(parsed.state.diagramView, "logical");
+  assert.equal(parsed.state.diagramView, "translation");
   assert.deepEqual(parsed.state.viewport, DEFAULT_VIEWPORT);
+  assert.deepEqual(parsed.state.translationViewport, DEFAULT_VIEWPORT);
   assert.deepEqual(parsed.state.logicalViewport, DEFAULT_VIEWPORT);
+  assert.equal(parsed.state.logicalGenerated, false);
 });
 
 test("un diagramma JSON legacy viene accettato solo come fallback compatibile e incapsulato in un progetto", () => {
@@ -79,6 +88,7 @@ test("un diagramma JSON legacy viene accettato solo come fallback compatibile e 
   assert.equal(parsed.state.logicalGenerated, false);
   assert.equal(parsed.state.diagramView, "er");
   assert.equal(parsed.state.logicalWorkspace.model.tables.length, 0);
+  assert.equal(parsed.state.translationWorkspace.translatedDiagram.meta.name, "Legacy diagram");
   assert.deepEqual(parsed.state.viewport, DEFAULT_VIEWPORT);
 });
 

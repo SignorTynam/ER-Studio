@@ -50,7 +50,7 @@ const FLOW_STEPS = [
   {
     step: "02",
     title: "Aggiungi attributi dentro il blocco giusto",
-    text: "Gli attributi semplici, identifier e multivalued si leggono meglio quando restano vicini al loro contenitore nel blocco.",
+    text: "Gli attributi semplici, identifier e composti si leggono meglio quando restano vicini al loro contenitore nel blocco.",
   },
   {
     step: "03",
@@ -81,9 +81,9 @@ const SYNTAX_PATTERNS = [
     text: "Ogni riga identifier con lista separata da virgole definisce un identificatore interno composto distinto.",
   },
   {
-    title: "Attributo multivalore con attributi collegati",
+    title: "Attributo composto con sotto-attributi",
     code: `multivalued INDIRIZZO\nattribute Via\nattribute-link Via -> INDIRIZZO`,
-    text: "Nel DSL e nel canvas la parola chiave corretta per questo nodo e multivalued.",
+    text: "Nel DSL legacy la keyword compatibile resta multivalued, ma nell'interfaccia il concetto corretto e attributo composto.",
   },
   {
     title: "Vincoli ISA avanzati",
@@ -94,8 +94,8 @@ const SYNTAX_PATTERNS = [
 
 const COMMON_TRAPS = [
   {
-    title: "Etichetta dell'interfaccia e parola chiave del DSL",
-    text: "Nell'interfaccia e nel file la forma corretta da usare e multivalued.",
+    title: "Etichetta UI e parola chiave del DSL",
+    text: "Nell'interfaccia parla di attributo composto; nel file ERS la keyword legacy da usare resta `multivalued`.",
   },
   {
     title: "Direzione di attribute-link",
@@ -103,7 +103,7 @@ const COMMON_TRAPS = [
   },
   {
     title: "Attributi incompatibili",
-    text: "Un attributo non puo essere multivalued e membro di un identificatore interno. Inoltre non puo comparire in piu identificatori interni contemporaneamente.",
+    text: "Un attributo composto non puo essere membro di un identificatore interno. Inoltre un attributo non puo comparire in piu identificatori interni contemporaneamente.",
   },
   {
     title: "Errore temporaneo durante la digitazione",
@@ -194,7 +194,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <div className="tutorial-stage-footer">
               <strong>Regola pratica</strong>
               <p>
-                Se vuoi un attributo multivalore come nell&apos;editor, crei l&apos;ovale padre con <code>multivalued</code>{" "}
+                Se vuoi un attributo composto come nell&apos;editor, crei l&apos;ovale padre con <code>multivalued</code>{" "}
                 e poi colleghi tutti i figli necessari con <code>attribute-link</code>.
               </p>
             </div>
@@ -228,7 +228,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
             <h2>Quattro pattern bastano per coprire quasi tutto il lavoro quotidiano.</h2>
             <p>
               Non serve memorizzare l&apos;intero DSL per partire. Questi frammenti coprono entita, relazioni,
-              attributi multivalore e generalizzazioni.
+              attributi composti e generalizzazioni.
             </p>
           </div>
 
@@ -248,7 +248,7 @@ export function CodeModeTutorialPage(props: CodeModeTutorialPageProps) {
               <h3>Tre dettagli che evitano quasi tutti i dubbi iniziali.</h3>
               <ul className="tutorial-note-list">
                 <li>
-                  <code>multivalued</code> e la parola chiave corretta per l&apos;attributo multivalore.
+                  <code>multivalued</code> e la parola chiave legacy compatibile per l&apos;attributo composto.
                 </li>
                 <li>
                   <code>attribute-link figlio -&gt; padre</code> collega un sotto-attributo al suo contenitore.

@@ -2652,7 +2652,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
         issues.push({
           id: `attribute-conflict-${node.id}`,
           level: "error",
-          message: `L'attributo "${node.label}" non e valido perche e segnato come multivalore e identificatore insieme; per risolvere lascia attiva una sola modalita.`,
+          message: `L'attributo "${node.label}" non e valido perche e segnato come composto e identificatore insieme; per risolvere lascia attiva una sola modalita.`,
           targetId: node.id,
           targetType: "node",
         });
@@ -2821,7 +2821,7 @@ export function validateDiagram(diagram: DiagramDocument): ValidationIssue[] {
             issues.push({
               id: `internal-identifier-multivalued-${node.id}-${identifierLabel}-${attributeId}`,
               level: "error",
-              message: `L'attributo "${attributeNode.label}" e multivalore e non puo far parte di un identificatore interno.`,
+              message: `L'attributo "${attributeNode.label}" e composto e non puo far parte di un identificatore interno.`,
               targetId: node.id,
               targetType: "node",
             });

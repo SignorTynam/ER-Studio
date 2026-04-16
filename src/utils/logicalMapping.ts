@@ -594,7 +594,7 @@ function addRelationshipAttributes(
       pushIssue(
         context,
         "MULTIVALUED_ATTRIBUTE",
-        `L'attributo multivalore di relazione "${attribute.label}" e mappato come colonna semplice nella tabella "${context.tableById.get(tableId)?.name ?? tableId}".`,
+        `L'attributo composto di relazione "${attribute.label}" e mappato come colonna semplice nella tabella "${context.tableById.get(tableId)?.name ?? tableId}".`,
         "warning",
         {
           tableId,
@@ -921,7 +921,7 @@ export function generateLogicalModel(diagram: DiagramDocument): LogicalModel {
         pushIssue(
           context,
           "MULTIVALUED_ATTRIBUTE",
-          `L'attributo multivalore "${attribute.label}" e mappato come colonna semplice nella tabella "${table.name}".`,
+          `L'attributo composto "${attribute.label}" e mappato come colonna semplice nella tabella "${table.name}".`,
           "warning",
           {
             tableId: table.id,

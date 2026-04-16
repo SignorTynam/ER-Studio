@@ -65,6 +65,7 @@ export const sq: DeepPartialMessages = {
     quickActionsLabel: "Veprime te shpejta te workspace",
     secondaryActionsLabel: "Veprime dytesore",
     views: {
+      translation: "Perkthim",
       logical: "Logjik",
     },
     modes: {
@@ -98,6 +99,8 @@ export const sq: DeepPartialMessages = {
       hideCode: "Fshih panelin e kodit",
       showNotes: "Shfaq shenimet",
       hideNotes: "Fshih shenimet",
+      resetTranslation: "Rivendos perkthimin",
+      resetTranslationTitle: "Rivendos workspace-in e perkthimit ER-ne-ER",
       resetLogical: "Rivendos",
       resetLogicalOutdated: "Rivendos*",
       resetLogicalTitle: "Rivendos rrjedhen e udhehequr te perkthimit",
@@ -134,8 +137,8 @@ export const sq: DeepPartialMessages = {
       weakEntity: "Entitet i dobet",
       identifierAttribute: "Atribut identifikues",
       identifier: "Identifikues",
-      multivaluedAttribute: "Atribut shumvleresh",
-      multivalued: "Shumvleresh",
+      multivaluedAttribute: "Atribut i perbere",
+      multivalued: "I perbere",
       addAttribute: "Shto atribut",
       addSubAttribute: "Shto nen-atribut",
       subAttribute: "Nen-atribut",
@@ -344,12 +347,12 @@ export const sq: DeepPartialMessages = {
         description: "Vendos qarte nese nje marredhenie zhduket ne FK apo behet tabele me vete.",
       },
       multivaluedAttributes: {
-        label: "Rregullo atributet shumvleresh",
-        description: "Shnderro cdo atribut shumvleresh ne tabele te vecante me FK drejt owner-it.",
+        label: "Rregullo atributet e perbera",
+        description: "Zgjero cdo atribut te perbere te pronari ER para hapjes se pamjes logjike.",
       },
       generalizations: {
         label: "Rregullo pergjithesimet",
-        description: "Zgjidh strategjine e mapping-ut per hierarkite ISA.",
+        description: "Zgjidh strategjine ER->ER per hierarkite ISA para transformimit logjik.",
       },
       review: {
         label: "Rishikim",

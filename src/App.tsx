@@ -7,7 +7,8 @@ import { CodeModeTutorialPage } from "./components/CodeModeTutorialPage";
 import { NotesPanel } from "./components/NotesPanel";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { useHistory } from "./hooks/useHistory";
-import { LogicalTranslationWorkspace } from "./logical/LogicalTranslationWorkspace";
+import { LogicalTransformationCanvas } from "./logical/LogicalTransformationCanvas";
+import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   AttributeNode,
@@ -27,11 +28,15 @@ import { EMPTY_LOGICAL_SELECTION } from "./types/logical";
 import type {
   LogicalModel,
   LogicalSelection,
-  LogicalTranslationChoice,
-  LogicalTranslationItem,
-  LogicalTranslationState,
   LogicalWorkspaceDocument,
 } from "./types/logical";
+import type {
+  ErTranslationChoice,
+  ErTranslationItem,
+  ErTranslationState,
+  ErTranslationWorkspaceDocument,
+  WorkspaceView,
+} from "./types/translation";
 import {
   alignNodes,
   canConnect,
@@ -60,13 +65,19 @@ import { downloadPng, downloadSvg } from "./utils/export";
 import { GRID_SIZE, snapValue } from "./utils/geometry";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
-  applyLogicalTranslationChoice,
-  buildLogicalSourceSignature,
-  createEmptyLogicalWorkspace,
+  applyErTranslationChoice,
+  buildErTranslationSourceSignature,
+  canOpenLogicalView,
+  canOpenTranslationView,
+  createEmptyErTranslationWorkspace,
+  refreshErTranslationWorkspace,
+} from "./utils/erTranslation";
+import {
   createEmptyLogicalModel,
+  createEmptyLogicalWorkspace,
   refreshLogicalWorkspace,
   updateLogicalWorkspaceModel,
-} from "./utils/logicalTranslation";
+} from "./utils/logicalWorkspace";
 import {
   parseProjectFile,
   ProjectFileError,
@@ -137,20 +148,21 @@ interface OnboardingProgress {
 }
 
 type AppSurface = "studio" | "code-tutorial";
-type DiagramWorkspaceView = "er" | "logical";
-
 interface WorkspaceSessionSnapshot {
-  version: 2;
+  version: 4;
   savedAt: string;
   diagram: DiagramDocument;
+  translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   surface: AppSurface;
-  diagramView: DiagramWorkspaceView;
+  diagramView: WorkspaceView;
   tool: ToolKind;
   mode: EditorMode;
   viewport: Viewport;
   selection: SelectionState;
+  translationViewport: Viewport;
+  translationSelection: SelectionState;
   logicalViewport: Viewport;
   logicalSelection: LogicalSelection;
   codeDraft: string;
@@ -166,14 +178,17 @@ interface WorkspaceSessionSnapshot {
 
 interface WorkspaceSessionBootstrap {
   diagram: DiagramDocument;
+  translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   surface: AppSurface;
-  diagramView: DiagramWorkspaceView;
+  diagramView: WorkspaceView;
   tool: ToolKind;
   mode: EditorMode;
   viewport: Viewport;
   selection: SelectionState;
+  translationViewport: Viewport;
+  translationSelection: SelectionState;
   logicalViewport: Viewport;
   logicalSelection: LogicalSelection;
   codeDraft: string;
@@ -226,7 +241,7 @@ const MIN_NOTES_PANEL_WIDTH = 260;
 const MAX_NOTES_PANEL_WIDTH = 700;
 const RESIZER_WIDTH = 12;
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
-const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v3";
+const WORKSPACE_SESSION_STORAGE_KEY = "chen-er-diagram-studio:workspace-session-v4";
 const WORKSPACE_SESSION_SAVE_DEBOUNCE_MS = 420;
 const TOOL_KIND_VALUES: ToolKind[] = [
   "move",
@@ -318,18 +333,13 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
   } as LogicalModel;
 }
 
-function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
-  const fallback = createEmptyLogicalWorkspace(diagram);
-  if (!isRecord(value)) {
+function sanitizeErTranslationWorkspace(value: unknown, diagram: DiagramDocument): ErTranslationWorkspaceDocument {
+  const fallback = createEmptyErTranslationWorkspace(diagram);
+  if (!isRecord(value) || !isRecord(value.translation)) {
     return fallback;
   }
 
-  const candidate = value as Partial<LogicalWorkspaceDocument>;
-  if (!isRecord(candidate.translation)) {
-    return fallback;
-  }
-
-  const translation = candidate.translation as Partial<LogicalTranslationState>;
+  const translation = value.translation as Partial<ErTranslationState>;
   const meta = translation.meta;
   if (
     !isRecord(meta) ||
@@ -344,9 +354,26 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
   }
 
   try {
+    return refreshErTranslationWorkspace(diagram, {
+      sourceDiagram: diagram,
+      translatedDiagram: isRecord(value.translatedDiagram) ? parseDiagram(JSON.stringify(value.translatedDiagram)) : diagram,
+      translation: translation as ErTranslationState,
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
+  const fallback = createEmptyLogicalWorkspace(diagram);
+  if (!isRecord(value) || !isRecord(value.model)) {
+    return fallback;
+  }
+
+  try {
     return refreshLogicalWorkspace(diagram, {
-      model: sanitizeLogicalModel(candidate.model),
-      translation: translation as LogicalTranslationState,
+      ...fallback,
+      model: sanitizeLogicalModel(value.model),
       transformation: fallback.transformation,
     });
   } catch {
@@ -356,9 +383,11 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
 
 function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
   const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
   return {
     diagram,
-    logicalWorkspace: createEmptyLogicalWorkspace(diagram),
+    translationWorkspace,
+    logicalWorkspace: createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
     logicalGenerated: false,
     surface: "studio",
     diagramView: "er",
@@ -366,6 +395,8 @@ function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     mode: "edit",
     viewport: { ...DEFAULT_VIEWPORT },
     selection: { nodeIds: [], edgeIds: [] },
+    translationViewport: { ...DEFAULT_VIEWPORT },
+    translationSelection: { nodeIds: [], edgeIds: [] },
     logicalViewport: { ...DEFAULT_VIEWPORT },
     logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
     codeDraft: serializeDiagramToErs(diagram),
@@ -394,17 +425,20 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     }
 
     const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2)) {
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) {
       return fallback;
     }
 
     const storedDiagram = parseDiagram(JSON.stringify(parsed.diagram));
     const storedViewport = sanitizeViewport(parsed.viewport, DEFAULT_VIEWPORT);
+    const storedTranslationViewport = sanitizeViewport(parsed.translationViewport, DEFAULT_VIEWPORT);
     const storedLogicalViewport = sanitizeViewport(parsed.logicalViewport, DEFAULT_VIEWPORT);
     const storedSelection = sanitizeSelectionState(parsed.selection);
+    const storedTranslationSelection = sanitizeSelectionState(parsed.translationSelection);
     const storedLogicalSelection = sanitizeLogicalSelectionState(parsed.logicalSelection);
     const storedSurface: AppSurface = parsed.surface === "code-tutorial" ? "code-tutorial" : "studio";
-    const storedDiagramView: DiagramWorkspaceView = parsed.diagramView === "logical" ? "logical" : "er";
+    const storedDiagramView: WorkspaceView =
+      parsed.diagramView === "logical" ? "logical" : parsed.diagramView === "translation" ? "translation" : "er";
     const storedMode: EditorMode = parsed.mode === "view" ? "view" : "edit";
     const storedTool = sanitizeToolKind(parsed.tool);
     const storedCodeDraft =
@@ -414,12 +448,18 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
     const storedNotesPanelOpen = parsed.notesPanelOpen === true;
     const storedCodePanelOpen = parsed.codePanelOpen === true && !storedNotesPanelOpen;
 
+    const storedTranslationWorkspace =
+      parsed.version >= 3
+        ? sanitizeErTranslationWorkspace(parsed.translationWorkspace, storedDiagram)
+        : createEmptyErTranslationWorkspace(storedDiagram);
+
     return {
       diagram: storedDiagram,
+      translationWorkspace: storedTranslationWorkspace,
       logicalWorkspace:
-        parsed.version === 2
-          ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedDiagram)
-          : createEmptyLogicalWorkspace(storedDiagram),
+        parsed.version >= 2
+          ? sanitizeLogicalWorkspace(parsed.logicalWorkspace, storedTranslationWorkspace.translatedDiagram)
+          : createEmptyLogicalWorkspace(storedTranslationWorkspace.translatedDiagram),
       logicalGenerated: parsed.logicalGenerated === true,
       surface: storedSurface,
       diagramView: storedDiagramView,
@@ -427,6 +467,8 @@ function readWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
       mode: storedMode,
       viewport: storedViewport,
       selection: storedSelection,
+      translationViewport: storedTranslationViewport,
+      translationSelection: storedTranslationSelection,
       logicalViewport: storedLogicalViewport,
       logicalSelection: storedLogicalSelection,
       codeDraft: storedCodeDraft,
@@ -927,17 +969,24 @@ export default function App() {
 
   const initialDiagramRef = useRef<DiagramDocument>(sessionBootstrap.diagram);
   const history = useHistory<DiagramDocument>(initialDiagramRef.current);
+  const initialTranslationWorkspaceRef = useRef<ErTranslationWorkspaceDocument>(sessionBootstrap.translationWorkspace);
+  const translationHistory = useHistory<ErTranslationWorkspaceDocument>(initialTranslationWorkspaceRef.current);
   const initialLogicalWorkspaceRef = useRef<LogicalWorkspaceDocument>(sessionBootstrap.logicalWorkspace);
   const logicalHistory = useHistory<LogicalWorkspaceDocument>(initialLogicalWorkspaceRef.current);
   const initialSerializedCode = sessionBootstrap.codeDraft;
   const [surface, setSurface] = useState<AppSurface>(sessionBootstrap.surface);
-  const [diagramView, setDiagramView] = useState<DiagramWorkspaceView>(sessionBootstrap.diagramView);
+  const [diagramView, setDiagramView] = useState<WorkspaceView>(sessionBootstrap.diagramView);
   const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
   const [mode, setMode] = useState<EditorMode>(sessionBootstrap.mode);
   const [viewport, setViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.viewport }));
   const [selection, setSelection] = useState<SelectionState>(() => ({
     nodeIds: [...sessionBootstrap.selection.nodeIds],
     edgeIds: [...sessionBootstrap.selection.edgeIds],
+  }));
+  const [translationViewport, setTranslationViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.translationViewport }));
+  const [translationSelection, setTranslationSelection] = useState<SelectionState>(() => ({
+    nodeIds: [...sessionBootstrap.translationSelection.nodeIds],
+    edgeIds: [...sessionBootstrap.translationSelection.edgeIds],
   }));
   const [logicalViewport, setLogicalViewport] = useState<Viewport>(() => ({ ...sessionBootstrap.logicalViewport }));
   const [logicalSelection, setLogicalSelection] = useState<LogicalSelection>(() => ({ ...sessionBootstrap.logicalSelection }));
@@ -1019,16 +1068,19 @@ export default function App() {
               issue.targetId === selectedEdge.id,
           )
       : undefined;
-  const currentErSignature = buildLogicalSourceSignature(history.present);
+  const translationAccess = canOpenTranslationView(history.present);
+  const currentErSignature = buildErTranslationSourceSignature(history.present);
+  const currentTranslatedSignature = buildErTranslationSourceSignature(translationHistory.present.translatedDiagram);
   const logicalOutOfDate =
     logicalGenerated &&
-    (logicalHistory.present.translation.meta.sourceSignature !== currentErSignature ||
-      logicalHistory.present.translation.conflicts.length > 0);
+    logicalHistory.present.translation.meta.sourceSignature !== currentTranslatedSignature;
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const effectiveToolbarCollapsed = focusMode || toolbarCollapsed;
-  const activeCanUndo = diagramView === "er" ? history.canUndo : logicalHistory.canUndo;
-  const activeCanRedo = diagramView === "er" ? history.canRedo : logicalHistory.canRedo;
+  const activeCanUndo =
+    diagramView === "er" ? history.canUndo : diagramView === "translation" ? translationHistory.canUndo : logicalHistory.canUndo;
+  const activeCanRedo =
+    diagramView === "er" ? history.canRedo : diagramView === "translation" ? translationHistory.canRedo : logicalHistory.canRedo;
   const toolbarResizeBounds = {
     min: MIN_TOOLBAR_WIDTH,
     max: clampValue(Math.floor(windowWidth * 0.28), 220, MAX_TOOLBAR_WIDTH),
@@ -1061,11 +1113,12 @@ export default function App() {
     "--diagram-code-panel-width": activeSidePanel ? `${activeSidePanelWidth}px` : "0px",
     "--diagram-code-resizer-width": activeSidePanel ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
+  const structuredWorkspaceActive = diagramView === "translation" || (diagramView === "logical" && logicalGenerated);
   const logicalWorkspaceShellStyle = {
-    "--toolbar-width": logicalGenerated ? "220px" : "0px",
+    "--toolbar-width": structuredWorkspaceActive ? "220px" : "0px",
     "--toolbar-resizer-width": "0px",
     "--inspector-resizer-width": "0px",
-    "--inspector-width": logicalGenerated ? "360px" : "0px",
+    "--inspector-width": structuredWorkspaceActive ? "360px" : "0px",
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
 
@@ -1125,9 +1178,10 @@ export default function App() {
 
   useEffect(() => {
     latestSessionSnapshotRef.current = {
-      version: 2,
+      version: 4,
       savedAt: new Date().toISOString(),
       diagram: history.present,
+      translationWorkspace: translationHistory.present,
       logicalWorkspace: logicalHistory.present,
       logicalGenerated,
       surface,
@@ -1138,6 +1192,11 @@ export default function App() {
       selection: {
         nodeIds: [...selection.nodeIds],
         edgeIds: [...selection.edgeIds],
+      },
+      translationViewport: { ...translationViewport },
+      translationSelection: {
+        nodeIds: [...translationSelection.nodeIds],
+        edgeIds: [...translationSelection.edgeIds],
       },
       logicalViewport: { ...logicalViewport },
       logicalSelection: { ...logicalSelection },
@@ -1160,6 +1219,9 @@ export default function App() {
     notesPanelWidth,
     diagramView,
     focusMode,
+    translationHistory.present,
+    translationSelection,
+    translationViewport,
     history.present,
     logicalGenerated,
     logicalHistory.present,
@@ -1204,8 +1266,32 @@ export default function App() {
     tool,
     toolbarCollapsed,
     toolbarWidth,
+    translationHistory.present,
+    translationSelection,
+    translationViewport,
     viewport,
   ]);
+
+  useEffect(() => {
+    const workspaceSignature = translationHistory.present.translation.meta.sourceSignature;
+    if (workspaceSignature === currentErSignature) {
+      return;
+    }
+
+    const refreshedWorkspace = refreshErTranslationWorkspace(history.present, translationHistory.present);
+    translationHistory.setPresent(refreshedWorkspace);
+
+    if (diagramView === "logical") {
+      const access = canOpenLogicalView(refreshedWorkspace);
+      if (!access.allowed) {
+        setDiagramView("translation");
+        setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+        setStatusWarning(access.reason ?? "La vista logica non e piu disponibile finche la traduzione non viene completata.");
+      }
+    } else if (diagramView === "translation") {
+      setStatus("Vista Traduzione riallineata al modello ER.");
+    }
+  }, [currentErSignature, diagramView, history.present, translationHistory]);
 
   useEffect(() => {
     if (!logicalGenerated) {
@@ -1213,21 +1299,26 @@ export default function App() {
     }
 
     const workspaceSignature = logicalHistory.present.translation.meta.sourceSignature;
-    if (workspaceSignature === currentErSignature) {
+    if (workspaceSignature === currentTranslatedSignature) {
       return;
     }
 
-    const refreshedWorkspace = refreshLogicalWorkspace(history.present, logicalHistory.present);
+    const logicalAccess = canOpenLogicalView(translationHistory.present);
+    if (!logicalAccess.allowed) {
+      if (diagramView === "logical") {
+        setDiagramView("translation");
+        setStatusWarning(logicalAccess.reason ?? "Completa la traduzione ER->ER per riaprire la vista logica.");
+      }
+      return;
+    }
+
+    const refreshedWorkspace = refreshLogicalWorkspace(translationHistory.present.translatedDiagram, logicalHistory.present);
     logicalHistory.setPresent(refreshedWorkspace);
 
     if (diagramView === "logical") {
-      if (refreshedWorkspace.translation.conflicts.length > 0) {
-        setStatusWarning("Il modello ER e cambiato: alcune decisioni di traduzione sono diventate invalide.");
-      } else {
-        setStatus("Traduzione logica riallineata al modello ER.");
-      }
+      setStatus("Vista logica riallineata all'ER tradotto.");
     }
-  }, [currentErSignature, diagramView, history.present, logicalGenerated, logicalHistory]);
+  }, [currentTranslatedSignature, diagramView, logicalGenerated, logicalHistory, translationHistory]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -1947,10 +2038,12 @@ export default function App() {
     nextDiagram: DiagramDocument,
     status: string,
     options?: {
+      translationWorkspace?: ErTranslationWorkspaceDocument;
       logicalWorkspace?: LogicalWorkspaceDocument;
       logicalGenerated?: boolean;
-      diagramView?: DiagramWorkspaceView;
+      diagramView?: WorkspaceView;
       viewport?: Viewport;
+      translationViewport?: Viewport;
       logicalViewport?: Viewport;
     },
   ) {
@@ -1969,19 +2062,30 @@ export default function App() {
       ),
     );
     history.commit(normalizedIncoming.diagram, normalizedCurrent.diagram);
+    const nextTranslationWorkspace = options?.translationWorkspace
+      ? refreshErTranslationWorkspace(normalizedIncoming.diagram, options.translationWorkspace)
+      : createEmptyErTranslationWorkspace(normalizedIncoming.diagram);
+    translationHistory.reset(nextTranslationWorkspace);
     logicalHistory.reset(
       options?.logicalWorkspace
-        ? refreshLogicalWorkspace(normalizedIncoming.diagram, options.logicalWorkspace)
-        : createEmptyLogicalWorkspace(normalizedIncoming.diagram),
+        ? refreshLogicalWorkspace(nextTranslationWorkspace.translatedDiagram, options.logicalWorkspace)
+        : createEmptyLogicalWorkspace(nextTranslationWorkspace.translatedDiagram),
     );
     const nextLogicalGenerated = options?.logicalGenerated === true;
-    const nextDiagramView = options?.diagramView === "logical" && nextLogicalGenerated ? "logical" : "er";
+    const nextDiagramView =
+      options?.diagramView === "logical" && nextLogicalGenerated
+        ? "logical"
+        : options?.diagramView === "translation"
+          ? "translation"
+          : "er";
     setSurface("studio");
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setLogicalGenerated(nextLogicalGenerated);
     setDiagramView(nextDiagramView);
+    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    setTranslationViewport(options?.translationViewport ? { ...options.translationViewport } : { ...DEFAULT_VIEWPORT });
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(options?.logicalViewport ? { ...options.logicalViewport } : { ...DEFAULT_VIEWPORT });
     syncCodeDraftWithDiagram(normalizedIncoming.diagram);
@@ -2252,23 +2356,52 @@ export default function App() {
     logicalHistory.commit(nextWorkspace, previousWorkspace);
   }
 
+  function commitTranslationWorkspace(
+    nextWorkspace: ErTranslationWorkspaceDocument,
+    previousWorkspace?: ErTranslationWorkspaceDocument,
+  ) {
+    translationHistory.commit(nextWorkspace, previousWorkspace);
+  }
+
   function previewLogicalModel(nextModel: LogicalModel) {
-    logicalHistory.setPresent(updateLogicalWorkspaceModel(history.present, logicalHistory.present, nextModel));
+    logicalHistory.setPresent(
+      updateLogicalWorkspaceModel(translationHistory.present.translatedDiagram, logicalHistory.present, nextModel),
+    );
   }
 
   function commitLogicalModel(nextModel: LogicalModel, previousModel?: LogicalModel) {
     const previousWorkspace = logicalHistory.present;
-    const nextWorkspace = updateLogicalWorkspaceModel(history.present, previousWorkspace, nextModel);
+    const nextWorkspace = updateLogicalWorkspaceModel(
+      translationHistory.present.translatedDiagram,
+      previousWorkspace,
+      nextModel,
+    );
     const previousSnapshot =
       previousModel == null
         ? previousWorkspace
-        : updateLogicalWorkspaceModel(history.present, previousWorkspace, previousModel);
+        : updateLogicalWorkspaceModel(translationHistory.present.translatedDiagram, previousWorkspace, previousModel);
     commitLogicalWorkspace(nextWorkspace, previousSnapshot);
   }
 
-  function initializeLogicalWorkspace(options?: { switchToLogical?: boolean; preservePositions?: boolean }) {
+  function resetTranslationWorkspace(options?: { switchToTranslation?: boolean }) {
+    const previousWorkspace = translationHistory.present;
+    const nextWorkspace = createEmptyErTranslationWorkspace(history.present, previousWorkspace);
+    translationHistory.reset(nextWorkspace);
+    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    setTranslationViewport(DEFAULT_VIEWPORT);
+    setLogicalGenerated(false);
+    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    if (options?.switchToTranslation) {
+      setDiagramView("translation");
+    }
+
+    setTool("select");
+    setStatus("Workspace di traduzione ER->ER resettato.");
+  }
+
+  function regenerateLogicalWorkspace(options?: { switchToLogical?: boolean; preservePositions?: boolean }) {
     const previousWorkspace = options?.preservePositions && logicalGenerated ? logicalHistory.present : undefined;
-    const nextWorkspace = createEmptyLogicalWorkspace(history.present, previousWorkspace);
+    const nextWorkspace = refreshLogicalWorkspace(translationHistory.present.translatedDiagram, previousWorkspace);
 
     logicalHistory.reset(nextWorkspace);
     setLogicalGenerated(true);
@@ -2278,45 +2411,83 @@ export default function App() {
       setDiagramView("logical");
     }
 
-    setSelection({ nodeIds: [], edgeIds: [] });
     setTool("select");
-    setStatus(previousWorkspace ? "Traduzione logica resettata." : "Workspace di traduzione logica avviata.");
+    setStatus(previousWorkspace ? "Vista logica rigenerata dall'ER tradotto." : "Workspace logico generato dall'ER tradotto.");
   }
 
-  function handleDiagramViewChange(nextView: DiagramWorkspaceView) {
+  function handleDiagramViewChange(nextView: WorkspaceView) {
     if (nextView === diagramView) {
       return;
     }
 
-    if (nextView === "logical" && !logicalGenerated) {
-      initializeLogicalWorkspace({ switchToLogical: true, preservePositions: false });
+    if (nextView === "translation") {
+      if (!translationAccess.allowed) {
+        setStatusWarning(translationAccess.reason ?? "Correggi prima gli errori bloccanti del diagramma ER.");
+        return;
+      }
+
+      setDiagramView("translation");
+      setSelection({ nodeIds: [], edgeIds: [] });
+      setTool("select");
       return;
     }
 
-    setDiagramView(nextView);
-    if (nextView === "er") {
-      setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-      setStatus("Vista ER attiva.");
-    } else if (logicalOutOfDate) {
-      setSelection({ nodeIds: [], edgeIds: [] });
+    if (nextView === "logical") {
+      if (!translationAccess.allowed) {
+        setStatusWarning(translationAccess.reason ?? "La vista Traduzione non e disponibile finche lo schema ER contiene errori.");
+        return;
+      }
+
+      const logicalAccess = canOpenLogicalView(translationHistory.present);
+      if (!logicalAccess.allowed) {
+        setDiagramView("translation");
+        setStatusWarning(logicalAccess.reason ?? "Completa prima la traduzione ER->ER.");
+        return;
+      }
+
+      if (!logicalGenerated || logicalOutOfDate) {
+        regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: true });
+        return;
+      }
+
+      setDiagramView("logical");
+      setTranslationSelection({ nodeIds: [], edgeIds: [] });
       setTool("select");
-      setStatusWarning("Alcune decisioni di traduzione sono da rivedere dopo le modifiche al modello ER.");
-    } else {
-      setSelection({ nodeIds: [], edgeIds: [] });
-      setTool("select");
+      return;
     }
+
+    setDiagramView("er");
+    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    setLogicalSelection(EMPTY_LOGICAL_SELECTION);
+    setStatus("Vista ER attiva.");
   }
 
   function handleGenerateLogicalModel() {
-    initializeLogicalWorkspace({
+    const logicalAccess = canOpenLogicalView(translationHistory.present);
+    if (!logicalAccess.allowed) {
+      setDiagramView("translation");
+      setStatusWarning(logicalAccess.reason ?? "Completa prima la traduzione ER->ER.");
+      return;
+    }
+
+    regenerateLogicalWorkspace({
       switchToLogical: true,
       preservePositions: true,
     });
   }
 
+  function handleResetTranslation() {
+    if (!translationAccess.allowed) {
+      setStatusWarning(translationAccess.reason ?? "Correggi prima gli errori bloccanti del diagramma ER.");
+      return;
+    }
+
+    resetTranslationWorkspace({ switchToTranslation: true });
+  }
+
   function handleLogicalAutoLayout() {
     if (!logicalGenerated) {
-      initializeLogicalWorkspace({ switchToLogical: true, preservePositions: false });
+      regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: false });
       return;
     }
 
@@ -2385,22 +2556,11 @@ export default function App() {
     commitLogicalModel(nextModel, previousModel);
   }
 
-  function handleApplyLogicalTranslationChoice(item: LogicalTranslationItem, choice: LogicalTranslationChoice) {
-    if (!logicalGenerated) {
-      initializeLogicalWorkspace({ switchToLogical: true, preservePositions: false });
-      return;
-    }
-
-    const previousWorkspace = logicalHistory.present;
-    const nextWorkspace = applyLogicalTranslationChoice(
-      history.present,
-      previousWorkspace,
-      choice,
-      item.targetType,
-      item.id,
-    );
-    commitLogicalWorkspace(nextWorkspace, previousWorkspace);
-    setDiagramView("logical");
+  function handleApplyErTranslationChoice(item: ErTranslationItem, choice: ErTranslationChoice) {
+    const previousWorkspace = translationHistory.present;
+    const nextWorkspace = applyErTranslationChoice(history.present, previousWorkspace, choice, item.targetType, item.id);
+    commitTranslationWorkspace(nextWorkspace, previousWorkspace);
+    setDiagramView("translation");
     setStatus(choice.summary);
   }
 
@@ -2563,7 +2723,7 @@ export default function App() {
           message: buildStructuredErrorMessage(
             "l'identificatore esterno non e stato creato",
             "l'attributo locale selezionato non e eleggibile",
-            "usa solo attributi semplici locali non multivalore e non gia identificatori",
+            "usa solo attributi semplici locali non composti e non gia identificatori",
           ),
         };
       }
@@ -3291,10 +3451,12 @@ export default function App() {
     try {
       const serializedProject = serializeProjectFile({
         diagram: history.present,
+        translationWorkspace: translationHistory.present,
         logicalWorkspace: logicalHistory.present,
         logicalGenerated,
         diagramView,
         viewport,
+        translationViewport,
         logicalViewport,
       });
       downloadTextFile(
@@ -3356,10 +3518,12 @@ export default function App() {
           ? "Diagramma JSON legacy caricato come progetto."
           : "Progetto caricato.";
       applyWorkspaceDocument(parsedProject.state.diagram, loadStatus, {
+        translationWorkspace: parsedProject.state.translationWorkspace,
         logicalWorkspace: parsedProject.state.logicalWorkspace,
         logicalGenerated: parsedProject.state.logicalGenerated,
         diagramView: parsedProject.state.diagramView,
         viewport: parsedProject.state.viewport,
+        translationViewport: parsedProject.state.translationViewport,
         logicalViewport: parsedProject.state.logicalViewport,
       });
     } catch (error) {
@@ -3439,6 +3603,11 @@ export default function App() {
       return;
     }
 
+    if (diagramView === "translation") {
+      translationHistory.undo();
+      return;
+    }
+
     logicalHistory.undo();
   }
 
@@ -3448,6 +3617,11 @@ export default function App() {
         syncCodeDraftWithDiagram(history.present);
       }
       history.redo();
+      return;
+    }
+
+    if (diagramView === "translation") {
+      translationHistory.redo();
       return;
     }
 
@@ -3533,6 +3707,7 @@ export default function App() {
         onUndo={handleUndoAction}
         onRedo={handleRedoAction}
         onGenerateLogicalModel={handleGenerateLogicalModel}
+        onResetTranslation={handleResetTranslation}
         onAutoLayoutLogical={handleLogicalAutoLayout}
         onFitLogical={handleLogicalFit}
         onToggleCodePanel={handleToggleCodePanel}
@@ -3728,32 +3903,43 @@ export default function App() {
                 </div>
               </div>
             </>
+          ) : diagramView === "translation" ? (
+            <TranslationWorkspace
+              workspace={translationHistory.present}
+              viewport={translationViewport}
+              selection={translationSelection}
+              onViewportChange={setTranslationViewport}
+              onSelectionChange={setTranslationSelection}
+              onApplyChoice={handleApplyErTranslationChoice}
+              onResetTranslation={handleResetTranslation}
+            />
           ) : !logicalGenerated ? (
             <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
                 <section className="logical-empty-state">
-                  <h2>Workspace di traduzione</h2>
-                  <p>Avvia la procedura guidata per trasformare lo schema ER in logico con regole esplicite e decisioni persistenti.</p>
+                  <h2>Vista Logica</h2>
+                  <p>Genera lo schema logico a partire dal diagramma ER tradotto completato.</p>
                   <button type="button" className="mode-button active" onClick={handleGenerateLogicalModel}>
-                    Inizia traduzione guidata
+                    Genera schema logico
                   </button>
                 </section>
             </div>
           ) : (
-            <LogicalTranslationWorkspace
-              diagram={history.present}
+            <div className="workspace-main logical-main" style={{ gridColumn: "1 / -1" }}>
+              <LogicalTransformationCanvas
               workspace={logicalHistory.present}
-              logicalViewport={logicalViewport}
-              logicalSelection={logicalSelection}
-              logicalFitRequestToken={logicalFitRequestToken}
-              onLogicalViewportChange={setLogicalViewport}
-              onLogicalSelectionChange={setLogicalSelection}
-              onPreviewLogicalModel={previewLogicalModel}
-              onCommitLogicalModel={commitLogicalModel}
-              onRenameTable={handleLogicalTableRename}
-              onRenameColumn={handleLogicalColumnRename}
-              onApplyChoice={handleApplyLogicalTranslationChoice}
-              onResetTranslation={handleGenerateLogicalModel}
-            />
+                selection={logicalSelection}
+                viewport={logicalViewport}
+                fitRequestToken={logicalFitRequestToken}
+                activeTargetKeys={[]}
+                focusedTargetKey={null}
+                onViewportChange={setLogicalViewport}
+                onSelectionChange={setLogicalSelection}
+                onPreviewModel={previewLogicalModel}
+                onCommitModel={commitLogicalModel}
+                onRenameTable={handleLogicalTableRename}
+                onRenameColumn={handleLogicalColumnRename}
+              />
+            </div>
           )}
         </div>
       </div>

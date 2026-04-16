@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, SyntheticEvent } from "react";
 import type { EditorMode } from "../types/diagram";
+import type { WorkspaceView } from "../types/translation";
 import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
-
-type DiagramWorkspaceView = "er" | "logical";
 
 interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
   diagramName: string;
-  diagramView: DiagramWorkspaceView;
+  diagramView: WorkspaceView;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
   mode: EditorMode;
@@ -19,12 +18,13 @@ interface AppHeaderProps {
   logicalOutOfDate: boolean;
   focusMode: boolean;
   toolRailCollapsed: boolean;
-  onDiagramViewChange: (view: DiagramWorkspaceView) => void;
+  onDiagramViewChange: (view: WorkspaceView) => void;
   onModeChange: (mode: EditorMode) => void;
   onNewProject: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onGenerateLogicalModel: () => void;
+  onResetTranslation: () => void;
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
   onToggleCodePanel: () => void;
@@ -179,6 +179,13 @@ export function AppHeader(props: AppHeaderProps) {
               ER
             </button>
             <button
+              className={props.diagramView === "translation" ? "mode-button active" : "mode-button"}
+              type="button"
+              onClick={() => props.onDiagramViewChange("translation")}
+            >
+              {t("header.views.translation")}
+            </button>
+            <button
               className={props.diagramView === "logical" ? "mode-button active" : "mode-button"}
               type="button"
               onClick={() => props.onDiagramViewChange("logical")}
@@ -258,6 +265,16 @@ export function AppHeader(props: AppHeaderProps) {
                   {props.notesPanelOpen ? t("header.quickActions.hideNotes") : t("header.quickActions.showNotes")}
                 </button>
               </>
+            ) : null}
+            {props.diagramView === "translation" ? (
+              <button
+                type="button"
+                className="header-button header-quick-button"
+                onClick={props.onResetTranslation}
+                title={t("header.quickActions.resetTranslationTitle")}
+              >
+                {t("header.quickActions.resetTranslation")}
+              </button>
             ) : null}
             {props.diagramView === "logical" ? (
               <>

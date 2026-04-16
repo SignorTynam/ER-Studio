@@ -1,15 +1,17 @@
 import type { DiagramDocument, Viewport } from "../types/diagram";
-import type { LogicalModel, LogicalTranslationState, LogicalWorkspaceDocument } from "../types/logical";
+import type { LogicalModel, LogicalWorkspaceDocument } from "../types/logical";
+import type { ErTranslationState, ErTranslationWorkspaceDocument, WorkspaceView } from "../types/translation";
 import { parseDiagram, serializeDiagram } from "./diagram";
-import { createEmptyLogicalModel, createEmptyLogicalWorkspace, refreshLogicalWorkspace } from "./logicalTranslation";
+import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
+import { createEmptyLogicalModel, createEmptyLogicalWorkspace, refreshLogicalWorkspace } from "./logicalWorkspace";
 
 export const PROJECT_FILE_KIND = "er-studio-project";
 export const PROJECT_FILE_EXTENSION = ".ersp";
 export const PROJECT_FILE_MIME_TYPE = "application/json;charset=utf-8";
 export const PROJECT_FILE_ACCEPT = ".ersp,.json,application/json";
-export const CURRENT_PROJECT_FILE_VERSION = 3;
+export const CURRENT_PROJECT_FILE_VERSION = 4;
 
-export type ProjectFileWorkspaceView = "er" | "logical";
+export type ProjectFileWorkspaceView = WorkspaceView;
 export type ParsedProjectFileSource = "project-file" | "legacy-project-json" | "legacy-diagram-json";
 export type ProjectFileErrorCode =
   | "invalid-json"
@@ -23,15 +25,18 @@ export type ProjectFileErrorCode =
 export interface ProjectFileViewState {
   current: ProjectFileWorkspaceView;
   erViewport: Viewport;
+  translationViewport: Viewport;
   logicalViewport: Viewport;
 }
 
 export interface ProjectFileState {
   diagram: DiagramDocument;
+  translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   diagramView: ProjectFileWorkspaceView;
   viewport: Viewport;
+  translationViewport: Viewport;
   logicalViewport: Viewport;
   savedAt?: string;
 }
@@ -41,6 +46,7 @@ export interface ProjectFileDocument {
   kind: typeof PROJECT_FILE_KIND;
   savedAt: string;
   diagram: DiagramDocument;
+  translationWorkspace: ErTranslationWorkspaceDocument;
   logicalWorkspace: LogicalWorkspaceDocument;
   logicalGenerated: boolean;
   view: ProjectFileViewState;
@@ -76,12 +82,13 @@ export class ProjectFileError extends Error {
 }
 
 type LegacyProjectFileDocument = {
-  version: 2;
+  version: 2 | 3;
   kind: typeof PROJECT_FILE_KIND;
   savedAt?: unknown;
   diagram?: unknown;
   logicalWorkspace?: unknown;
   logicalGenerated?: unknown;
+  view?: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -89,11 +96,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function cloneViewport(viewport: Viewport): Viewport {
-  return {
-    x: viewport.x,
-    y: viewport.y,
-    zoom: viewport.zoom,
-  };
+  return { x: viewport.x, y: viewport.y, zoom: viewport.zoom };
 }
 
 function getFallbackViewport(options?: ParseProjectFileOptions): Viewport {
@@ -115,11 +118,12 @@ function sanitizeViewport(value: unknown, fallback: Viewport): Viewport {
   };
 }
 
-function sanitizeDiagramView(
-  value: unknown,
-  fallback: ProjectFileWorkspaceView,
-): ProjectFileWorkspaceView {
-  return value === "logical" ? "logical" : fallback;
+function sanitizeDiagramView(value: unknown, fallback: ProjectFileWorkspaceView): ProjectFileWorkspaceView {
+  if (value === "logical" || value === "translation") {
+    return value;
+  }
+
+  return fallback;
 }
 
 function assertProjectFileRoot(value: unknown): asserts value is Record<string, unknown> {
@@ -145,7 +149,7 @@ function assertProjectKind(value: unknown): asserts value is typeof PROJECT_FILE
 function assertSupportedProjectVersion(
   value: unknown,
 ): asserts value is ProjectFileDocument["version"] | LegacyProjectFileDocument["version"] {
-  if (value !== CURRENT_PROJECT_FILE_VERSION && value !== 2) {
+  if (value !== CURRENT_PROJECT_FILE_VERSION && value !== 3 && value !== 2) {
     throw new ProjectFileError("unsupported-version", {
       what: "il file progetto non e stato caricato",
       why: "la versione del formato progetto non e supportata",
@@ -171,11 +175,7 @@ function assertDiagramPayload(value: unknown): asserts value is Record<string, u
 function sanitizeLogicalModel(value: unknown): LogicalModel {
   const fallback = createEmptyLogicalModel("modello-logico");
   if (!isRecord(value)) {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "la sezione logicalWorkspace.model non e valida",
-      how: "riesporta il progetto da ER Studio oppure ripristina un backup integro",
-    });
+    return fallback;
   }
 
   const candidate = value as Partial<LogicalModel>;
@@ -192,49 +192,23 @@ function sanitizeLogicalModel(value: unknown): LogicalModel {
     !Array.isArray(candidate.edges) ||
     !Array.isArray(candidate.issues)
   ) {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "il modello logico salvato e incompleto o malformato",
-      how: "riesporta il progetto da ER Studio oppure ripristina un backup integro",
-    });
+    return fallback;
   }
 
   return {
     ...fallback,
     ...candidate,
-    meta: {
-      name: meta.name,
-      generatedAt: meta.generatedAt,
-      sourceDiagramVersion: meta.sourceDiagramVersion,
-      sourceSignature: meta.sourceSignature,
-    },
-    tables: candidate.tables,
-    foreignKeys: candidate.foreignKeys,
     uniqueConstraints: Array.isArray(candidate.uniqueConstraints) ? candidate.uniqueConstraints : [],
-    edges: candidate.edges,
-    issues: candidate.issues,
   } as LogicalModel;
 }
 
-function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): LogicalWorkspaceDocument {
-  const fallback = createEmptyLogicalWorkspace(diagram);
-  if (!isRecord(value)) {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "la sezione logicalWorkspace non e valida",
-      how: "riesporta il progetto da ER Studio oppure ripristina un backup integro",
-    });
+function sanitizeTranslationWorkspace(value: unknown, diagram: DiagramDocument): ErTranslationWorkspaceDocument {
+  const fallback = createEmptyErTranslationWorkspace(diagram);
+  if (!isRecord(value) || !isRecord(value.translation)) {
+    return fallback;
   }
 
-  if (!isRecord(value.model) || !isRecord(value.translation) || !isRecord(value.transformation)) {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "la sezione logicalWorkspace non contiene tutte le strutture richieste",
-      how: "riesporta il progetto da ER Studio oppure ripristina un backup integro",
-    });
-  }
-
-  const translation = value.translation as Partial<LogicalTranslationState>;
+  const translation = value.translation as Partial<ErTranslationState>;
   const meta = translation.meta;
   if (
     !isRecord(meta) ||
@@ -245,25 +219,35 @@ function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocument): Log
     !Array.isArray(translation.mappings) ||
     !Array.isArray(translation.conflicts)
   ) {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "lo stato della traduzione logica e incompleto o malformato",
-      how: "riesporta il progetto da ER Studio oppure ripristina un backup integro",
-    });
+    return fallback;
   }
 
   try {
-    return refreshLogicalWorkspace(diagram, {
-      model: sanitizeLogicalModel(value.model),
-      translation: translation as LogicalTranslationState,
-      transformation: fallback.transformation,
+    return refreshErTranslationWorkspace(diagram, {
+      sourceDiagram: diagram,
+      translatedDiagram: looksLikeDiagramDocument(value.translatedDiagram)
+        ? parseDiagram(JSON.stringify(value.translatedDiagram))
+        : diagram,
+      translation: translation as ErTranslationState,
     });
   } catch {
-    throw new ProjectFileError("invalid-logical-workspace", {
-      what: "il file progetto non e stato caricato",
-      why: "il workspace logico salvato non e coerente con il diagramma ER",
-      how: "rigenera il modello logico dal diagramma oppure importa un backup integro",
+    return fallback;
+  }
+}
+
+function sanitizeLogicalWorkspace(value: unknown, translatedDiagram: DiagramDocument): LogicalWorkspaceDocument {
+  const fallback = createEmptyLogicalWorkspace(translatedDiagram);
+  if (!isRecord(value) || !isRecord(value.model)) {
+    return fallback;
+  }
+
+  try {
+    return refreshLogicalWorkspace(translatedDiagram, {
+      ...fallback,
+      model: sanitizeLogicalModel(value.model),
     });
+  } catch {
+    return fallback;
   }
 }
 
@@ -271,7 +255,12 @@ function sanitizeCurrentProjectView(
   value: unknown,
   options?: ParseProjectFileOptions,
 ): ProjectFileViewState {
-  if (!isRecord(value) || !isRecord(value.erViewport) || !isRecord(value.logicalViewport)) {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.erViewport) ||
+    !isRecord(value.translationViewport) ||
+    !isRecord(value.logicalViewport)
+  ) {
     throw new ProjectFileError("invalid-view-state", {
       what: "il file progetto non e stato caricato",
       why: "lo stato delle viste salvate non e completo",
@@ -284,24 +273,33 @@ function sanitizeCurrentProjectView(
   return {
     current: sanitizeDiagramView(value.current, fallbackDiagramView),
     erViewport: sanitizeViewport(value.erViewport, fallbackViewport),
+    translationViewport: sanitizeViewport(value.translationViewport, fallbackViewport),
     logicalViewport: sanitizeViewport(value.logicalViewport, fallbackViewport),
   };
 }
 
 function normalizeProjectState(
   diagram: DiagramDocument,
+  translationWorkspace: ErTranslationWorkspaceDocument,
   logicalWorkspace: LogicalWorkspaceDocument,
   logicalGenerated: boolean,
   savedAt: string,
   view: ProjectFileViewState,
 ): ProjectFileState {
-  const diagramView = view.current === "logical" && logicalGenerated ? "logical" : "er";
+  const diagramView =
+    view.current === "logical" && logicalGenerated
+      ? "logical"
+      : view.current === "translation"
+        ? "translation"
+        : "er";
   return {
     diagram,
+    translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
     diagramView,
     viewport: cloneViewport(view.erViewport),
+    translationViewport: cloneViewport(view.translationViewport),
     logicalViewport: cloneViewport(view.logicalViewport),
     savedAt,
   };
@@ -309,6 +307,7 @@ function normalizeProjectState(
 
 function createProjectFileDocument(
   diagram: DiagramDocument,
+  translationWorkspace: ErTranslationWorkspaceDocument,
   logicalWorkspace: LogicalWorkspaceDocument,
   logicalGenerated: boolean,
   savedAt: string,
@@ -319,6 +318,7 @@ function createProjectFileDocument(
     kind: PROJECT_FILE_KIND,
     savedAt,
     diagram,
+    translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
     view,
@@ -331,23 +331,40 @@ function parseLegacyProjectFile(
 ): ParsedProjectFile {
   assertDiagramPayload(value.diagram);
   const diagram = parseDiagram(JSON.stringify(value.diagram));
-  const logicalWorkspace = sanitizeLogicalWorkspace(value.logicalWorkspace, diagram);
-  const logicalGenerated = value.logicalGenerated === true;
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
+  const logicalGenerated = false;
   const fallbackViewport = getFallbackViewport(options);
+  const legacyCurrent =
+    isRecord(value.view) && value.view.current === "logical"
+      ? "translation"
+      : options?.fallbackDiagramView === "logical"
+        ? "translation"
+        : options?.fallbackDiagramView === "translation"
+          ? "translation"
+          : "er";
   const view: ProjectFileViewState = {
-    current: logicalGenerated && options?.fallbackDiagramView === "logical" ? "logical" : "er",
+    current: legacyCurrent,
     erViewport: cloneViewport(fallbackViewport),
+    translationViewport: cloneViewport(fallbackViewport),
     logicalViewport: cloneViewport(fallbackViewport),
   };
   const savedAt =
     typeof value.savedAt === "string" && value.savedAt.trim().length > 0
       ? value.savedAt
       : new Date().toISOString();
-  const document = createProjectFileDocument(diagram, logicalWorkspace, logicalGenerated, savedAt, view);
+  const document = createProjectFileDocument(
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    savedAt,
+    view,
+  );
 
   return {
     document,
-    state: normalizeProjectState(diagram, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
     source: "legacy-project-json",
   };
 }
@@ -358,38 +375,55 @@ function parseCurrentProjectFile(
 ): ParsedProjectFile {
   assertDiagramPayload(value.diagram);
   const diagram = parseDiagram(JSON.stringify(value.diagram));
-  const logicalWorkspace = sanitizeLogicalWorkspace(value.logicalWorkspace, diagram);
+  const translationWorkspace = sanitizeTranslationWorkspace(value.translationWorkspace, diagram);
+  const logicalWorkspace = sanitizeLogicalWorkspace(value.logicalWorkspace, translationWorkspace.translatedDiagram);
   const logicalGenerated = value.logicalGenerated === true;
   const view = sanitizeCurrentProjectView(value.view, options);
   const savedAt =
     typeof value.savedAt === "string" && value.savedAt.trim().length > 0
       ? value.savedAt
       : new Date().toISOString();
-  const document = createProjectFileDocument(diagram, logicalWorkspace, logicalGenerated, savedAt, view);
+  const document = createProjectFileDocument(
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    savedAt,
+    view,
+  );
 
   return {
     document,
-    state: normalizeProjectState(diagram, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
     source: "project-file",
   };
 }
 
 function parseLegacyDiagramJson(rawText: string, options?: ParseProjectFileOptions): ParsedProjectFile {
   const diagram = parseDiagram(rawText);
-  const logicalWorkspace = createEmptyLogicalWorkspace(diagram);
+  const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+  const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
   const logicalGenerated = false;
   const savedAt = new Date().toISOString();
   const fallbackViewport = getFallbackViewport(options);
   const view: ProjectFileViewState = {
-    current: options?.fallbackDiagramView ?? "er",
+    current: options?.fallbackDiagramView === "logical" ? "translation" : options?.fallbackDiagramView ?? "er",
     erViewport: cloneViewport(fallbackViewport),
+    translationViewport: cloneViewport(fallbackViewport),
     logicalViewport: cloneViewport(fallbackViewport),
   };
-  const document = createProjectFileDocument(diagram, logicalWorkspace, logicalGenerated, savedAt, view);
+  const document = createProjectFileDocument(
+    diagram,
+    translationWorkspace,
+    logicalWorkspace,
+    logicalGenerated,
+    savedAt,
+    view,
+  );
 
   return {
     document,
-    state: normalizeProjectState(diagram, logicalWorkspace, logicalGenerated, savedAt, view),
+    state: normalizeProjectState(diagram, translationWorkspace, logicalWorkspace, logicalGenerated, savedAt, view),
     source: "legacy-diagram-json",
   };
 }
@@ -401,24 +435,34 @@ export function isProjectFileDocument(value: unknown): value is ProjectFileDocum
     value.kind === PROJECT_FILE_KIND &&
     typeof value.savedAt === "string" &&
     looksLikeDiagramDocument(value.diagram) &&
+    isRecord(value.translationWorkspace) &&
     isRecord(value.logicalWorkspace) &&
     isRecord(value.view) &&
     isRecord(value.view.erViewport) &&
+    isRecord(value.view.translationViewport) &&
     isRecord(value.view.logicalViewport)
   );
 }
 
 export function serializeProjectFile(state: ProjectFileState): string {
   const diagram = JSON.parse(serializeDiagram(state.diagram)) as DiagramDocument;
-  const logicalWorkspace = sanitizeLogicalWorkspace(state.logicalWorkspace, diagram);
+  const translationWorkspace = refreshErTranslationWorkspace(diagram, state.translationWorkspace);
+  const logicalWorkspace = sanitizeLogicalWorkspace(state.logicalWorkspace, translationWorkspace.translatedDiagram);
   const logicalGenerated = state.logicalGenerated === true;
   const view: ProjectFileViewState = {
-    current: state.diagramView === "logical" && logicalGenerated ? "logical" : "er",
+    current:
+      state.diagramView === "logical" && logicalGenerated
+        ? "logical"
+        : state.diagramView === "translation"
+          ? "translation"
+          : "er",
     erViewport: cloneViewport(state.viewport),
+    translationViewport: cloneViewport(state.translationViewport),
     logicalViewport: cloneViewport(state.logicalViewport),
   };
   const document = createProjectFileDocument(
     diagram,
+    translationWorkspace,
     logicalWorkspace,
     logicalGenerated,
     state.savedAt ?? new Date().toISOString(),
@@ -447,7 +491,7 @@ export function parseProjectFile(rawText: string, options?: ParseProjectFileOpti
     assertProjectKind(parsedJson.kind);
     assertSupportedProjectVersion(parsedJson.version);
 
-    if (parsedJson.version === 2) {
+    if (parsedJson.version === 2 || parsedJson.version === 3) {
       return parseLegacyProjectFile(parsedJson as LegacyProjectFileDocument, options);
     }
 

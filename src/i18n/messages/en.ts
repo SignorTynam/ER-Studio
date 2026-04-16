@@ -65,6 +65,7 @@ export const en: DeepPartialMessages = {
     quickActionsLabel: "Workspace quick actions",
     secondaryActionsLabel: "Secondary actions",
     views: {
+      translation: "Translation",
       logical: "Logical",
     },
     modes: {
@@ -98,6 +99,8 @@ export const en: DeepPartialMessages = {
       hideCode: "Hide code panel",
       showNotes: "Show notes",
       hideNotes: "Hide notes",
+      resetTranslation: "Reset translation",
+      resetTranslationTitle: "Reset the ER-to-ER translation workspace",
       resetLogical: "Reset",
       resetLogicalOutdated: "Reset*",
       resetLogicalTitle: "Reset the guided translation flow",
@@ -134,8 +137,8 @@ export const en: DeepPartialMessages = {
       weakEntity: "Weak entity",
       identifierAttribute: "Identifier attribute",
       identifier: "Identifier",
-      multivaluedAttribute: "Multivalued attribute",
-      multivalued: "Multivalued",
+      multivaluedAttribute: "Composite attribute",
+      multivalued: "Composite",
       addAttribute: "Add attribute",
       addSubAttribute: "Add sub-attribute",
       subAttribute: "Sub-attribute",
@@ -344,12 +347,12 @@ export const en: DeepPartialMessages = {
         description: "Explicitly decide whether a relationship disappears into FK or becomes its own table.",
       },
       multivaluedAttributes: {
-        label: "Fix multivalued attributes",
-        description: "Transform each multivalued attribute into a separate table with FK to the owner.",
+        label: "Fix composite attributes",
+        description: "Expand each composite attribute back onto its ER owner before opening the logical view.",
       },
       generalizations: {
         label: "Fix generalizations",
-        description: "Choose the mapping strategy for ISA hierarchies.",
+        description: "Choose the ER-to-ER strategy for ISA hierarchies before the logical transformation.",
       },
       review: {
         label: "Review",
