@@ -177,7 +177,7 @@ test("la pipeline ER->ER blocca gli attributi composti finche esistono generaliz
   const compositeItem = overview.itemsByStep["composite-attributes"][0];
   assert.ok(compositeItem);
   const compositeChoice = getErTranslationChoicesForItem(workspace, compositeItem).find(
-    (choice) => choice.rule === "composite-flatten-preserve",
+    (choice) => choice.rule === "composite-split",
   );
   assert.ok(compositeChoice);
 
@@ -215,7 +215,7 @@ test("applyCompositeAttributeTranslation espande ricorsivamente i foglia sull'ow
   const translated = applyCompositeAttributeTranslation(
     createCompositeDiagram(),
     "attr-indirizzo",
-    "composite-flatten-prefixed",
+    "composite-split",
   );
 
   assert.equal(translated.nodes.some((node) => node.id === "attr-indirizzo"), false);
@@ -365,5 +365,133 @@ entity STATISTICA {
   assert.equal(
     issues.filter((i) => i.level === "warning").length,
     0,
+  );
+});
+
+test("applyCompositeAttributeTranslation - test split", () => {
+  const diagram: DiagramDocument = {
+    nodes: [
+      createEntity("entity-persona", "PERSONA"),
+      createAttribute("attr-cf", "CF", { isIdentifier: true }),
+      createAttribute("attr-dipartimento", "Dipartimento", { isMultivalued: true }),
+      createAttribute("attr-nomedip", "NomeDip"),
+      createAttribute("attr-numerodip", "NumeroDip"),
+    ],
+    edges: [
+      createAttributeEdge("e-cf", "attr-cf", "entity-persona"),
+      createAttributeEdge("e-dip", "attr-dipartimento", "entity-persona"),
+      createAttributeEdge("e-nome", "attr-nomedip", "attr-dipartimento"),
+      createAttributeEdge("e-num", "attr-numerodip", "attr-dipartimento"),
+    ],
+  };
+
+  const dipartimentoNode = diagram.nodes.find((n) => n.type === "attribute" && n.label === "Dipartimento");
+  assert.ok(dipartimentoNode);
+
+  const translated = applyCompositeAttributeTranslation(diagram, dipartimentoNode.id, "composite-split");
+
+  // assert: Dipartimento node missing
+  assert.equal(
+    translated.nodes.some((n) => n.id === dipartimentoNode.id),
+    false,
+  );
+
+  // find entity PERSONA
+  const personaNode = translated.nodes.find((n) => n.type === "entity" && n.label === "PERSONA");
+  assert.ok(personaNode);
+
+  // expect two simple attributes: NomeDip_Dipartimento and NumeroDip_Dipartimento
+  const nomeDipNode = translated.nodes.find((n) => n.type === "attribute" && n.label === "NomeDip_Dipartimento");
+  assert.ok(nomeDipNode, "missing NomeDip_Dipartimento");
+  const numeroDipNode = translated.nodes.find((n) => n.type === "attribute" && n.label === "NumeroDip_Dipartimento");
+  assert.ok(numeroDipNode, "missing NumeroDip_Dipartimento");
+
+  // connected to PERSONA
+  const nomeDipEdge = translated.edges.find(
+    (e) =>
+      e.type === "attribute" &&
+      ((e.sourceId === nomeDipNode.id && e.targetId === personaNode.id) ||
+        (e.targetId === nomeDipNode.id && e.sourceId === personaNode.id)),
+  );
+  assert.ok(nomeDipEdge, "NomeDip_Dipartimento not connected to PERSONA");
+
+  const numeroDipEdge = translated.edges.find(
+    (e) =>
+      e.type === "attribute" &&
+      ((e.sourceId === numeroDipNode.id && e.targetId === personaNode.id) ||
+        (e.targetId === numeroDipNode.id && e.sourceId === personaNode.id)),
+  );
+  assert.ok(numeroDipEdge, "NumeroDip_Dipartimento not connected to PERSONA");
+
+  // No orphans, no edges of the compound
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NomeDip"),
+    false,
+  );
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NumeroDip"),
+    false,
+  );
+});
+
+test("applyCompositeAttributeTranslation - test merge", () => {
+  const diagram: DiagramDocument = {
+    nodes: [
+      createEntity("entity-persona", "PERSONA"),
+      createAttribute("attr-cf", "CF", { isIdentifier: true }),
+      createAttribute("attr-dipartimento", "Dipartimento", { isMultivalued: true }),
+      createAttribute("attr-nomedip", "NomeDip"),
+      createAttribute("attr-numerodip", "NumeroDip"),
+    ],
+    edges: [
+      createAttributeEdge("e-cf", "attr-cf", "entity-persona"),
+      createAttributeEdge("e-dip", "attr-dipartimento", "entity-persona"),
+      createAttributeEdge("e-nome", "attr-nomedip", "attr-dipartimento"),
+      createAttributeEdge("e-num", "attr-numerodip", "attr-dipartimento"),
+    ],
+  };
+
+  const dipartimentoNode = diagram.nodes.find((n) => n.type === "attribute" && n.label === "Dipartimento");
+  assert.ok(dipartimentoNode);
+
+  const translated = applyCompositeAttributeTranslation(diagram, dipartimentoNode.id, "composite-merge");
+
+  // assert: Dipartimento is missing
+  assert.equal(
+    translated.nodes.some((n) => n.id === dipartimentoNode.id),
+    false,
+  );
+
+  // ONLY ONE simple attribute created on PERSONA named Dipartimento_NomeDip_NumeroDip
+  const personaNode = translated.nodes.find((n) => n.type === "entity" && n.label === "PERSONA");
+  assert.ok(personaNode);
+
+  const mergedNode = translated.nodes.find((n) => n.type === "attribute" && n.label === "Dipartimento_NomeDip_NumeroDip");
+  assert.ok(mergedNode, "missing Dipartimento_NomeDip_NumeroDip");
+
+  const mergedEdge = translated.edges.find(
+    (e) =>
+      e.type === "attribute" &&
+      ((e.sourceId === mergedNode.id && e.targetId === personaNode.id) ||
+        (e.targetId === mergedNode.id && e.sourceId === personaNode.id)),
+  );
+  assert.ok(mergedEdge, "Dipartimento_NomeDip_NumeroDip not connected to PERSONA");
+
+  // None of NomeDip and NumeroDip nodes should exist independently
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NomeDip"),
+    false,
+  );
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NumeroDip"),
+    false,
+  );
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NomeDip_Dipartimento"),
+    false,
+  );
+  assert.equal(
+    translated.nodes.some((n) => n.type === "attribute" && n.label === "NumeroDip_Dipartimento"),
+    false,
   );
 });

@@ -11,8 +11,8 @@ export type ErTranslationRuleKind =
   | "generalization-collapse-up"
   | "generalization-collapse-down"
   | "generalization-substitution"
-  | "composite-flatten-preserve"
-  | "composite-flatten-prefixed";
+  | "composite-split"
+  | "composite-merge";
 
 export interface ErTranslationChoice {
   id: string;

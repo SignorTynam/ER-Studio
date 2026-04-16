@@ -348,7 +348,7 @@ export const en: DeepPartialMessages = {
       },
       multivaluedAttributes: {
         label: "Fix composite attributes",
-        description: "Expand each composite attribute back onto its ER owner before opening the logical view.",
+        description: "Apply Split or Merge translation to composite attributes on their ER owner before opening the logical view.",
       },
       generalizations: {
         label: "Fix generalizations",
@@ -357,6 +357,22 @@ export const en: DeepPartialMessages = {
       review: {
         label: "Review",
         description: "Check mappings, open conflicts, and the incremental final logical schema.",
+      },
+    },
+  },
+  translation: {
+    composite: {
+      split: {
+        label: "Split",
+        description: "Removes \"{name}\" and moves its leaf sub-attributes directly to the owner.",
+        summary: "Composite attribute \"{name}\" split onto the ER owner.",
+        preview: "Output ER: new attributes use a compound name with the prefix.",
+      },
+      merge: {
+        label: "Merge",
+        description: "Merges the composite attribute \"{name}\" into a single simple attribute.",
+        summary: "Composite attribute \"{name}\" merged into a simple ER attribute.",
+        preview: "Output ER: the composite attribute becomes simple by combining internal names.",
       },
     },
   },

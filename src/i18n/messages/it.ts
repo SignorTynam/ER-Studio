@@ -349,7 +349,7 @@ export const it = {
       },
       multivaluedAttributes: {
         label: "Fissa attributi composti",
-        description: "Espandi ogni attributo composto sull'owner ER prima di aprire la vista logica.",
+        description: "Esegui lo Split o il Merge degli attributi composti sull'owner ER prima di aprire la vista logica.",
       },
       generalizations: {
         label: "Fissa generalizzazioni",
@@ -358,6 +358,22 @@ export const it = {
       review: {
         label: "Revisione",
         description: "Controlla mapping, conflitti aperti e schema logico finale incrementale.",
+      },
+    },
+  },
+  translation: {
+    composite: {
+      split: {
+        label: "Split",
+        description: "Rimuove \"{name}\" e porta i suoi sotto-attributi foglia direttamente sull'owner.",
+        summary: "Attributo composto \"{name}\" diviso (Split) sull'owner ER.",
+        preview: "Output ER: i nuovi attributi usano un nome composto col prefisso.",
+      },
+      merge: {
+        label: "Merge",
+        description: "Fonde l'attributo composto \"{name}\" in un unico attributo semplice.",
+        summary: "Attributo composto \"{name}\" fuso (Merge) in un attributo semplice ER.",
+        preview: "Output ER: l'attributo composto diventa semplice combinando i nomi interni.",
       },
     },
   },

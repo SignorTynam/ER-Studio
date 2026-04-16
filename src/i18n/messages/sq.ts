@@ -348,7 +348,7 @@ export const sq: DeepPartialMessages = {
       },
       multivaluedAttributes: {
         label: "Rregullo atributet e perbera",
-        description: "Zgjero cdo atribut te perbere te pronari ER para hapjes se pamjes logjike.",
+        description: "Zbato Ndaj (Split) ose Bashko (Merge) për atributet e përbëra tek pronari ER para se të hapni pamjen logjike.",
       },
       generalizations: {
         label: "Rregullo pergjithesimet",
@@ -357,6 +357,22 @@ export const sq: DeepPartialMessages = {
       review: {
         label: "Rishikim",
         description: "Kontrollo mapping-et, konfliktet e hapura dhe skemen logjike finale inkrementale.",
+      },
+    },
+  },
+  translation: {
+    composite: {
+      split: {
+        label: "Ndaj",
+        description: "Heq \"{name}\" dhe zhvendos nën-atributet e tij gjethe direkt tek pronari.",
+        summary: "Atributi i përbërë \"{name}\" u nda tek pronari ER.",
+        preview: "Output ER: atributet e reja përdorin një emër të përbërë me prefiksin.",
+      },
+      merge: {
+        label: "Bashko",
+        description: "Bashkon atributin e përbërë \"{name}\" në një atribut të vetëm të thjeshtë.",
+        summary: "Atributi i përbërë \"{name}\" u bashkua në një atribut të thjeshtë ER.",
+        preview: "Output ER: atributi i përbërë bëhet i thjeshtë duke kombinuar emrat e brendshëm.",
       },
     },
   },
