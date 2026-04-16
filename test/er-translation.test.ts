@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttributeNode, DiagramDocument, DiagramEdge, DiagramNode, EntityNode } from "../src/types/diagram.ts";
+import { validateDiagram } from "../src/utils/diagram.ts";
+import { parseErsDiagram } from "../src/utils/ers.ts";
 import {
   applyCompositeAttributeTranslation,
   applyErTranslationChoice,
@@ -235,4 +237,120 @@ test("applyCompositeAttributeTranslation espande ricorsivamente i foglia sull'ow
     );
     assert.ok(ownerEdge, `Collegamento owner mancante per ${label}`);
   });
+});
+
+test("applyGeneralizationTranslation con collapse verso il basso risolve gerarchia senza attributi orfani, espande connector mantenendo l'identificatore", () => {
+  const ersCode = `entity ARGOMENTO 
+  titolo
+  IDArgomento ++
+  tags
+
+entity ARG_TEORICO
+  libro
+
+entity ARG_PRATICO
+  dispensa
+
+hierarchy (ARGOMENTO) -> ARG_TEORICO, ARG_PRATICO
+
+relation PARTECIPAZIONE ARGOMENTO "(0,N)" STATISTICA "(1,1)"
+entity STATISTICA`;
+
+  const diagram = parseErsDiagram(ersCode);
+  const supertypeNode = diagram.nodes.find((n) => n.type === "entity" && n.label === "ARGOMENTO");
+  assert.ok(supertypeNode);
+
+  const translated = applyGeneralizationTranslation(diagram, {
+    supertypeId: supertypeNode.id,
+    rule: "generalization-collapse-down",
+  });
+
+  // 1. The supertype ARGOMENTO does not exist in translated.nodes
+  assert.equal(
+    translated.nodes.some((n) => n.id === supertypeNode.id),
+    false,
+  );
+
+  // 2. No orphaned attributes originally belonging to the supertype
+  const teorico = translated.nodes.find((n) => n.type === "entity" && n.label === "ARG_TEORICO") as EntityNode;
+  const pratico = translated.nodes.find((n) => n.type === "entity" && n.label === "ARG_PRATICO") as EntityNode;
+  assert.ok(teorico);
+  assert.ok(pratico);
+
+  // 3. The subtypes contain the expected inherited attributes
+  const getSubtypeAttributes = (subtypeId: string) => {
+    return translated.edges
+      .filter((e) => e.type === "attribute" && (e.sourceId === subtypeId || e.targetId === subtypeId))
+      .map((e) => {
+        const attrId = e.sourceId === subtypeId ? e.targetId : e.sourceId;
+        return translated.nodes.find((n) => n.id === attrId)?.label;
+      });
+  };
+
+  const teoricoAttrs = getSubtypeAttributes(teorico.id);
+  const praticoAttrs = getSubtypeAttributes(pratico.id);
+
+  assert.ok(teoricoAttrs.includes("titolo"));
+  assert.ok(teoricoAttrs.includes("IDArgomento"));
+  assert.ok(teoricoAttrs.includes("tags"));
+  assert.ok(teoricoAttrs.includes("libro"));
+
+  assert.ok(praticoAttrs.includes("titolo"));
+  assert.ok(praticoAttrs.includes("IDArgomento"));
+  assert.ok(praticoAttrs.includes("tags"));
+  assert.ok(praticoAttrs.includes("dispensa"));
+
+  // Check no orphaned attribute edges to the old supertype
+  assert.equal(
+    translated.edges.some(
+      (e) => e.type === "attribute" && (e.sourceId === supertypeNode.id || e.targetId === supertypeNode.id),
+    ),
+    false,
+  );
+
+  // 4. Inherited identifier is maintained
+  const checkIdentifier = (subtype: EntityNode) => {
+    const idAttrNode = translated.nodes.find(
+      (n) => n.type === "attribute" && n.label === "IDArgomento" && getSubtypeAttributes(subtype.id).includes("IDArgomento"),
+    ) as AttributeNode;
+
+    assert.ok(idAttrNode);
+    assert.equal(idAttrNode.isIdentifier, true);
+
+    const internalIdentifiers = subtype.internalIdentifiers || [];
+    assert.equal(internalIdentifiers.length, 1);
+    assert.ok(internalIdentifiers[0].attributeIds.includes(idAttrNode.id));
+  };
+
+  checkIdentifier(teorico);
+  checkIdentifier(pratico);
+
+  // 5. No residual inheritance edges
+  assert.equal(
+    translated.edges.some((edge) => edge.type === "inheritance"),
+    false,
+  );
+
+  // 6. Connector and cardinalities are replicated cleanly
+  const partecipazione = translated.nodes.find((n) => n.type === "relationship" && n.label === "PARTECIPAZIONE");
+  assert.ok(partecipazione);
+
+  const teoricoParticipation = teorico.relationshipParticipations?.find(
+    (p) => p.relationshipId === partecipazione.id,
+  );
+  assert.ok(teoricoParticipation);
+  assert.equal(teoricoParticipation.cardinality, "(0,N)");
+
+  const praticoParticipation = pratico.relationshipParticipations?.find(
+    (p) => p.relationshipId === partecipazione.id,
+  );
+  assert.ok(praticoParticipation);
+  assert.equal(praticoParticipation.cardinality, "(0,N)");
+
+  // 7. No structural warnings are generated
+  const issues = validateDiagram(translated);
+  assert.equal(
+    issues.filter((i) => i.level === "warning").length,
+    0,
+  );
 });

@@ -4,6 +4,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   EntityNode,
+  EntityRelationshipParticipation,
   InheritanceEdge,
   ValidationIssue,
 } from "../types/diagram";
@@ -862,6 +863,18 @@ function applyGeneralizationTranslationDetailed(
       });
     });
   } else {
+    const initialOwnership = buildAttributeOwnershipContext(working);
+    const supertypeAttributeSubtreeIds = new Set<string>();
+
+    function collectAttributes(ownerId: string) {
+      const children = initialOwnership.directAttributeIdsByOwnerId.get(ownerId) ?? [];
+      children.forEach((childId) => {
+        supertypeAttributeSubtreeIds.add(childId);
+        collectAttributes(childId);
+      });
+    }
+    collectAttributes(supertypeId);
+
     hierarchy.subtypes.forEach((subtype) => {
       const currentSupertype = working.nodes.find((node): node is EntityNode => node.id === supertypeId && node.type === "entity");
       const currentSubtype = working.nodes.find((node): node is EntityNode => node.id === subtype.id && node.type === "entity");
@@ -896,19 +909,42 @@ function applyGeneralizationTranslationDetailed(
           edge.type === "connector" && (edge.sourceId === currentSupertype.id || edge.targetId === currentSupertype.id),
       );
 
+      const newParticipations: EntityRelationshipParticipation[] = [];
+      const newEdges = inheritedConnectorEdges.flatMap((edge) => {
+        const relationshipId = edge.sourceId === currentSupertype.id ? edge.targetId : edge.sourceId;
+        if (existingSubtypeRelationships.has(relationshipId)) {
+          return [];
+        }
+
+        existingSubtypeRelationships.add(relationshipId);
+        
+        const copiedEdge = cloneConnectorEdgeForEntity(edge, currentSupertype.id, currentSubtype.id, currentEdgeIds);
+        
+        if (edge.participationId && currentSupertype.relationshipParticipations) {
+          const oldParticipation = currentSupertype.relationshipParticipations.find((p) => p.id === edge.participationId);
+          if (oldParticipation) {
+            const nextParticipationId = allocateUniqueId(
+              new Set(currentSubtype.relationshipParticipations?.map((p) => p.id) ?? []),
+              edge.participationId,
+              `${currentSubtype.id}-participation`
+            );
+            copiedEdge.participationId = nextParticipationId;
+            newParticipations.push({
+              ...oldParticipation,
+              id: nextParticipationId,
+              relationshipId,
+            });
+          }
+        }
+
+        return [copiedEdge];
+      });
+
       working = {
         ...working,
         edges: [
           ...working.edges,
-          ...inheritedConnectorEdges.flatMap((edge) => {
-            const relationshipId = edge.sourceId === currentSupertype.id ? edge.targetId : edge.sourceId;
-            if (existingSubtypeRelationships.has(relationshipId)) {
-              return [];
-            }
-
-            existingSubtypeRelationships.add(relationshipId);
-            return [cloneConnectorEdgeForEntity(edge, currentSupertype.id, currentSubtype.id, currentEdgeIds)];
-          }),
+          ...newEdges,
         ],
         nodes: working.nodes.map((node) => {
           if (node.type !== "entity" || node.id !== currentSubtype.id) {
@@ -919,6 +955,10 @@ function applyGeneralizationTranslationDetailed(
             ...node,
             internalIdentifiers: mergeInternalIdentifiers(node, currentSupertype.internalIdentifiers, idRemap),
             externalIdentifiers: mergeExternalIdentifiers(node, currentSubtype.id, currentSupertype.externalIdentifiers, idRemap),
+            relationshipParticipations: [
+              ...(node.relationshipParticipations ?? []),
+              ...newParticipations,
+            ],
           };
         }),
       };
@@ -931,10 +971,16 @@ function applyGeneralizationTranslationDetailed(
 
     working = {
       ...working,
-      nodes: working.nodes.filter((node) => node.id !== supertypeId),
+      nodes: working.nodes.filter((node) => node.id !== supertypeId && !supertypeAttributeSubtreeIds.has(node.id)),
       edges: [
         ...working.edges.filter((edge) => {
-          if (edge.type === "attribute" && (edge.sourceId === supertypeId || edge.targetId === supertypeId)) {
+          if (
+            edge.type === "attribute" &&
+            (edge.sourceId === supertypeId ||
+              edge.targetId === supertypeId ||
+              supertypeAttributeSubtreeIds.has(edge.sourceId) ||
+              supertypeAttributeSubtreeIds.has(edge.targetId))
+          ) {
             return false;
           }
 
