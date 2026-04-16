@@ -182,6 +182,11 @@ function normalizeAliasCandidate(value: string, allowDot: boolean): string {
 }
 
 function buildAliasSeed(node: DiagramNode): string {
+  const normalizedLabel = normalizeAliasCandidate(node.label, true);
+  if (normalizedLabel.length > 0) {
+    return normalizedLabel;
+  }
+
   if (!isGeneratedNodeId(node.id)) {
     const normalizedId = normalizeAliasCandidate(node.id, true);
     if (normalizedId.length > 0) {
@@ -189,15 +194,15 @@ function buildAliasSeed(node: DiagramNode): string {
     }
   }
 
-  const normalizedLabel = normalizeAliasCandidate(node.label.toLowerCase(), true);
-  if (normalizedLabel.length > 0) {
-    return normalizedLabel;
-  }
-
   return `${node.type}_node`;
 }
 
 function buildLocalAttributeAliasSeed(node: DiagramNode, hostAlias: string): string {
+  const normalizedLabel = normalizeAliasCandidate(node.label, false);
+  if (normalizedLabel.length > 0) {
+    return normalizedLabel;
+  }
+
   if (!isGeneratedNodeId(node.id)) {
     const qualifiedPrefix = `${hostAlias}.`;
     if (node.id.startsWith(qualifiedPrefix)) {
@@ -212,11 +217,6 @@ function buildLocalAttributeAliasSeed(node: DiagramNode, hostAlias: string): str
     if (normalizedTail.length > 0) {
       return normalizedTail;
     }
-  }
-
-  const normalizedLabel = normalizeAliasCandidate(node.label.toLowerCase(), false);
-  if (normalizedLabel.length > 0) {
-    return normalizedLabel;
   }
 
   return "attribute";
@@ -445,7 +445,8 @@ function isQuotedToken(token: string | undefined): boolean {
 }
 
 function getDefaultLabelForAlias(alias: string): string {
-  return humanizeAlias(alias);
+  const normalized = alias.trim();
+  return normalized.length > 0 ? normalized : humanizeAlias(alias);
 }
 
 function createNodeBase(alias: string, type: NodeKind): DiagramNode {

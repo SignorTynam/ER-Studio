@@ -487,12 +487,16 @@ function synchronizeNodeLabelsByNamespace(
   return synchronizedLabelByNodeId;
 }
 
-function synchronizeNodeIds(diagram: DiagramDocument): Map<string, string> {
+function synchronizeNodeIds(
+  diagram: DiagramDocument,
+  synchronizedLabelsByNodeId?: Map<string, string>,
+): Map<string, string> {
   const usedNodeIds = new Set<string>();
   const synchronizedNodeIds = new Map<string, string>();
 
   diagram.nodes.forEach((node) => {
-    const normalizedIdCandidate = node.id.trim().replace(/\s+/g, " ");
+    const preferredIdSource = synchronizedLabelsByNodeId?.get(node.id) ?? node.id;
+    const normalizedIdCandidate = preferredIdSource.trim().replace(/\s+/g, " ");
     const idCandidate = normalizedIdCandidate.length > 0 ? normalizedIdCandidate : createId("node");
     const uniqueId = createUniqueNodeName(idCandidate, usedNodeIds);
     synchronizedNodeIds.set(node.id, uniqueId);
@@ -553,7 +557,7 @@ export function synchronizeNodeNameIdentity(
   preferredNamesByNodeId?: Record<string, string>,
 ): NodeNameIdentitySyncResult {
   const synchronizedLabelsByNodeId = synchronizeNodeLabelsByNamespace(diagram, preferredNamesByNodeId);
-  const fullNodeIdMap = synchronizeNodeIds(diagram);
+  const fullNodeIdMap = synchronizeNodeIds(diagram, synchronizedLabelsByNodeId);
 
   const nodeIdMap = new Map<string, string>();
   fullNodeIdMap.forEach((nextId, previousId) => {

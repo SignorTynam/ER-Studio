@@ -6,25 +6,25 @@ interface CodeModeTutorialPageProps {
   onOpenCodeStudio: () => void;
 }
 
-const CODE_TUTORIAL_SAMPLE = `entity base_entity "BASE_ENTITY" {
-  identifier base_id "BASE_ID"
-  attribute label "LABEL"
-  multivalued contact "CONTACT"
+const CODE_TUTORIAL_SAMPLE = `entity BASE_ENTITY {
+  identifier BASE_ID
+  attribute LABEL
+  multivalued CONTACT
 }
 
-attribute detail_a "DetailA"
-attribute detail_b "DetailB"
-attribute detail_c "DetailC"
+attribute DetailA
+attribute DetailB
+attribute DetailC
 
-attribute-link detail_a -> contact
-attribute-link detail_b -> contact
-attribute-link detail_c -> contact
+attribute-link DetailA -> CONTACT
+attribute-link DetailB -> CONTACT
+attribute-link DetailC -> CONTACT
 
-entity subtype_a "SUBTYPE_A" weak
-entity subtype_b "SUBTYPE_B"
+entity SUBTYPE_A weak
+entity SUBTYPE_B
 
-inheritance subtype_a -> base_entity disjoint total
-inheritance subtype_b -> base_entity overlap partial`;
+inheritance SUBTYPE_A -> BASE_ENTITY disjoint total
+inheritance SUBTYPE_B -> BASE_ENTITY overlap partial`;
 
 const WORKSPACE_MODES = [
   {
@@ -67,27 +67,27 @@ const FLOW_STEPS = [
 const SYNTAX_PATTERNS = [
   {
     title: "Entita e attributi",
-    code: `entity studente "STUDENTE" {\n  identifier matricola "MATRICOLA"\n  attribute nome "NOME"\n}`,
+    code: `entity STUDENTE {\n  identifier MATRICOLA\n  attribute NOME\n}`,
     text: "Il blocco entity e il punto piu pulito per definire identificatori e attributi base.",
   },
   {
     title: "Relazione con cardinalita",
-    code: `relation frequenta "FREQUENTA" {\n  connect studente "(0,N)"\n  connect corso "(1,N)"\n}`,
+    code: `relation FREQUENTA {\n  connect STUDENTE "(0,N)"\n  connect CORSO "(1,N)"\n}`,
     text: "Usa relation in forma compatta o a blocco. La forma a blocco e piu leggibile quando la relazione cresce.",
   },
   {
     title: "Identificatori interni composti multipli",
-    code: `entity ordine "ORDINE" {\n  attribute anno "ANNO"\n  attribute numero "NUMERO"\n  attribute serie "SERIE"\n  attribute progressivo "PROGRESSIVO"\n  identifier anno, numero\n  identifier serie, progressivo\n}`,
+    code: `entity ORDINE {\n  attribute ANNO\n  attribute NUMERO\n  attribute SERIE\n  attribute PROGRESSIVO\n  identifier ANNO, NUMERO\n  identifier SERIE, PROGRESSIVO\n}`,
     text: "Ogni riga identifier con lista separata da virgole definisce un identificatore interno composto distinto.",
   },
   {
     title: "Attributo multivalore con attributi collegati",
-    code: `multivalued indirizzo "INDIRIZZO"\nattribute via "Via"\nattribute-link via -> indirizzo`,
+    code: `multivalued INDIRIZZO\nattribute Via\nattribute-link Via -> INDIRIZZO`,
     text: "Nel DSL e nel canvas la parola chiave corretta per questo nodo e multivalued.",
   },
   {
     title: "Vincoli ISA avanzati",
-    code: `inheritance subtype_a -> base_entity disjoint total`,
+    code: `inheritance SUBTYPE_A -> BASE_ENTITY disjoint total`,
     text: "Disjoint/overlap e total/partial si impostano su ogni singolo collegamento di generalizzazione.",
   },
 ];
