@@ -240,21 +240,27 @@ test("applyCompositeAttributeTranslation espande ricorsivamente i foglia sull'ow
 });
 
 test("applyGeneralizationTranslation con collapse verso il basso risolve gerarchia senza attributi orfani, espande connector mantenendo l'identificatore", () => {
-  const ersCode = `entity ARGOMENTO 
-  titolo
-  IDArgomento ++
-  tags
+  const ersCode = `entity ARGOMENTO {
+  attribute titolo
+  identifier IDArgomento
+  attribute tags
+}
 
-entity ARG_TEORICO
-  libro
+entity ARG_TEORICO {
+  attribute libro
+}
 
-entity ARG_PRATICO
-  dispensa
+entity ARG_PRATICO {
+  attribute dispensa
+}
 
-hierarchy (ARGOMENTO) -> ARG_TEORICO, ARG_PRATICO
+inheritance ARG_TEORICO -> ARGOMENTO
+inheritance ARG_PRATICO -> ARGOMENTO
 
 relation PARTECIPAZIONE ARGOMENTO "(0,N)" STATISTICA "(1,1)"
-entity STATISTICA`;
+entity STATISTICA {
+  attribute someAttr
+}`;
 
   const diagram = parseErsDiagram(ersCode);
   const supertypeNode = diagram.nodes.find((n) => n.type === "entity" && n.label === "ARGOMENTO");
@@ -310,9 +316,16 @@ entity STATISTICA`;
 
   // 4. Inherited identifier is maintained
   const checkIdentifier = (subtype: EntityNode) => {
-    const idAttrNode = translated.nodes.find(
-      (n) => n.type === "attribute" && n.label === "IDArgomento" && getSubtypeAttributes(subtype.id).includes("IDArgomento"),
-    ) as AttributeNode;
+    const idEdge = translated.edges.find(
+      (e) =>
+        e.type === "attribute" &&
+        (e.sourceId === subtype.id || e.targetId === subtype.id) &&
+        translated.nodes.find((n) => n.id === (e.sourceId === subtype.id ? e.targetId : e.sourceId))?.label ===
+          "IDArgomento",
+    );
+    assert.ok(idEdge);
+    const idAttrNodeId = idEdge.sourceId === subtype.id ? idEdge.targetId : idEdge.sourceId;
+    const idAttrNode = translated.nodes.find((n) => n.id === idAttrNodeId) as AttributeNode;
 
     assert.ok(idAttrNode);
     assert.equal(idAttrNode.isIdentifier, true);
