@@ -27,6 +27,7 @@ function renderHeader() {
         warningCount={0}
         showDiagnostics
         activeActivityPanel="code"
+        hasProject
         onNewProject={() => undefined}
         onCloseProject={() => undefined}
         onNewSchema={() => undefined}

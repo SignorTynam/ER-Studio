@@ -16,6 +16,7 @@ import { ProjectExplorer } from "./components/project/ProjectExplorer";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
+import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
@@ -1130,6 +1131,7 @@ export default function App() {
   );
   const [showDiagnostics, setShowDiagnostics] = useState(sessionBootstrap.showDiagnostics);
   const projectVersioning = useProjectVersioning(sessionBootstrap.versioning);
+  const [hasProject, setHasProject] = useState(sessionBootstrap.hasProject);
   const [projectExplorer, setProjectExplorer] = useState<ProjectExplorerState>(() =>
     normalizeProjectTabs({
       project: sessionBootstrap.project,
@@ -1183,22 +1185,22 @@ export default function App() {
   const restoredSessionNoticeShownRef = useRef(false);
   latestDiagramRef.current = history.present;
 
-  const activeProjectFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+  const activeProjectFileId = hasProject ? projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId : null;
   const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
   const activeSchemaFile = activeProjectFile?.kind === "schema" ? activeProjectFile : null;
   const hasOpenSchema = Boolean(activeSchemaFile);
-  const activeProjectTab = projectExplorer.view.activeTabId
+  const activeProjectTab = hasProject && projectExplorer.view.activeTabId
     ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
     : undefined;
   const welcomeTabActive = activeProjectTab?.kind === "welcome";
-  const hasProjectTabsOpen = projectExplorer.view.openTabs.length > 0;
-  const projectFileCount = Object.keys(projectExplorer.files).length;
-  const projectFolderCount = projectExplorer.project.fileTree.filter((node) => node.kind === "folder").length;
+  const hasProjectTabsOpen = hasProject && projectExplorer.view.openTabs.length > 0;
+  const projectFileCount = hasProject ? Object.keys(projectExplorer.files).length : 0;
+  const projectFolderCount = hasProject ? projectExplorer.project.fileTree.filter((node) => node.kind === "folder").length : 0;
   const activeTextModalFile =
-    textFileModalFileId && projectExplorer.files[textFileModalFileId]?.kind === "text"
+    hasProject && textFileModalFileId && projectExplorer.files[textFileModalFileId]?.kind === "text"
       ? projectExplorer.files[textFileModalFileId]
       : null;
-  const issues = hasOpenSchema ? validateDiagram(history.present) : [];
+  const issues = hasProject && hasOpenSchema ? validateDiagram(history.present) : [];
   const canvasIssues = showDiagnostics ? issues : [];
   const selectedNode =
     selection.nodeIds.length === 1 && selection.edgeIds.length === 0
@@ -1484,7 +1486,7 @@ export default function App() {
   }, [appChangelog, t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
-    if (!sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
+    if (!sessionBootstrap.hasProject || !sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
       return;
     }
 
@@ -1493,6 +1495,11 @@ export default function App() {
   }, [sessionBootstrap.restored]);
 
   useEffect(() => {
+    if (!hasProject) {
+      hasUnsavedChangesRef.current = false;
+      return;
+    }
+
     const currentCode = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     const currentVersioning = JSON.stringify(projectVersioning.versioning);
     const currentWorkspace = JSON.stringify(currentProjectWorkspaceState);
@@ -1503,10 +1510,18 @@ export default function App() {
       currentVersioning !== lastSavedVersioningRef.current ||
       currentWorkspace !== lastSavedWorkspaceRef.current ||
       currentProjectExplorer !== lastSavedProjectExplorerRef.current;
-  }, [history.present, codeDraft, currentProjectWorkspaceState, projectExplorer, projectVersioning.versioning]);
+  }, [hasProject, history.present, codeDraft, currentProjectWorkspaceState, projectExplorer, projectVersioning.versioning]);
 
   useEffect(() => {
+    if (!hasProject) {
+      latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
+        workspaceState: "no-project",
+      });
+      return;
+    }
+
     latestSessionSnapshotRef.current = serializeWorkspaceSessionSnapshot({
+      workspaceState: "project",
       diagram: history.present,
       translationWorkspace: translationHistory.present,
       logicalWorkspace: logicalHistory.present,
@@ -1573,6 +1588,7 @@ export default function App() {
     viewport,
     projectVersioning.versioning,
     projectExplorer,
+    hasProject,
   ]);
 
   useEffect(() => {
@@ -1612,6 +1628,7 @@ export default function App() {
     translationViewport,
     viewport,
     projectExplorer,
+    hasProject,
   ]);
 
   useEffect(() => {
@@ -1714,6 +1731,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!hasProject) {
+      return;
+    }
+
     if (diagramView !== "er") {
       return;
     }
@@ -1739,7 +1760,7 @@ export default function App() {
     onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
     setOnboardingOpen(true);
     setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
-  }, [diagramView, onboardingOpen, sessionBootstrap.restored]);
+  }, [diagramView, hasProject, onboardingOpen, sessionBootstrap.restored]);
 
   useEffect(() => {
     if (!onboardingOpen) {
@@ -1851,6 +1872,11 @@ export default function App() {
   }
 
   function openCommandMenu() {
+    if (!hasProject) {
+      setStatusWarning(t("noProjectWelcome.title"));
+      return;
+    }
+
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
@@ -2151,6 +2177,11 @@ export default function App() {
   }
 
   function handleOpenSqlReverseWorkflow() {
+    if (!hasProject) {
+      setStatusWarning(t("noProjectWelcome.title"));
+      return;
+    }
+
     if (diagramView !== "er") {
       setStatusWarning(t("sqlReverse.app.onlyErView"));
       return;
@@ -2664,7 +2695,16 @@ export default function App() {
     return updateProjectSchemaFileIfContentChanged(state, activeFileId, createCurrentSchemaDocument());
   }
 
+  function getProjectStateForImportedSchema(projectName: string): ProjectExplorerState {
+    if (hasProject) {
+      return syncActiveSchemaToProject();
+    }
+
+    return createEmptyProjectExplorerState(stripKnownProjectExtension(projectName) || "buildER Project");
+  }
+
   function applyProjectExplorerState(nextState: ProjectExplorerState) {
+    setHasProject(true);
     setProjectExplorer(normalizeProjectTabs(nextState));
     hasUnsavedChangesRef.current = true;
   }
@@ -2684,6 +2724,11 @@ export default function App() {
   }
 
   function handleShowWelcomeTab() {
+    if (!hasProject) {
+      setStatusWarning(t("noProjectWelcome.title"));
+      return;
+    }
+
     setProjectExplorer(openWelcomeTab(syncActiveSchemaToProject()));
   }
 
@@ -4050,6 +4095,7 @@ export default function App() {
       versioning: createEmptyProjectVersioningState(),
     });
     const nextProject = createEmptyProjectExplorerState(t("workspace.newDiagramName"));
+    setHasProject(true);
     setProjectExplorer(nextProject);
     setTextFileModalFileId(null);
     applyWorkspaceDocument(
@@ -4069,6 +4115,103 @@ export default function App() {
       },
     );
     markProjectExplorerSaved(nextProject);
+  }
+
+  async function handleCloseProject() {
+    if (!hasProject) {
+      setStatusWarning(t("noProjectWelcome.title"));
+      return;
+    }
+    if (!(await confirmDiscardChanges(t("workspace.unsavedActions.closeProject")))) {
+      return;
+    }
+
+    const noProjectSnapshot = serializeWorkspaceSessionSnapshot({
+      workspaceState: "no-project",
+    });
+    latestSessionSnapshotRef.current = noProjectSnapshot;
+    saveWorkspaceSessionSnapshot(noProjectSnapshot);
+
+    const blankDiagram = createEmptyDiagram("buildER");
+    const blankTranslationWorkspace = createEmptyErTranslationWorkspace(blankDiagram);
+    const blankLogicalWorkspace = createEmptyLogicalWorkspace(blankTranslationWorkspace.translatedDiagram);
+    const emptyVersioning = createEmptyProjectVersioningState();
+    const emptyProjectExplorer = createEmptyProjectExplorerState("buildER Project");
+    const blankCode = serializeDiagramToErs(blankDiagram);
+
+    setHasProject(false);
+    setProjectExplorer(emptyProjectExplorer);
+    history.reset(blankDiagram);
+    translationHistory.reset(blankTranslationWorkspace);
+    logicalHistory.reset(blankLogicalWorkspace);
+    projectVersioning.setVersioning(emptyVersioning);
+    replaceCodeDraft(blankCode);
+    setDiagramView("er");
+    setLogicalGenerated(false);
+    setLogicalStage("translation");
+    setLogicalPanelMode("review");
+    setLogicalTypeMode(false);
+    setViewport({ ...DEFAULT_VIEWPORT });
+    setTranslationViewport({ ...DEFAULT_VIEWPORT });
+    setLogicalViewport({ ...DEFAULT_VIEWPORT });
+    setSelection({ nodeIds: [], edgeIds: [] });
+    setTranslationSelection({ nodeIds: [], edgeIds: [] });
+    setLogicalSelection({ ...EMPTY_LOGICAL_SELECTION });
+    setIdentifierSelection(null);
+    setTool("select");
+    setCodeError("");
+    setTextFileModalFileId(null);
+    setCommandMenuOpen(false);
+    setKeyboardShortcutsOpen(false);
+    setAboutOpen(false);
+    setWhatsNewOpen(false);
+    setIntroOpen(false);
+    setErrorsPanelOpen(false);
+    setVersionCompareSession(null);
+    setSourceControlCommitMessage("");
+    setSelectedSourceCommitId(null);
+    setSqlReverseWorkflow(createInitialSqlReverseWorkflowState());
+    setActiveActivityPanel("file");
+    setTechnicalPanelOpen(false);
+    setCodePanelOpen(false);
+    setNotesPanelOpen(false);
+    setFocusMode(false);
+    setOnboardingOpen(false);
+    setOnboardingStepState({
+      entityCreated: false,
+      relationshipCreated: false,
+      connectionCreated: false,
+      renamedNode: false,
+    });
+    onboardingPreviousSnapshotRef.current = null;
+    codeLayoutMemoryRef.current = null;
+    suppressNextCodeSyncRef.current = false;
+    closePromptDialog(null);
+    setPromptError("");
+    setRestoreDialogError("");
+    setCommitDialogError("");
+    setRestoreDialogBusy(false);
+    setCommitDialogBusy(false);
+
+    lastSavedDiagramRef.current = serializeDiagram(blankDiagram);
+    lastSavedCodeRef.current = blankCode;
+    lastSavedVersioningRef.current = JSON.stringify(emptyVersioning);
+    lastSavedWorkspaceRef.current = JSON.stringify({
+      ...currentProjectWorkspaceState,
+      tool: "select",
+      selection: { nodeIds: [], edgeIds: [] },
+      translationSelection: { nodeIds: [], edgeIds: [] },
+      logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+      codeDraft: blankCode,
+      codeDirty: false,
+      technicalPanelOpen: false,
+      codePanelOpen: false,
+      notesPanelOpen: false,
+      focusMode: false,
+    });
+    lastSavedProjectExplorerRef.current = JSON.stringify(emptyProjectExplorer);
+    hasUnsavedChangesRef.current = false;
+    setStatus(t("noProjectWelcome.title"));
   }
 
   function handleCreateNode(
@@ -5949,6 +6092,11 @@ export default function App() {
   }
 
   function handleSaveProject() {
+    if (!hasProject) {
+      setStatusWarning(t("noProjectWelcome.title"));
+      return;
+    }
+
     try {
       const syncedProject = syncActiveSchemaToProject();
       const serializedProject = serializeProjectFile({
@@ -6335,6 +6483,7 @@ export default function App() {
             : parsedProject.source === "schema-file"
               ? t("projectExplorer.status.schemaImported")
           : t("workspace.projectLoaded");
+      setHasProject(true);
       if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
         const nextProjectExplorer = normalizeProjectTabs({
           project: parsedProject.state.project,
@@ -6376,7 +6525,7 @@ export default function App() {
     try {
       const rawText = await file.text();
       const schema = parseSchemaFile(rawText, DEFAULT_VIEWPORT);
-      const synced = syncActiveSchemaToProject();
+      const synced = getProjectStateForImportedSchema(file.name || schema.diagram.meta.name);
       const uniqueName = getUniqueProjectNodeName(
         synced.project,
         synced.project.rootId,
@@ -6389,6 +6538,7 @@ export default function App() {
         return;
       }
 
+      setHasProject(true);
       openSchemaWorkspaceFile(schemaFile.id, result.state, { center: true });
       setStatus(t("projectExplorer.status.schemaImported"));
       showSuccessNotice(t("projectExplorer.status.schemaImported"), { title: t("workspace.noticeTitles.downloadCompleted") });
@@ -6427,7 +6577,7 @@ export default function App() {
           codeDirty: false,
         },
       });
-      const synced = syncActiveSchemaToProject();
+      const synced = getProjectStateForImportedSchema(file.name || parsed.meta.name);
       const uniqueName = getUniqueProjectNodeName(
         synced.project,
         synced.project.rootId,
@@ -6439,6 +6589,7 @@ export default function App() {
         setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
         return;
       }
+      setHasProject(true);
       openSchemaWorkspaceFile(schemaFile.id, result.state, { center: true });
       setStatus(t("workspace.ersLoaded"));
     } catch (error) {
@@ -6924,8 +7075,9 @@ export default function App() {
         warningCount={issues.filter((issue) => issue.level === "warning").length}
         showDiagnostics={showDiagnostics}
         activeActivityPanel={activeActivityPanel}
+        hasProject={hasProject}
         onNewProject={handleNewProject}
-        onCloseProject={handleNewProject}
+        onCloseProject={handleCloseProject}
         onShowWelcome={handleShowWelcomeTab}
         onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
         onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
@@ -6967,39 +7119,41 @@ export default function App() {
       <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
 
       <div className={workspaceRegionClassName}>
-        <div className="workspace-overlay-region">
-          {showOnboardingGuide ? (
-            <div className="workspace-onboarding-dock">
-              <OnboardingGuide
-                steps={onboardingSteps}
-                activeStepIndex={resolvedOnboardingStepIndex}
-                onStepAction={handleOnboardingStepAction}
-                onSkip={handleSkipOnboarding}
-              />
+        {hasProject ? (
+          <>
+            <div className="workspace-overlay-region">
+              {showOnboardingGuide ? (
+                <div className="workspace-onboarding-dock">
+                  <OnboardingGuide
+                    steps={onboardingSteps}
+                    activeStepIndex={resolvedOnboardingStepIndex}
+                    onStepAction={handleOnboardingStepAction}
+                    onSkip={handleSkipOnboarding}
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
 
-        <ProjectActivityPanel
-          items={activityItems}
-          activeId={activeActivityPanel}
-          open={projectExplorer.view.explorerOpen}
-          width={projectExplorer.view.explorerWidth}
-          title={t("workspaceActivity.title")}
-          openLabel={t("workspaceActivity.openPanel")}
-          closeLabel={t("workspaceActivity.closePanel")}
-          commandMenuLabel={t("workspaceActivity.commandMenu")}
-          keyboardShortcutsLabel={t("workspaceActivity.keyboardShortcuts")}
-          onSelect={handleSelectActivityPanel}
-          onToggleOpen={handleToggleActivityPanelOpen}
-          onOpenCommandMenu={openCommandMenu}
-          onOpenShortcuts={openKeyboardShortcuts}
-          onResizeStart={handleProjectExplorerResizeStart}
-        >
-          {activityPanelContent}
-        </ProjectActivityPanel>
+            <ProjectActivityPanel
+              items={activityItems}
+              activeId={activeActivityPanel}
+              open={projectExplorer.view.explorerOpen}
+              width={projectExplorer.view.explorerWidth}
+              title={t("workspaceActivity.title")}
+              openLabel={t("workspaceActivity.openPanel")}
+              closeLabel={t("workspaceActivity.closePanel")}
+              commandMenuLabel={t("workspaceActivity.commandMenu")}
+              keyboardShortcutsLabel={t("workspaceActivity.keyboardShortcuts")}
+              onSelect={handleSelectActivityPanel}
+              onToggleOpen={handleToggleActivityPanelOpen}
+              onOpenCommandMenu={openCommandMenu}
+              onOpenShortcuts={openKeyboardShortcuts}
+              onResizeStart={handleProjectExplorerResizeStart}
+            >
+              {activityPanelContent}
+            </ProjectActivityPanel>
 
-        <div className="project-main-area">
+            <div className="project-main-area">
           <ProjectFileTabs
             tabs={visibleProjectTabs}
             activeTabId={projectExplorer.view.activeTabId}
@@ -7216,6 +7370,14 @@ export default function App() {
             )}
           </div>
         </div>
+          </>
+        ) : (
+          <NoProjectWelcomePage
+            onNewProject={handleNewProject}
+            onOpenProject={handleLoadProjectRequest}
+            onImportSchema={handleImportSchemaRequest}
+          />
+        )}
       </div>
 
       <input

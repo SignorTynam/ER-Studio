@@ -294,6 +294,14 @@ export const sq: DeepPartialMessages = {
     tipReverse: "Importo SQL dhe gjenero automatikisht nje skeme ER.",
     tipVersioning: "Perdor Source Control per versionimin e gjithe projektit.",
   },
+  noProjectWelcome: {
+    title: "Asnje projekt i hapur",
+    subtitle: "Krijo nje projekt te ri ose hap nje projekt ekzistues per te filluar.",
+    start: "Fillo",
+    newProject: "Krijo projekt te ri",
+    openProject: "Hap projekt .ersp",
+    importSchema: "Importo skeme .erschema",
+  },
   workspaceEmpty: {
     title: "Asnje file i hapur",
     description: "Hap nje file nga Explorer ose krijo nje skeme te re nga menuja File.",
@@ -862,6 +870,7 @@ export const sq: DeepPartialMessages = {
     },
     unsavedActions: {
       createNewProject: "krijosh një projekt të ri",
+      closeProject: "mbyllesh projektin",
       loadProject: "ngarkosh një projekt",
       loadErs: "ngarkosh një skedar ERS",
     },

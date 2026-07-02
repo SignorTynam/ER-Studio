@@ -22,6 +22,7 @@ interface AppHeaderProps {
   warningCount: number;
   showDiagnostics: boolean;
   activeActivityPanel: ProjectActivityId;
+  hasProject: boolean;
   onNewProject: () => void;
   onCloseProject: () => void;
   onShowWelcome: () => void;
@@ -131,16 +132,16 @@ export function AppHeader(props: AppHeaderProps) {
               data-menu-block="file"
             >
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewProject)}>{t("fileMenu.newProject")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onCloseProject)}>{t("fileMenu.closeProject")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onCloseProject)} disabled={!props.hasProject}>{t("fileMenu.closeProject")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onLoadProject)}>{t("fileMenu.openProject")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveProject)}>{t("fileMenu.saveProject")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onShowWelcome)}>{t("fileMenu.showWelcome")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveProject)} disabled={!props.hasProject}>{t("fileMenu.saveProject")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onShowWelcome)} disabled={!props.hasProject}>{t("fileMenu.showWelcome")}</button>
               <div className="app-file-menu__separator app-topbar-menu__separator" role="separator" />
               <span className="app-file-menu__section app-topbar-menu__section">{t("fileMenu.newFile")}</span>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewSchema)}>{t("fileMenu.newSchema")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewNote)}>{t("fileMenu.newNote")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewSql)}>{t("fileMenu.newSql")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewFolder)}>{t("fileMenu.newFolder")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewSchema)} disabled={!props.hasProject}>{t("fileMenu.newSchema")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewNote)} disabled={!props.hasProject}>{t("fileMenu.newNote")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewSql)} disabled={!props.hasProject}>{t("fileMenu.newSql")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onNewFolder)} disabled={!props.hasProject}>{t("fileMenu.newFolder")}</button>
             </div>
           ) : null}
         </div>
@@ -167,16 +168,16 @@ export function AppHeader(props: AppHeaderProps) {
               <span className="app-topbar-menu__section">{t("fileMenu.import")}</span>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportSchema)}>{t("fileMenu.importSchema")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportErs)}>{t("fileMenu.importErs")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportSql)}>{t("fileMenu.importSql")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportSql)} disabled={!props.hasProject}>{t("fileMenu.importSql")}</button>
               <div className="app-topbar-menu__separator" role="separator" />
               <span className="app-topbar-menu__section">{t("fileMenu.export")}</span>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveProject)}>{t("fileMenu.exportProject")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportCurrentSchema)}>{t("fileMenu.exportSchema")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveErs)}>{t("fileMenu.exportErs")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportSql)}>{t("fileMenu.exportSql")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportPng)}>{t("fileMenu.exportPng")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportJpeg)}>{t("fileMenu.exportJpeg")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportSvg)}>{t("fileMenu.exportSvg")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveProject)} disabled={!props.hasProject}>{t("fileMenu.exportProject")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportCurrentSchema)} disabled={!props.hasProject}>{t("fileMenu.exportSchema")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveErs)} disabled={!props.hasProject}>{t("fileMenu.exportErs")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportSql)} disabled={!props.hasProject}>{t("fileMenu.exportSql")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportPng)} disabled={!props.hasProject}>{t("fileMenu.exportPng")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportJpeg)} disabled={!props.hasProject}>{t("fileMenu.exportJpeg")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onExportSvg)} disabled={!props.hasProject}>{t("fileMenu.exportSvg")}</button>
             </div>
           ) : null}
         </div>

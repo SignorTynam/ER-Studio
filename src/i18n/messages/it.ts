@@ -292,6 +292,14 @@ export const it = {
     tipReverse: "Importa SQL e genera automaticamente uno schema ER.",
     tipVersioning: "Usa Source Control per versionare l'intero progetto.",
   },
+  noProjectWelcome: {
+    title: "Nessun progetto aperto",
+    subtitle: "Crea un nuovo progetto oppure apri un progetto esistente per iniziare.",
+    start: "Inizia",
+    newProject: "Crea nuovo progetto",
+    openProject: "Apri progetto .ersp",
+    importSchema: "Importa schema .erschema",
+  },
   workspaceEmpty: {
     title: "Nessun file aperto",
     description: "Apri un file dall'Explorer oppure crea un nuovo schema dal menu File.",
@@ -860,6 +868,7 @@ export const it = {
     },
     unsavedActions: {
       createNewProject: "creare un nuovo progetto",
+      closeProject: "chiudere il progetto",
       loadProject: "caricare un progetto",
       loadErs: "caricare un file ERS",
     },

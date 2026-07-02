@@ -33,6 +33,7 @@ function renderHeader(): string {
         warningCount={0}
         showDiagnostics
         activeActivityPanel="file"
+        hasProject
         onNewProject={() => undefined}
         onCloseProject={() => undefined}
         onNewSchema={() => undefined}

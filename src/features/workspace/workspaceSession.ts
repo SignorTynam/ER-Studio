@@ -61,8 +61,61 @@ const TOOL_KIND_VALUES: ToolKind[] = [
   "inheritance",
 ];
 
-export interface WorkspaceSessionSnapshot {
-  version: 6;
+interface WorkspaceSessionProjectData {
+  diagram: DiagramDocument;
+  translationWorkspace: ErTranslationWorkspaceDocument;
+  logicalWorkspace: LogicalWorkspaceDocument;
+  logicalGenerated: boolean;
+  logicalStage: LogicalStage;
+  diagramView: WorkspaceView;
+  tool: ToolKind;
+  mode: EditorMode;
+  viewport: Viewport;
+  selection: SelectionState;
+  translationViewport: Viewport;
+  translationSelection: SelectionState;
+  logicalViewport: Viewport;
+  logicalSelection: LogicalSelection;
+  codeDraft: string;
+  codeDirty: boolean;
+  technicalPanelOpen: boolean;
+  technicalPanelTab: TechnicalPanelTab;
+  codePanelOpen: boolean;
+  codePanelWidth: number;
+  notesPanelOpen: boolean;
+  notesPanelWidth: number;
+  toolbarCollapsed: boolean;
+  focusMode: boolean;
+  toolbarWidth: number;
+  showDiagnostics: boolean;
+  versioning: ProjectVersioningState;
+  project: ProjectExplorerProject;
+  files: Record<string, ProjectWorkspaceFile>;
+  explorerView: ProjectExplorerViewState;
+}
+
+export type WorkspaceSessionSnapshot =
+  | {
+      version: 7;
+      savedAt: string;
+      workspaceState: "no-project";
+    }
+  | ({
+      version: 7;
+      savedAt: string;
+      workspaceState: "project";
+    } & WorkspaceSessionProjectData);
+
+export type WorkspaceSessionSnapshotInput =
+  | {
+      workspaceState: "no-project";
+    }
+  | ({
+      workspaceState: "project";
+    } & WorkspaceSessionProjectData);
+
+export interface LegacyWorkspaceSessionSnapshot {
+  version: 1 | 2 | 3 | 4 | 5 | 6;
   savedAt: string;
   diagram: DiagramDocument;
   translationWorkspace: ErTranslationWorkspaceDocument;
@@ -96,37 +149,9 @@ export interface WorkspaceSessionSnapshot {
   explorerView?: ProjectExplorerViewState;
 }
 
-export interface WorkspaceSessionBootstrap {
-  diagram: DiagramDocument;
-  translationWorkspace: ErTranslationWorkspaceDocument;
-  logicalWorkspace: LogicalWorkspaceDocument;
-  logicalGenerated: boolean;
-  logicalStage: LogicalStage;
-  diagramView: WorkspaceView;
-  tool: ToolKind;
-  mode: EditorMode;
-  viewport: Viewport;
-  selection: SelectionState;
-  translationViewport: Viewport;
-  translationSelection: SelectionState;
-  logicalViewport: Viewport;
-  logicalSelection: LogicalSelection;
-  codeDraft: string;
-  codeDirty: boolean;
-  technicalPanelOpen: boolean;
-  technicalPanelTab: TechnicalPanelTab;
-  codePanelOpen: boolean;
-  codePanelWidth: number;
-  notesPanelOpen: boolean;
-  notesPanelWidth: number;
-  toolbarCollapsed: boolean;
-  focusMode: boolean;
-  toolbarWidth: number;
-  showDiagnostics: boolean;
-  versioning: ProjectVersioningState;
-  project: ProjectExplorerProject;
-  files: Record<string, ProjectWorkspaceFile>;
-  explorerView: ProjectExplorerViewState;
+export interface WorkspaceSessionBootstrap extends WorkspaceSessionProjectData {
+  workspaceState: "no-project" | "project";
+  hasProject: boolean;
   restored: boolean;
 }
 
@@ -306,42 +331,11 @@ export function sanitizeLogicalWorkspace(value: unknown, diagram: DiagramDocumen
   }
 }
 
-export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
-  const diagram = synchronizeNodeNameIdentity(createEmptyDiagram("Nuovo diagramma")).diagram;
+function createWorkspaceSessionProjectData(projectName = "buildER Project", diagramName = "Schema"): WorkspaceSessionProjectData {
+  const diagram = synchronizeNodeNameIdentity(createEmptyDiagram(diagramName)).diagram;
   const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
   const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
-  const schema = createSchemaDocumentFromProjectState({
-    diagram,
-    translationWorkspace,
-    logicalWorkspace,
-    logicalGenerated: false,
-    logicalStage: "translation",
-    diagramView: "er",
-    viewport: DEFAULT_VIEWPORT,
-    translationViewport: DEFAULT_VIEWPORT,
-    logicalViewport: DEFAULT_VIEWPORT,
-    workspace: {
-      tool: "select",
-      mode: "edit",
-      selection: { nodeIds: [], edgeIds: [] },
-      translationSelection: { nodeIds: [], edgeIds: [] },
-      logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
-      codeDraft: serializeDiagramToErs(diagram),
-      codeDirty: false,
-      technicalPanelOpen: false,
-      technicalPanelTab: "review",
-      codePanelOpen: false,
-      codePanelWidth: DEFAULT_CODE_PANEL_WIDTH,
-      notesPanelOpen: false,
-      notesPanelWidth: DEFAULT_NOTES_PANEL_WIDTH,
-      toolbarCollapsed: INITIAL_WINDOW_WIDTH < 1460,
-      focusMode: false,
-      toolbarWidth: DEFAULT_TOOLBAR_WIDTH,
-      showDiagnostics: true,
-    },
-    versioning: createEmptyProjectVersioningState(),
-  });
-  const projectState = createEmptyProjectExplorerState("Nuovo progetto");
+  const projectState = createEmptyProjectExplorerState(projectName);
   return {
     diagram,
     translationWorkspace,
@@ -373,6 +367,26 @@ export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootst
     project: projectState.project,
     files: projectState.files,
     explorerView: projectState.view,
+  };
+}
+
+export function createDefaultWorkspaceSessionBootstrap(): WorkspaceSessionBootstrap {
+  return {
+    ...createWorkspaceSessionProjectData(),
+    workspaceState: "no-project",
+    hasProject: false,
+    restored: false,
+  };
+}
+
+export function createProjectWorkspaceSessionBootstrap(
+  projectName = "buildER Project",
+  diagramName = "Schema",
+): WorkspaceSessionBootstrap {
+  return {
+    ...createWorkspaceSessionProjectData(projectName, diagramName),
+    workspaceState: "project",
+    hasProject: true,
     restored: false,
   };
 }
@@ -405,9 +419,17 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
         parsed.version !== 3 &&
         parsed.version !== 4 &&
         parsed.version !== 5 &&
-        parsed.version !== 6)
+        parsed.version !== 6 &&
+        parsed.version !== 7)
     ) {
       return fallback;
+    }
+
+    if (parsed.version === 7 && parsed.workspaceState === "no-project") {
+      return {
+        ...fallback,
+        restored: true,
+      };
     }
 
     const storedDiagram = parseDiagram(JSON.stringify(parsed.diagram));
@@ -548,6 +570,8 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
       project: storedProject,
       files: storedFiles,
       explorerView: storedExplorerView,
+      workspaceState: "project",
+      hasProject: true,
       restored: true,
     };
   } catch {
@@ -556,13 +580,21 @@ export function readWorkspaceSessionBootstrap(storage: WorkspaceSessionStorage |
 }
 
 export function serializeWorkspaceSessionSnapshot(
-  snapshot: Omit<WorkspaceSessionSnapshot, "version" | "savedAt">,
+  snapshot: WorkspaceSessionSnapshotInput,
 ): WorkspaceSessionSnapshot {
+  if (snapshot.workspaceState === "no-project") {
+    return {
+      version: 7,
+      savedAt: new Date().toISOString(),
+      workspaceState: "no-project",
+    };
+  }
+
   return {
-    version: 6,
+    version: 7,
     savedAt: new Date().toISOString(),
     ...snapshot,
-    files: sanitizeWorkspaceSessionFiles(snapshot.files),
+    files: sanitizeWorkspaceSessionFiles(snapshot.files) ?? {},
   };
 }
 

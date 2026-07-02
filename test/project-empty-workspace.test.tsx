@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { NoProjectWelcomePage } from "../src/components/workspace/NoProjectWelcomePage.tsx";
 import { WorkspaceWelcomePage } from "../src/components/workspace/WorkspaceWelcomePage.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { createEmptyProjectExplorerState } from "../src/utils/projectExplorer.ts";
@@ -30,6 +31,27 @@ test("WorkspaceWelcomePage renderizza start actions senza canvas", () => {
   assert.doesNotMatch(markup, /diagram-canvas/);
 });
 
+test("NoProjectWelcomePage mostra solo azioni globali senza contesto progetto", () => {
+  const markup = renderToStaticMarkup(
+    <I18nProvider>
+      <NoProjectWelcomePage
+        onNewProject={() => undefined}
+        onOpenProject={() => undefined}
+        onImportSchema={() => undefined}
+      />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /Nessun progetto aperto|No project open/);
+  assert.match(markup, /Crea nuovo progetto|Create new project/);
+  assert.match(markup, /Apri progetto \.ersp|Open project \.ersp/);
+  assert.match(markup, /Importa schema \.erschema|Import schema \.erschema/);
+  assert.doesNotMatch(markup, /Nuovo diagramma/);
+  assert.doesNotMatch(markup, /Nuovo progetto/);
+  assert.doesNotMatch(markup, /Nessun file nel progetto/);
+  assert.doesNotMatch(markup, /file, .*cartelle/);
+});
+
 test("New Project usa progetto vuoto senza erschema automatico", () => {
   const state = createEmptyProjectExplorerState("New Project");
 
@@ -45,6 +67,25 @@ test("New Project usa progetto vuoto senza erschema automatico", () => {
   assert.match(newProjectSource, /createEmptyProjectExplorerState/);
   assert.doesNotMatch(newProjectSource, /createProjectFromSchema/);
   assert.doesNotMatch(newProjectSource, /createSchemaWorkspaceFile/);
+});
+
+test("Close Project usa handler dedicato e renderizza no-project senza Explorer", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const headerStart = appSource.indexOf("<AppHeader");
+  const headerEnd = appSource.indexOf("/>", headerStart);
+  const headerSource = appSource.slice(headerStart, headerEnd);
+  const noProjectComponentStart = appSource.indexOf("<NoProjectWelcomePage");
+  const noProjectRenderStart = appSource.lastIndexOf(") : (", noProjectComponentStart);
+  const noProjectRenderEnd = appSource.indexOf(")}", noProjectComponentStart);
+  const noProjectBranch = appSource.slice(noProjectRenderStart, noProjectRenderEnd);
+
+  assert.match(appSource, /async function handleCloseProject/);
+  assert.match(headerSource, /onCloseProject=\{handleCloseProject\}/);
+  assert.doesNotMatch(headerSource, /onCloseProject=\{handleNewProject\}/);
+  assert.match(noProjectBranch, /<NoProjectWelcomePage/);
+  assert.doesNotMatch(noProjectBranch, /<ProjectExplorer/);
+  assert.doesNotMatch(noProjectBranch, /<ProjectFileTabs/);
+  assert.doesNotMatch(noProjectBranch, /<DiagramCanvas/);
 });
 
 test("workspace senza schema aperto e senza tab mostra EmptyEditor e non renderizza Toolbar o DiagramCanvas", () => {

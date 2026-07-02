@@ -294,6 +294,14 @@ export const en: DeepPartialMessages = {
     tipReverse: "Import SQL and generate an ER schema automatically.",
     tipVersioning: "Use Source Control to version the whole project.",
   },
+  noProjectWelcome: {
+    title: "No project open",
+    subtitle: "Create a new project or open an existing project to get started.",
+    start: "Start",
+    newProject: "Create new project",
+    openProject: "Open project .ersp",
+    importSchema: "Import schema .erschema",
+  },
   workspaceEmpty: {
     title: "No file open",
     description: "Open a file from Explorer or create a new schema from the File menu.",
@@ -862,6 +870,7 @@ export const en: DeepPartialMessages = {
     },
     unsavedActions: {
       createNewProject: "create a new project",
+      closeProject: "close the project",
       loadProject: "load a project",
       loadErs: "load an ERS file",
     },

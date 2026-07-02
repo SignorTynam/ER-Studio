@@ -5,6 +5,7 @@ import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_STORAGE_KEY,
   createDefaultWorkspaceSessionBootstrap,
+  createProjectWorkspaceSessionBootstrap,
   readWorkspaceSessionBootstrap,
   saveWorkspaceSessionSnapshot,
   serializeWorkspaceSessionSnapshot,
@@ -31,9 +32,10 @@ class MemoryStorage {
 }
 
 function createValidSnapshot(overrides: Partial<Parameters<typeof serializeWorkspaceSessionSnapshot>[0]> = {}) {
-  const bootstrap = createDefaultWorkspaceSessionBootstrap();
+  const bootstrap = createProjectWorkspaceSessionBootstrap();
 
   return serializeWorkspaceSessionSnapshot({
+    workspaceState: "project",
     diagram: bootstrap.diagram,
     translationWorkspace: bootstrap.translationWorkspace,
     logicalWorkspace: bootstrap.logicalWorkspace,
@@ -69,7 +71,7 @@ function createValidSnapshot(overrides: Partial<Parameters<typeof serializeWorks
 }
 
 function createVersioningCommitSnapshot(name: string) {
-  const bootstrap = createDefaultWorkspaceSessionBootstrap();
+  const bootstrap = createProjectWorkspaceSessionBootstrap();
 
   return createProjectCommitSnapshot({
     diagram: {
@@ -109,14 +111,16 @@ function createVersioningCommitSnapshot(name: string) {
 
 test("workspace session bootstrap defaults when storage is empty", () => {
   const restored = readWorkspaceSessionBootstrap(new MemoryStorage());
+  const defaultBootstrap = createDefaultWorkspaceSessionBootstrap();
 
   assert.equal(restored.restored, false);
+  assert.equal(restored.workspaceState, "no-project");
+  assert.equal(restored.hasProject, false);
+  assert.equal(defaultBootstrap.workspaceState, "no-project");
+  assert.equal(defaultBootstrap.hasProject, false);
   assert.equal(restored.diagramView, "er");
   assert.equal(restored.tool, "select");
   assert.deepEqual(restored.viewport, DEFAULT_VIEWPORT);
-  assert.equal(restored.project.activeFileId, null);
-  assert.equal(restored.explorerView.activeFileId, null);
-  assert.equal(Object.keys(restored.files).length, 0);
 });
 
 test("workspace session bootstrap defaults when storage contains invalid JSON", () => {
@@ -126,8 +130,30 @@ test("workspace session bootstrap defaults when storage contains invalid JSON", 
   const restored = readWorkspaceSessionBootstrap(storage);
 
   assert.equal(restored.restored, false);
+  assert.equal(restored.workspaceState, "no-project");
+  assert.equal(restored.hasProject, false);
   assert.equal(restored.diagramView, "er");
   assert.equal(restored.tool, "select");
+});
+
+test("workspace session salva e ripristina lo stato no-project", () => {
+  const storage = new MemoryStorage();
+  const snapshot = serializeWorkspaceSessionSnapshot({ workspaceState: "no-project" });
+  saveWorkspaceSessionSnapshot(snapshot, storage);
+
+  const raw = storage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
+  assert.ok(raw);
+  const parsed = JSON.parse(raw);
+  assert.equal(parsed.version, 7);
+  assert.equal(parsed.workspaceState, "no-project");
+  assert.equal("diagram" in parsed, false);
+  assert.equal("files" in parsed, false);
+  assert.equal(JSON.stringify(parsed).includes("Nuovo diagramma"), false);
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+  assert.equal(restored.restored, true);
+  assert.equal(restored.workspaceState, "no-project");
+  assert.equal(restored.hasProject, false);
 });
 
 for (const diagramView of ["er", "logical", "translation"] as const satisfies readonly WorkspaceView[]) {
@@ -231,14 +257,30 @@ test("workspace session restores the review technical panel", () => {
 test("workspace session keeps compatibility with older saved versions", () => {
   const storage = new MemoryStorage();
   const snapshot = createValidSnapshot({ diagramView: "translation", tool: "attribute" });
-  storage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify({ ...snapshot, version: 1 }));
+  storage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify({ ...snapshot, version: 6 }));
 
   const restored = readWorkspaceSessionBootstrap(storage);
 
   assert.equal(restored.restored, true);
+  assert.equal(restored.workspaceState, "project");
+  assert.equal(restored.hasProject, true);
   assert.equal(restored.diagramView, "translation");
   assert.equal(restored.tool, "attribute");
   assert.equal(restored.logicalGenerated, false);
+});
+
+test("workspace session legacy senza project/files non crasha", () => {
+  const storage = new MemoryStorage();
+  const snapshot = createValidSnapshot();
+  const { project: _project, files: _files, explorerView: _explorerView, ...legacySnapshot } = snapshot;
+  storage.setItem(WORKSPACE_SESSION_STORAGE_KEY, JSON.stringify({ ...legacySnapshot, version: 6 }));
+
+  const restored = readWorkspaceSessionBootstrap(storage);
+
+  assert.equal(restored.restored, true);
+  assert.equal(restored.workspaceState, "project");
+  assert.equal(restored.hasProject, true);
+  assert.ok(Object.keys(restored.files).length >= 1);
 });
 
 test("workspace session serializza e ripristina versioning", () => {
@@ -366,7 +408,7 @@ test("workspace session serializza e ripristina project explorer", () => {
 
   const raw = storage.getItem(WORKSPACE_SESSION_STORAGE_KEY);
   assert.ok(raw);
-  assert.equal(JSON.parse(raw).version, 6);
+  assert.equal(JSON.parse(raw).version, 7);
   assert.equal(JSON.parse(raw).explorerView.explorerWidth, 312);
 
   const restored = readWorkspaceSessionBootstrap(storage);

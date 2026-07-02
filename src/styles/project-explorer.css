@@ -1401,6 +1401,10 @@ body.source-control-resizing * {
   width: min(980px, 100%);
 }
 
+.no-project-welcome-page__content {
+  width: min(720px, 100%);
+}
+
 .workspace-welcome-hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
