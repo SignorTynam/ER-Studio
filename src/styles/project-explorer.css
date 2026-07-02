@@ -642,11 +642,20 @@
 }
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-line-numbers {
+  align-self: stretch;
   width: clamp(32px, calc(var(--line-number-digits, 2) * 8px + 18px), 40px);
+  height: 100%;
+  min-height: 100%;
   min-width: 32px;
   max-width: 40px;
   padding-right: 6px;
   text-align: right;
+}
+
+.project-activity-content .diagram-code-panel.embedded .designer-code-line-numbers::after {
+  content: "";
+  display: block;
+  flex: 1 1 auto;
 }
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-line-numbers span {

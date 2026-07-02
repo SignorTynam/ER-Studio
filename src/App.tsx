@@ -1247,7 +1247,7 @@ export default function App() {
     hasProject &&
     diagramView === "logical" &&
     logicalStage === "schema" &&
-    logicalPanelMode === "sql";
+    (logicalPanelMode === "sql" || activeActivityPanel === "code");
   const canShowLogicalSqlCode =
     logicalSqlRequested &&
     logicalGenerated &&

@@ -83,6 +83,7 @@ test("logical SQL is routed to the workspace activity Code panel", () => {
   );
 
   assert.match(appSource, /const logicalSqlRequested =/);
+  assert.match(appSource, /logicalPanelMode === "sql" \|\| activeActivityPanel === "code"/);
   assert.match(appSource, /setActiveActivityPanel\("code"\)/);
   assert.match(appSource, /setWorkspaceActivityOpen\(true\)/);
   assert.match(appSource, /setCodePanelOpen\(true\)/);
