@@ -7017,13 +7017,8 @@ export default function App() {
                   {t("logical.designer.relationalSchemaTab")}
                 </button>
               </div>
-              <span className="code-activity-panel__badge">
-                {logicalCodePreviewMode === "sql" ? t("codePanel.sqlGenerated") : t("codePanel.relationalSchemaGenerated")}
-              </span>
-              <span className="code-activity-panel__badge">{t("codePanel.sqlReadOnly")}</span>
               {logicalCodePreviewMode === "sql" ? (
                 <label className="code-activity-panel__dialect">
-                  <span>{t("codePanel.sqlDialect")}</span>
                   <select
                     value={logicalSqlDialect}
                     onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}

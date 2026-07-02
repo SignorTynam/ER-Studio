@@ -662,7 +662,6 @@ export const sq: DeepPartialMessages = {
     sqlGenerated: "SQL i gjeneruar",
     relationalSchemaGenerated: "Skema relacionale",
     sqlReadOnly: "Vetem lexim",
-    sqlDialect: "Dialekt",
     logicalPreviewMode: "Formati i kodit logjik",
     copySql: "Kopjo SQL",
     downloadSql: "Shkarko SQL",

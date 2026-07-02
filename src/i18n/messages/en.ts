@@ -662,7 +662,6 @@ export const en: DeepPartialMessages = {
     sqlGenerated: "Generated SQL",
     relationalSchemaGenerated: "Relational schema",
     sqlReadOnly: "Read-only",
-    sqlDialect: "Dialect",
     logicalPreviewMode: "Logical code format",
     copySql: "Copy SQL",
     downloadSql: "Download SQL",

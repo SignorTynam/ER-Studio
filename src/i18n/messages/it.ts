@@ -660,7 +660,6 @@ export const it = {
     sqlGenerated: "SQL generato",
     relationalSchemaGenerated: "Schema relazionale",
     sqlReadOnly: "Read-only",
-    sqlDialect: "Dialetto",
     logicalPreviewMode: "Formato codice logico",
     copySql: "Copia SQL",
     downloadSql: "Scarica SQL",
