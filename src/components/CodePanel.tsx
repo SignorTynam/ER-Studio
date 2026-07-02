@@ -6,7 +6,7 @@ import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../utils/code
 
 interface CodePanelProps {
   code: string;
-  language?: "ers" | "sql";
+  language?: "ers" | "sql" | "relational";
   placeholder?: string;
   editable?: boolean;
   parseError?: string;
@@ -102,19 +102,37 @@ function highlightSqlCode(code: string): string {
   return highlighted;
 }
 
+function highlightRelationalSchemaCode(code: string): string {
+  return code
+    .split(/\r?\n/)
+    .map((line) => {
+      const tableMatch = line.match(/^([^(]+)(\()/);
+      if (tableMatch && tableMatch.index === 0) {
+        return `<span class="designer-relational-schema-table">${escapeHtml(tableMatch[1].trim())}</span><span class="designer-relational-schema-punctuation">(</span>${escapeHtml(line.slice(tableMatch[0].length))}`;
+      }
+      return escapeHtml(line);
+    })
+    .join("\n");
+}
+
 export function CodePanel(props: CodePanelProps) {
   const { t } = useI18n();
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const language = props.language ?? "ers";
-  const isReadOnly = language === "sql" || !props.editable || !props.onCodeChange;
+  const isReadOnly = language !== "ers" || !props.editable || !props.onCodeChange;
   const lineNumbers = buildLineNumbers(props.code);
   const lineNumberDigits = String(lineNumbers.length).length;
   const placeholder = props.placeholder ?? t("codePanel.placeholder");
   const showHeader = props.showHeader ?? !props.embedded;
   const showCloseButton = props.showCloseButton ?? (!props.embedded && Boolean(props.onClose));
-  const highlightedCode = language === "sql" ? highlightSqlCode(props.code) : highlightCode(props.code);
+  const highlightedCode =
+    language === "sql"
+      ? highlightSqlCode(props.code)
+      : language === "relational"
+        ? highlightRelationalSchemaCode(props.code)
+        : highlightCode(props.code);
 
   function syncScroll() {
     if (!editorRef.current || !highlightRef.current) {

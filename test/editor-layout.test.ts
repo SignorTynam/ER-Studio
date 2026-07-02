@@ -86,13 +86,19 @@ test("logical SQL is routed to the workspace activity Code panel", () => {
   assert.match(appSource, /setActiveActivityPanel\("code"\)/);
   assert.match(appSource, /setWorkspaceActivityOpen\(true\)/);
   assert.match(appSource, /setCodePanelOpen\(true\)/);
-  assert.match(appSource, /codePanelMode === "sql" \? logicalSqlCode : codeDraft/);
+  assert.match(appSource, /generateLogicalRelationalSchema/);
+  assert.match(appSource, /logicalCodePreviewMode === "sql" \? logicalSqlCode : logicalRelationalSchemaCode/);
+  assert.match(appSource, /codePanelMode === "relational" \? logicalRelationalSchemaCode : codeDraft/);
   assert.match(appSource, /onCodeChange=\{codePanelMode === "ers" \? updateCodeDraft : undefined\}/);
   assert.match(appSource, /onPanelModeChange=\{handleLogicalPanelModeChange\}/);
   assert.match(projectExplorerCssSource, /\.code-activity-panel__toolbar\s*\{/);
+  assert.match(projectExplorerCssSource, /\.project-activity-section\.code-activity-panel\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
+  assert.match(projectExplorerCssSource, /\.code-activity-panel__mode-tabs\s*\{/);
   assert.match(projectExplorerCssSource, /\.code-activity-panel__dialect\s*\{/);
   assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-dock/);
   assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-output/);
+  assert.doesNotMatch(logicalWorkspaceSource, /hideSql/);
+  assert.doesNotMatch(logicalWorkspaceSource, /showSql/);
 });
 
 test("ER canvas region remains full size with the activity panel open", () => {

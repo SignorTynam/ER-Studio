@@ -363,7 +363,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
   }, 0);
   const blockingConflicts = props.workspace.translation.conflicts.filter((conflict) => conflict.level === "error");
   const doneDisabled = logicalPendingCount > 0 || blockingConflicts.length > 0;
-  const sqlOpen = props.logicalStage === "schema" && props.panelMode === "sql";
   const selectedTargetKey = selectedTranslationItem ? buildTargetKey(selectedTranslationItem) : null;
   const activeTargetKeys = props.logicalStage === "translation" ? openItemsForStep.map(buildTargetKey) : [];
   const highlightedTargetKeys = selectedTargetKey ? [...new Set([...activeTargetKeys, selectedTargetKey])] : activeTargetKeys;
@@ -523,10 +522,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     );
   }
 
-  function toggleSql(): void {
-    props.onPanelModeChange(sqlOpen ? "review" : "sql");
-  }
-
   function renderCommonLeadButtons(includeReset = true) {
     return (
       <>
@@ -604,14 +599,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
     return (
       <div className="designer-context-toolbar designer-logical-toolbar" role="toolbar" aria-label={t("logical.toolbars.schemaTools")}>
-        <ToolbarButton
-          label={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-          icon={<StudioIcon name="show" />}
-          active={sqlOpen}
-          title={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-          ariaLabel={sqlOpen ? t("logical.designer.hideSql") : t("logical.designer.showSql")}
-          onClick={toggleSql}
-        />
         <ToolbarButton
           label={showForeignKeyLabels ? t("logical.designer.hideForeignKeys") : t("logical.designer.showForeignKeys")}
           icon={<StudioIcon name={showForeignKeyLabels ? "viewOff" : "viewOn"} />}

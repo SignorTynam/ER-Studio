@@ -70,6 +70,25 @@ test("CodePanel mostra SQL read-only con evidenziazione SQL", () => {
   assert.match(markup, /readOnly=""/i);
 });
 
+test("CodePanel mostra schema relazionale read-only", () => {
+  const markup = renderToStaticMarkup(
+    <I18nProvider>
+      <CodePanel
+        embedded
+        showHeader={false}
+        language="relational"
+        code={"COURSE( i\u0332d\u0332, code )"}
+        editable
+        onCodeChange={() => undefined}
+      />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /designer-relational-schema-table/);
+  assert.match(markup, /designer-relational-schema-punctuation/);
+  assert.match(markup, /readOnly=""/i);
+});
+
 test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {
   const css = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
 

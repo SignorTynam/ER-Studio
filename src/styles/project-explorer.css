@@ -349,7 +349,7 @@
 }
 
 .project-activity-section.code-activity-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .code-activity-panel__body {
@@ -591,6 +591,32 @@
   min-height: 28px;
   padding: 4px 8px;
   font-size: 0.76rem;
+}
+
+.code-activity-panel__mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel);
+}
+
+.code-activity-panel__mode-tab {
+  min-height: 24px;
+  border: 0;
+  padding: 3px 8px;
+  background: transparent;
+  color: var(--editor-text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.code-activity-panel__mode-tab.active {
+  background: color-mix(in srgb, var(--studio-accent) 16%, var(--editor-panel) 84%);
+  color: var(--studio-accent-strong);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--studio-accent) 45%, var(--editor-border) 55%);
 }
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-editor {

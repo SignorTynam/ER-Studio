@@ -183,6 +183,7 @@ import {
   generateLogicalSql,
   type LogicalSqlDialect,
 } from "./utils/logicalSql";
+import { generateLogicalRelationalSchema } from "./utils/logicalRelationalSchema";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
@@ -1045,6 +1046,7 @@ export default function App() {
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
   const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql">("review");
   const [logicalSqlDialect, setLogicalSqlDialect] = useState<LogicalSqlDialect>("generic");
+  const [logicalCodePreviewMode, setLogicalCodePreviewMode] = useState<"sql" | "relational">("sql");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const {
@@ -1254,8 +1256,14 @@ export default function App() {
     () => generateLogicalSql(logicalHistory.present.model, { dialect: logicalSqlDialect }),
     [logicalHistory.present.model, logicalSqlDialect],
   );
-  const codePanelMode: "ers" | "sql" = canShowLogicalSqlCode ? "sql" : "ers";
-  const codePanelContent = codePanelMode === "sql" ? logicalSqlCode : codeDraft;
+  const logicalRelationalSchemaCode = useMemo(
+    () => generateLogicalRelationalSchema(logicalHistory.present.model),
+    [logicalHistory.present.model],
+  );
+  const logicalDisplayedCode = logicalCodePreviewMode === "sql" ? logicalSqlCode : logicalRelationalSchemaCode;
+  const codePanelMode: "ers" | "sql" | "relational" = canShowLogicalSqlCode ? logicalCodePreviewMode : "ers";
+  const codePanelContent =
+    codePanelMode === "sql" ? logicalSqlCode : codePanelMode === "relational" ? logicalRelationalSchemaCode : codeDraft;
   const codePanelEditable = codePanelMode === "ers" && mode === "edit";
   const codePanelParseError = codePanelMode === "ers" ? codeError : "";
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
@@ -6249,7 +6257,7 @@ export default function App() {
     showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
   }
 
-  async function handleCopyLogicalSql() {
+  async function handleCopyLogicalCode() {
     if (!canShowLogicalSqlCode) {
       setStatusWarning(t("codePanel.noLogicalSql"));
       return;
@@ -6259,23 +6267,26 @@ export default function App() {
       return;
     }
 
-    await navigator.clipboard.writeText(logicalSqlCode);
-    setStatus(t("codePanel.sqlCopied"));
+    await navigator.clipboard.writeText(logicalDisplayedCode);
+    setStatus(logicalCodePreviewMode === "sql" ? t("codePanel.sqlCopied") : t("codePanel.relationalSchemaCopied"));
   }
 
-  function handleDownloadDisplayedLogicalSql() {
+  function handleDownloadDisplayedLogicalCode() {
     if (!canShowLogicalSqlCode) {
       setStatusWarning(t("codePanel.noLogicalSql"));
       return;
     }
 
+    const isSql = logicalCodePreviewMode === "sql";
     downloadTextFile(
-      logicalSqlCode,
-      `${sanitizeFileNameBase(history.present.meta.name)}.sql`,
-      "text/sql;charset=utf-8",
+      logicalDisplayedCode,
+      `${sanitizeFileNameBase(history.present.meta.name)}${isSql ? ".sql" : "-relational-schema.txt"}`,
+      isSql ? "text/sql;charset=utf-8" : "text/plain;charset=utf-8",
     );
-    setStatus(t("workspace.sqlDownloaded"));
-    showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
+    setStatus(isSql ? t("workspace.sqlDownloaded") : t("codePanel.relationalSchemaDownloaded"));
+    showSuccessNotice(isSql ? t("workspace.downloads.sqlDownloaded") : t("codePanel.relationalSchemaDownloaded"), {
+      title: t("workspace.noticeTitles.downloadCompleted"),
+    });
   }
 
   async function handleCreateProjectCommit(message: string, description?: string) {
@@ -6981,33 +6992,57 @@ export default function App() {
           <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
           <p className="project-activity-empty">{t("codePanel.noLogicalSql")}</p>
         </section>
-      ) : hasOpenSchema || codePanelMode === "sql" ? (
+      ) : hasOpenSchema || codePanelMode !== "ers" ? (
         <section className="project-activity-section code-activity-panel" aria-label={t("appHeader.menus.code")}>
           <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
-          {codePanelMode === "sql" ? (
+          {codePanelMode !== "ers" ? (
             <div className="code-activity-panel__toolbar" aria-label={t("codePanel.modeSql")}>
-              <span className="code-activity-panel__badge">{t("codePanel.sqlGenerated")}</span>
-              <span className="code-activity-panel__badge">{t("codePanel.sqlReadOnly")}</span>
-              <label className="code-activity-panel__dialect">
-                <span>{t("codePanel.sqlDialect")}</span>
-                <select
-                  value={logicalSqlDialect}
-                  onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
+              <div className="code-activity-panel__mode-tabs" role="tablist" aria-label={t("codePanel.logicalPreviewMode")}>
+                <button
+                  type="button"
+                  role="tab"
+                  className={["code-activity-panel__mode-tab", logicalCodePreviewMode === "sql" ? "active" : ""].filter(Boolean).join(" ")}
+                  aria-selected={logicalCodePreviewMode === "sql"}
+                  onClick={() => setLogicalCodePreviewMode("sql")}
                 >
-                  {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" className="project-activity-action" onClick={() => void handleCopyLogicalSql()}>
+                  {t("logical.designer.sqlTab")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={["code-activity-panel__mode-tab", logicalCodePreviewMode === "relational" ? "active" : ""].filter(Boolean).join(" ")}
+                  aria-selected={logicalCodePreviewMode === "relational"}
+                  onClick={() => setLogicalCodePreviewMode("relational")}
+                >
+                  {t("logical.designer.relationalSchemaTab")}
+                </button>
+              </div>
+              <span className="code-activity-panel__badge">
+                {logicalCodePreviewMode === "sql" ? t("codePanel.sqlGenerated") : t("codePanel.relationalSchemaGenerated")}
+              </span>
+              <span className="code-activity-panel__badge">{t("codePanel.sqlReadOnly")}</span>
+              {logicalCodePreviewMode === "sql" ? (
+                <label className="code-activity-panel__dialect">
+                  <span>{t("codePanel.sqlDialect")}</span>
+                  <select
+                    value={logicalSqlDialect}
+                    onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
+                  >
+                    {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <button type="button" className="project-activity-action" onClick={() => void handleCopyLogicalCode()}>
                 <StudioIcon name="copy" aria-hidden="true" />
-                <span>{t("codePanel.copySql")}</span>
+                <span>{logicalCodePreviewMode === "sql" ? t("codePanel.copySql") : t("codePanel.copyRelationalSchema")}</span>
               </button>
-              <button type="button" className="project-activity-action" onClick={handleDownloadDisplayedLogicalSql}>
+              <button type="button" className="project-activity-action" onClick={handleDownloadDisplayedLogicalCode}>
                 <StudioIcon name="download" aria-hidden="true" />
-                <span>{t("codePanel.downloadSql")}</span>
+                <span>{logicalCodePreviewMode === "sql" ? t("codePanel.downloadSql") : t("codePanel.downloadRelationalSchema")}</span>
               </button>
             </div>
           ) : null}
