@@ -96,9 +96,13 @@ test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {
   assert.match(css, /\.diagram-code-panel\.embedded\s*\{[\s\S]*padding:\s*0/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*height:\s*100%/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*padding:\s*0/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*--embedded-code-gutter-width:\s*clamp/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*grid-template-columns:\s*var\(--embedded-code-gutter-width\) minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*background:[\s\S]*rgba\(238,\s*242,\s*237,\s*0\.86\)/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[\s\S]*height:\s*100%/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*max-width:\s*40px/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*height:\s*100%/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*background:\s*transparent/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers::after\s*\{[\s\S]*flex:\s*1 1 auto/);
   assert.match(css, /--line-number-digits/);
 });
