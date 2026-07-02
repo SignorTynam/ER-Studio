@@ -233,13 +233,13 @@ test("builds structured rows so UI punctuation stays outside primary key styling
   ]);
 });
 
-test("logical workspace exposes relational schema preview controls", () => {
+test("logical workspace no longer exposes relational schema preview controls", () => {
   const source = readFileSync(new URL("../src/logical/LogicalTranslationWorkspace.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /generateLogicalRelationalSchema/);
-  assert.match(source, /buildLogicalRelationalSchemaRows/);
-  assert.match(source, /logical\.designer\.sqlTab/);
-  assert.match(source, /logical\.designer\.relationalSchemaTab/);
-  assert.match(source, /key: "relational-schema"/);
-  assert.match(source, /designer-relational-schema-primary-key/);
+  assert.doesNotMatch(source, /generateLogicalRelationalSchema/);
+  assert.doesNotMatch(source, /buildLogicalRelationalSchemaRows/);
+  assert.doesNotMatch(source, /logical\.designer\.sqlTab/);
+  assert.doesNotMatch(source, /logical\.designer\.relationalSchemaTab/);
+  assert.doesNotMatch(source, /key: "relational-schema"/);
+  assert.doesNotMatch(source, /designer-relational-schema-primary-key/);
 });

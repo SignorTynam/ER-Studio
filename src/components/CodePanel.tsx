@@ -6,6 +6,7 @@ import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../utils/code
 
 interface CodePanelProps {
   code: string;
+  language?: "ers" | "sql";
   placeholder?: string;
   editable?: boolean;
   parseError?: string;
@@ -72,17 +73,48 @@ function highlightCode(code: string): string {
   return code.split(/\r?\n/).map(highlightLine).join("\n");
 }
 
+function highlightSqlCode(code: string): string {
+  const tokenPattern =
+    /(--.*$|\/\*[\s\S]*?\*\/|\b(?:CREATE|TABLE|PRIMARY|KEY|FOREIGN|REFERENCES|DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)\b|\b(?:INT|INTEGER|VARCHAR|TEXT|DATE|BOOLEAN|NUMERIC|REAL|NVARCHAR|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BIT|NUMBER|VARBINARY)\b)/gim;
+  let highlighted = "";
+  let lastIndex = 0;
+
+  for (const match of code.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    highlighted += escapeHtml(code.slice(lastIndex, index));
+
+    const escaped = escapeHtml(token);
+    if (token.startsWith("--") || token.startsWith("/*")) {
+      highlighted += `<span class="sql-token-comment">${escaped}</span>`;
+    } else if (/^(INT|INTEGER|VARCHAR|TEXT|DATE|BOOLEAN|NUMERIC|REAL|NVARCHAR|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BIT|NUMBER|VARBINARY)$/i.test(token)) {
+      highlighted += `<span class="sql-token-type">${escaped}</span>`;
+    } else if (/^(DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)$/i.test(token)) {
+      highlighted += `<span class="sql-token-modifier">${escaped}</span>`;
+    } else {
+      highlighted += `<span class="sql-token-keyword">${escaped}</span>`;
+    }
+
+    lastIndex = index + token.length;
+  }
+
+  highlighted += escapeHtml(code.slice(lastIndex));
+  return highlighted;
+}
+
 export function CodePanel(props: CodePanelProps) {
   const { t } = useI18n();
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const lineNumberRef = useRef<HTMLDivElement | null>(null);
-  const isReadOnly = !props.editable || !props.onCodeChange;
+  const language = props.language ?? "ers";
+  const isReadOnly = language === "sql" || !props.editable || !props.onCodeChange;
   const lineNumbers = buildLineNumbers(props.code);
   const lineNumberDigits = String(lineNumbers.length).length;
   const placeholder = props.placeholder ?? t("codePanel.placeholder");
   const showHeader = props.showHeader ?? !props.embedded;
   const showCloseButton = props.showCloseButton ?? (!props.embedded && Boolean(props.onClose));
+  const highlightedCode = language === "sql" ? highlightSqlCode(props.code) : highlightCode(props.code);
 
   function syncScroll() {
     if (!editorRef.current || !highlightRef.current) {
@@ -170,7 +202,7 @@ export function CodePanel(props: CodePanelProps) {
             ref={highlightRef}
             className="designer-code-highlight"
             aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: highlightCode(props.code) }}
+            dangerouslySetInnerHTML={{ __html: highlightedCode }}
           />
           {props.code.length === 0 ? (
             <div className="designer-code-placeholder" aria-hidden="true">

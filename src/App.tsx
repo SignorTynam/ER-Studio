@@ -178,7 +178,11 @@ import {
   type LogicalColumnSqlPatch,
   updateLogicalColumnSqlMetadata,
 } from "./utils/logicalSqlMetadata";
-import { generateLogicalSql } from "./utils/logicalSql";
+import {
+  LOGICAL_SQL_DIALECT_OPTIONS,
+  generateLogicalSql,
+  type LogicalSqlDialect,
+} from "./utils/logicalSql";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
 import {
@@ -1040,6 +1044,7 @@ export default function App() {
   const [logicalStage, setLogicalStage] = useState<LogicalStage>(sessionBootstrap.logicalStage);
   const [logicalTypeMode, setLogicalTypeMode] = useState(false);
   const [logicalPanelMode, setLogicalPanelMode] = useState<"review" | "sql">("review");
+  const [logicalSqlDialect, setLogicalSqlDialect] = useState<LogicalSqlDialect>("generic");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const {
@@ -1236,6 +1241,23 @@ export default function App() {
     [logicalHistory.present, translationHistory.present.translatedDiagram],
   );
   const logicalPendingCount = getLogicalTranslationOpenItemCount(logicalTranslationOverview);
+  const logicalSqlRequested =
+    hasProject &&
+    diagramView === "logical" &&
+    logicalStage === "schema" &&
+    logicalPanelMode === "sql";
+  const canShowLogicalSqlCode =
+    logicalSqlRequested &&
+    logicalGenerated &&
+    logicalHistory.present.model.tables.length > 0;
+  const logicalSqlCode = useMemo(
+    () => generateLogicalSql(logicalHistory.present.model, { dialect: logicalSqlDialect }),
+    [logicalHistory.present.model, logicalSqlDialect],
+  );
+  const codePanelMode: "ers" | "sql" = canShowLogicalSqlCode ? "sql" : "ers";
+  const codePanelContent = codePanelMode === "sql" ? logicalSqlCode : codeDraft;
+  const codePanelEditable = codePanelMode === "ers" && mode === "edit";
+  const codePanelParseError = codePanelMode === "ers" ? codeError : "";
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const activeCanUndo =
@@ -2487,10 +2509,41 @@ export default function App() {
     handleDiagramViewChange("logical");
   }
 
-  function handleOpenSqlStage() {
+  function handleLogicalPanelModeChange(nextMode: "review" | "sql") {
+    if (nextMode === "review") {
+      setLogicalPanelMode("review");
+      return;
+    }
+
+    if (!logicalGenerated || logicalHistory.present.model.tables.length === 0) {
+      setLogicalPanelMode("review");
+      setStatusWarning(t("codePanel.noLogicalSql"));
+      return;
+    }
+
     setLogicalStage("schema");
     setLogicalPanelMode("sql");
-    handleDiagramViewChange("logical");
+    setActiveActivityPanel("code");
+    setWorkspaceActivityOpen(true);
+    setCodePanelOpen(true);
+  }
+
+  function handleOpenSqlStage() {
+    const logicalAccess = canOpenLogicalView(translationHistory.present);
+    if (!logicalAccess.allowed) {
+      setDiagramView("translation");
+      setStatusWarning(logicalAccess.reason ?? t("logical.designer.completeBeforeSchema"));
+      return;
+    }
+
+    if (!logicalGenerated) {
+      handleDiagramViewChange("logical");
+      setStatusWarning(t("codePanel.noLogicalSql"));
+      return;
+    }
+
+    setDiagramView("logical");
+    handleLogicalPanelModeChange("sql");
   }
 
   function handleNotesChange(nextNotes: string) {
@@ -3417,7 +3470,7 @@ export default function App() {
         }
 
         if (diagramView === "logical") {
-          setLogicalPanelMode((current) => (current === "sql" ? "review" : "sql"));
+          handleLogicalPanelModeChange(logicalPanelMode === "sql" ? "review" : "sql");
         }
         return;
       }
@@ -6196,6 +6249,35 @@ export default function App() {
     showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
   }
 
+  async function handleCopyLogicalSql() {
+    if (!canShowLogicalSqlCode) {
+      setStatusWarning(t("codePanel.noLogicalSql"));
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setStatusWarning(t("codePanel.clipboardUnavailable"));
+      return;
+    }
+
+    await navigator.clipboard.writeText(logicalSqlCode);
+    setStatus(t("codePanel.sqlCopied"));
+  }
+
+  function handleDownloadDisplayedLogicalSql() {
+    if (!canShowLogicalSqlCode) {
+      setStatusWarning(t("codePanel.noLogicalSql"));
+      return;
+    }
+
+    downloadTextFile(
+      logicalSqlCode,
+      `${sanitizeFileNameBase(history.present.meta.name)}.sql`,
+      "text/sql;charset=utf-8",
+    );
+    setStatus(t("workspace.sqlDownloaded"));
+    showSuccessNotice(t("workspace.downloads.sqlDownloaded"), { title: t("workspace.noticeTitles.downloadCompleted") });
+  }
+
   async function handleCreateProjectCommit(message: string, description?: string) {
     if (!versioningChangeState.summary.canCommit) {
       setCommitDialogError(
@@ -6894,20 +6976,53 @@ export default function App() {
         />
       </div>
     ) : activeActivityPanel === "code" ? (
-      hasOpenSchema ? (
+      logicalSqlRequested && !canShowLogicalSqlCode ? (
+        <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
+          <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
+          <p className="project-activity-empty">{t("codePanel.noLogicalSql")}</p>
+        </section>
+      ) : hasOpenSchema || codePanelMode === "sql" ? (
         <section className="project-activity-section code-activity-panel" aria-label={t("appHeader.menus.code")}>
           <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
+          {codePanelMode === "sql" ? (
+            <div className="code-activity-panel__toolbar" aria-label={t("codePanel.modeSql")}>
+              <span className="code-activity-panel__badge">{t("codePanel.sqlGenerated")}</span>
+              <span className="code-activity-panel__badge">{t("codePanel.sqlReadOnly")}</span>
+              <label className="code-activity-panel__dialect">
+                <span>{t("codePanel.sqlDialect")}</span>
+                <select
+                  value={logicalSqlDialect}
+                  onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
+                >
+                  {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="project-activity-action" onClick={() => void handleCopyLogicalSql()}>
+                <StudioIcon name="copy" aria-hidden="true" />
+                <span>{t("codePanel.copySql")}</span>
+              </button>
+              <button type="button" className="project-activity-action" onClick={handleDownloadDisplayedLogicalSql}>
+                <StudioIcon name="download" aria-hidden="true" />
+                <span>{t("codePanel.downloadSql")}</span>
+              </button>
+            </div>
+          ) : null}
           <div className="code-activity-panel__body">
             <CodePanel
               embedded
               showHeader={false}
               showCloseButton={false}
-              code={codeDraft}
-              editable={mode === "edit"}
-              parseError={codeError}
-              onCodeChange={updateCodeDraft}
-              onFocus={handleCodeEditorFocus}
-              onBlur={handleCodeEditorBlur}
+              language={codePanelMode}
+              code={codePanelContent}
+              editable={codePanelEditable}
+              parseError={codePanelParseError}
+              onCodeChange={codePanelMode === "ers" ? updateCodeDraft : undefined}
+              onFocus={codePanelMode === "ers" ? handleCodeEditorFocus : undefined}
+              onBlur={codePanelMode === "ers" ? handleCodeEditorBlur : undefined}
               onClose={handleToggleCodePanel}
             />
           </div>
@@ -7345,7 +7460,7 @@ export default function App() {
               onViewportChange={setLogicalViewport}
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
-              onPanelModeChange={setLogicalPanelMode}
+              onPanelModeChange={handleLogicalPanelModeChange}
               onToggleNotesPanel={handleToggleNotesPanel}
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onApplyBulkFix={handleApplyBulkLogicalFix}

@@ -76,6 +76,25 @@ test("ER code activity panel CSS keeps the workspace at one canvas column", () =
   assert.match(workspaceBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
 });
 
+test("logical SQL is routed to the workspace activity Code panel", () => {
+  const logicalWorkspaceSource = readFileSync(
+    new URL("../src/logical/LogicalTranslationWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(appSource, /const logicalSqlRequested =/);
+  assert.match(appSource, /setActiveActivityPanel\("code"\)/);
+  assert.match(appSource, /setWorkspaceActivityOpen\(true\)/);
+  assert.match(appSource, /setCodePanelOpen\(true\)/);
+  assert.match(appSource, /codePanelMode === "sql" \? logicalSqlCode : codeDraft/);
+  assert.match(appSource, /onCodeChange=\{codePanelMode === "ers" \? updateCodeDraft : undefined\}/);
+  assert.match(appSource, /onPanelModeChange=\{handleLogicalPanelModeChange\}/);
+  assert.match(projectExplorerCssSource, /\.code-activity-panel__toolbar\s*\{/);
+  assert.match(projectExplorerCssSource, /\.code-activity-panel__dialect\s*\{/);
+  assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-dock/);
+  assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-output/);
+});
+
 test("ER canvas region remains full size with the activity panel open", () => {
   const canvasRegionBlock = cssBlock(".designer-canvas-region");
 

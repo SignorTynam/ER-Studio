@@ -548,6 +548,51 @@
   background: var(--editor-panel);
 }
 
+.code-activity-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--editor-border);
+  background: var(--editor-panel-muted);
+}
+
+.code-activity-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--editor-border);
+  color: var(--editor-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.code-activity-panel__dialect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--editor-text-muted);
+  font-size: 0.74rem;
+}
+
+.code-activity-panel__dialect select {
+  min-height: 28px;
+  max-width: 160px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-panel);
+  color: var(--editor-text);
+}
+
+.code-activity-panel__toolbar .project-activity-action {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 0.76rem;
+}
+
 .project-activity-content .diagram-code-panel.embedded .designer-code-editor {
   flex: 1;
   height: 100%;
