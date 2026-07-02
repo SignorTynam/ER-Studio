@@ -8,22 +8,20 @@ Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canva
 
 ## Stato del progetto
 
-buildER è la nuova evoluzione di ER Studio. La versione 6.2 è un major update dedicato a versioning locale dei progetti, confronto visuale tra snapshot, restore protetto, export piu completo e UI piu coerente.
+buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update dedicato alla riorganizzazione della topbar, alla pulizia dell'header, al menu Informazioni e a controlli Explorer piu diretti.
 
-## Novità principali in buildER 6.2
+## Novità principali in buildER 6.3
 
-- Versioning locale dei progetti `.ersp` con cronologia commit, snapshot completi, HEAD e stato working copy.
-- Nuovo pannello Versioni progetto con commit inline, suggerimenti di messaggio, stato clean/dirty e badge HEAD.
-- Diff strutturato tra versioni per schema ER, layout, modello logico, codice ERS e stato workspace.
-- Restore protetto delle versioni con backup automatico dello stato corrente prima del ripristino.
-- Confronto visuale full-screen tra snapshot con due workspace affiancati in sola lettura.
-- Evidenziazioni visuali per elementi aggiunti, rimossi, modificati e cambiamenti di layout nelle viste ER e logica.
-- Gestione dei casi in cui una snapshot non contiene ancora vista Traduzione o schema logico salvati.
-- Export dello schema relazionale con azioni dedicate di copia e download nella vista logica.
-- Menu export flottante con formati PNG, JPEG, SVG, ERS, progetto e schema relazionale.
-- Rendering dello schema relazionale migliorato per lettura, export e integrazione con il dock tecnico.
-- Export e stampa piu coerenti tra viste ER e logiche, con formati aggiuntivi e stili dedicati.
-- Border radius standardizzato su modali, pannelli, toolbar e card per una UI piu uniforme.
+- Versione applicativa aggiornata a buildER 6.3 e marcata come major update.
+- Topbar riorganizzata con File, Importa/Esporta e Informazioni come menu principali.
+- Azioni di import ed export spostate nel menu Importa/Esporta con sezioni dedicate.
+- Menu File ridotto alle azioni di progetto, apertura, salvataggio e creazione nuovi file.
+- Menu Informazioni in header con accessi diretti a Menu, Novità e modal della nuova versione.
+- Help mantenuto come menu compatto per Scorciatoie, Novità e About.
+- Pulsante More actions dell'Explorer sostituito con una X dedicata alla chiusura del pannello.
+- Campo editabile del nome progetto rimosso dall'header insieme a stato locale, callback, selettore DOM, chiavi i18n e CSS collegati.
+- Changelog applicativo localizzato aggiornato per alimentare il modal di nuova versione con il delta dalla 6.2.
+- Test dell'header, test Explorer, README, changelog, package metadata e lockfile allineati alla release 6.3.
 
 ## Funzionalità principali
 

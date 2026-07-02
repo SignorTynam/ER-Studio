@@ -21,7 +21,6 @@ function renderHeader(): string {
       <AppHeader
         appTitle="buildER"
         appVersion="5.2"
-        diagramName="Test"
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
@@ -43,7 +42,6 @@ function renderHeader(): string {
         onImportSchema={() => undefined}
         onImportErs={() => undefined}
         onExportCurrentSchema={() => undefined}
-        onRenameProject={() => undefined}
         onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
         onToggleNotesPanel={() => undefined}

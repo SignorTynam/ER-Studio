@@ -14,8 +14,7 @@ function renderHeader() {
     <I18nProvider>
       <AppHeader
         appTitle="buildER"
-        appVersion="6.2"
-        diagramName="ER Studio"
+        appVersion="6.3"
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
@@ -37,7 +36,6 @@ function renderHeader() {
         onImportSchema={() => undefined}
         onImportErs={() => undefined}
         onExportCurrentSchema={() => undefined}
-        onRenameProject={() => undefined}
         onOpenVersioningPanel={() => undefined}
         onToggleCodePanel={() => undefined}
         onToggleNotesPanel={() => undefined}
@@ -77,6 +75,8 @@ test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topba
   assert.doesNotMatch(markup, />Reverse</);
   assert.doesNotMatch(markup, />Errors</);
   assert.doesNotMatch(markup, />Version</);
+  assert.doesNotMatch(markup, /data-project-name-input/);
+  assert.doesNotMatch(markup, /designer-project-name/);
 });
 
 test("File menu non contiene Import, Export o Versioning", () => {

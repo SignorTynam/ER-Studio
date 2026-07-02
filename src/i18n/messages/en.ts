@@ -123,8 +123,6 @@ export const en: DeepPartialMessages = {
   },
   appHeader: {
     brandAria: "buildER brand",
-    projectNameAria: "Project name",
-    defaultProjectName: "ER project",
     commandBarAria: "Main command bar",
     menus: {
       file: "File",
@@ -142,7 +140,6 @@ export const en: DeepPartialMessages = {
       importSchema: "Import Schema .erschema",
       exportCurrentSchema: "Export Current Schema .erschema",
       downloadErs: "Download ERS .ers",
-      renameProject: "Rename Project",
       openCode: "Open Code panel",
       closeCode: "Close Code panel",
       regenerateErs: "Regenerate ERS from diagram",
@@ -1115,6 +1112,44 @@ export const en: DeepPartialMessages = {
           "9": "Cleanup for UI controls and non-applicable states.",
           "10": "Documentation, README, and release-note updates.",
           "11": "Updated test coverage for the main release flows.",
+        },
+      },
+      v6_3: {
+        headline: "buildER 6.3: reorganized topbar, Info menu, and cleaner header",
+        summary: "buildER 6.3 collects the changes after 6.2: a more focused File menu, separate Import/Export menu, Info in the header, cleaner Help, direct Explorer close, and removal of the project-name input.",
+        hero: {
+          eyebrow: "Major update",
+          title: "buildER 6.3",
+          subtitle: "A release focused on cleaning up the main experience: clearer menus, product information available from the topbar, a more direct Explorer, and fewer permanent header controls.",
+        },
+        highlights: {
+          code: {
+            title: "Reorganized menus",
+            description: "File stays focused on project and file actions, while Import/Export groups every input and output format.",
+            tag: "Topbar",
+          },
+          layout: {
+            title: "Info in the header",
+            description: "The Info menu shows the three requested entries: Menu, What's New, and New version.",
+            tag: "Info",
+          },
+          experience: {
+            title: "Cleaner header",
+            description: "The project-name input was removed with its connected code, and the Explorer panel now has a direct close X.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "Updated the application version to buildER 6.3 and marked it as a major update.",
+          "1": "Reorganized the topbar around File, Import/Export, and Info as the main menus.",
+          "2": "Moved import and export actions into the Import/Export menu with dedicated sections.",
+          "3": "Reduced the File menu to project actions, open/save, and new file creation.",
+          "4": "Added the Info menu in the header with entries for Menu, What's New, and New version.",
+          "5": "Kept Help as a compact menu for Shortcuts, What's New, and About.",
+          "6": "Replaced the Explorer More actions button with an X dedicated to closing the panel.",
+          "7": "Removed the header input used to edit the project name.",
+          "8": "Removed callbacks, local state, DOM selector, i18n keys, and CSS connected to the project-name input.",
+          "9": "Updated tests, README, changelog, package metadata, and localized changelog to describe the delta from 6.2.",
         },
       },
       v6_2: {

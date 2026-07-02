@@ -15,6 +15,26 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ### Fixed
 - Inserire qui bug fix.
 
+## [6.3] - 2026-07-02
+
+### Added
+- Major update buildER 6.3: aggiunta nuova entry `impact: "major"` nel changelog applicativo e nell'annuncio versione.
+- Aggiunto menu Informazioni in header con voci Menu, Novità e Nuova versione.
+- Aggiunta localizzazione del changelog 6.3 in italiano, inglese e albanese per il modal di nuova versione, con il delta completo dalla 6.2.
+
+### Changed
+- Versione applicativa aggiornata a buildER 6.3 in `package.json`, `package-lock.json`, `src/utils/appMeta.ts`, README, changelog e changelog localizzato.
+- Topbar riorganizzata con File, Importa/Esporta e Informazioni come menu principali.
+- Azioni di import ed export spostate nel menu Importa/Esporta con sezioni dedicate.
+- Menu File ridotto alle azioni di progetto, apertura, salvataggio e creazione nuovi file.
+- Help mantenuto come menu compatto per Scorciatoie, Novità e About.
+- Pulsante More actions dell'Explorer sostituito con una X dedicata alla chiusura del pannello.
+- Aggiornati i test dell'header e dell'Explorer per coprire la nuova struttura della topbar e il pulsante di chiusura.
+
+### Removed
+- Rimosso dall'header l'input usato per cambiare il nome del progetto.
+- Rimossi stato locale, callback, selettore DOM, chiavi i18n e CSS dedicati all'input del nome progetto in header.
+
 ## [6.2] - 2026-06-30
 
 ### Added

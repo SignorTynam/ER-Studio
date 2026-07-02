@@ -123,8 +123,6 @@ export const sq: DeepPartialMessages = {
   },
   appHeader: {
     brandAria: "Marka buildER",
-    projectNameAria: "Emri i projektit",
-    defaultProjectName: "Projekt ER",
     commandBarAria: "Shiriti kryesor i komandave",
     menus: {
       file: "Skedar",
@@ -142,7 +140,6 @@ export const sq: DeepPartialMessages = {
       importSchema: "Importo skeme .erschema",
       exportCurrentSchema: "Eksporto skemen aktuale .erschema",
       downloadErs: "Shkarko ERS .ers",
-      renameProject: "Riemerto projektin",
       openCode: "Hap panelin Code",
       closeCode: "Mbyll panelin Code",
       regenerateErs: "Rigjenero ERS nga diagrami",
@@ -1115,6 +1112,44 @@ export const sq: DeepPartialMessages = {
           "9": "Pastrime të kontrolleve UI dhe gjendjeve jo të aplikueshme.",
           "10": "Përditësime të dokumentacionit, README dhe shënimeve të release-it.",
           "11": "Mbulim testesh i përditësuar për rrjedhat kryesore të release-it.",
+        },
+      },
+      v6_3: {
+        headline: "buildER 6.3: topbar i riorganizuar, Informacione dhe header me i paster",
+        summary: "buildER 6.3 mbledh ndryshimet pas 6.2: menu File me e fokusuar, Import/Eksport e ndare, Informacione ne header, Help me i paster, mbyllje direkte e Explorer-it dhe heqje e input-it te emrit te projektit.",
+        hero: {
+          eyebrow: "Perditesim major",
+          title: "buildER 6.3",
+          subtitle: "Nje release per pastrimin e pervojes kryesore: menu me te lexueshme, informacion produkti nga topbar-i, Explorer me i drejteperdrejte dhe me pak kontrolle te perhershme ne header.",
+        },
+        highlights: {
+          code: {
+            title: "Menu te riorganizuara",
+            description: "File mbetet per veprimet e projektit dhe file-ve, ndersa Import/Eksport mbledh formatet e hyrjes dhe daljes.",
+            tag: "Topbar",
+          },
+          layout: {
+            title: "Informacione ne header",
+            description: "Menuja Informacione shfaq tre hyrjet e kerkuara: Menu, Te rejat dhe Version i ri.",
+            tag: "Info",
+          },
+          experience: {
+            title: "Header me i paster",
+            description: "Input-i i emrit te projektit u hoq bashke me kodin e lidhur, dhe paneli Explorer tani ka nje X mbylljeje direkte.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "Versioni i aplikacionit u perditesua ne buildER 6.3 dhe u shenua si perditesim major.",
+          "1": "Topbar-i u riorganizua me File, Import/Eksport dhe Informacione si menute kryesore.",
+          "2": "Veprimet e importit dhe eksportit u zhvendosen ne menune Import/Eksport me seksione te dedikuara.",
+          "3": "Menuja File u reduktua ne veprime projekti, hapje, ruajtje dhe krijim file-sh te rinj.",
+          "4": "U shtua menuja Informacione ne header me hyrje per Menu, Te rejat dhe Version i ri.",
+          "5": "Help u mbajt si menu kompakte per Shkurtore, Te rejat dhe About.",
+          "6": "Butoni More actions i Explorer-it u zevendesua me nje X per mbylljen e panelit.",
+          "7": "U hoq input-i i header-it qe perdorej per te ndryshuar emrin e projektit.",
+          "8": "U hoqen callback-et, state lokal, selektori DOM, celesat i18n dhe CSS te lidhura me input-in e emrit te projektit.",
+          "9": "Testet, README, changelog-u, metadatat e paketave dhe changelog-u i lokalizuar u perditesuan per te pershkruar ndryshimet nga 6.2.",
         },
       },
       v6_2: {

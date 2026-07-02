@@ -10,7 +10,6 @@ type TopbarMenuId = "file" | "importExport" | "info" | "help" | "language";
 interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
-  diagramName: string;
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
@@ -33,7 +32,6 @@ interface AppHeaderProps {
   onImportSchema: () => void;
   onImportErs: () => void;
   onExportCurrentSchema: () => void;
-  onRenameProject: () => void;
   onOpenVersioningPanel: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
@@ -56,25 +54,16 @@ interface AppHeaderProps {
   onOpenVersionAnnouncement: () => void;
   onActivityPanelSelect: (panel: ProjectActivityId) => void;
   onCreateCommit: () => void;
-  onDiagramNameChange?: (name: string) => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
   const { locale, setLocale, getLanguageMenuLabel, t } = useI18n();
-  const [draftName, setDraftName] = useState(props.diagramName);
   const [activeTopbarMenu, setActiveTopbarMenu] = useState<TopbarMenuId | null>(null);
   const fileMenuRef = useRef<HTMLDivElement | null>(null);
   const importExportMenuRef = useRef<HTMLDivElement | null>(null);
   const infoMenuRef = useRef<HTMLDivElement | null>(null);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const activeElement = typeof document === "undefined" ? null : document.activeElement;
-    if (activeElement?.getAttribute("data-project-name-input") !== "true") {
-      setDraftName(props.diagramName);
-    }
-  }, [props.diagramName]);
 
   useEffect(() => {
     if (!activeTopbarMenu || typeof document === "undefined") {
@@ -109,14 +98,6 @@ export function AppHeader(props: AppHeaderProps) {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [activeTopbarMenu]);
-
-  function commitProjectName() {
-    const trimmed = draftName.trim() || t("appHeader.defaultProjectName");
-    setDraftName(trimmed);
-    if (trimmed !== props.diagramName) {
-      props.onDiagramNameChange?.(trimmed);
-    }
-  }
 
   function toggleTopbarMenu(menu: TopbarMenuId) {
     setActiveTopbarMenu((current) => (current === menu ? null : menu));
@@ -226,19 +207,6 @@ export function AppHeader(props: AppHeaderProps) {
           ) : null}
         </div>
 
-        <input
-          data-project-name-input="true"
-          className="designer-project-name"
-          value={draftName}
-          onChange={(event) => setDraftName(event.target.value)}
-          onBlur={commitProjectName}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            }
-          }}
-          aria-label={t("appHeader.projectNameAria")}
-        />
       </div>
 
       <div className="designer-brand app-command-topbar__brand" aria-label={t("appHeader.brandAria")}>

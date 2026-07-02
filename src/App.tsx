@@ -2478,37 +2478,6 @@ export default function App() {
     );
   }
 
-  function handleDiagramNameChange(nextName: string) {
-    const normalizedName = nextName.trim() || "ER project";
-    if (normalizedName === projectExplorer.project.name && normalizedName === history.present.meta.name) {
-      return;
-    }
-
-    setProjectExplorer((current) => ({
-      ...current,
-      project: {
-        ...current.project,
-        name: normalizedName,
-        fileTree: current.project.fileTree.map((node) =>
-          node.id === current.project.rootId ? { ...node, name: normalizedName, updatedAt: new Date().toISOString() } : node,
-        ),
-      },
-    }));
-
-    commitDiagram(
-      {
-        ...history.present,
-        meta: {
-          ...history.present.meta,
-          name: normalizedName,
-        },
-      },
-      history.present,
-      { suppressExternalIdentifierWarnings: true },
-    );
-    setStatus(t("projectExplorer.status.projectRenamed"));
-  }
-
   function replaceCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     codeDirtyRef.current = false;
@@ -6940,11 +6909,10 @@ export default function App() {
 
   return (
     <div className={appShellClassName}>
-      <AppHeader
-        appTitle={APP_TITLE}
-        appVersion={APP_VERSION}
-        diagramName={projectExplorer.project.name}
-        diagramView={diagramView}
+        <AppHeader
+          appTitle={APP_TITLE}
+          appVersion={APP_VERSION}
+          diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
         notesPanelOpen={notesPanelOpen}
@@ -6963,15 +6931,10 @@ export default function App() {
         onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
         onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
         onNewFolder={() => handleProjectExplorerCreateFolder(projectExplorer.project.rootId)}
-        onImportSchema={handleImportSchemaRequest}
-        onImportErs={handleLoadErsRequest}
-        onExportCurrentSchema={handleSaveCurrentSchema}
-        onRenameProject={() => {
-          const input = document.querySelector<HTMLInputElement>('[data-project-name-input="true"]');
-          input?.focus();
-          input?.select();
-        }}
-        onOpenVersioningPanel={() => {
+          onImportSchema={handleImportSchemaRequest}
+          onImportErs={handleLoadErsRequest}
+          onExportCurrentSchema={handleSaveCurrentSchema}
+          onOpenVersioningPanel={() => {
           setActiveActivityPanel("version");
           setWorkspaceActivityOpen(true);
         }}
@@ -6995,12 +6958,11 @@ export default function App() {
         onOpenWhatsNew={() => setWhatsNewOpen(true)}
         onOpenVersionAnnouncement={openVersionAnnouncementManually}
         onActivityPanelSelect={handleSelectActivityPanel}
-        onCreateCommit={() => {
-          setActiveActivityPanel("version");
-          setWorkspaceActivityOpen(true);
-        }}
-        onDiagramNameChange={handleDiagramNameChange}
-      />
+          onCreateCommit={() => {
+            setActiveActivityPanel("version");
+            setWorkspaceActivityOpen(true);
+          }}
+        />
 
       <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
 

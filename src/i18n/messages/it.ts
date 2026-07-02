@@ -121,8 +121,6 @@ export const it = {
   },
   appHeader: {
     brandAria: "Brand buildER",
-    projectNameAria: "Nome progetto",
-    defaultProjectName: "Progetto ER",
     commandBarAria: "Barra comandi principale",
     menus: {
       file: "File",
@@ -140,7 +138,6 @@ export const it = {
       importSchema: "Importa schema .erschema",
       exportCurrentSchema: "Esporta schema corrente .erschema",
       downloadErs: "Scarica ERS .ers",
-      renameProject: "Rinomina progetto",
       openCode: "Apri pannello Code",
       closeCode: "Chiudi pannello Code",
       regenerateErs: "Rigenera ERS dal diagramma",
@@ -1113,6 +1110,44 @@ export const it = {
           "9": "Pulizia dei controlli UI e degli stati non applicabili.",
           "10": "Aggiornamenti di documentazione, README e note di release.",
           "11": "Copertura test aggiornata sui flussi principali della release.",
+        },
+      },
+      v6_3: {
+        headline: "buildER 6.3: topbar riorganizzata, Informazioni e header piu pulito",
+        summary: "buildER 6.3 raccoglie le modifiche successive alla 6.2: menu File piu focalizzato, Importa/Esporta separato, Informazioni in header, Help ripulito, chiusura Explorer diretta e rimozione dell'input nome progetto.",
+        hero: {
+          eyebrow: "Major Update",
+          title: "buildER 6.3",
+          subtitle: "Una release dedicata alla pulizia dell'esperienza principale: menu piu leggibili, informazioni di prodotto accessibili dalla topbar, Explorer piu diretto e meno controlli permanenti in header.",
+        },
+        highlights: {
+          code: {
+            title: "Menu riorganizzati",
+            description: "File resta concentrato sulle azioni progetto e file, mentre Importa/Esporta raccoglie tutti i formati di ingresso e uscita.",
+            tag: "Topbar",
+          },
+          layout: {
+            title: "Informazioni in header",
+            description: "Il menu Informazioni mostra le tre voci richieste: Menu, Novita e Nuova versione.",
+            tag: "Info",
+          },
+          experience: {
+            title: "Header piu pulito",
+            description: "L'input del nome progetto e stato rimosso insieme al codice collegato, e il pannello Explorer ora ha una X di chiusura diretta.",
+            tag: "UX",
+          },
+        },
+        updates: {
+          "0": "Aggiornata la versione applicativa a buildER 6.3 e marcata come major update.",
+          "1": "Riorganizzata la topbar con File, Importa/Esporta e Informazioni come menu principali.",
+          "2": "Spostate le azioni di import ed export nel menu Importa/Esporta, con sezioni dedicate.",
+          "3": "Ridotto il menu File alle azioni di progetto, apertura, salvataggio e creazione nuovi file.",
+          "4": "Aggiunto il menu Informazioni in header con le voci Menu, Novita e Nuova versione.",
+          "5": "Mantenuto Help come menu compatto per Scorciatoie, Novita e About.",
+          "6": "Sostituito il pulsante More actions dell'Explorer con una X dedicata alla chiusura del pannello.",
+          "7": "Rimosso dall'header l'input usato per modificare il nome del progetto.",
+          "8": "Eliminati callback, stato locale, selettore DOM, chiavi i18n e CSS collegati all'input del nome progetto.",
+          "9": "Aggiornati test, README, changelog, package metadata e changelog localizzato per descrivere il delta dalla 6.2.",
         },
       },
       v6_2: {
