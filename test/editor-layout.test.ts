@@ -13,11 +13,15 @@ const projectExplorerCssSource = readFileSync(new URL("../src/styles/project-exp
 const appCommandCssSource = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
 const allCssSource = `${editorCssSource}\n${panelsCssSource}\n${projectExplorerCssSource}`;
 
-function cssBlock(selector: string): string {
+function cssBlockFrom(source: string, selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = editorCssSource.match(new RegExp(`${escapedSelector}\\s*\\{[\\s\\S]*?\\}`));
+  const match = source.match(new RegExp(`${escapedSelector}\\s*\\{[\\s\\S]*?\\}`));
   assert.ok(match, `${selector} should exist`);
   return match[0];
+}
+
+function cssBlock(selector: string): string {
+  return cssBlockFrom(editorCssSource, selector);
 }
 
 test("ER code panel renders inside the unified workspace activity panel", () => {
@@ -93,13 +97,38 @@ test("logical SQL is routed to the workspace activity Code panel", () => {
   assert.match(appSource, /onCodeChange=\{codePanelMode === "ers" \? updateCodeDraft : undefined\}/);
   assert.match(appSource, /onPanelModeChange=\{handleLogicalPanelModeChange\}/);
   assert.match(projectExplorerCssSource, /\.code-activity-panel__toolbar\s*\{/);
-  assert.match(projectExplorerCssSource, /\.project-activity-section\.code-activity-panel\s*\{[\s\S]*grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
+  assert.match(projectExplorerCssSource, /\.project-activity-section\.code-activity-panel\s*\{[\s\S]*display:\s*flex/);
+  assert.match(projectExplorerCssSource, /\.project-activity-section\.code-activity-panel\s*\{[\s\S]*flex-direction:\s*column/);
   assert.match(projectExplorerCssSource, /\.code-activity-panel__mode-tabs\s*\{/);
   assert.match(projectExplorerCssSource, /\.code-activity-panel__dialect\s*\{/);
   assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-dock/);
   assert.doesNotMatch(logicalWorkspaceSource, /designer-sql-output/);
   assert.doesNotMatch(logicalWorkspaceSource, /hideSql/);
   assert.doesNotMatch(logicalWorkspaceSource, /showSql/);
+});
+
+test("ER code panel body fills available height even when SQL toolbar is absent", () => {
+  assert.match(appSource, /codePanelMode !== "ers" \? \(/);
+  assert.match(appSource, /<div className="code-activity-panel__body">/);
+
+  const codeActivityPanelBlock = cssBlockFrom(
+    projectExplorerCssSource,
+    ".project-activity-section.code-activity-panel",
+  );
+  assert.match(codeActivityPanelBlock, /display:\s*flex/);
+  assert.match(codeActivityPanelBlock, /flex-direction:\s*column/);
+  assert.doesNotMatch(codeActivityPanelBlock, /grid-template-rows:\s*auto auto minmax\(0,\s*1fr\)/);
+
+  assert.match(
+    projectExplorerCssSource,
+    /\.project-activity-section\.code-activity-panel > \.project-activity-section__header,\s*\.project-activity-section\.code-activity-panel > \.code-activity-panel__toolbar\s*\{[\s\S]*flex:\s*0 0 auto/,
+  );
+
+  const codeActivityBodyBlock = cssBlockFrom(projectExplorerCssSource, ".code-activity-panel__body");
+  assert.match(codeActivityBodyBlock, /flex:\s*1 1 auto/);
+  assert.match(codeActivityBodyBlock, /display:\s*flex/);
+  assert.match(codeActivityBodyBlock, /min-height:\s*0/);
+  assert.match(codeActivityBodyBlock, /overflow:\s*hidden/);
 });
 
 test("ER canvas region remains full size with the activity panel open", () => {

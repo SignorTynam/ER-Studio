@@ -349,12 +349,24 @@
 }
 
 .project-activity-section.code-activity-panel {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.project-activity-section.code-activity-panel > .project-activity-section__header,
+.project-activity-section.code-activity-panel > .code-activity-panel__toolbar {
+  flex: 0 0 auto;
 }
 
 .code-activity-panel__body {
+  flex: 1 1 auto;
+  display: flex;
   min-width: 0;
   min-height: 0;
+  height: auto;
+  overflow: hidden;
 }
 
 .project-activity-section__header {
@@ -541,8 +553,10 @@
 .project-activity-content .diagram-code-panel.embedded {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
+  min-width: 0;
   padding: 0;
   border: 0;
   background: var(--editor-panel);
