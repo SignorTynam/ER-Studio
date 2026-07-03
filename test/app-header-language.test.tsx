@@ -15,6 +15,8 @@ import {
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const appCommandCssSource = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
+
 function renderHeader(): string {
   return renderToStaticMarkup(
     <I18nProvider>
@@ -117,4 +119,19 @@ test("AppHeader language menu keeps the expected interactive wiring", () => {
   assert.match(source, /setActiveTopbarMenu\(null\);/);
   assert.match(source, /event\.key === "Escape"/);
   assert.match(source, /document\.addEventListener\("pointerdown"/);
+});
+
+test("AppHeader language menu uses a dark topbar surface", () => {
+  assert.match(
+    appCommandCssSource,
+    /\.designer-language-menu__panel\.app-topbar-menu__panel\s*\{[\s\S]*background:\s*#1f1f1f/,
+  );
+  assert.match(
+    appCommandCssSource,
+    /\.designer-language-menu__panel\.app-topbar-menu__panel\s*\{[\s\S]*color:\s*#ffffff/,
+  );
+  assert.match(
+    appCommandCssSource,
+    /\.designer-language-menu__panel\.app-topbar-menu__panel \.designer-language-menu__item\s*\{[\s\S]*color:\s*#ffffff/,
+  );
 });

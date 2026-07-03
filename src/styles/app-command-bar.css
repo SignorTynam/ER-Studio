@@ -83,6 +83,29 @@
   min-width: 210px;
 }
 
+.designer-language-menu__panel.app-topbar-menu__panel {
+  display: grid;
+  min-width: 180px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #1f1f1f;
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item {
+  justify-content: space-between;
+  color: #ffffff;
+}
+
+.designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item:hover,
+.designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item.active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .app-file-menu__panel button,
 .app-topbar-menu__panel button {
   width: 100%;
