@@ -50,6 +50,26 @@ function distance(left: Point, right: Point): number {
   return Math.hypot(left.x - right.x, left.y - right.y);
 }
 
+function distanceFromPolyline(points: Point[], point: Point): number {
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const segmentLength = Math.max(Math.hypot(dx, dy), 0.001);
+    const t = Math.min(Math.max(((point.x - start.x) * dx + (point.y - start.y) * dy) / (segmentLength * segmentLength), 0), 1);
+    const projection = {
+      x: start.x + dx * t,
+      y: start.y + dy * t,
+    };
+    bestDistance = Math.min(bestDistance, distance(point, projection));
+  }
+
+  return bestDistance;
+}
+
 function intersectsAny(bounds: Bounds, boxes: ReservedLabelBox[]): boolean {
   return boxes.some((box) => boundsIntersect(bounds, box));
 }
@@ -98,6 +118,7 @@ test("cardinality layout: connector label stays near source entity endpoint inst
   assert.ok(anchor);
   assert.ok(distance(anchor.point, endpoint) >= 36);
   assert.ok(distance(anchor.point, endpoint) <= 58);
+  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 90);
 });
 
@@ -128,6 +149,7 @@ test("cardinality layout: connector label stays near target entity endpoint for 
   assert.ok(anchor);
   assert.ok(distance(anchor.point, endpoint) >= 36);
   assert.ok(distance(anchor.point, endpoint) <= 58);
+  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 90);
 });
 
@@ -142,6 +164,7 @@ test("cardinality layout: vertical connector label stays near the entity side", 
   assert.ok(anchor);
   assert.ok(distance(anchor.point, endpoint) >= 36);
   assert.ok(distance(anchor.point, endpoint) <= 58);
+  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
   assert.ok(anchor.point.y < getPointAlongPolyline(points, 0.5).y);
 });
 
@@ -155,6 +178,7 @@ test("cardinality layout: attribute cardinality is anchored near the simple attr
 
   assert.ok(anchor);
   assert.ok(distance(anchor.point, marker) <= 44);
+  assert.ok(distanceFromPolyline(points, anchor.point) >= 14);
   assert.ok(distance(anchor.point, getPointAlongPolyline(points, 0.5)) > 55);
 });
 
@@ -202,7 +226,8 @@ test("cardinality layout: placement repairs collisions without moving to the edg
   });
 
   assert.equal(intersectsAny(placement.bounds, reserved), false);
-  assert.ok(distance(placement.point, endpoint) < 86);
+  assert.ok(distance(placement.point, endpoint) <= 64);
+  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
   assert.ok(distance(placement.point, getPointAlongPolyline(points, 0.5)) > 70);
 });
 
@@ -230,4 +255,58 @@ test("cardinality layout: connector cardinality avoids role label near the same 
 
   assert.equal(boundsIntersect(placement.bounds, roleBox), false);
   assert.ok(distance(placement.point, points[0]) < distance(getPointAlongPolyline(points, 0.5), points[0]));
+  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
+});
+
+test("cardinality layout: line clearance wins over a candidate directly on the connector", () => {
+  const source = entity("ENTITY1", 0, 0);
+  const target = relationship("RELATIONSHIP1", 520, 120);
+  const edge = connector("edge-1", source.id, target.id);
+  const endpoint = { x: source.x + source.width, y: source.y + source.height / 2 };
+  const points = [endpoint, { x: target.x, y: target.y + target.height / 2 }];
+  const anchor = getConnectorCardinalityAnchorPoint({ edge, sourceNode: source, targetNode: target, points });
+  assert.ok(anchor);
+
+  const reserved = [
+    edgeBox("anchor", anchor.point),
+    edgeBox("normal-1", { x: anchor.point.x + anchor.normal.x * 8, y: anchor.point.y + anchor.normal.y * 8 }),
+    edgeBox("normal-2", { x: anchor.point.x + anchor.normal.x * 16, y: anchor.point.y + anchor.normal.y * 16 }),
+  ];
+  const placement = chooseCollisionFreeCardinalityLabelPlacement({
+    edge,
+    sourceNode: source,
+    targetNode: target,
+    points,
+    defaultPoint: anchor.point,
+    label: "(1,1)",
+    reservedBoxes: reserved,
+    alreadyPlacedBoxes: [],
+  });
+
+  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
+  assert.ok(distance(placement.point, endpoint) <= 64);
+});
+
+test("cardinality layout: attribute placement stays attached to the attribute owner", () => {
+  const host = entity("ENTITY1", 260, 80);
+  const attr = attribute("ATTR1", 40, 20, "top_left_attr");
+  const edge = attributeEdge("edge-attr", attr.id, host.id);
+  const marker = { x: attr.x + 10, y: attr.y + attr.height / 2 };
+  const points = [marker, { x: host.x, y: host.y + host.height / 2 }];
+  const anchor = getAttributeCardinalityAnchorPoint({ edge, sourceNode: attr, targetNode: host, points });
+  assert.ok(anchor);
+
+  const placement = chooseCollisionFreeCardinalityLabelPlacement({
+    edge,
+    sourceNode: attr,
+    targetNode: host,
+    points,
+    defaultPoint: anchor.point,
+    label: "(0,N)",
+    reservedBoxes: [edgeBox("anchor", anchor.point)],
+    alreadyPlacedBoxes: [],
+  });
+
+  assert.ok(distance(placement.point, marker) <= 52);
+  assert.ok(distanceFromPolyline(points, placement.point) >= 14);
 });

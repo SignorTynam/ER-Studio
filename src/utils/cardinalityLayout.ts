@@ -10,13 +10,15 @@ import {
 } from "./edgeLabelLayout";
 import { getNodeCenter, getSimpleAttributeMarkerCenter } from "./geometry";
 
-const CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY = 44;
-const CONNECTOR_CARDINALITY_NORMAL_OFFSET = 14;
-const CONNECTOR_CARDINALITY_MIN_PROGRESS = 0.12;
-const CONNECTOR_CARDINALITY_MAX_PROGRESS = 0.35;
-const ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER = 18;
-const ATTRIBUTE_CARDINALITY_NORMAL_OFFSET = 14;
-const ATTRIBUTE_CARDINALITY_MAX_DISTANCE_FROM_MARKER = 44;
+const CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY = 30;
+const CONNECTOR_CARDINALITY_NORMAL_OFFSET = 20;
+const CONNECTOR_CARDINALITY_MIN_PROGRESS = 0.02;
+const CONNECTOR_CARDINALITY_MAX_PROGRESS = 0.18;
+const ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER = 22;
+const ATTRIBUTE_CARDINALITY_NORMAL_OFFSET = 18;
+const MIN_CARDINALITY_LINE_CLEARANCE = 14;
+const MAX_CONNECTOR_CARDINALITY_DISTANCE_FROM_OWNER = 64;
+const MAX_ATTRIBUTE_CARDINALITY_DISTANCE_FROM_OWNER = 52;
 
 export interface CardinalityAnchor {
   point: Point;
@@ -25,6 +27,15 @@ export interface CardinalityAnchor {
   preferredProgress: number;
   lockNearEndpoint: boolean;
   kind: "connector-cardinality" | "attribute-cardinality" | "generic-edge-label";
+}
+
+export interface EndpointCardinalityAnchorOptions {
+  points: Point[];
+  ownerPoint: Point;
+  oppositePoint: Point;
+  distanceFromOwner: number;
+  normalOffset: number;
+  kind: "connector-cardinality" | "attribute-cardinality";
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -47,19 +58,21 @@ function normalizeVector(vector: Point, fallback: Point): Point {
   };
 }
 
-function getReadableNormal(from: Point, to: Point): Point {
-  const direction = normalizeVector({ x: to.x - from.x, y: to.y - from.y }, { x: 1, y: 0 });
+function getReadableNormalForDirection(direction: Point): Point {
   let normal = { x: -direction.y, y: direction.x };
 
-  if (Math.abs(direction.x) >= Math.abs(direction.y)) {
-    normal = { x: 0, y: -1 };
-  } else if (Math.abs(direction.y) > Math.abs(direction.x)) {
-    normal = { x: direction.y >= 0 ? 1 : -1, y: 0 };
-  } else if (normal.y > 0) {
+  if (Math.abs(direction.x) >= Math.abs(direction.y) && normal.y > 0) {
+    normal = { x: -normal.x, y: -normal.y };
+  } else if (Math.abs(direction.y) > Math.abs(direction.x) && normal.x < 0) {
     normal = { x: -normal.x, y: -normal.y };
   }
 
-  return normal;
+  return normalizeVector(normal, { x: 0, y: -1 });
+}
+
+function getReadableNormal(from: Point, to: Point): Point {
+  const direction = normalizeVector({ x: to.x - from.x, y: to.y - from.y }, { x: 1, y: 0 });
+  return getReadableNormalForDirection(direction);
 }
 
 function getPolylineLength(points: Point[]): number {
@@ -68,42 +81,6 @@ function getPolylineLength(points: Point[]): number {
     length += distance(points[index - 1], points[index]);
   }
   return length;
-}
-
-function getPointAlongPolylineDistance(points: Point[], distanceFromStart: number): { point: Point; progress: number } {
-  if (points.length === 0) {
-    return { point: { x: 0, y: 0 }, progress: 0 };
-  }
-  if (points.length === 1) {
-    return { point: points[0], progress: 0 };
-  }
-
-  const totalLength = getPolylineLength(points);
-  if (totalLength <= 0.001) {
-    return { point: points[0], progress: 0 };
-  }
-
-  const targetDistance = Math.min(Math.max(distanceFromStart, 0), totalLength);
-  let travelled = 0;
-  for (let index = 1; index < points.length; index += 1) {
-    const start = points[index - 1];
-    const end = points[index];
-    const segmentLength = distance(start, end);
-    if (travelled + segmentLength >= targetDistance) {
-      const segmentProgress = (targetDistance - travelled) / Math.max(segmentLength, 0.001);
-      return {
-        point: {
-          x: start.x + (end.x - start.x) * segmentProgress,
-          y: start.y + (end.y - start.y) * segmentProgress,
-        },
-        progress: targetDistance / totalLength,
-      };
-    }
-
-    travelled += segmentLength;
-  }
-
-  return { point: points[points.length - 1], progress: 1 };
 }
 
 function getNearestSegmentInfo(points: Point[], point: Point): { progress: number; distance: number } {
@@ -147,6 +124,35 @@ function offsetPoint(point: Point, normal: Point, offset: number): Point {
   };
 }
 
+function createEndpointCardinalityAnchor(options: EndpointCardinalityAnchorOptions): CardinalityAnchor {
+  const direction = normalizeVector(
+    {
+      x: options.oppositePoint.x - options.ownerPoint.x,
+      y: options.oppositePoint.y - options.ownerPoint.y,
+    },
+    { x: 1, y: 0 },
+  );
+  const lineDistance = options.kind === "connector-cardinality"
+    ? clamp(options.distanceFromOwner, 24, 38)
+    : clamp(options.distanceFromOwner, 18, 30);
+  const basePoint = {
+    x: options.ownerPoint.x + direction.x * lineDistance,
+    y: options.ownerPoint.y + direction.y * lineDistance,
+  };
+  const normal = getReadableNormalForDirection(direction);
+  const point = offsetPoint(basePoint, normal, options.normalOffset);
+  const segmentInfo = getNearestSegmentInfo(options.points, point);
+
+  return {
+    point,
+    referencePoint: options.ownerPoint,
+    normal,
+    preferredProgress: segmentInfo.progress,
+    lockNearEndpoint: true,
+    kind: options.kind,
+  };
+}
+
 export function getConnectorCardinalityAnchorPoint(options: {
   edge: DiagramEdge;
   sourceNode: DiagramNode;
@@ -166,22 +172,18 @@ export function getConnectorCardinalityAnchorPoint(options: {
   const totalLength = getPolylineLength(options.points);
   const endpoint = entityIsSource ? options.points[0] : options.points[options.points.length - 1];
   const adjacentPoint = entityIsSource ? options.points[1] : options.points[options.points.length - 2];
-  const minDistance = totalLength * CONNECTOR_CARDINALITY_MIN_PROGRESS;
-  const maxDistance = Math.max(minDistance, totalLength * CONNECTOR_CARDINALITY_MAX_PROGRESS);
-  const targetDistanceFromEntity = clamp(CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY, minDistance, maxDistance);
-  const distanceFromStart = entityIsSource ? targetDistanceFromEntity : totalLength - targetDistanceFromEntity;
-  const base = getPointAlongPolylineDistance(options.points, distanceFromStart);
-  const normal = getReadableNormal(endpoint, adjacentPoint);
-  const point = offsetPoint(base.point, normal, CONNECTOR_CARDINALITY_NORMAL_OFFSET);
+  const minDistance = Math.max(20, totalLength * CONNECTOR_CARDINALITY_MIN_PROGRESS);
+  const maxDistance = Math.max(minDistance, Math.min(38, totalLength * CONNECTOR_CARDINALITY_MAX_PROGRESS));
+  const distanceFromOwner = clamp(CONNECTOR_CARDINALITY_DISTANCE_FROM_ENTITY, minDistance, maxDistance);
 
-  return {
-    point,
-    referencePoint: endpoint,
-    normal,
-    preferredProgress: base.progress,
-    lockNearEndpoint: true,
+  return createEndpointCardinalityAnchor({
+    points: options.points,
+    ownerPoint: endpoint,
+    oppositePoint: adjacentPoint,
+    distanceFromOwner,
+    normalOffset: CONNECTOR_CARDINALITY_NORMAL_OFFSET,
     kind: "connector-cardinality",
-  };
+  });
 }
 
 function getAttributeNodeForCardinality(
@@ -226,22 +228,15 @@ export function getAttributeCardinalityAnchorPoint(options: {
     : getSimpleAttributeMarkerCenter(attributeNode);
   const hostNode = options.sourceNode.id === attributeNode.id ? options.targetNode : options.sourceNode;
   const hostCenter = getNodeCenter(hostNode);
-  const direction = normalizeVector({ x: hostCenter.x - marker.x, y: hostCenter.y - marker.y }, { x: 1, y: 0 });
-  const normal = getReadableNormal(marker, hostCenter);
-  const point = {
-    x: marker.x + direction.x * ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER + normal.x * ATTRIBUTE_CARDINALITY_NORMAL_OFFSET,
-    y: marker.y + direction.y * ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER + normal.y * ATTRIBUTE_CARDINALITY_NORMAL_OFFSET,
-  };
-  const segmentInfo = getNearestSegmentInfo(options.points, point);
 
-  return {
-    point,
-    referencePoint: marker,
-    normal,
-    preferredProgress: segmentInfo.progress,
-    lockNearEndpoint: true,
+  return createEndpointCardinalityAnchor({
+    points: options.points,
+    ownerPoint: marker,
+    oppositePoint: hostCenter,
+    distanceFromOwner: ATTRIBUTE_CARDINALITY_DISTANCE_FROM_MARKER,
+    normalOffset: ATTRIBUTE_CARDINALITY_NORMAL_OFFSET,
     kind: "attribute-cardinality",
-  };
+  });
 }
 
 export function getCardinalityLabelAnchorPoint(options: {
@@ -273,23 +268,30 @@ function buildCardinalityCandidates(options: {
 }): Point[] {
   const candidates: Point[] = [options.anchor.point];
   const segmentInfo = getNearestSegmentInfo(options.points, options.anchor.point);
-  const basePoint = getPointAlongPolyline(options.points, segmentInfo.progress);
+  const currentLineClearance = Math.max(segmentInfo.distance, MIN_CARDINALITY_LINE_CLEARANCE + 2);
   const normal = options.anchor.normal;
-  const offsetDistances = [0, 10, -10, 20, -20, 30, -30];
+  const tangent = normalizeVector({ x: normal.y, y: -normal.x }, { x: 1, y: 0 });
+  const normalDeltas = [8, -8, 16, -16, 24, -24];
+  const tangentDeltas = [8, -8, 16, -16];
 
-  offsetDistances.forEach((offset) => {
-    candidates.push(offsetPoint(basePoint, normal, offset));
+  normalDeltas.forEach((offset) => {
+    candidates.push(offsetPoint(options.anchor.point, normal, offset));
+  });
+  tangentDeltas.forEach((offset) => {
+    candidates.push(offsetPoint(options.anchor.point, tangent, offset));
   });
 
   const progressDeltas = options.anchor.kind === "connector-cardinality"
-    ? [0.05, -0.05, 0.1, -0.1, 0.16, -0.16]
-    : [0.04, -0.04, 0.08, -0.08, 0.12, -0.12];
+    ? [0.025, -0.025, 0.05, -0.05]
+    : [0.03, -0.03, 0.06, -0.06];
   progressDeltas.forEach((delta) => {
     const progress = Math.min(Math.max(options.anchor.preferredProgress + delta, 0), 1);
     const point = getPointAlongPolyline(options.points, progress);
-    offsetDistances.slice(0, 5).forEach((offset) => {
-      candidates.push(offsetPoint(point, normal, offset));
-    });
+    const offsetPointFromLine = offsetPoint(point, normal, currentLineClearance);
+    candidates.push(offsetPointFromLine);
+    candidates.push(offsetPoint(offsetPointFromLine, normal, 8));
+    candidates.push(offsetPoint(offsetPointFromLine, tangent, 8));
+    candidates.push(offsetPoint(offsetPointFromLine, tangent, -8));
   });
 
   return candidates.filter(
@@ -330,13 +332,24 @@ export function chooseCollisionFreeCardinalityLabelPlacement(options: {
     let score =
       collisionCount(bounds, options.reservedBoxes) * 100000 +
       collisionCount(bounds, options.alreadyPlacedBoxes) * 80000;
+    const ownerDistance = distance(candidate, anchor.referencePoint);
     score += distance(candidate, anchor.point) * 8;
-    score += distance(candidate, anchor.referencePoint) * (anchor.kind === "attribute-cardinality" ? 5 : 3);
-    score += Math.abs(segmentInfo.progress - anchor.preferredProgress) * (anchor.lockNearEndpoint ? 900 : 120);
-    score += segmentInfo.distance * 2;
+    score += ownerDistance * (anchor.kind === "attribute-cardinality" ? 8 : 6);
+    score += Math.abs(segmentInfo.progress - anchor.preferredProgress) * (anchor.lockNearEndpoint ? 1600 : 120);
 
-    if (anchor.kind === "attribute-cardinality" && distance(candidate, anchor.referencePoint) > ATTRIBUTE_CARDINALITY_MAX_DISTANCE_FROM_MARKER) {
-      score += 3000 + distance(candidate, anchor.referencePoint) * 20;
+    if (segmentInfo.distance < MIN_CARDINALITY_LINE_CLEARANCE) {
+      score += 1000000 + (MIN_CARDINALITY_LINE_CLEARANCE - segmentInfo.distance) * 100000;
+    } else {
+      score += Math.abs(segmentInfo.distance - MIN_CARDINALITY_LINE_CLEARANCE - 6) * 0.8;
+    }
+
+    const maxOwnerDistance = anchor.kind === "attribute-cardinality"
+      ? MAX_ATTRIBUTE_CARDINALITY_DISTANCE_FROM_OWNER
+      : anchor.kind === "connector-cardinality"
+        ? MAX_CONNECTOR_CARDINALITY_DISTANCE_FROM_OWNER
+        : Number.POSITIVE_INFINITY;
+    if (ownerDistance > maxOwnerDistance) {
+      score += 100000 + (ownerDistance - maxOwnerDistance) * 10000;
     }
 
     if (score < bestScore) {

@@ -218,6 +218,12 @@ interface DiagramCanvasProps {
   readOnly?: boolean;
 }
 
+type ValidationSummary = {
+  level: ValidationIssue["level"];
+  count: number;
+  messages: string[];
+};
+
 function resolveTranslationHighlight(id: string, highlights?: DiagramHighlights): DiagramHighlightKind | undefined {
   if (!highlights) {
     return undefined;
@@ -1870,8 +1876,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const readOnly = props.readOnly === true;
 
   const nodeMap = new Map(props.diagram.nodes.map((node) => [node.id, node]));
-  const nodeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
-  const edgeIssueMap = new Map<string, { level: ValidationIssue["level"]; count: number }>();
+  const nodeIssueMap = new Map<string, ValidationSummary>();
+  const edgeIssueMap = new Map<string, ValidationSummary>();
   const connectorLaneMap = new Map<string, { laneIndex: number; laneCount: number }>();
   const connectorGroups = new Map<string, string[]>();
   const attributeDirectionMap = new Map<string, Point>();
@@ -1891,14 +1897,23 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   props.issues.forEach((issue) => {
     const targetMap = issue.targetType === "node" ? nodeIssueMap : edgeIssueMap;
     const current = targetMap.get(issue.targetId);
+    const message = issue.message.trim();
     if (!current) {
-      targetMap.set(issue.targetId, { level: issue.level, count: 1 });
+      targetMap.set(issue.targetId, {
+        level: issue.level,
+        count: 1,
+        messages: message ? [message] : [],
+      });
       return;
     }
 
+    const messages = message && !current.messages.includes(message)
+      ? [...current.messages, message]
+      : current.messages;
     targetMap.set(issue.targetId, {
       level: current.level === "error" || issue.level === "error" ? "error" : "warning",
-      count: current.count + 1,
+      count: messages.length,
+      messages,
     });
   });
 
@@ -4170,6 +4185,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                     pending={false}
                     validationLevel={undefined}
                     validationCount={undefined}
+                    validationMessages={undefined}
                     focused={false}
                     focusable={false}
                     onFocus={() => undefined}
@@ -4192,6 +4208,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               pending={false}
               validationLevel={undefined}
               validationCount={undefined}
+              validationMessages={undefined}
               focused={false}
               focusable={false}
               onFocus={() => undefined}
@@ -4309,6 +4326,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
                 dragging={false}
                 validationLevel={edgeIssueMap.get(edge.id)?.level}
                 validationCount={edgeIssueMap.get(edge.id)?.count}
+                validationMessages={edgeIssueMap.get(edge.id)?.messages}
                 translationHighlight={resolveTranslationHighlight(edge.id, props.translationHighlights)}
                 versionHighlight={resolveVersionEdgeHighlight(edge.id, props.versionHighlights)}
                 focused={
@@ -4340,6 +4358,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
               pending={pendingConnectionSource === node.id}
               validationLevel={nodeIssueMap.get(node.id)?.level}
               validationCount={nodeIssueMap.get(node.id)?.count}
+              validationMessages={nodeIssueMap.get(node.id)?.messages}
               translationHighlight={resolveTranslationHighlight(node.id, props.translationHighlights)}
               versionHighlight={resolveVersionNodeHighlight(node.id, props.versionHighlights)}
               focused={

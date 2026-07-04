@@ -53,6 +53,7 @@ interface DiagramEdgeProps {
   focusable: boolean;
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
+  validationMessages?: string[];
   translationHighlight?: DiagramHighlightKind;
   versionHighlight?: VersionHighlightKind;
   onFocus: (edge: DiagramEdge) => void;
@@ -86,27 +87,104 @@ function getValidationHalo(level: DiagramIssueLevel): string {
   return "transparent";
 }
 
-function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, _count?: number): ReactNode {
+function distance(left: Point, right: Point): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+function normalizeVector(vector: Point, fallback: Point): Point {
+  const length = Math.hypot(vector.x, vector.y);
+  if (length <= 0.001) {
+    return fallback;
+  }
+
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  };
+}
+
+function getNearestSegmentNormal(points: Point[], point: Point): Point {
+  if (points.length < 2) {
+    return { x: 0, y: -1 };
+  }
+
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestNormal = { x: 0, y: -1 };
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const segmentLength = Math.max(Math.hypot(dx, dy), 0.001);
+    const t = Math.min(Math.max(((point.x - start.x) * dx + (point.y - start.y) * dy) / (segmentLength * segmentLength), 0), 1);
+    const projection = {
+      x: start.x + dx * t,
+      y: start.y + dy * t,
+    };
+    const candidateDistance = distance(point, projection);
+    if (candidateDistance < bestDistance) {
+      let normal = normalizeVector({ x: -dy, y: dx }, { x: 0, y: -1 });
+      if (Math.abs(dx) >= Math.abs(dy) && normal.y > 0) {
+        normal = { x: -normal.x, y: -normal.y };
+      } else if (Math.abs(dy) > Math.abs(dx) && normal.x < 0) {
+        normal = { x: -normal.x, y: -normal.y };
+      }
+      bestDistance = candidateDistance;
+      bestNormal = normal;
+    }
+  }
+
+  return bestNormal;
+}
+
+function formatValidationTitle(messages?: string[]): string | undefined {
+  if (!messages || messages.length === 0) {
+    return undefined;
+  }
+
+  const uniqueMessages = messages.filter((message, index, source) => source.indexOf(message) === index);
+  if (uniqueMessages.length === 1) {
+    return uniqueMessages[0];
+  }
+
+  return `${uniqueMessages.length} problemi:\n${uniqueMessages.map((message) => `- ${message}`).join("\n")}`;
+}
+
+function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, title?: string): ReactNode {
   if (!level) {
     return null;
   }
 
-  const badgeText = level === "error" ? "X" : "!";
+  const stroke = getValidationStroke(level);
+  const fill = level === "error" ? DIAGRAM_ERROR_FILL : DIAGRAM_WARNING_FILL;
   return (
-    <g className="diagram-validation-badge" aria-hidden="true">
-      <circle cx={x} cy={y} r={9} fill="#fffdf7" stroke={getValidationStroke(level)} strokeWidth={2} />
-      <text
-        x={x}
-        y={y + 0.5}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill={getValidationStroke(level)}
-        style={{ fontSize: "10px", fontWeight: 700 }}
-      >
-        {badgeText}
-      </text>
+    <g className={`diagram-validation-badge ${level}`} pointerEvents="all">
+      {title ? <title>{title}</title> : null}
+      <circle cx={x} cy={y} r={7.5} fill="#fffdf7" stroke={stroke} strokeWidth={1.7} />
+      <circle cx={x} cy={y} r={5.4} fill={fill} stroke="none" opacity={0.65} />
+      <circle cx={x} cy={y} r={2.6} fill={stroke} opacity={0.95} />
     </g>
   );
+}
+
+function getEdgeValidationBadgePoint(options: {
+  points: Point[];
+  basePoint: Point;
+  labelY: number;
+  labelWidth: number;
+  hasLabel: boolean;
+}): Point {
+  const base = { x: options.basePoint.x, y: options.labelY };
+  const normal = getNearestSegmentNormal(options.points, base);
+  const tangent = normalizeVector({ x: normal.y, y: -normal.x }, { x: 1, y: 0 });
+  const normalOffset = 20;
+  const tangentOffset = options.hasLabel ? options.labelWidth / 2 + 12 : 0;
+
+  return {
+    x: base.x + normal.x * normalOffset + tangent.x * tangentOffset,
+    y: base.y + normal.y * normalOffset + tangent.y * tangentOffset,
+  };
 }
 
 function formatIsaConstraint(completeness?: IsaCompleteness, disjointness?: IsaDisjointness): string {
@@ -183,9 +261,17 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   const roleLabelPoint = props.labelLayoutOverride?.roleLabelPoint ?? defaultRoleLabelPoint;
   const displayLabelY = props.labelLayoutOverride?.displayLabelY ?? defaultDisplayLabelY;
   const roleLabelY = props.labelLayoutOverride?.roleLabelY ?? defaultRoleLabelY;
-  const badgePoint = roleLabel ? roleLabelPoint : usesSplitConnectorLabels ? roleLabelPoint : displayLabelPoint;
-  const badgeXOffset = Math.max((roleLabel ? roleLabelWidth : displayLabelWidth) / 2 + 14, 24);
-  const badgeY = (roleLabel ? roleLabelY : displayLabelY) - 12;
+  const validationTitle = isGhost ? undefined : formatValidationTitle(props.validationMessages);
+  const badgeBasePoint = roleLabel ? roleLabelPoint : usesSplitConnectorLabels ? roleLabelPoint : displayLabelPoint;
+  const badgeLabelY = roleLabel ? roleLabelY : displayLabelY;
+  const badgeLabelWidth = roleLabel ? roleLabelWidth : displayLabelWidth;
+  const badgePoint = getEdgeValidationBadgePoint({
+    points: geometry.points,
+    basePoint: badgeBasePoint,
+    labelY: badgeLabelY,
+    labelWidth: badgeLabelWidth,
+    hasLabel: Boolean(roleLabel || displayLabel),
+  });
   const primaryDashArray = isGhost ? "10 8" : dashArray;
   const groupClassName = [
     "diagram-edge",
@@ -219,6 +305,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, props.edge)}
       onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, props.edge)}
     >
+      {validationTitle ? <title>{validationTitle}</title> : null}
       {!isGhost ? (
         <path
           className="diagram-edge-hit-target"
@@ -320,7 +407,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           </text>
         </>
       ) : null}
-      {!isGhost ? renderValidationBadge(badgePoint.x + badgeXOffset, badgeY, props.validationLevel, props.validationCount) : null}
+      {!isGhost ? renderValidationBadge(badgePoint.x, badgePoint.y, props.validationLevel, validationTitle) : null}
     </g>
   );
 }

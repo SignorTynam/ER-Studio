@@ -57,27 +57,54 @@ function getValidationHalo(level: DiagramIssueLevel): string {
   return "transparent";
 }
 
-function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, _count?: number): ReactNode {
+function formatValidationTitle(messages?: string[]): string | undefined {
+  if (!messages || messages.length === 0) {
+    return undefined;
+  }
+
+  const uniqueMessages = messages.filter((message, index, source) => source.indexOf(message) === index);
+  if (uniqueMessages.length === 1) {
+    return uniqueMessages[0];
+  }
+
+  return `${uniqueMessages.length} problemi:\n${uniqueMessages.map((message) => `- ${message}`).join("\n")}`;
+}
+
+function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, title?: string): ReactNode {
   if (!level) {
     return null;
   }
 
-  const badgeText = level === "error" ? "X" : "!";
+  const stroke = getValidationStroke(level);
+  const fill = level === "error" ? DIAGRAM_ERROR_FILL : DIAGRAM_WARNING_FILL;
   return (
-    <g className="diagram-validation-badge" aria-hidden="true">
-      <circle cx={x} cy={y} r={10} fill="#fffdf7" stroke={getValidationStroke(level)} strokeWidth={2.2} />
-      <text
-        x={x}
-        y={y + 0.5}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill={getValidationStroke(level)}
-        style={{ fontSize: "11px", fontWeight: 700 }}
-      >
-        {badgeText}
-      </text>
+    <g className={`diagram-validation-badge ${level}`} pointerEvents="all">
+      {title ? <title>{title}</title> : null}
+      <circle cx={x} cy={y} r={8} fill="#fffdf7" stroke={stroke} strokeWidth={1.8} />
+      <circle cx={x} cy={y} r={3.4} fill={stroke} opacity={level === "error" ? 0.95 : 0.88} />
+      <circle cx={x} cy={y} r={5.8} fill={fill} stroke="none" opacity={0.65} />
+      <circle cx={x} cy={y} r={2.7} fill={stroke} opacity={0.95} />
     </g>
   );
+}
+
+function getSimpleAttributeValidationBadgePoint(node: DiagramNode, direction?: Point): Point {
+  const marker = { x: node.x + 10, y: node.y + node.height / 2 };
+  if (!direction) {
+    return { x: marker.x + 18, y: marker.y - 13 };
+  }
+
+  if (Math.abs(direction.x) >= Math.abs(direction.y)) {
+    return {
+      x: marker.x + (direction.x >= 0 ? 18 : -18),
+      y: marker.y - 13,
+    };
+  }
+
+  return {
+    x: marker.x + 18,
+    y: marker.y + (direction.y >= 0 ? 14 : -14),
+  };
 }
 
 export function getAttributeLabelLayout(node: DiagramNode, direction?: Point): AttributeLabelLayout {
@@ -122,6 +149,7 @@ interface DiagramNodeProps {
   focusable: boolean;
   validationLevel?: DiagramIssueLevel;
   validationCount?: number;
+  validationMessages?: string[];
   translationHighlight?: DiagramHighlightKind;
   versionHighlight?: VersionHighlightKind;
   attributeDirection?: Point;
@@ -151,7 +179,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
       ? DIAGRAM_TRANSLATION_PENDING
       : versionStroke ?? (isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor);
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
-  const badgeCount = props.validationCount;
+  const validationTitle = isGhost ? undefined : formatValidationTitle(props.validationMessages);
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
   const baseDash = isGhost ? "10 8" : undefined;
   const baseOpacity = isGhost ? 0.6 : 1;
@@ -200,6 +228,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
+        {validationTitle ? <title>{validationTitle}</title> : null}
         {!isGhost && props.validationLevel ? (
           <rect
             className="diagram-validation-halo node-validation-halo"
@@ -239,7 +268,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         {!isGhost && props.pending ? (
           <circle cx={node.x + node.width + 8} cy={node.y - 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
-        {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 10, props.validationLevel, badgeCount) : null}
+        {!isGhost ? renderValidationBadge(node.x + node.width + 9, node.y - 9, props.validationLevel, validationTitle) : null}
         <text
           x={node.x + node.width / 2}
           y={node.y + node.height / 2}
@@ -273,6 +302,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
+        {validationTitle ? <title>{validationTitle}</title> : null}
         {!isGhost && props.validationLevel ? (
           <polygon
             className="diagram-validation-halo node-validation-halo"
@@ -293,7 +323,9 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         {!isGhost && props.pending ? (
           <circle cx={node.x + node.width + 8} cy={node.y + 8} r={6} fill={DIAGRAM_PENDING} />
         ) : null}
-        {!isGhost ? renderValidationBadge(node.x + node.width + 10, node.y - 8, props.validationLevel, badgeCount) : null}
+        {!isGhost
+          ? renderValidationBadge(node.x + node.width * 0.78 + 10, node.y + node.height * 0.2 - 8, props.validationLevel, validationTitle)
+          : null}
         <text
           x={cx}
           y={cy}
@@ -330,6 +362,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onPointerDown={isGhost ? undefined : (event) => props.onPointerDown(event, node)}
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
+        {validationTitle ? <title>{validationTitle}</title> : null}
         {!isGhost && props.validationLevel ? (
           <rect
             className="diagram-validation-halo node-validation-halo"
@@ -430,7 +463,15 @@ export function DiagramNodeView(props: DiagramNodeProps) {
             })()}
           </>
         )}
-        {!isGhost ? renderValidationBadge(node.x + 18, node.y - 10, props.validationLevel, badgeCount) : null}
+        {!isGhost
+          ? (() => {
+              const badgePoint =
+                isCompositeAttribute || isMultivalued
+                  ? { x: node.x + node.width + 8, y: node.y - 8 }
+                  : getSimpleAttributeValidationBadgePoint(node, props.attributeDirection);
+              return renderValidationBadge(badgePoint.x, badgePoint.y, props.validationLevel, validationTitle);
+            })()
+          : null}
       </g>
     );
   }
