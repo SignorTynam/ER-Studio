@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { WorkspaceBrandLogo } from "./WorkspaceBrandLogo";
 
 interface WorkspaceWelcomePageProps {
   projectName: string;
@@ -80,9 +81,7 @@ export function WorkspaceWelcomePage({
     <main className="workspace-welcome-page" aria-label={t("workspaceWelcome.title")}>
       <section className="workspace-welcome-page__content">
         <div className="workspace-welcome-hero">
-          <div className="workspace-welcome-logo" aria-label={t("workspaceWelcome.logoAria")}>
-            <span>ER</span>
-          </div>
+          <WorkspaceBrandLogo />
           <div>
             <p className="workspace-welcome-page__eyebrow">{projectName}</p>
             <h1>{t("workspaceWelcome.title")}</h1>

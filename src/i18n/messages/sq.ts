@@ -310,7 +310,7 @@ export const sq: DeepPartialMessages = {
     workflowExportDescription: "Ndaj projektin, SQL ose asset vizuale kur duhet.",
   },
   noProjectWelcome: {
-    title: "Asnje projekt i hapur",
+    title: "Hap ose krijo nje projekt",
     subtitle: "Krijo, hap ose importo nje workspace per te modeluar diagrame Chen ER, per t'i perkthyer ne skema logjike dhe per te ruajtur versione.",
     productLabel: "ER Modeling Studio",
     start: "Fillo",

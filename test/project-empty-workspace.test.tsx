@@ -26,6 +26,8 @@ test("WorkspaceWelcomePage renderizza start actions senza canvas", () => {
   );
 
   assert.match(markup, /buildER/);
+  assert.match(markup, /buildER(?:%20| )no(?:%20| )text(?:%20| )no(?:%20| )background\.png/);
+  assert.doesNotMatch(markup, />ER<\/span>/);
   assert.match(markup, /New schema|Nuovo schema/);
   assert.match(markup, /New note|Nuova nota/);
   assert.doesNotMatch(markup, /diagram-canvas/);
@@ -42,7 +44,9 @@ test("NoProjectWelcomePage mostra solo azioni globali senza contesto progetto", 
     </I18nProvider>,
   );
 
-  assert.match(markup, /Nessun progetto aperto|No project open/);
+  assert.match(markup, /Apri o crea un progetto|Open or create a project/);
+  assert.match(markup, /buildER(?:%20| )no(?:%20| )text(?:%20| )no(?:%20| )background\.png/);
+  assert.doesNotMatch(markup, />ER<\/span>/);
   assert.match(markup, /Crea nuovo progetto|Create new project/);
   assert.match(markup, /Apri progetto \.ersp|Open project \.ersp/);
   assert.match(markup, /Importa schema \.erschema|Import schema \.erschema/);

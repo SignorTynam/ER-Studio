@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { WorkspaceBrandLogo } from "./WorkspaceBrandLogo";
 
 interface NoProjectWelcomePageProps {
   onNewProject: () => void;
@@ -56,9 +57,7 @@ export function NoProjectWelcomePage({
     <main className="workspace-welcome-page no-project-welcome-page" aria-label={t("noProjectWelcome.title")}>
       <section className="workspace-welcome-page__content no-project-welcome-page__content">
         <div className="workspace-welcome-hero">
-          <div className="workspace-welcome-logo" aria-label={t("workspaceWelcome.logoAria")}>
-            <span>ER</span>
-          </div>
+          <WorkspaceBrandLogo />
           <div>
             <p className="workspace-welcome-page__eyebrow">{t("noProjectWelcome.productLabel")}</p>
             <h1>{t("noProjectWelcome.title")}</h1>

@@ -310,7 +310,7 @@ export const en: DeepPartialMessages = {
     workflowExportDescription: "Share the project, SQL, or visual assets when needed.",
   },
   noProjectWelcome: {
-    title: "No project open",
+    title: "Open or create a project",
     subtitle: "Create, open, or import a workspace to model Chen ER diagrams, translate them to logical schemas, and keep versions.",
     productLabel: "ER Modeling Studio",
     start: "Start",

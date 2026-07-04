@@ -308,7 +308,7 @@ export const it = {
     workflowExportDescription: "Condividi progetto, SQL o asset visuali quando serve.",
   },
   noProjectWelcome: {
-    title: "Nessun progetto aperto",
+    title: "Apri o crea un progetto",
     subtitle: "Crea, apri o importa un workspace per modellare diagrammi Chen ER, tradurli in logico e conservarli con versioning.",
     productLabel: "ER Modeling Studio",
     start: "Inizia",

@@ -1533,10 +1533,14 @@ body.source-control-resizing * {
   border: 1px solid var(--editor-border);
   background: var(--editor-panel-strong);
   color: var(--editor-text-strong);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  overflow: hidden;
+}
+
+.workspace-welcome-logo img {
+  display: block;
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
 }
 
 .workspace-welcome-page__eyebrow,
@@ -2510,10 +2514,18 @@ body.source-control-resizing * {
   position: relative;
   width: 84px;
   height: 84px;
+  display: grid;
+  place-items: center;
   border-color: color-mix(in srgb, var(--studio-accent) 30%, var(--editor-border) 70%);
   background:
     linear-gradient(135deg, var(--editor-panel-strong), color-mix(in srgb, var(--studio-accent-soft) 70%, var(--editor-panel) 30%));
   box-shadow: var(--workspace-card-shadow);
+}
+
+.workspace-welcome-logo img {
+  width: 76%;
+  height: 76%;
+  filter: drop-shadow(0 6px 10px rgba(16, 80, 72, 0.18));
 }
 
 .workspace-welcome-logo::after {
