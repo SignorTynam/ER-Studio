@@ -68,6 +68,10 @@
   --diagram-warning-fill: rgba(181, 133, 10, 0.12);
   --diagram-error: var(--studio-danger);
   --diagram-error-fill: rgba(196, 69, 54, 0.1);
+  --diagram-version-added: #2a8a5f;
+  --diagram-version-removed: #c44536;
+  --diagram-version-modified: #b5850a;
+  --diagram-version-layout: #b5850a;
   color: var(--studio-ink);
   background: var(--studio-bg);
   font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1932,7 +1936,7 @@ button:disabled {
 .shape-label,
 .edge-label,
 .attribute-label {
-  fill: #111111;
+  fill: var(--diagram-label-fill, #111111);
   user-select: none;
 }
 
@@ -4309,7 +4313,7 @@ summary:focus-visible {
 .shape-label,
 .edge-label,
 .attribute-label {
-  fill: var(--diagram-text);
+  fill: var(--diagram-label-fill, var(--diagram-text));
 }
 
 .edge-label {
@@ -13898,7 +13902,22 @@ summary:focus-visible,
 }
 
 .diagram-node.version-highlight-added,
-.diagram-edge.version-highlight-added,
+.diagram-edge.version-highlight-added {
+  --diagram-label-fill: var(--diagram-version-added);
+}
+
+.diagram-node.version-highlight-removed,
+.diagram-edge.version-highlight-removed {
+  --diagram-label-fill: var(--diagram-version-removed);
+}
+
+.diagram-node.version-highlight-modified,
+.diagram-edge.version-highlight-modified,
+.diagram-node.version-highlight-layout,
+.diagram-edge.version-highlight-layout {
+  --diagram-label-fill: var(--diagram-version-modified);
+}
+
 .logical-table.version-highlight-added,
 .logical-column-row.version-highlight-added,
 .logical-edge.version-highlight-added,
@@ -13906,8 +13925,6 @@ summary:focus-visible,
   filter: drop-shadow(0 0 0.55rem var(--studio-success-soft));
 }
 
-.diagram-node.version-highlight-removed,
-.diagram-edge.version-highlight-removed,
 .logical-table.version-highlight-removed,
 .logical-column-row.version-highlight-removed,
 .logical-edge.version-highlight-removed,
@@ -13915,8 +13932,6 @@ summary:focus-visible,
   filter: drop-shadow(0 0 0.55rem var(--studio-danger-soft));
 }
 
-.diagram-node.version-highlight-modified,
-.diagram-edge.version-highlight-modified,
 .logical-table.version-highlight-modified,
 .logical-column-row.version-highlight-modified,
 .logical-edge.version-highlight-modified,
@@ -13924,55 +13939,34 @@ summary:focus-visible,
   filter: drop-shadow(0 0 0.55rem var(--studio-warning-soft));
 }
 
-.diagram-node.version-highlight-layout,
-.diagram-edge.version-highlight-layout {
-  filter: drop-shadow(0 0 0.55rem var(--studio-accent-soft));
-}
-
-.diagram-node.version-highlight-added > *,
 .logical-table.version-highlight-added .logical-table-body,
 .logical-column-row.version-highlight-added .logical-column-hit,
 .logical-edge-label-chip.version-highlight-added .logical-edge-label-chip-bg {
   stroke: var(--studio-success);
 }
 
-.diagram-node.version-highlight-removed > *,
 .logical-table.version-highlight-removed .logical-table-body,
 .logical-column-row.version-highlight-removed .logical-column-hit,
 .logical-edge-label-chip.version-highlight-removed .logical-edge-label-chip-bg {
   stroke: var(--studio-danger);
 }
 
-.diagram-node.version-highlight-modified > *,
 .logical-table.version-highlight-modified .logical-table-body,
 .logical-column-row.version-highlight-modified .logical-column-hit,
 .logical-edge-label-chip.version-highlight-modified .logical-edge-label-chip-bg {
   stroke: var(--studio-warning);
 }
 
-.diagram-node.version-highlight-layout > * {
-  stroke: var(--studio-accent);
-  stroke-dasharray: 7 5;
-}
-
-.diagram-edge.version-highlight-added path:not(.diagram-edge-hit-target),
 .logical-edge.version-highlight-added path:not(:first-child) {
   stroke: var(--studio-success);
 }
 
-.diagram-edge.version-highlight-removed path:not(.diagram-edge-hit-target),
 .logical-edge.version-highlight-removed path:not(:first-child) {
   stroke: var(--studio-danger);
 }
 
-.diagram-edge.version-highlight-modified path:not(.diagram-edge-hit-target),
 .logical-edge.version-highlight-modified path:not(:first-child) {
   stroke: var(--studio-warning);
-}
-
-.diagram-edge.version-highlight-layout path:not(.diagram-edge-hit-target) {
-  stroke: var(--studio-accent);
-  stroke-dasharray: 8 6;
 }
 
 @media (max-width: 1100px) {

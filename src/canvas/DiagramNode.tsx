@@ -2,6 +2,7 @@ import type { FocusEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import type { DiagramHighlightKind, DiagramNode, Point, VersionHighlightKind } from "../types/diagram";
 import { useI18n } from "../i18n/useI18n";
 import { DIAGRAM_ATTRIBUTE_MARKER_RADIUS } from "./diagramVisualConstants";
+import { getVersionHighlightStroke } from "./versionHighlightColors";
 
 const DIAGRAM_NODE_FILL = "var(--diagram-node-fill)";
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
@@ -141,11 +142,14 @@ export function DiagramNodeView(props: DiagramNodeProps) {
       : props.translationHighlight === "blocked"
         ? DIAGRAM_TRANSLATION_BLOCKED
         : undefined;
-  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? getValidationStroke(props.validationLevel);
+  const versionStroke = getVersionHighlightStroke(props.versionHighlight);
+  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? versionStroke ?? getValidationStroke(props.validationLevel);
   const isShapeHighlighted =
     !isGhost && (props.selected || props.focused || props.translationHighlight === "selected") && !props.validationLevel;
   const selectedStrokeColor =
-    props.translationHighlight === "selected" ? DIAGRAM_TRANSLATION_PENDING : isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor;
+    props.translationHighlight === "selected"
+      ? DIAGRAM_TRANSLATION_PENDING
+      : versionStroke ?? (isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor);
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const badgeCount = props.validationCount;
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;

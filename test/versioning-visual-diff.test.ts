@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
+import { DiagramEdgeView } from "../src/canvas/DiagramEdge.tsx";
+import { DiagramNodeView } from "../src/canvas/DiagramNode.tsx";
 import {
   buildDiagramVersionHighlights,
   buildLogicalVersionHighlights,
@@ -25,8 +30,19 @@ import {
   createTextWorkspaceFile,
 } from "../src/utils/projectExplorer.ts";
 import type { LogicalWorkspaceDocument } from "../src/types/logical.ts";
+import type { DiagramEdge, DiagramNode, VersionHighlightKind } from "../src/types/diagram.ts";
+import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 
 const VIEWPORT = { x: 0, y: 0, zoom: 1 };
+
+(globalThis as typeof globalThis & { React: typeof React }).React = React;
+
+const VERSION_STROKES: Record<VersionHighlightKind, string> = {
+  added: "var(--diagram-version-added, #2a8a5f)",
+  removed: "var(--diagram-version-removed, #c44536)",
+  modified: "var(--diagram-version-modified, #b5850a)",
+  layout: "var(--diagram-version-layout, #b5850a)",
+};
 
 function createLogicalWorkspace(label: "left" | "right"): LogicalWorkspaceDocument {
   const diagram = createEmptyDiagram(`logical-${label}`);
@@ -215,6 +231,144 @@ function createSnapshot(label: "left" | "right"): ProjectCommitSnapshot {
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
+
+function renderVersionNode(highlight: VersionHighlightKind, nodeOverride: Partial<DiagramNode> = {}): string {
+  const node = {
+    id: "node-a",
+    type: "entity",
+    label: "Cliente",
+    x: 10,
+    y: 20,
+    width: 140,
+    height: 64,
+    ...nodeOverride,
+  } as DiagramNode;
+
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(DiagramNodeView, {
+        node,
+        selected: false,
+        dragging: false,
+        pending: false,
+        focused: false,
+        focusable: true,
+        versionHighlight: highlight,
+        onFocus: () => undefined,
+        onBlur: () => undefined,
+        onPointerDown: () => undefined,
+        onDoubleClick: () => undefined,
+      }),
+    ),
+  );
+}
+
+function renderVersionEdge(highlight: VersionHighlightKind): string {
+  const sourceNode: DiagramNode = {
+    id: "source",
+    type: "entity",
+    label: "Cliente",
+    x: 10,
+    y: 20,
+    width: 140,
+    height: 64,
+  };
+  const targetNode: DiagramNode = {
+    id: "target",
+    type: "entity",
+    label: "Ordine",
+    x: 260,
+    y: 20,
+    width: 140,
+    height: 64,
+  };
+  const edge: DiagramEdge = {
+    id: "edge-a",
+    type: "connector",
+    sourceId: sourceNode.id,
+    targetId: targetNode.id,
+    lineStyle: "solid",
+    label: "",
+  };
+
+  return renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(DiagramEdgeView, {
+        edge,
+        sourceNode,
+        targetNode,
+        selected: false,
+        dragging: false,
+        focused: false,
+        focusable: true,
+        versionHighlight: highlight,
+        onFocus: () => undefined,
+        onBlur: () => undefined,
+        onPointerDown: () => undefined,
+        onLabelPointerDown: () => undefined,
+        onDoubleClick: () => undefined,
+      }),
+    ),
+  );
+}
+
+test("DiagramNodeView applica il colore versione allo stroke e al testo reali", () => {
+  for (const highlight of ["added", "removed", "modified", "layout"] as const) {
+    const markup = renderVersionNode(highlight);
+    const expectedStroke = VERSION_STROKES[highlight];
+
+    assert.match(markup, new RegExp(`class="diagram-node version-highlight-${highlight}"`));
+    assert.match(markup, new RegExp(`stroke="${expectedStroke.replace(/[()#]/g, "\\$&")}"`));
+    assert.match(markup, new RegExp(`fill="${expectedStroke.replace(/[()#]/g, "\\$&")}"`));
+  }
+});
+
+test("DiagramNodeView colora anche marker e attributi identificatori con il colore versione", () => {
+  const markup = renderVersionNode("added", {
+    type: "attribute",
+    label: "id",
+    isIdentifier: true,
+  });
+
+  assert.match(markup, /class="attribute-marker attribute-identifier-marker"/);
+  assert.match(markup, /stroke="var\(--diagram-version-added, #2a8a5f\)"/);
+  assert.match(markup, /fill="var\(--diagram-version-added, #2a8a5f\)"/);
+});
+
+test("DiagramEdgeView applica il colore versione al path reale dell'arco", () => {
+  for (const highlight of ["added", "removed", "modified", "layout"] as const) {
+    const markup = renderVersionEdge(highlight);
+    const expectedStroke = VERSION_STROKES[highlight].replace(/[()#]/g, "\\$&");
+
+    assert.match(markup, new RegExp(`class="diagram-edge version-highlight-${highlight}"`));
+    assert.match(markup, new RegExp(`<path d="[^"]+" fill="none" stroke="${expectedStroke}"`));
+  }
+});
+
+test("version highlight ER non dipende da filtri CSS o stroke CSS esterni", () => {
+  const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+
+  assert.doesNotMatch(css, /\.diagram-node\.version-highlight-[^{]+{\s*filter:/);
+  assert.doesNotMatch(css, /\.diagram-edge\.version-highlight-[^{]+{\s*filter:/);
+  assert.doesNotMatch(css, /\.diagram-node\.version-highlight-[^{]+> \*/);
+  assert.doesNotMatch(css, /\.diagram-edge\.version-highlight-[^{]+path:not/);
+});
+
+test("version highlight ER include anche il fill dei nomi", () => {
+  const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.entity-label,\s*\.shape-label,\s*\.edge-label,\s*\.attribute-label\s*{\s*fill: var\(--diagram-label-fill,/);
+  assert.match(css, /\.diagram-node\.version-highlight-added,\s*\.diagram-edge\.version-highlight-added\s*{\s*--diagram-label-fill: var\(--diagram-version-added\);/);
+  assert.match(css, /\.diagram-node\.version-highlight-removed,\s*\.diagram-edge\.version-highlight-removed\s*{\s*--diagram-label-fill: var\(--diagram-version-removed\);/);
+  assert.match(
+    css,
+    /\.diagram-node\.version-highlight-modified,\s*\.diagram-edge\.version-highlight-modified,\s*\.diagram-node\.version-highlight-layout,\s*\.diagram-edge\.version-highlight-layout\s*{\s*--diagram-label-fill: var\(--diagram-version-modified\);/,
+  );
+});
 
 function createProjectSnapshot(label: "left" | "right"): ProjectCommitSnapshot {
   const state = createProjectFromSchema("Scoped project", createEmptySchemaDocument("schema1.erschema"));

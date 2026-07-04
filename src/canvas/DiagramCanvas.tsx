@@ -15,6 +15,7 @@ import {
   getIdentifierStroke,
   getIdentifierTerminalMarkerStroke,
 } from "./diagramVisualConstants";
+import { getVersionHighlightStroke } from "./versionHighlightColors";
 import { StudioIcon } from "../components/icons/StudioIcon";
 import { useI18n } from "../i18n/useI18n";
 import { getToolDefinitions } from "../utils/toolConfig";
@@ -3890,6 +3891,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         highlighted: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "selected"),
         blocked: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "blocked"),
         pending: group.edgeIds.some((edgeId) => resolveTranslationHighlight(edgeId, props.translationHighlights) === "pending"),
+        versionHighlight:
+          group.edgeIds.map((edgeId) => resolveVersionEdgeHighlight(edgeId, props.versionHighlights)).find(Boolean),
         firstEdgeId,
         visualLayout,
         label: `(${group.isaCompleteness === "total" ? "t" : "p"},${group.isaDisjointness === "overlap" ? "o" : "e"})`,
@@ -4200,24 +4203,31 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           ) : null}
 
           {groupedInheritanceLayouts.map((layout) => {
+            const versionStroke = getVersionHighlightStroke(layout.versionHighlight);
             const stroke = layout.highlighted
               ? DIAGRAM_TRANSLATION_PENDING
               : layout.blocked
                 ? DIAGRAM_TRANSLATION_BLOCKED
                 : layout.pending
                   ? DIAGRAM_TRANSLATION_PENDING
-                  : layout.selected || layout.focused
-                    ? DIAGRAM_FOCUS
-                    : DIAGRAM_STROKE;
+                  : versionStroke
+                    ? versionStroke
+                    : layout.selected || layout.focused
+                      ? DIAGRAM_FOCUS
+                      : DIAGRAM_STROKE;
             const trianglePath = `M ${layout.visualLayout.triangleApex.x} ${layout.visualLayout.triangleApex.y} L ${layout.visualLayout.triangleBaseA.x} ${layout.visualLayout.triangleBaseA.y} L ${layout.visualLayout.triangleBaseB.x} ${layout.visualLayout.triangleBaseB.y} Z`;
             const hitPath = pathFromPoints(layout.visualLayout.hitPoints);
             return (
               <g
                 key={`inheritance-group-${layout.group.id}`}
                 className={
-                  layout.selected || layout.highlighted
-                    ? `diagram-edge selected inheritance-group inheritance-group-${layout.visualLayout.kind}`
-                    : `diagram-edge inheritance-group inheritance-group-${layout.visualLayout.kind}`
+                  [
+                    "diagram-edge",
+                    layout.selected || layout.highlighted ? "selected" : "",
+                    "inheritance-group",
+                    `inheritance-group-${layout.visualLayout.kind}`,
+                    layout.versionHighlight ? `version-highlight-${layout.versionHighlight}` : "",
+                  ].filter(Boolean).join(" ")
                 }
                 tabIndex={props.tool === "select" ? 0 : -1}
                 focusable={props.tool === "select" ? "true" : "false"}

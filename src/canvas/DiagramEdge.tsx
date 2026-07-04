@@ -12,6 +12,7 @@ import type {
 import { getConnectorParticipation, getEdgeCardinalityLabel } from "../utils/cardinality";
 import { getPointAlongPolyline } from "../utils/edgeLabelLayout";
 import { useI18n } from "../i18n/useI18n";
+import { getVersionHighlightStroke } from "./versionHighlightColors";
 
 const DIAGRAM_STROKE = "var(--diagram-stroke)";
 const DIAGRAM_FOCUS = "var(--diagram-focus)";
@@ -151,9 +152,12 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
         : undefined;
   const isEdgeHighlighted =
     !isGhost && (props.selected || props.focused || props.translationHighlight === "selected") && !props.validationLevel;
-  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? getValidationStroke(props.validationLevel);
+  const versionStroke = getVersionHighlightStroke(props.versionHighlight);
+  const strokeColor = isGhost ? DIAGRAM_DRAG : translationStroke ?? versionStroke ?? getValidationStroke(props.validationLevel);
   const selectedStrokeColor =
-    props.translationHighlight === "selected" ? DIAGRAM_TRANSLATION_PENDING : isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor;
+    props.translationHighlight === "selected"
+      ? DIAGRAM_TRANSLATION_PENDING
+      : versionStroke ?? (isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor);
   const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const baseOpacity = isGhost ? 0.58 : 1;
   const labelOpacity = isGhost ? 0.72 : 1;
