@@ -23,6 +23,58 @@ export function WorkspaceWelcomePage({
   onImportSchema,
 }: WorkspaceWelcomePageProps) {
   const { t } = useI18n();
+  const startActions = [
+    {
+      icon: "entity" as const,
+      title: t("workspaceWelcome.newSchema"),
+      description: t("workspaceWelcome.newSchemaDescription"),
+      onClick: onNewSchema,
+      tone: "primary",
+    },
+    {
+      icon: "fileText" as const,
+      title: t("workspaceWelcome.newNote"),
+      description: t("workspaceWelcome.newNoteDescription"),
+      onClick: onNewNote,
+      tone: "secondary",
+    },
+    {
+      icon: "database" as const,
+      title: t("workspaceWelcome.newSql"),
+      description: t("workspaceWelcome.newSqlDescription"),
+      onClick: onNewSql,
+      tone: "secondary",
+    },
+    {
+      icon: "openProject" as const,
+      title: t("workspaceWelcome.openProject"),
+      description: t("workspaceWelcome.openProjectDescription"),
+      onClick: onOpenProject,
+      tone: "utility",
+    },
+    {
+      icon: "download" as const,
+      title: t("workspaceWelcome.importSchema"),
+      description: t("workspaceWelcome.importSchemaDescription"),
+      onClick: onImportSchema,
+      tone: "utility",
+    },
+  ];
+  const workflowSteps = [
+    {
+      title: t("workspaceWelcome.workflowModel"),
+      description: t("workspaceWelcome.workflowModelDescription"),
+    },
+    {
+      title: t("workspaceWelcome.workflowLogical"),
+      description: t("workspaceWelcome.workflowLogicalDescription"),
+    },
+    {
+      title: t("workspaceWelcome.workflowExport"),
+      description: t("workspaceWelcome.workflowExportDescription"),
+    },
+  ];
+  const tips = [t("workspaceWelcome.tipExplorer"), t("workspaceWelcome.tipReverse"), t("workspaceWelcome.tipVersioning")];
 
   return (
     <main className="workspace-welcome-page" aria-label={t("workspaceWelcome.title")}>
@@ -39,50 +91,82 @@ export function WorkspaceWelcomePage({
         </div>
 
         <div className="workspace-welcome-grid">
-          <section className="workspace-welcome-panel workspace-welcome-page__start" aria-label={t("workspaceWelcome.start")}>
+          <section
+            className="workspace-welcome-panel workspace-welcome-page__start workspace-welcome-actions"
+            aria-label={t("workspaceWelcome.start")}
+          >
             <h2>{t("workspaceWelcome.start")}</h2>
-            <button type="button" onClick={onNewSchema}>
-              <StudioIcon name="entity" aria-hidden="true" />
-              <span>{t("workspaceWelcome.newSchema")}</span>
-            </button>
-            <button type="button" onClick={onNewNote}>
-              <StudioIcon name="fileText" aria-hidden="true" />
-              <span>{t("workspaceWelcome.newNote")}</span>
-            </button>
-            <button type="button" onClick={onNewSql}>
-              <StudioIcon name="database" aria-hidden="true" />
-              <span>{t("workspaceWelcome.newSql")}</span>
-            </button>
-            <button type="button" onClick={onOpenProject}>
-              <StudioIcon name="openProject" aria-hidden="true" />
-              <span>{t("workspaceWelcome.openProject")}</span>
-            </button>
-            <button type="button" onClick={onImportSchema}>
-              <StudioIcon name="download" aria-hidden="true" />
-              <span>{t("workspaceWelcome.importSchema")}</span>
-            </button>
+            <div className="workspace-welcome-action-stack">
+              {startActions.map((action) => (
+                <button
+                  key={action.title}
+                  type="button"
+                  className={`workspace-welcome-action-row workspace-welcome-action-row--${action.tone}`}
+                  onClick={action.onClick}
+                >
+                  <span className="workspace-welcome-action-row__icon" aria-hidden="true">
+                    <StudioIcon name={action.icon} />
+                  </span>
+                  <span className="workspace-welcome-action-row__body">
+                    <strong>{action.title}</strong>
+                    <small>{action.description}</small>
+                  </span>
+                  <StudioIcon name="arrowRight" className="workspace-welcome-action-row__arrow" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
           </section>
 
-          <section className="workspace-welcome-panel workspace-welcome-project">
+          <section className="workspace-welcome-panel workspace-welcome-project" aria-label={t("workspaceWelcome.projectSection")}>
             <h2>{t("workspaceWelcome.projectSection")}</h2>
-            <dl>
-              <div>
+            <dl className="workspace-welcome-project__stats">
+              <div className="workspace-welcome-project__stat workspace-welcome-project__stat--wide">
                 <dt>{t("workspaceWelcome.projectName")}</dt>
                 <dd>{projectName}</dd>
               </div>
-              <div>
+              <div className="workspace-welcome-project__stat">
+                <dt>{t("workspaceWelcome.fileCount")}</dt>
+                <dd>{fileCount}</dd>
+              </div>
+              <div className="workspace-welcome-project__stat">
+                <dt>{t("workspaceWelcome.folderCount")}</dt>
+                <dd>{folderCount}</dd>
+              </div>
+              <div className="workspace-welcome-project__stat workspace-welcome-project__stat--wide">
                 <dt>{t("workspaceWelcome.projectFiles")}</dt>
                 <dd>{t("workspaceWelcome.fileFolderCount", { files: fileCount, folders: folderCount })}</dd>
               </div>
             </dl>
+            <p className="workspace-welcome-project__status">
+              <StudioIcon name="success" aria-hidden="true" />
+              <span>{t("workspaceWelcome.readyStatus")}</span>
+            </p>
+          </section>
+
+          <section className="workspace-welcome-panel workspace-welcome-workflow" aria-label={t("workspaceWelcome.workflowSection")}>
+            <h2>{t("workspaceWelcome.workflowSection")}</h2>
+            <ol>
+              {workflowSteps.map((step, index) => (
+                <li key={step.title}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{step.title}</strong>
+                    <p>{step.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </section>
 
           <section className="workspace-welcome-panel workspace-welcome-tips">
             <h2>{t("workspaceWelcome.tipsSection")}</h2>
             <ul>
-              <li>{t("workspaceWelcome.tipExplorer")}</li>
-              <li>{t("workspaceWelcome.tipReverse")}</li>
-              <li>{t("workspaceWelcome.tipVersioning")}</li>
+              {tips.map((tip) => (
+                <li key={tip}>
+                  <StudioIcon name="done" aria-hidden="true" />
+                  <span>{tip}</span>
+                </li>
+              ))}
             </ul>
           </section>
         </div>

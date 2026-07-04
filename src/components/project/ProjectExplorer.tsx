@@ -97,7 +97,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           <div className="project-explorer-toolbar-group">
           <button
             type="button"
-            className="project-explorer-icon-button"
+            className="project-explorer-icon-button project-explorer-icon-button--primary"
             aria-label={labels.newSchema}
             title={labels.newSchema}
             onClick={() => props.onCreateSchema(selectedTargetFolderId)}
@@ -180,6 +180,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           <div className="project-explorer-empty">
             <StudioIcon name="openProject" aria-hidden="true" />
             <strong>{t("projectExplorer.empty.title")}</strong>
+            <p>{t("projectExplorer.empty.description")}</p>
             <button type="button" onClick={() => props.onCreateSchema(props.project.rootId)}>
               {t("projectExplorer.empty.createSchema")}
             </button>

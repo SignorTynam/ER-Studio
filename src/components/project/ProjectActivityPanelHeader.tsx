@@ -19,6 +19,7 @@ export function ProjectActivityPanelHeader({
   return (
     <header className="project-activity-section__header project-activity-section__header--with-close">
       <div>
+        <span className="project-activity-section__marker" aria-hidden="true" />
         <h2>{title}</h2>
         {subtitle ? <p>{subtitle}</p> : null}
       </div>

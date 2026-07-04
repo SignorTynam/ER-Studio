@@ -152,18 +152,38 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
         <span className="project-explorer-item__actions">
           {isFolder ? (
             <>
-              <button type="button" title={props.labels.newSchema} onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}>
+              <button
+                type="button"
+                aria-label={props.labels.newSchema}
+                title={props.labels.newSchema}
+                onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}
+              >
                 <StudioIcon name="newProject" />
               </button>
-              <button type="button" title={props.labels.newFolder} onClick={(event) => stopAndRun(event, () => props.onCreateFolder(props.node.id))}>
+              <button
+                type="button"
+                aria-label={props.labels.newFolder}
+                title={props.labels.newFolder}
+                onClick={(event) => stopAndRun(event, () => props.onCreateFolder(props.node.id))}
+              >
                 <StudioIcon name="openProject" />
               </button>
             </>
           ) : null}
-          <button type="button" title={props.labels.rename} onClick={(event) => stopAndRun(event, () => props.onRename(props.node.id))}>
+          <button
+            type="button"
+            aria-label={props.labels.rename}
+            title={props.labels.rename}
+            onClick={(event) => stopAndRun(event, () => props.onRename(props.node.id))}
+          >
             <StudioIcon name="rename" />
           </button>
-          <button type="button" title={props.labels.delete} onClick={(event) => stopAndRun(event, () => props.onDelete(props.node.id))}>
+          <button
+            type="button"
+            aria-label={props.labels.delete}
+            title={props.labels.delete}
+            onClick={(event) => stopAndRun(event, () => props.onDelete(props.node.id))}
+          >
             <StudioIcon name="delete" />
           </button>
         </span>

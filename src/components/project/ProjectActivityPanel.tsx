@@ -28,6 +28,10 @@ interface ProjectActivityPanelProps {
   children: ReactNode;
 }
 
+function formatActivityBadge(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
 export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
   return (
     <aside
@@ -48,7 +52,7 @@ export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
           >
             <StudioIcon name={item.icon} aria-hidden="true" />
             {typeof item.badge === "number" && item.badge > 0 ? (
-              <span className="project-activity-badge" aria-hidden="true">{item.badge}</span>
+              <span className="project-activity-badge" aria-hidden="true">{formatActivityBadge(item.badge)}</span>
             ) : null}
           </button>
         ))}
