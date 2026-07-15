@@ -23,31 +23,29 @@ function getNoticeIcon(tone: WorkspaceNotice["tone"]): StudioIconName {
   return "info";
 }
 
-export function getDefaultNoticeTitle(tone: WorkspaceNotice["tone"]): string {
-  if (tone === "error") {
-    return "Errore";
-  }
-  if (tone === "warning") {
-    return "Operazione non valida";
-  }
-  if (tone === "success") {
-    return "Completato";
+export function getDefaultNoticeTitleKey(tone: WorkspaceNotice["tone"]): string {
+  if (tone === "error" || tone === "warning" || tone === "success") {
+    return `workspaceToasts.defaultTitles.${tone}`;
   }
 
-  return "Informazione";
+  return "workspaceToasts.defaultTitles.info";
 }
 
-export function formatNoticeRelativeTime(createdAt: number, now = Date.now()): string {
+export interface NoticeRelativeTime {
+  key: string;
+  count?: number;
+}
+
+export function getNoticeRelativeTime(createdAt: number, now = Date.now()): NoticeRelativeTime {
   const elapsedSeconds = Math.max(0, Math.floor((now - createdAt) / 1000));
   if (elapsedSeconds < 5) {
-    return "ora";
+    return { key: "workspaceToasts.relativeTime.now" };
   }
   if (elapsedSeconds < 60) {
-    return `${elapsedSeconds} sec fa`;
+    return { key: "workspaceToasts.relativeTime.secondsAgo", count: elapsedSeconds };
   }
 
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  return `${elapsedMinutes} min fa`;
+  return { key: "workspaceToasts.relativeTime.minutesAgo", count: Math.floor(elapsedSeconds / 60) };
 }
 
 export function getVisibleWorkspaceToasts(notices: WorkspaceNotice[]): WorkspaceNotice[] {
@@ -65,10 +63,11 @@ export function WorkspaceToastStack({ notices, onDismissNotice }: WorkspaceToast
   }
 
   return (
-    <section className="workspace-toast-viewport" aria-live="polite" aria-label="Notifiche workspace">
+    <section className="workspace-toast-viewport" aria-live="polite" aria-label={t("workspaceToasts.stackAria")}>
       <div className="workspace-toast-stack">
         {visibleNotices.map((notice) => {
-          const title = notice.title ?? getDefaultNoticeTitle(notice.tone);
+          const title = notice.title ?? t(getDefaultNoticeTitleKey(notice.tone));
+          const relativeTime = getNoticeRelativeTime(notice.createdAt);
           const role = notice.tone === "error" ? "alert" : "status";
           return (
             <article
@@ -84,7 +83,11 @@ export function WorkspaceToastStack({ notices, onDismissNotice }: WorkspaceToast
                 <strong id={`workspace-toast-title-${notice.id}`} className="workspace-toast-title">
                   {title}
                 </strong>
-                <span className="workspace-toast-time">{formatNoticeRelativeTime(notice.createdAt)}</span>
+                <span className="workspace-toast-time">
+                  {relativeTime.count != null
+                    ? t(relativeTime.key, { count: relativeTime.count })
+                    : t(relativeTime.key)}
+                </span>
                 <button
                   type="button"
                   className="workspace-toast-close"

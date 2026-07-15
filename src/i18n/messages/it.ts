@@ -436,6 +436,20 @@ export const it = {
       apply: "Applica",
     },
   },
+  workspaceToasts: {
+    stackAria: "Notifiche workspace",
+    defaultTitles: {
+      error: "Errore",
+      warning: "Operazione non valida",
+      success: "Completato",
+      info: "Informazione",
+    },
+    relativeTime: {
+      now: "ora",
+      secondsAgo: "{{count}} sec fa",
+      minutesAgo: "{{count}} min fa",
+    },
+  },
   projectExplorer: {
     title: "Explorer",
     meta: "{{files}} file, {{folders}} cartelle",

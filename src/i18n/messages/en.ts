@@ -438,6 +438,20 @@ export const en: DeepPartialMessages = {
       apply: "Apply",
     },
   },
+  workspaceToasts: {
+    stackAria: "Workspace notifications",
+    defaultTitles: {
+      error: "Error",
+      warning: "Invalid operation",
+      success: "Done",
+      info: "Information",
+    },
+    relativeTime: {
+      now: "now",
+      secondsAgo: "{{count}} sec ago",
+      minutesAgo: "{{count}} min ago",
+    },
+  },
   projectExplorer: {
     title: "Explorer",
     meta: "{{files}} files, {{folders}} folders",

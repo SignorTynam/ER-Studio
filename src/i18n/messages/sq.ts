@@ -438,6 +438,20 @@ export const sq: DeepPartialMessages = {
       apply: "Apliko",
     },
   },
+  workspaceToasts: {
+    stackAria: "Njoftimet e hapësirës së punës",
+    defaultTitles: {
+      error: "Gabim",
+      warning: "Veprim i pavlefshëm",
+      success: "U krye",
+      info: "Informacion",
+    },
+    relativeTime: {
+      now: "tani",
+      secondsAgo: "{{count}} sek më parë",
+      minutesAgo: "{{count}} min më parë",
+    },
+  },
   projectExplorer: {
     title: "Explorer",
     meta: "{{files}} file, {{folders}} dosje",

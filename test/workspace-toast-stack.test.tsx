@@ -8,8 +8,8 @@ import type { WorkspaceNotice } from "../src/hooks/useWorkspaceNotices.ts";
 import {
   MAX_VISIBLE_WORKSPACE_TOASTS,
   WorkspaceToastStack,
-  formatNoticeRelativeTime,
-  getDefaultNoticeTitle,
+  getDefaultNoticeTitleKey,
+  getNoticeRelativeTime,
   getVisibleWorkspaceToasts,
 } from "../src/components/WorkspaceToastStack.tsx";
 
@@ -70,9 +70,22 @@ test("workspace toast stack limits visible notices to the newest four", () => {
 });
 
 test("workspace toast helpers provide default titles and relative time", () => {
-  assert.equal(getDefaultNoticeTitle("warning"), "Operazione non valida");
-  assert.equal(getDefaultNoticeTitle("info"), "Informazione");
-  assert.equal(formatNoticeRelativeTime(1_000, 4_000), "ora");
-  assert.equal(formatNoticeRelativeTime(1_000, 12_000), "11 sec fa");
-  assert.equal(formatNoticeRelativeTime(1_000, 121_000), "2 min fa");
+  assert.equal(getDefaultNoticeTitleKey("warning"), "workspaceToasts.defaultTitles.warning");
+  assert.equal(getDefaultNoticeTitleKey("info"), "workspaceToasts.defaultTitles.info");
+  assert.deepEqual(getNoticeRelativeTime(1_000, 4_000), { key: "workspaceToasts.relativeTime.now" });
+  assert.deepEqual(getNoticeRelativeTime(1_000, 12_000), {
+    key: "workspaceToasts.relativeTime.secondsAgo",
+    count: 11,
+  });
+  assert.deepEqual(getNoticeRelativeTime(1_000, 121_000), {
+    key: "workspaceToasts.relativeTime.minutesAgo",
+    count: 2,
+  });
+});
+
+test("workspace toast stack renders localized default title and relative time", () => {
+  const markup = renderToastStack([notice({ id: 9, title: undefined, createdAt: Date.now() })]);
+
+  assert.match(markup, /Invalid operation|Operazione non valida|Veprim i pavlefshëm/);
+  assert.match(markup, /workspace-toast-time/);
 });
