@@ -12,7 +12,7 @@
 .source-control-header,
 .sql-reverse-panel__header,
 .project-activity-section__header {
-  min-height: 42px;
+  min-height: var(--size-panel-header);
   padding: 0 var(--space-2) 0 var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-bg-panel);
@@ -88,14 +88,15 @@
   box-shadow: inset 0 0 0 1px var(--color-bg-panel);
 }
 
+/* Fase C2: gli step del reverse sono una sequenza — striscia orizzontale singola. */
 .sql-reverse-progress {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-border-subtle);
+  background: transparent;
   list-style: none;
 }
 
@@ -121,14 +122,14 @@
 
 .sql-reverse-progress li > span {
   display: grid;
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: var(--space-4-5);
+  height: var(--space-4-5);
+  flex: 0 0 var(--space-4-5);
   place-items: center;
   border: 1px solid currentColor;
-  border-radius: 50% !important;
-  font-size: 0.62rem;
-  font-weight: 700;
+  border-radius: var(--radius-control) !important;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
 }
 
 .sql-reverse-progress li small {

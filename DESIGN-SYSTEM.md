@@ -199,3 +199,18 @@ in revisione in Fase C4). Ritmo verticale: header `--size-header` 44 · tab `--s
 status `--size-statusbar` 24; indicatore attivo delle tab singolo (barra superiore accent).
 Tooltip: primitivo `ui/Tooltip` (posizioni `top|bottom|right`) su tutti gli icon-button di
 header e rail al posto dei `title` nativi.
+
+## Pannelli laterali (Fase C2)
+
+Superfici **piatte e quiete**: pannelli su `--color-bg-sidebar`, aree contenuto su
+`--color-bg-panel`, card/righe su `--color-bg-elevated`; niente gradienti, gloss o ombre
+decorative. **Header unificati a una riga** `--size-panel-header` (36px): titolo
+`--font-size-xs` maiuscoletto + badge conteggio + azioni 28–30px + close, tutti su
+`WorkspacePanelHeader`/`ProjectActivityPanelHeader` (il sottotitolo non si mostra più negli
+header). Titoli di sezione `--font-size-2xs` semibold `--color-text-secondary`. Azioni di
+pannello: default `--color-bg-elevated` con bordo `--color-border-default`, hover
+`--color-bg-hover`, primaria piatta `--color-accent` → hover `--color-accent-hover`,
+disabled `--color-bg-disabled` + `--color-text-disabled`. Empty state: card tratteggiata
+`--color-border-default` su `--color-bg-panel` (pattern Explorer). Marcatori di modifica
+nelle liste (M/A): `--color-modified` semibold. Step di processo (SQL Reverse): striscia
+orizzontale singola, indicatori quadrati `--radius-control` 18px, mai cerchi.

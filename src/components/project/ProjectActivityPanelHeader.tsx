@@ -3,6 +3,7 @@ import { WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface ProjectActivityPanelHeaderProps {
   title: string;
+  /** Fase C2: gli header di pannello sono a una riga; il sottotitolo non viene più mostrato. */
   subtitle?: string;
   closeLabel: string;
   onClose: () => void;
@@ -11,7 +12,6 @@ interface ProjectActivityPanelHeaderProps {
 
 export function ProjectActivityPanelHeader({
   title,
-  subtitle,
   closeLabel,
   onClose,
   children,
@@ -20,7 +20,6 @@ export function ProjectActivityPanelHeader({
     <WorkspacePanelHeader
       className="project-activity-section__header"
       title={title}
-      subtitle={subtitle}
       closeLabel={closeLabel}
       onClose={onClose}
     >

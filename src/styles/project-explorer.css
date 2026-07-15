@@ -783,11 +783,12 @@
 .source-control-section-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   min-height: 24px;
-  color: var(--editor-text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -863,8 +864,9 @@
 
 .source-control-change-item small {
   margin-left: auto;
-  color: var(--editor-text-muted);
-  font-size: 0.7rem;
+  color: var(--color-modified);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
 }
 
 .source-control-empty {
@@ -1064,10 +1066,10 @@
 }
 
 .source-control-inline-confirm {
-  margin-top: 8px;
-  padding: 8px;
-  border: 1px solid rgba(220, 38, 38, 0.35);
-  background: rgba(220, 38, 38, 0.08);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
 }
 
 .source-control-inline-confirm span {
@@ -1102,8 +1104,8 @@ body.source-control-resizing * {
 }
 
 .source-control-action-button.is-danger {
-  border-color: rgba(220, 38, 38, 0.44);
-  color: var(--editor-danger, #dc2626);
+  border-color: color-mix(in srgb, var(--color-danger) 44%, transparent);
+  color: var(--color-danger);
 }
 
 .sql-reverse-panel__header {
@@ -1813,29 +1815,18 @@ body.source-control-resizing * {
 .workspace-empty-editor {
   --workspace-card-bg: color-mix(in srgb, var(--editor-panel) 96%, var(--studio-accent-soft) 4%);
   --workspace-card-border: color-mix(in srgb, var(--editor-border) 82%, var(--studio-accent) 18%);
-  --workspace-card-shadow: 0 14px 36px rgba(26, 31, 28, 0.07);
+  --workspace-card-shadow: 0 14px 36px color-mix(in srgb, var(--color-bg-header) 7%, transparent);
   --workspace-action-hover: color-mix(in srgb, var(--studio-accent-soft) 58%, var(--editor-panel) 42%);
-  --workspace-hero-glow: linear-gradient(135deg, rgba(61, 122, 110, 0.14), transparent 42%);
-  --activity-rail-bg: color-mix(in srgb, var(--editor-panel-strong) 82%, var(--studio-surface-muted) 18%);
+  --workspace-hero-glow: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 42%);
   --activity-active-bg: color-mix(in srgb, var(--studio-accent-soft) 72%, var(--editor-panel) 28%);
   --activity-active-border: color-mix(in srgb, var(--studio-accent) 64%, var(--editor-border) 36%);
 }
 
+/* Fase C2: pannelli piatti e quieti; la rail è stilata da activity-rail.css (C1). */
 .project-activity-panel {
-  background:
-    linear-gradient(180deg, var(--editor-panel-strong), var(--editor-panel)),
-    var(--editor-panel);
-  border-right-color: var(--editor-border-strong, var(--editor-border));
-  box-shadow: inset -1px 0 0 rgba(26, 31, 28, 0.03);
-}
-
-.project-activity-rail {
-  gap: 6px;
-  padding: 9px 5px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent 44%),
-    var(--activity-rail-bg);
-  box-shadow: inset -1px 0 0 rgba(26, 31, 28, 0.03);
+  background: var(--color-bg-sidebar);
+  border-right-color: var(--color-border-default);
+  box-shadow: none;
 }
 
 .project-activity-button,
@@ -1866,207 +1857,139 @@ body.source-control-resizing * {
     opacity 140ms ease;
 }
 
-.project-activity-button {
-  width: 36px;
-  height: 36px;
-  color: color-mix(in srgb, var(--editor-text-muted) 88%, var(--editor-text-strong) 12%);
-}
-
-.project-activity-button:hover {
-  border-color: color-mix(in srgb, var(--editor-border) 72%, var(--studio-accent) 28%);
-  background: var(--editor-panel-strong);
-  color: var(--editor-text-strong);
-  box-shadow: var(--studio-shadow-sm);
-}
-
-.project-activity-button.active {
-  border-color: var(--activity-active-border);
-  background: var(--activity-active-bg);
-  color: var(--studio-accent-strong);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--studio-accent) 22%, transparent),
-    var(--studio-shadow-sm);
-}
-
-.project-activity-button.active::before {
-  left: -5px;
-  top: 5px;
-  bottom: 5px;
-  width: 3px;
-}
-
-.project-activity-button.active .studio-icon {
-  stroke-width: 2.35;
-}
-
-.project-activity-rail__bottom {
-  position: relative;
-  gap: 6px;
-  padding-top: 10px;
-}
-
-.project-activity-rail__bottom::before {
-  content: "";
-  position: absolute;
-  inset-inline: 7px;
-  top: 0;
-  height: 1px;
-  background: var(--editor-border);
-}
-
-.project-activity-badge {
-  top: -4px;
-  right: -5px;
-  min-width: 18px;
-  max-width: 28px;
-  height: 18px;
-  padding: 0 5px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--studio-danger) 50%, var(--editor-panel) 50%);
-  background: var(--studio-danger);
-  font-size: 0.62rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .project-activity-content {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 18%),
-    var(--editor-panel);
+  background: var(--color-bg-sidebar);
 }
 
+/* Fase C2: header di pannello unificati (una riga, 36px, azioni a destra). */
 .project-activity-section__header,
 .source-control-header,
 .sql-reverse-panel__header {
-  min-height: 58px;
-  align-items: flex-start;
-  padding: 12px 12px 11px;
-  background:
-    linear-gradient(180deg, var(--editor-panel-strong), color-mix(in srgb, var(--editor-panel) 92%, var(--studio-accent-soft) 8%));
+  min-height: var(--size-panel-header);
+  align-items: center;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--color-bg-panel);
 }
 
 .project-activity-section__header > div:first-child {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 8px;
+  display: flex;
+  min-width: 0;
   align-items: center;
+  gap: var(--space-2);
 }
 
 .project-activity-section__marker {
-  width: 7px;
-  height: 22px;
-  border: 1px solid color-mix(in srgb, var(--studio-accent) 36%, var(--editor-border) 64%);
-  background: var(--studio-accent-soft);
+  display: none;
 }
 
 .project-activity-section__header h2 {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.74rem;
-  letter-spacing: 0;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .project-activity-section__header p {
-  grid-column: 2;
-  margin-top: 0;
-  font-size: 0.76rem;
+  display: none;
 }
 
 .project-activity-section__header-actions {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .project-activity-header-close {
-  background: color-mix(in srgb, var(--editor-panel) 76%, var(--editor-panel-muted) 24%);
+  background: transparent;
 }
 
 .project-activity-header-close:hover,
 .project-activity-header-close:focus-visible {
-  border-color: var(--activity-active-border);
-  background: var(--activity-active-bg);
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-hover);
 }
 
 .project-activity-actions {
-  gap: 7px;
-  padding: 11px;
+  gap: var(--space-1-5);
+  padding: var(--space-2-5);
 }
 
 .project-activity-action {
-  min-height: 38px;
-  padding: 8px 9px;
-  border-color: var(--workspace-card-border);
-  background: var(--workspace-card-bg);
-  font-weight: 650;
+  min-height: var(--size-button);
+  padding: var(--space-1-5) var(--space-2);
+  border-color: var(--color-border-default);
+  background: var(--color-bg-elevated);
+  font-weight: var(--font-weight-semibold);
 }
 
 .project-activity-action:hover:not(:disabled),
 .project-activity-action.active {
-  border-color: var(--activity-active-border);
-  background: var(--workspace-action-hover);
-  color: var(--editor-text-strong);
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .project-activity-action.primary,
 .source-control-commit-button {
-  border-color: var(--studio-accent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--studio-accent) 94%, white 6%), var(--studio-accent-strong));
-  color: var(--studio-surface);
-  box-shadow: 0 8px 18px rgba(61, 122, 110, 0.16);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  box-shadow: none;
 }
 
 .project-activity-action.primary:hover:not(:disabled),
 .source-control-commit-button:hover:not(:disabled) {
-  background: var(--studio-accent-strong);
-  color: var(--studio-surface);
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+  color: var(--color-text-on-accent);
 }
 
 .project-activity-action:disabled,
 .source-control-commit-button:disabled,
 .source-control-action-button:disabled {
-  background: var(--editor-panel-muted);
-  color: var(--editor-text-muted);
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-disabled);
+  color: var(--color-text-disabled);
   box-shadow: none;
 }
 
 .project-activity-summary {
-  gap: 7px;
-  padding: 11px;
-  background: color-mix(in srgb, var(--editor-panel) 84%, var(--studio-surface-muted) 16%);
+  gap: var(--space-1-5);
+  padding: var(--space-2-5);
+  background: transparent;
 }
 
 .project-activity-empty {
-  margin: 10px;
-  border: 1px solid var(--editor-border);
-  background: var(--workspace-card-bg);
-  line-height: 1.45;
+  margin: var(--space-2-5);
+  border: 1px dashed var(--color-border-default);
+  background: var(--color-bg-panel);
+  line-height: var(--line-height-normal);
 }
 
 .project-activity-issue {
   min-height: 44px;
-  padding: 9px;
-  border-color: color-mix(in srgb, var(--editor-border) 82%, var(--studio-warning) 18%);
-  background: var(--workspace-card-bg);
+  padding: var(--space-2);
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-elevated);
 }
 
 .project-activity-issue:hover,
 .project-activity-issue:focus-visible {
-  border-color: var(--editor-border-strong, var(--editor-border));
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
 }
 
 .code-activity-panel__toolbar {
-  gap: 7px;
-  padding: 9px 10px;
-  background: color-mix(in srgb, var(--editor-panel-muted) 74%, var(--editor-panel) 26%);
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-2-5);
+  background: var(--color-bg-panel);
 }
 
 .code-activity-panel__badge,
 .code-activity-panel__mode-tabs,
 .code-activity-panel__dialect select {
-  border-color: var(--workspace-card-border);
-  background: var(--editor-panel-strong);
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-elevated);
 }
 
 .code-activity-panel__mode-tabs {
@@ -2123,10 +2046,11 @@ body.source-control-resizing * {
 .source-control-count,
 .source-control-branch-pill,
 .sql-reverse-panel__meta span {
-  border: 1px solid var(--workspace-card-border);
-  background: var(--editor-panel-strong);
-  padding: 2px 6px;
-  font-weight: 750;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .source-control-repository,
@@ -2143,8 +2067,8 @@ body.source-control-resizing * {
 
 .source-control-commit-input,
 .sql-reverse-panel__editor {
-  border-color: var(--workspace-card-border);
-  background: color-mix(in srgb, var(--editor-panel-strong) 88%, var(--studio-surface-muted) 12%);
+  border-color: var(--color-border-default);
+  background: var(--color-bg-elevated);
 }
 
 .source-control-commit-input:focus,
@@ -2199,8 +2123,7 @@ body.source-control-resizing * {
 .project-file-tabs {
   min-height: var(--size-tab);
   max-height: var(--size-tab);
-  background:
-    linear-gradient(180deg, var(--editor-panel-strong), color-mix(in srgb, var(--editor-panel-muted) 58%, var(--editor-panel) 42%));
+  background: var(--color-bg-panel);
 }
 
 .project-file-tabs__scroller {
@@ -2255,9 +2178,7 @@ body.source-control-resizing * {
 }
 
 .project-explorer {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.7), transparent 24%),
-    var(--editor-panel);
+  background: var(--color-bg-sidebar);
 }
 
 .project-explorer--embedded {
@@ -2265,10 +2186,9 @@ body.source-control-resizing * {
 }
 
 .project-explorer-header {
-  gap: 12px;
-  padding: 12px 10px 11px;
-  background:
-    linear-gradient(180deg, var(--editor-panel-strong), color-mix(in srgb, var(--editor-panel) 88%, var(--studio-accent-soft) 12%));
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2-5) var(--space-2-5);
+  background: var(--color-bg-panel);
 }
 
 .project-explorer-title-block {
@@ -2409,13 +2329,11 @@ body.source-control-resizing * {
 
 .project-explorer-empty {
   min-height: 220px;
-  margin: 8px;
-  padding: 28px 18px;
-  border: 1px solid var(--workspace-card-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.56), transparent 48%),
-    var(--workspace-card-bg);
-  box-shadow: var(--studio-shadow-sm);
+  margin: var(--space-2);
+  padding: var(--space-6) var(--space-4-5);
+  border: 1px dashed var(--color-border-default);
+  background: var(--color-bg-panel);
+  box-shadow: none;
 }
 
 .project-explorer-empty p {
