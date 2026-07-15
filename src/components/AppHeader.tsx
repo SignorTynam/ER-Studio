@@ -10,6 +10,10 @@ type TopbarMenuId = "file" | "importExport" | "info" | "help" | "language";
 interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
+  projectName?: string;
+  activeFileName?: string;
+  saveState?: "saved" | "modified" | "saving" | "error";
+  theme?: "light" | "dark";
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
@@ -55,6 +59,7 @@ interface AppHeaderProps {
   onOpenVersionAnnouncement: () => void;
   onActivityPanelSelect: (panel: ProjectActivityId) => void;
   onCreateCommit: () => void;
+  onToggleTheme?: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -112,6 +117,10 @@ export function AppHeader(props: AppHeaderProps) {
   return (
     <header className={`designer-topbar app-command-topbar app-header-view-${props.diagramView}`}>
       <div className="app-command-topbar__left">
+        <div className="designer-brand app-command-topbar__brand" aria-label={t("appHeader.brandAria")}>
+          <strong>{props.appTitle}</strong>
+          <span>v{props.appVersion}</span>
+        </div>
         <div className="app-file-menu app-topbar-menu" ref={fileMenuRef}>
           <button
             type="button"
@@ -210,12 +219,55 @@ export function AppHeader(props: AppHeaderProps) {
 
       </div>
 
-      <div className="designer-brand app-command-topbar__brand" aria-label={t("appHeader.brandAria")}>
-        <strong>{props.appTitle}</strong>
-        <span>v{props.appVersion}</span>
+      <div className="app-command-topbar__center">
+        <div className="app-project-context" title={props.projectName ?? t("workspaceChrome.noProject")}>
+          <span className="app-project-context__name">
+            {props.hasProject ? props.projectName ?? t("workspaceChrome.untitledProject") : t("workspaceChrome.noProject")}
+          </span>
+          {props.activeFileName ? (
+            <>
+              <span className="app-project-context__separator" aria-hidden="true">/</span>
+              <span className="app-project-context__file">{props.activeFileName}</span>
+            </>
+          ) : null}
+          {props.hasProject ? (
+            <span className={`app-project-context__state is-${props.saveState ?? (props.hasUncommittedChanges ? "modified" : "saved")}`}>
+              <span aria-hidden="true">{props.hasUncommittedChanges ? "●" : "✓"}</span>
+              {props.saveState === "saving"
+                ? t("workspaceChrome.saveState.saving")
+                : props.saveState === "error"
+                  ? t("workspaceChrome.saveState.error")
+                  : props.hasUncommittedChanges
+                    ? t("workspaceChrome.saveState.modified")
+                    : t("workspaceChrome.saveState.saved")}
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className="app-command-search"
+          onClick={props.onOpenCommandMenu}
+          title={t("workspaceChrome.commandSearchTooltip")}
+          aria-label={t("workspaceChrome.commandSearchAria")}
+        >
+          <StudioIcon name="search" size={15} aria-hidden="true" />
+          <span>{t("workspaceChrome.commandSearch")}</span>
+          <kbd>Ctrl K</kbd>
+        </button>
       </div>
 
       <div className="designer-topbar-actions">
+        {props.onToggleTheme ? (
+          <button
+            type="button"
+            className="designer-icon-button"
+            onClick={props.onToggleTheme}
+            title={props.theme === "dark" ? t("workspaceChrome.theme.switchLight") : t("workspaceChrome.theme.switchDark")}
+            aria-label={props.theme === "dark" ? t("workspaceChrome.theme.switchLight") : t("workspaceChrome.theme.switchDark")}
+          >
+            <StudioIcon name={props.theme === "dark" ? "themeLight" : "themeDark"} aria-hidden="true" />
+          </button>
+        ) : null}
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>
           <button
             type="button"

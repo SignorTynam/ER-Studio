@@ -18,6 +18,8 @@ coverage/
 test-results/
 playwright-report/
 blob-report/
+.playwright-cli/
+output/playwright/
 
 # Logs
 *.log

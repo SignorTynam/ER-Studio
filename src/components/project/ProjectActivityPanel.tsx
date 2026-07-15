@@ -8,6 +8,7 @@ export interface ProjectActivityItem {
   label: string;
   icon: StudioIconName;
   badge?: number;
+  shortcut?: string;
 }
 
 interface ProjectActivityPanelProps {
@@ -25,6 +26,7 @@ interface ProjectActivityPanelProps {
   onOpenCommandMenu: () => void;
   onOpenShortcuts: () => void;
   onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onResizeBy?: (delta: number) => void;
   children: ReactNode;
 }
 
@@ -48,11 +50,11 @@ export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
             onClick={() => props.onSelect(item.id)}
             aria-label={item.label}
             aria-pressed={item.id === props.activeId && props.open}
-            title={item.label}
+            title={item.shortcut ? `${item.label} (${item.shortcut})` : item.label}
           >
             <StudioIcon name={item.icon} aria-hidden="true" />
             {typeof item.badge === "number" && item.badge > 0 ? (
-              <span className="project-activity-badge" aria-hidden="true">{formatActivityBadge(item.badge)}</span>
+              <span className="project-activity-badge" aria-label={`${item.badge}`}>{formatActivityBadge(item.badge)}</span>
             ) : null}
           </button>
         ))}
@@ -84,9 +86,21 @@ export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
         <div
           className="project-explorer-resizer"
           role="separator"
+          tabIndex={0}
           aria-orientation="vertical"
           aria-label={props.title}
+          aria-valuemin={220}
+          aria-valuemax={420}
+          aria-valuenow={props.width}
           onPointerDown={props.onResizeStart}
+          onKeyDown={(event) => {
+            if (!props.onResizeBy || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) {
+              return;
+            }
+            event.preventDefault();
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            props.onResizeBy(direction * (event.shiftKey ? 24 : 8));
+          }}
         />
       ) : null}
     </aside>

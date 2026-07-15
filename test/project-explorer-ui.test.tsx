@@ -112,18 +112,38 @@ test("ProjectExplorer context menu usa sezioni e azione danger", () => {
   assert.match(source, /project-explorer-context-menu__section/);
   assert.match(source, /project-explorer-context-menu__item/);
   assert.match(source, /project-explorer-context-menu__danger/);
-  assert.match(source, /Math\.max\(0, viewportWidth - 260\)/);
+  assert.match(source, /menuRef\.current\?\.offsetWidth/);
+  assert.match(source, /viewportWidth - menuWidth - 4/);
+  assert.match(source, /ArrowDown/);
+  assert.match(source, /querySelector<HTMLButtonElement>/);
 });
 
-test("file txt apre il modal note senza sostituire Explorer o aprire CodePanel", () => {
+test("file txt apre una tab e usa l'editor principale senza sostituire Explorer", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const filePanelStart = appSource.indexOf('activeActivityPanel === "file"');
   const filePanelEnd = appSource.indexOf(') : activeActivityPanel === "code"', filePanelStart);
   const filePanelSource = appSource.slice(filePanelStart, filePanelEnd);
 
-  assert.match(appSource, /setTextFileModalFileId\(fileId\)/);
-  assert.match(appSource, /<ProjectTextFileModal/);
+  assert.match(appSource, /ensureFileTabOpen\(selectProjectExplorerNode\(synced, nodeId\), fileId\)/);
+  assert.match(appSource, /<WorkspaceTextEditor/);
+  assert.doesNotMatch(appSource, /<ProjectTextFileModal/);
   assert.match(filePanelSource, /<ProjectExplorer/);
   assert.doesNotMatch(filePanelSource, /ProjectTextFilePanel/);
   assert.doesNotMatch(filePanelSource, /<CodePanel/);
+});
+
+test("Explorer supporta navigazione completa, rename e create inline", () => {
+  const treeSource = readFileSync(new URL("../src/components/project/ProjectExplorerTreeItem.tsx", import.meta.url), "utf8");
+  const explorerSource = readFileSync(new URL("../src/components/project/ProjectExplorer.tsx", import.meta.url), "utf8");
+
+  for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "F2", "Delete", "ContextMenu"]) {
+    assert.match(treeSource, new RegExp(key));
+  }
+  assert.match(treeSource, /project-explorer-item--create/);
+  assert.match(treeSource, /autoFocus/);
+  assert.match(treeSource, /onCreateDraftSubmit/);
+  assert.match(treeSource, /onCreateDraftCancel/);
+  assert.match(explorerSource, /startInlineCreate/);
+  assert.match(explorerSource, /duplicate-name/);
+  assert.match(explorerSource, /submitInlineCreate/);
 });

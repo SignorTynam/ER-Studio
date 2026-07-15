@@ -1,0 +1,96 @@
+.project-activity-panel {
+  grid-template-columns: var(--size-activity-rail) minmax(0, var(--project-explorer-width));
+  border-right: 1px solid var(--color-border-default);
+  background: var(--color-bg-sidebar);
+}
+
+.project-activity-panel--collapsed {
+  grid-template-columns: var(--size-activity-rail);
+}
+
+.project-activity-rail {
+  width: var(--size-activity-rail);
+  padding: var(--space-1) 0;
+  border-right: 1px solid #111613;
+  background: var(--color-bg-rail);
+  color: rgba(237, 243, 239, 0.68);
+}
+
+.project-activity-button {
+  position: relative;
+  width: var(--size-activity-rail);
+  height: 42px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.project-activity-button:hover {
+  background: rgba(255, 255, 255, 0.065);
+  color: #ffffff;
+}
+
+.project-activity-button.active,
+.project-activity-button[aria-pressed="true"] {
+  background: rgba(104, 179, 160, 0.13);
+  color: #ffffff;
+}
+
+.project-activity-button.active::before {
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #73bbaa;
+}
+
+.project-activity-badge {
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 2px solid var(--color-bg-rail);
+  border-radius: 8px;
+  background: var(--color-danger);
+  color: #ffffff;
+  font-size: 0.6rem;
+  line-height: 12px;
+}
+
+.project-activity-rail__bottom {
+  padding-top: var(--space-1);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.project-activity-content {
+  min-width: 0;
+  background: var(--color-bg-sidebar);
+  color: var(--color-text-primary);
+}
+
+.project-explorer-resizer {
+  width: 6px;
+  right: -3px;
+  z-index: 12;
+  cursor: col-resize;
+}
+
+.project-explorer-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: transparent;
+  transition: background var(--motion-fast) ease;
+}
+
+.project-explorer-resizer:hover::after,
+.project-explorer-resizer:focus-visible::after {
+  background: var(--color-accent);
+}
+

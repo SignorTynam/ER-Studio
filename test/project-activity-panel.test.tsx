@@ -82,3 +82,15 @@ test("ProjectActivityPanel collapsed keeps rail and hides content", () => {
   assert.doesNotMatch(markup, /Panel content/);
   assert.doesNotMatch(markup, /project-activity-badge/);
 });
+
+test("Activity panel toggles the active item, persists the last panel, and supports keyboard resize", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const panelSource = readFileSync(new URL("../src/components/project/ProjectActivityPanel.tsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /builder:last-activity-panel/);
+  assert.match(appSource, /panel === activeActivityPanel && projectExplorer\.view\.explorerOpen/);
+  assert.match(appSource, /setWorkspaceActivityOpen\(false\)/);
+  assert.match(panelSource, /aria-valuemin=\{220\}/);
+  assert.match(panelSource, /aria-valuemax=\{420\}/);
+  assert.match(panelSource, /event\.shiftKey \? 24 : 8/);
+});

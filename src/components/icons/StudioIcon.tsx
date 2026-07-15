@@ -1,12 +1,14 @@
 import type { SVGProps } from "react";
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   ArrowUpDown,
   BookOpen,
   Braces,
   ChevronsDown,
+  ChevronsDownUp,
   ChevronsUp,
   CircleAlert,
   CircleCheck,
@@ -26,6 +28,7 @@ import {
   FileText,
   FileType,
   Focus,
+  FolderPlus,
   FolderOpen,
   GitBranchPlus,
   GitBranch,
@@ -36,7 +39,10 @@ import {
   KeyRound,
   Keyboard,
   Lightbulb,
+  List,
   Menu,
+  Moon,
+  MoreHorizontal,
   Merge,
   Minus,
   MousePointer2,
@@ -53,6 +59,7 @@ import {
   Save,
   Scan,
   Search,
+  Sun,
   Sparkles,
   Split,
   Tag,
@@ -70,6 +77,7 @@ import {
 
 export type StudioIconName =
   | "arrowDown"
+  | "arrowLeft"
   | "arrowRight"
   | "arrowUp"
   | "attribute"
@@ -80,6 +88,7 @@ export type StudioIconName =
   | "center"
   | "close"
   | "code"
+  | "collapseAll"
   | "compositeId"
   | "connector"
   | "copy"
@@ -100,6 +109,7 @@ export type StudioIconName =
   | "fit"
   | "fix"
   | "focus"
+  | "folderPlus"
   | "globe"
   | "help"
   | "history"
@@ -109,7 +119,9 @@ export type StudioIconName =
   | "isaType"
   | "keyboard"
   | "lightbulb"
+  | "list"
   | "menu"
+  | "more"
   | "merge"
   | "mixedId"
   | "move"
@@ -138,6 +150,8 @@ export type StudioIconName =
   | "simpleId"
   | "split"
   | "success"
+  | "themeDark"
+  | "themeLight"
   | "translate"
   | "type"
   | "undo"
@@ -158,6 +172,7 @@ export type StudioIconProps = Omit<SVGProps<SVGSVGElement>, "name"> & {
 
 const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   arrowDown: ArrowDown,
+  arrowLeft: ArrowLeft,
   arrowRight: ArrowRight,
   arrowUp: ArrowUp,
   bookOpen: BookOpen,
@@ -166,6 +181,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   center: Crosshair,
   close: XIcon,
   code: FileCode2,
+  collapseAll: ChevronsDownUp,
   copy: CopyIcon,
   database: Database,
   databaseReverse: DatabaseZap,
@@ -182,6 +198,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   fit: Scan,
   fix: WandSparkles,
   focus: Focus,
+  folderPlus: FolderPlus,
   globe: Globe2,
   help: CircleHelp,
   history: History,
@@ -189,7 +206,9 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   info: Info,
   keyboard: Keyboard,
   lightbulb: Lightbulb,
+  list: List,
   menu: Menu,
+  more: MoreHorizontal,
   merge: Merge,
   move: ArrowUpDown,
   moveDown: ArrowDown,
@@ -215,6 +234,8 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   show: PanelRightOpen,
   split: Split,
   success: CircleCheck,
+  themeDark: Moon,
+  themeLight: Sun,
   translate: Workflow,
   type: FileType,
   undo: Undo2,

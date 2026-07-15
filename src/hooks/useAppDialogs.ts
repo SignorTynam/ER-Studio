@@ -49,6 +49,7 @@ export interface UseAppDialogsResult {
   promptValue: string;
   promptError: string;
   promptInputRef: React.RefObject<HTMLInputElement>;
+  dialogRef: React.RefObject<HTMLDivElement>;
   setPromptValue: Dispatch<SetStateAction<string>>;
   setPromptError: Dispatch<SetStateAction<string>>;
   requestConfirmDialog: (options: RequestConfirmOptions) => Promise<boolean>;
@@ -71,12 +72,27 @@ export function useAppDialogs({
   const confirmDialogResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
   const promptDialogResolverRef = useRef<((value: string | null) => void) | null>(null);
   const promptInputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  function rememberTrigger() {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+
+  function restoreTriggerFocus() {
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    window.setTimeout(() => {
+      if (target?.isConnected) target.focus();
+    }, 0);
+  }
 
   function closeConfirmDialog(confirmed: boolean) {
     const resolve = confirmDialogResolverRef.current;
     confirmDialogResolverRef.current = null;
     setConfirmDialog(null);
     resolve?.(confirmed);
+    restoreTriggerFocus();
   }
 
   function requestConfirmDialog(options: RequestConfirmOptions): Promise<boolean> {
@@ -86,6 +102,7 @@ export function useAppDialogs({
       }
 
       confirmDialogResolverRef.current = resolve;
+      rememberTrigger();
       setConfirmDialog({
         title: options.title,
         message: options.message,
@@ -102,6 +119,7 @@ export function useAppDialogs({
     setPromptValue("");
     setPromptError("");
     resolve?.(value);
+    restoreTriggerFocus();
   }
 
   function requestPromptDialog(options: RequestPromptOptions): Promise<string | null> {
@@ -111,6 +129,7 @@ export function useAppDialogs({
       }
 
       promptDialogResolverRef.current = resolve;
+      rememberTrigger();
       setPromptDialog({
         title: options.title,
         label: options.label,
@@ -140,17 +159,40 @@ export function useAppDialogs({
   }
 
   useEffect(() => {
-    if (!promptDialog) {
-      return;
-    }
-
+    if (!promptDialog && !confirmDialog) return undefined;
     const timeout = window.setTimeout(() => {
-      promptInputRef.current?.focus();
-      promptInputRef.current?.select();
+      const root = dialogRef.current;
+      const preferred = promptDialog ? promptInputRef.current : root?.querySelector<HTMLElement>("[data-dialog-safe]");
+      const first = preferred ?? root?.querySelector<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      );
+      first?.focus();
+      if (promptDialog && first === promptInputRef.current) promptInputRef.current?.select();
     }, 0);
 
-    return () => window.clearTimeout(timeout);
-  }, [promptDialog]);
+    function trapFocus(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const items = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => element.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", trapFocus);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("keydown", trapFocus);
+    };
+  }, [confirmDialog, promptDialog]);
 
   useEffect(() => {
     return () => {
@@ -172,6 +214,7 @@ export function useAppDialogs({
     promptValue,
     promptError,
     promptInputRef,
+    dialogRef,
     setPromptValue,
     setPromptError,
     requestConfirmDialog,

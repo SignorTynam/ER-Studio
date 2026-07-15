@@ -1,0 +1,122 @@
+@media (max-width: 1180px) {
+  .designer-topbar.app-command-topbar {
+    grid-template-columns: minmax(230px, 1fr) minmax(260px, 440px) auto;
+  }
+
+  .app-project-context__file,
+  .app-project-context__separator {
+    display: none;
+  }
+
+  .project-file-tab {
+    min-width: 116px;
+    max-width: 184px;
+  }
+}
+
+@media (max-width: 900px) {
+  .designer-topbar.app-command-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "center actions";
+    padding-left: var(--space-2);
+  }
+
+  .app-command-topbar__left {
+    display: none;
+  }
+
+  .app-command-topbar__center {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-project-context {
+    display: none;
+  }
+
+  .app-command-search kbd {
+    display: none;
+  }
+
+  .app-workspace-region {
+    grid-template-columns: var(--size-activity-rail) minmax(0, 1fr) !important;
+  }
+
+  .project-activity-panel {
+    position: relative;
+    z-index: 60;
+    grid-column: 1;
+    width: var(--size-activity-rail);
+    overflow: visible;
+  }
+
+  .project-activity-panel:not(.project-activity-panel--collapsed) .project-activity-content {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--size-activity-rail);
+    width: min(var(--project-explorer-width), calc(100vw - var(--size-activity-rail) - 24px));
+    border-right: 1px solid var(--color-border-default);
+    box-shadow: var(--elevation-popover);
+  }
+
+  .project-activity-panel:not(.project-activity-panel--collapsed)::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    inset: var(--size-header) 0 var(--size-statusbar) var(--size-activity-rail);
+    background: rgba(7, 11, 9, 0.28);
+  }
+
+  .project-main-area {
+    grid-column: 2;
+  }
+
+  .project-explorer-resizer {
+    display: none;
+  }
+
+  .editor-breadcrumb__segment:not(:last-of-type),
+  .editor-breadcrumb__separator {
+    display: none;
+  }
+
+  .bottom-status-center,
+  .bottom-status-panels {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .designer-topbar-actions > .app-topbar-menu--help,
+  .designer-language-menu {
+    display: none;
+  }
+
+  .app-command-search span {
+    font-size: 0.72rem;
+  }
+
+  .editor-view-switcher button span,
+  .editor-context-button span {
+    display: none;
+  }
+
+  .project-file-tabs__tool[data-direction] {
+    display: none;
+  }
+
+  .workspace-empty-editor__panel {
+    width: min(100%, 520px);
+    padding: var(--space-5);
+  }
+
+  .bottom-status-workspace-label,
+  .bottom-status-meta-label {
+    display: none;
+  }
+
+  .bottom-status-project,
+  .bottom-status-file {
+    display: none;
+  }
+}

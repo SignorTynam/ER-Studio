@@ -12,7 +12,7 @@ export function createWelcomeTab(): ProjectOpenTab {
 }
 
 function canOpenFileTab(file: ProjectWorkspaceFile): boolean {
-  return file.kind !== "text";
+  return file.kind === "schema" || file.kind === "sql" || file.kind === "text" || file.kind === "unknown";
 }
 
 function createFileTab(file: ProjectWorkspaceFile, preview = false): ProjectOpenTab {
@@ -234,7 +234,7 @@ export function applyProjectTabDirtyFileIds(
 ): ProjectOpenTab[] {
   return tabs.map((tab) =>
     tab.kind === "file" && tab.fileId
-      ? { ...tab, dirty: tab.dirty === true || dirtyFileIds.has(tab.fileId) }
+      ? { ...tab, dirty: dirtyFileIds.has(tab.fileId) }
       : tab,
   );
 }

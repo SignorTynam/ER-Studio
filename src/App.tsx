@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
+import { BottomStatusBar } from "./components/BottomStatusBar";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
 import { ChangelogModal } from "./components/ChangelogModal";
 import { CodePanel } from "./components/CodePanel";
@@ -14,10 +15,12 @@ import {
 import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
-import { ProjectTextFileModal } from "./components/project/ProjectTextFileModal";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
+import { WorkspaceEditorHeader } from "./components/workspace/WorkspaceEditorHeader";
+import { PanelEmptyState, WorkspacePanel, WorkspacePanelHeader } from "./components/workspace/WorkspacePanel";
+import { WorkspaceTextEditor } from "./components/workspace/WorkspaceTextEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
 import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
@@ -1026,6 +1029,12 @@ export default function App() {
   const logicalHistory = useHistory<LogicalWorkspaceDocument>(initialLogicalWorkspaceRef.current);
   const initialSerializedCode = sessionBootstrap.codeDraft;
   const [booting, setBooting] = useState(true);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    const stored = window.localStorage.getItem("builder:workspace-theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
   const [diagramView, setDiagramView] = useState<WorkspaceView>(sessionBootstrap.diagramView);
   const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
   const [mode] = useState<EditorMode>(sessionBootstrap.mode);
@@ -1070,7 +1079,6 @@ export default function App() {
   const [, setCommitDialogBusy] = useState(false);
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
-  const [textFileModalFileId, setTextFileModalFileId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -1082,6 +1090,7 @@ export default function App() {
     promptValue,
     promptError,
     promptInputRef,
+    dialogRef: appDialogRef,
     setPromptValue,
     setPromptError,
     requestConfirmDialog,
@@ -1146,9 +1155,16 @@ export default function App() {
       view: sessionBootstrap.explorerView,
     }),
   );
-  const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(
-    sessionBootstrap.codePanelOpen ? "code" : "file",
-  );
+  const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(() => {
+    if (sessionBootstrap.codePanelOpen) return "code";
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("builder:last-activity-panel");
+      if (["file", "code", "reverse", "errors", "version", "export"].includes(stored ?? "")) {
+        return stored as ProjectActivityId;
+      }
+    }
+    return "file";
+  });
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStepState, setOnboardingStepState] = useState<OnboardingStepState>({
     entityCreated: false,
@@ -1203,10 +1219,23 @@ export default function App() {
   const hasProjectTabsOpen = hasProject && projectExplorer.view.openTabs.length > 0;
   const projectFileCount = hasProject ? Object.keys(projectExplorer.files).length : 0;
   const projectFolderCount = hasProject ? projectExplorer.project.fileTree.filter((node) => node.kind === "folder").length : 0;
-  const activeTextModalFile =
-    hasProject && textFileModalFileId && projectExplorer.files[textFileModalFileId]?.kind === "text"
-      ? projectExplorer.files[textFileModalFileId]
-      : null;
+  const projectFilePaths = useMemo(() => {
+    const nodesById = new Map(projectExplorer.project.fileTree.map((node) => [node.id, node]));
+    const result: Record<string, string> = {};
+    projectExplorer.project.fileTree.forEach((node) => {
+      if (!node.fileId) return;
+      const segments = [node.name];
+      let parentId = node.parentId;
+      while (parentId && parentId !== projectExplorer.project.rootId) {
+        const parent = nodesById.get(parentId);
+        if (!parent) break;
+        segments.unshift(parent.name);
+        parentId = parent.parentId;
+      }
+      result[node.fileId] = segments.join("/");
+    });
+    return result;
+  }, [projectExplorer.project.fileTree, projectExplorer.project.rootId]);
   const issues = hasProject && hasOpenSchema ? validateDiagram(history.present) : [];
   const canvasIssues = showDiagnostics ? issues : [];
   const selectedNode =
@@ -1217,6 +1246,15 @@ export default function App() {
     selection.edgeIds.length === 1 && selection.nodeIds.length === 0
       ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
       : undefined;
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("builder:workspace-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem("builder:last-activity-panel", activeActivityPanel);
+  }, [activeActivityPanel]);
 
   useEffect(() => {
     if (!identifierSelection) {
@@ -1902,11 +1940,6 @@ export default function App() {
   }
 
   function openCommandMenu() {
-    if (!hasProject) {
-      setStatusWarning(t("noProjectWelcome.title"));
-      return;
-    }
-
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
@@ -2862,8 +2895,8 @@ export default function App() {
 
     if (file.kind === "text") {
       const nodeId = findProjectNodeIdByFileId(synced, fileId);
-      setProjectExplorer(selectProjectExplorerNode(synced, nodeId));
-      setTextFileModalFileId(fileId);
+      setProjectExplorer(ensureFileTabOpen(selectProjectExplorerNode(synced, nodeId), fileId));
+      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
       setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
       return;
@@ -2879,7 +2912,10 @@ export default function App() {
         ...createInitialSqlReverseWorkflowState(file.content),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
+      return;
     }
+    setActiveActivityPanel("file");
+    setWorkspaceActivityOpen(true);
   }
 
   function handleProjectFileTabSelect(tabId: string) {
@@ -2888,7 +2924,6 @@ export default function App() {
     const file = activeFileId ? nextState.files[activeFileId] : undefined;
     if (!file) {
       setProjectExplorer(nextState);
-      setTextFileModalFileId(null);
       setStatus(t("projectTabs.welcome"));
       return;
     }
@@ -2909,16 +2944,27 @@ export default function App() {
       setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
       return;
     }
-
+    setProjectExplorer(nextState);
+    setActiveActivityPanel("file");
+    setWorkspaceActivityOpen(true);
+    setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
   }
 
-  function handleProjectFileTabClose(tabId: string) {
+  async function handleProjectFileTabClose(tabId: string) {
+    const tab = projectExplorer.view.openTabs.find((candidate) => candidate.id === tabId);
+    if (tab?.dirty) {
+      const shouldClose = await requestConfirmDialog({
+        title: t("projectTabs.closeModifiedTitle"),
+        message: t("projectTabs.closeModifiedMessage", { name: tab.title }),
+        confirmLabel: t("projectTabs.closeModifiedConfirm"),
+      });
+      if (!shouldClose) return;
+    }
     const nextState = closeProjectTab(syncActiveSchemaToProject(), tabId);
     const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
     const file = activeFileId ? nextState.files[activeFileId] : undefined;
     if (!file) {
       setProjectExplorer(nextState);
-      setTextFileModalFileId(null);
       return;
     }
     if (file.kind === "schema") {
@@ -2936,8 +2982,81 @@ export default function App() {
     }
   }
 
+  function applyProjectTabMutation(nextState: ProjectExplorerState) {
+    const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
+    const file = activeFileId ? nextState.files[activeFileId] : undefined;
+    if (!file) {
+      setProjectExplorer(nextState);
+      return;
+    }
+    if (file.kind === "schema") {
+      openSchemaWorkspaceFile(file.id, nextState, { center: true });
+      return;
+    }
+    setProjectExplorer(nextState);
+    if (file.kind === "sql") {
+      setActiveActivityPanel("reverse");
+      setWorkspaceActivityOpen(true);
+      setSqlReverseWorkflow((current) => ({
+        ...createInitialSqlReverseWorkflowState(file.content),
+        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
+      }));
+    } else {
+      setActiveActivityPanel("file");
+      setWorkspaceActivityOpen(true);
+    }
+  }
+
+  function closeProjectTabsBy(predicate: (tabId: string, index: number) => boolean) {
+    let nextState = syncActiveSchemaToProject();
+    const tabsToClose = nextState.view.openTabs
+      .map((tab, index) => ({ tab, index }))
+      .filter(({ tab, index }) => predicate(tab.id, index))
+      .map(({ tab }) => tab.id);
+    tabsToClose.forEach((tabId) => {
+      nextState = closeProjectTab(nextState, tabId);
+    });
+    applyProjectTabMutation(nextState);
+  }
+
+  function handleProjectTabsCloseOthers(tabId: string) {
+    closeProjectTabsBy((candidateId) => candidateId !== tabId);
+  }
+
+  function handleProjectTabsCloseToRight(tabId: string) {
+    const index = projectExplorer.view.openTabs.findIndex((tab) => tab.id === tabId);
+    closeProjectTabsBy((_candidateId, candidateIndex) => candidateIndex > index);
+  }
+
+  function handleProjectTabsCloseAll() {
+    closeProjectTabsBy(() => true);
+  }
+
+  function handleProjectTabReorder(sourceTabId: string, targetTabId: string) {
+    setProjectExplorer((current) => {
+      const tabs = [...current.view.openTabs];
+      const sourceIndex = tabs.findIndex((tab) => tab.id === sourceTabId);
+      const targetIndex = tabs.findIndex((tab) => tab.id === targetTabId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+      const [moved] = tabs.splice(sourceIndex, 1);
+      tabs.splice(targetIndex, 0, moved);
+      return {
+        ...current,
+        view: { ...current.view, openTabs: tabs },
+      };
+    });
+  }
+
+  function handleRevealProjectFile(fileId: string) {
+    const nodeId = findProjectNodeIdByFileId(projectExplorer, fileId);
+    if (!nodeId) return;
+    setActiveActivityPanel("file");
+    setWorkspaceActivityOpen(true);
+    setProjectExplorer((current) => selectProjectExplorerNode(current, nodeId));
+  }
+
   function handleActiveTextFileChange(content: string) {
-    const activeFileId = textFileModalFileId ?? projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
+    const activeFileId = projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId;
     if (!activeFileId) {
       return;
     }
@@ -2966,11 +3085,14 @@ export default function App() {
         },
       }, activeFileId, true);
     });
+    if (activeFile.kind === "sql") {
+      setSqlReverseWorkflow((current) => ({ ...current, sourceSql: content }));
+    }
     hasUnsavedChangesRef.current = true;
   }
 
-  async function handleProjectExplorerCreateSchema(parentId: string) {
-    const requestedName = await requestPromptDialog({
+  async function handleProjectExplorerCreateSchema(parentId: string, inlineName?: string) {
+    const requestedName = inlineName ?? await requestPromptDialog({
       title: t("projectExplorer.dialogs.newSchemaTitle"),
       label: t("projectExplorer.dialogs.nameLabel"),
       initialValue: t("projectExplorer.defaults.schemaName"),
@@ -2993,8 +3115,8 @@ export default function App() {
     setStatus(t("projectExplorer.status.schemaCreated", { name: file.name }));
   }
 
-  async function handleProjectExplorerCreateTextFile(parentId: string) {
-    const requestedName = await requestPromptDialog({
+  async function handleProjectExplorerCreateTextFile(parentId: string, inlineName?: string) {
+    const requestedName = inlineName ?? await requestPromptDialog({
       title: t("projectExplorer.dialogs.newTextFileTitle"),
       label: t("projectExplorer.dialogs.nameLabel"),
       initialValue: t("projectExplorer.defaults.textFileName"),
@@ -3016,22 +3138,22 @@ export default function App() {
 
     const nextState = markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true);
     applyProjectExplorerState(nextState);
-    if (file.kind === "text") {
-      setTextFileModalFileId(file.id);
-      setWorkspaceActivityOpen(true);
-    } else if (file.kind === "sql") {
+    if (file.kind === "sql") {
       setActiveActivityPanel("reverse");
       setWorkspaceActivityOpen(true);
       setSqlReverseWorkflow((current) => ({
         ...createInitialSqlReverseWorkflowState(file.content),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
+    } else {
+      setActiveActivityPanel("file");
+      setWorkspaceActivityOpen(true);
     }
     setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
   }
 
-  async function handleProjectExplorerCreateSqlFile(parentId: string) {
-    const requestedName = await requestPromptDialog({
+  async function handleProjectExplorerCreateSqlFile(parentId: string, inlineName?: string) {
+    const requestedName = inlineName ?? await requestPromptDialog({
       title: t("projectExplorer.dialogs.newSqlFileTitle"),
       label: t("projectExplorer.dialogs.nameLabel"),
       initialValue: t("projectExplorer.defaults.sqlFileName"),
@@ -3063,8 +3185,8 @@ export default function App() {
     setStatus(t("sqlReverse.sqlFileCreated", { name: uniqueName }));
   }
 
-  async function handleProjectExplorerCreateFolder(parentId: string) {
-    const requestedName = await requestPromptDialog({
+  async function handleProjectExplorerCreateFolder(parentId: string, inlineName?: string) {
+    const requestedName = inlineName ?? await requestPromptDialog({
       title: t("projectExplorer.dialogs.newFolderTitle"),
       label: t("projectExplorer.dialogs.nameLabel"),
       initialValue: t("projectExplorer.defaults.folderName"),
@@ -3085,18 +3207,18 @@ export default function App() {
     setStatus(t("projectExplorer.status.folderCreated", { name: uniqueName }));
   }
 
-  async function handleProjectExplorerRename(nodeId: string) {
+  async function handleProjectExplorerRename(nodeId: string, inlineName?: string) {
     const node = projectExplorer.project.fileTree.find((candidate) => candidate.id === nodeId);
     if (!node) {
       return;
     }
 
-    const requestedName = await requestPromptDialog({
-      title: t("projectExplorer.dialogs.renameTitle"),
-      label: t("projectExplorer.dialogs.nameLabel"),
-      initialValue: node.name,
-      required: true,
-    });
+    const requestedName = inlineName ?? await requestPromptDialog({
+        title: t("projectExplorer.dialogs.renameTitle"),
+        label: t("projectExplorer.dialogs.nameLabel"),
+        initialValue: node.name,
+        required: true,
+      });
     if (requestedName == null) {
       return;
     }
@@ -3157,9 +3279,6 @@ export default function App() {
     const nextActiveFileId = result.state.project.activeFileId;
     const nextActiveFile = nextActiveFileId ? result.state.files[nextActiveFileId] : undefined;
     applyProjectExplorerState(result.state);
-    if (node.fileId === textFileModalFileId || (textFileModalFileId && !result.state.files[textFileModalFileId])) {
-      setTextFileModalFileId(null);
-    }
     if (nextActiveFile?.kind === "schema") {
       openSchemaWorkspaceFile(nextActiveFile.id, result.state, { center: true });
     }
@@ -3218,6 +3337,20 @@ export default function App() {
     window.addEventListener("pointerup", handlePointerUp);
   }
 
+  function handleProjectExplorerResizeBy(delta: number) {
+    setProjectExplorer((current) => ({
+      ...current,
+      view: {
+        ...current.view,
+        explorerWidth: clampValue(
+          (current.view.explorerWidth || DEFAULT_PROJECT_EXPLORER_WIDTH) + delta,
+          MIN_PROJECT_EXPLORER_WIDTH,
+          MAX_PROJECT_EXPLORER_WIDTH,
+        ),
+      },
+    }));
+  }
+
   function updateCodeDraft(nextCode: string) {
     codeDraftRef.current = nextCode;
     const nextDirty = nextCode !== lastSerializedCodeRef.current;
@@ -3255,6 +3388,14 @@ export default function App() {
   }
 
   function handleSelectActivityPanel(panel: ProjectActivityId) {
+    if (panel === activeActivityPanel && projectExplorer.view.explorerOpen) {
+      setWorkspaceActivityOpen(false);
+      if (panel === "code" && codePanelOpen) {
+        handleCodeEditorBlur();
+        setCodePanelOpen(false);
+      }
+      return;
+    }
     setActiveActivityPanel(panel);
     setWorkspaceActivityOpen(true);
 
@@ -3558,12 +3699,6 @@ export default function App() {
           return;
         }
 
-        if (textFileModalFileId) {
-          event.preventDefault();
-          setTextFileModalFileId(null);
-          return;
-        }
-
         if (versionAnnouncement) {
           event.preventDefault();
           closeVersionAnnouncement();
@@ -3631,7 +3766,6 @@ export default function App() {
     selection,
     technicalPanelOpen,
     technicalPanelTab,
-    textFileModalFileId,
     tool,
     versionAnnouncement,
     versionCompareSession,
@@ -4158,7 +4292,6 @@ export default function App() {
     const nextProject = createEmptyProjectExplorerState(t("workspace.newDiagramName"));
     setHasProject(true);
     setProjectExplorer(nextProject);
-    setTextFileModalFileId(null);
     applyWorkspaceDocument(
       newDiagram,
       t("workspace.newProject"),
@@ -4221,7 +4354,6 @@ export default function App() {
     setIdentifierSelection(null);
     setTool("select");
     setCodeError("");
-    setTextFileModalFileId(null);
     setCommandMenuOpen(false);
     setKeyboardShortcutsOpen(false);
     setAboutOpen(false);
@@ -6948,11 +7080,11 @@ export default function App() {
       </SqlReversePreviewFrame>
     ) : null;
   const activityItems: ProjectActivityItem[] = [
-    { id: "file", label: t("appHeader.menus.file"), icon: "openProject" },
-    { id: "code", label: t("appHeader.menus.code"), icon: "code" },
+    { id: "file", label: t("appHeader.menus.file"), icon: "openProject", shortcut: "Ctrl+Shift+E" },
+    { id: "code", label: t("appHeader.menus.code"), icon: "code", shortcut: "Ctrl+`" },
     { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
-    { id: "errors", label: t("appHeader.menus.errors"), icon: issues.some((issue) => issue.level === "error") ? "error" : "warning", badge: issues.length },
-    { id: "version", label: t("appHeader.menus.version"), icon: "history", badge: hasVersioningUncommittedChanges ? 1 : undefined },
+    { id: "errors", label: t("appHeader.menus.errors"), icon: issues.some((issue) => issue.level === "error") ? "error" : "warning", badge: issues.length, shortcut: "Ctrl+Shift+M" },
+    { id: "version", label: t("appHeader.menus.version"), icon: "branch", badge: hasVersioningUncommittedChanges ? 1 : undefined },
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
@@ -6972,6 +7104,7 @@ export default function App() {
           project={projectExplorer.project}
           files={projectExplorer.files}
           view={projectExplorer.view}
+          dirtyFileIds={dirtyProjectFileIds}
           onOpenFile={handleProjectExplorerOpenFile}
           onCreateSchema={handleProjectExplorerCreateSchema}
           onCreateTextFile={handleProjectExplorerCreateTextFile}
@@ -7080,26 +7213,26 @@ export default function App() {
         closeLabel={t("workspaceActivity.closePanel")}
       />
     ) : activeActivityPanel === "errors" ? (
-      <section className="project-activity-section" aria-label={t("workspaceActivity.errors.title")}>
-        <ProjectActivityPanelHeader
+      <WorkspacePanel className="project-activity-section" label={t("workspaceActivity.errors.title")}>
+        <WorkspacePanelHeader
           title={t("workspaceActivity.errors.title")}
-          subtitle={t("errors.issueCount", { count: visibleActivityIssues.length })}
-          closeLabel={t("workspaceActivity.closePanel")}
-          onClose={handleToggleActivityPanelOpen}
-        />
-        <div className="project-activity-actions">
+          badge={visibleActivityIssues.length}
+        >
           <button
             type="button"
-            className={["project-activity-action", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
+            className={["project-activity-action", "compact", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
             onClick={handleToggleDiagnosticsVisibility}
             aria-pressed={showDiagnostics}
+            title={showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}
           >
             <StudioIcon name={showDiagnostics ? "viewOn" : "viewOff"} aria-hidden="true" />
-            <span>{showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}</span>
           </button>
-        </div>
+          <button type="button" className="project-activity-header-close" onClick={handleToggleActivityPanelOpen} aria-label={t("workspaceActivity.closePanel")}>
+            <StudioIcon name="close" aria-hidden="true" />
+          </button>
+        </WorkspacePanelHeader>
         {visibleActivityIssues.length === 0 ? (
-          <p className="project-activity-empty">{t("errors.empty")}</p>
+          <PanelEmptyState className="project-activity-empty" icon="success" title={t("errors.empty")} />
         ) : (
           <div className="project-activity-issue-list">
             {visibleActivityIssues.map((issue) => (
@@ -7118,7 +7251,7 @@ export default function App() {
             ))}
           </div>
         )}
-      </section>
+      </WorkspacePanel>
     ) : activeActivityPanel === "version" ? (
       <SourceControlPanel
         projectName={projectExplorer.project.name}
@@ -7208,6 +7341,10 @@ export default function App() {
         <AppHeader
           appTitle={APP_TITLE}
           appVersion={APP_VERSION}
+          projectName={hasProject ? projectExplorer.project.name : undefined}
+          activeFileName={activeProjectFile?.name}
+          saveState={hasVersioningUncommittedChanges ? "modified" : "saved"}
+          theme={theme}
           diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
@@ -7255,6 +7392,7 @@ export default function App() {
         onOpenWhatsNew={() => setWhatsNewOpen(true)}
         onOpenVersionAnnouncement={openVersionAnnouncementManually}
         onActivityPanelSelect={handleSelectActivityPanel}
+        onToggleTheme={() => setTheme((current) => current === "light" ? "dark" : "light")}
           onCreateCommit={() => {
             setActiveActivityPanel("version");
             setWorkspaceActivityOpen(true);
@@ -7294,6 +7432,7 @@ export default function App() {
               onOpenCommandMenu={openCommandMenu}
               onOpenShortcuts={openKeyboardShortcuts}
               onResizeStart={handleProjectExplorerResizeStart}
+              onResizeBy={handleProjectExplorerResizeBy}
             >
               {activityPanelContent}
             </ProjectActivityPanel>
@@ -7303,10 +7442,26 @@ export default function App() {
             tabs={visibleProjectTabs}
             activeTabId={projectExplorer.view.activeTabId}
             files={projectExplorer.files}
+            paths={projectFilePaths}
             onSelectTab={handleProjectFileTabSelect}
             onCloseTab={handleProjectFileTabClose}
+            onCloseOthers={handleProjectTabsCloseOthers}
+            onCloseToRight={handleProjectTabsCloseToRight}
+            onCloseAll={handleProjectTabsCloseAll}
+            onRevealFile={handleRevealProjectFile}
+            onReorder={handleProjectTabReorder}
             onNewFile={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
           />
+          {activeProjectFile ? (
+            <WorkspaceEditorHeader
+              projectName={projectExplorer.project.name}
+              file={activeProjectFile}
+              path={projectFilePaths[activeProjectFile.id] ?? activeProjectFile.name}
+              view={diagramView}
+              onReveal={() => handleRevealProjectFile(activeProjectFile.id)}
+              onViewChange={handleDiagramViewChange}
+            />
+          ) : null}
           <div className="project-main-content">
             {sqlReversePreviewContent ? (
               sqlReversePreviewContent
@@ -7320,6 +7475,12 @@ export default function App() {
                 onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
                 onOpenProject={handleLoadProjectRequest}
                 onImportSchema={handleImportSchemaRequest}
+              />
+            ) : activeProjectFile && activeProjectFile.kind !== "schema" ? (
+              <WorkspaceTextEditor
+                file={activeProjectFile}
+                editable={mode === "edit"}
+                onChange={handleActiveTextFileChange}
               />
             ) : !hasProjectTabsOpen ? (
               <WorkspaceEmptyEditor
@@ -7525,6 +7686,22 @@ export default function App() {
         )}
       </div>
 
+      <BottomStatusBar
+        projectName={hasProject ? projectExplorer.project.name : undefined}
+        activeFileName={activeProjectFile?.name}
+        zoomPercent={(diagramView === "logical" ? logicalViewport.zoom : diagramView === "translation" ? translationViewport.zoom : viewport.zoom) * 100}
+        appVersion={APP_VERSION}
+        diagramView={diagramView}
+        logicalSqlOpen={logicalPanelMode === "sql"}
+        codePanelOpen={codePanelOpen}
+        notesPanelOpen={notesPanelOpen}
+        statusMessage={statusMessage}
+        notices={notices}
+        issues={issues}
+        selectionItemCount={selectionItemCount}
+        onDismissNotice={dismissNotice}
+      />
+
       <input
         ref={projectFileInputRef}
         className="hidden-input"
@@ -7553,15 +7730,6 @@ export default function App() {
         editable={mode === "edit"}
         onSave={handleNotesChange}
         onClose={() => setNotesPanelOpen(false)}
-      />
-
-      <ProjectTextFileModal
-        open={Boolean(activeTextModalFile)}
-        fileName={activeTextModalFile?.name ?? ""}
-        content={activeTextModalFile?.content ?? ""}
-        editable={mode === "edit"}
-        onChange={handleActiveTextFileChange}
-        onClose={() => setTextFileModalFileId(null)}
       />
 
       {commandMenuOpen ? (
@@ -7631,6 +7799,7 @@ export default function App() {
       {confirmDialog ? (
         <div className="help-modal-backdrop" role="presentation" onClick={() => closeConfirmDialog(false)}>
           <div
+            ref={appDialogRef}
             className="help-modal action-modal"
             role="dialog"
             aria-modal="true"
@@ -7644,7 +7813,7 @@ export default function App() {
             <div className="action-modal-content">
               <p>{confirmDialog.message}</p>
               <div className="action-modal-actions">
-                <button type="button" className="header-button" onClick={() => closeConfirmDialog(false)}>
+                <button type="button" className="header-button" data-dialog-safe onClick={() => closeConfirmDialog(false)}>
                   {confirmDialog.cancelLabel}
                 </button>
                 <button type="button" className="mode-button active" onClick={() => closeConfirmDialog(true)}>
@@ -7659,6 +7828,7 @@ export default function App() {
       {promptDialog ? (
         <div className="help-modal-backdrop" role="presentation" onClick={() => closePromptDialog(null)}>
           <div
+            ref={appDialogRef}
             className="help-modal action-modal"
             role="dialog"
             aria-modal="true"

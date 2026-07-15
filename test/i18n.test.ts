@@ -610,3 +610,26 @@ test("locale state can switch among all supported locales", () => {
     setCurrentLocale(originalLocale);
   }
 });
+
+test("workspace redesign strings exist in English, Italian, and Albanian", () => {
+  const keys = [
+    "workspaceChrome.commandSearch",
+    "workspaceChrome.theme.switchDark",
+    "projectExplorer.actions.expandFolder",
+    "projectExplorer.errors.invalid-characters",
+    "projectTabs.closeModifiedTitle",
+    "sourceControl.expandHistory",
+    "sourceControl.details.statsValue",
+    "sqlReversePanel.steps.validation",
+    "bottomStatus.projectLabel",
+    "bottomStatus.zoomLabel",
+  ];
+
+  for (const locale of SUPPORTED_LOCALES) {
+    for (const key of keys) {
+      const value = translate(key as never, { entities: 2, tables: 3 }, locale);
+      assert.notEqual(value, key, `${locale}.${key} is missing`);
+      assert.notEqual(value.trim(), "", `${locale}.${key} is empty`);
+    }
+  }
+});

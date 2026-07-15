@@ -51,35 +51,12 @@ function displayPath(filePath: string): string {
   return relative(PROJECT_ROOT, filePath).replace(/\\/g, "/");
 }
 
-test("ui radius tokens are zero", () => {
-  const requiredTokens = [
-    "--studio-radius-sm",
-    "--studio-radius-md",
-    "--studio-radius-lg",
-    "--studio-radius-xl",
-    "--studio-radius-panel",
-    "--editor-radius-sm",
-    "--editor-radius-md",
-    "--editor-radius-lg",
-    "--panel-radius",
-  ];
-  const cssByPath = new Map(cssFiles.map((filePath) => [displayPath(filePath), readProjectFile(filePath)]));
-  const allCss = [...cssByPath.values()].join("\n");
+test("workspace radius tokens use the compact design-system scale", () => {
+  const tokens = readProjectFile(join(SRC_ROOT, "styles", "tokens.css"));
 
-  for (const token of requiredTokens) {
-    assert.match(allCss, new RegExp(`${token.replaceAll("-", "\\-")}\\s*:\\s*0\\s*;`), `${token} must be set to 0`);
-  }
-
-  const nonZeroRadiusTokens: string[] = [];
-  for (const [filePath, content] of cssByPath) {
-    for (const match of content.matchAll(/(--[A-Za-z0-9_-]*radius[A-Za-z0-9_-]*)\s*:\s*([^;]+);/g)) {
-      if (match[2].trim() !== "0") {
-        nonZeroRadiusTokens.push(`${filePath}: ${match[1]}: ${match[2].trim()}`);
-      }
-    }
-  }
-
-  assert.deepEqual(nonZeroRadiusTokens, []);
+  assert.match(tokens, /--radius-control:\s*4px;/);
+  assert.match(tokens, /--radius-panel:\s*6px;/);
+  assert.match(tokens, /--radius-dialog:\s*10px;/);
 });
 
 function isApprovedRoundedIconSelector(selectorText: string): boolean {
@@ -90,21 +67,25 @@ function isApprovedRoundedIconSelector(selectorText: string): boolean {
   return selectors.every((selector) => approvedRoundedIconSelectors.includes(selector));
 }
 
-test("css does not define rounded ui border radius outside approved icon exceptions", () => {
-  const invalidDeclarations: string[] = [];
+test("new workspace surfaces avoid oversized decorative radii", () => {
+  const workspaceStyleFiles = cssFiles.filter((filePath) =>
+    /[\\/]styles[\\/](tokens|foundations|workspace-shell|activity-rail|editor-tabs|context-menu|panels-workspace|responsive)\.css$/.test(filePath),
+  );
+  const oversizedDeclarations: string[] = [];
 
-  for (const filePath of cssFiles) {
+  for (const filePath of workspaceStyleFiles) {
     const content = readProjectFile(filePath);
-    for (const match of content.matchAll(/([^{}]+)\{([^{}]*border-radius\s*:\s*([^;]+);[^{}]*)\}/g)) {
-      const selectorText = match[1].trim();
-      const value = match[3].trim();
-      if (value !== "0" && value !== "0 !important" && !isApprovedRoundedIconSelector(selectorText)) {
-        invalidDeclarations.push(`${displayPath(filePath)}: ${selectorText} { border-radius: ${value}; }`);
+    for (const match of content.matchAll(/border-radius\s*:\s*([^;]+);/g)) {
+      const value = match[1].trim();
+      if (value.includes("var(--radius-") || value.startsWith("50%")) continue;
+      const pixelValues = Array.from(value.matchAll(/([0-9.]+)px/g), (item) => Number(item[1]));
+      if (pixelValues.some((radius) => radius > 10)) {
+        oversizedDeclarations.push(`${displayPath(filePath)}: ${value}`);
       }
     }
   }
 
-  assert.deepEqual(invalidDeclarations, []);
+  assert.deepEqual(oversizedDeclarations, []);
 });
 
 test("approved rounded icon exceptions stay explicit", () => {

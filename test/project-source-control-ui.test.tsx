@@ -63,6 +63,18 @@ test("Source Control panel supporta Ctrl+Enter per commit", () => {
   assert.match(source, /onCommit\(\)/);
 });
 
+test("Source Control usa panel primitives e splitter accessibile da tastiera", () => {
+  const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /<WorkspacePanel/);
+  assert.match(source, /<WorkspacePanelHeader/);
+  assert.match(source, /<PanelEmptyState/);
+  assert.match(source, /tabIndex=\{0\}/);
+  assert.match(source, /event\.key !== "ArrowUp" && event\.key !== "ArrowDown"/);
+  assert.match(source, /event\.shiftKey \? 24 : 8/);
+  assert.match(source, /clampHeight/);
+});
+
 test("App non monta piu la modal Versioni progetto dal Source Control", () => {
   const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 

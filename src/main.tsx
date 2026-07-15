@@ -7,6 +7,14 @@ import "./styles/editor-refactor.css";
 import "./styles/panels.css";
 import "./styles/app-command-bar.css";
 import "./styles/project-explorer.css";
+import "./styles/tokens.css";
+import "./styles/foundations.css";
+import "./styles/workspace-shell.css";
+import "./styles/activity-rail.css";
+import "./styles/editor-tabs.css";
+import "./styles/context-menu.css";
+import "./styles/panels-workspace.css";
+import "./styles/responsive.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

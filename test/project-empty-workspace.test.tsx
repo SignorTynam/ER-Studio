@@ -105,3 +105,28 @@ test("workspace senza schema aperto e senza tab mostra EmptyEditor e non renderi
   assert.doesNotMatch(welcomeBranch, /<Toolbar/);
   assert.doesNotMatch(welcomeBranch, /<DiagramCanvas/);
 });
+
+test("workspace mounts a compact status bar and responsive drawer rules", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const statusSource = readFileSync(new URL("../src/components/BottomStatusBar.tsx", import.meta.url), "utf8");
+  const responsiveCss = readFileSync(new URL("../src/styles/responsive.css", import.meta.url), "utf8");
+
+  assert.match(appSource, /<BottomStatusBar/);
+  assert.match(statusSource, /projectName/);
+  assert.match(statusSource, /activeFileName/);
+  assert.match(statusSource, /zoomPercent/);
+  assert.match(responsiveCss, /@media \(max-width: 900px\)/);
+  assert.match(responsiveCss, /position: absolute/);
+  assert.match(responsiveCss, /project-activity-panel:not\(\.project-activity-panel--collapsed\)::after/);
+});
+
+test("application dialogs trap focus and restore it to the trigger", () => {
+  const source = readFileSync(new URL("../src/hooks/useAppDialogs.ts", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /function trapFocus/);
+  assert.match(source, /event\.key !== "Tab"/);
+  assert.match(source, /returnFocusRef/);
+  assert.match(source, /target\?\.isConnected/);
+  assert.match(appSource, /data-dialog-safe/);
+});

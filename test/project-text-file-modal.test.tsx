@@ -31,11 +31,13 @@ test("ProjectTextFileModal renderizza editor note per file txt", () => {
   assert.match(source, /useEscapeKey\(open, onClose\)/);
 });
 
-test("App apre txt in modal e non usa ProjectTextFilePanel nel pannello activity", () => {
+test("App apre txt e SQL nel WorkspaceTextEditor principale", () => {
   const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /setTextFileModalFileId\(fileId\)/);
-  assert.match(source, /<ProjectTextFileModal/);
+  assert.match(source, /activeProjectFile && activeProjectFile\.kind !== "schema"/);
+  assert.match(source, /<WorkspaceTextEditor/);
+  assert.match(source, /onChange=\{handleActiveTextFileChange\}/);
+  assert.doesNotMatch(source, /<ProjectTextFileModal/);
   assert.doesNotMatch(source, /<ProjectTextFilePanel/);
   assert.doesNotMatch(source, /note-file-panel/);
 });

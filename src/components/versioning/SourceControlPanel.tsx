@@ -6,6 +6,7 @@ import type {
 } from "../../features/versioning/useProjectVersioning";
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
 import { StudioIcon } from "../icons/StudioIcon";
+import { PanelEmptyState, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface SourceControlPanelProps {
   projectName: string;
@@ -138,6 +139,16 @@ export function SourceControlPanel({
     document.body.classList.add("source-control-resizing");
   }
 
+  function resizeHistoryBy(delta: number) {
+    const panel = panelRef.current;
+    const history = historyRef.current;
+    if (!panel || !history) return;
+    const panelHeight = panel.getBoundingClientRect().height;
+    const maxHeight = Math.max(HISTORY_MIN_HEIGHT, panelHeight - HISTORY_MIN_TOP_HEIGHT - HISTORY_SPLITTER_HEIGHT);
+    const currentHeight = historyHeight ?? history.getBoundingClientRect().height;
+    setHistoryHeight(clampHeight(currentHeight + delta, HISTORY_MIN_HEIGHT, maxHeight));
+  }
+
   useLayoutEffect(() => {
     if (historyHeight !== null || !historyRef.current) {
       return;
@@ -200,14 +211,16 @@ export function SourceControlPanel({
   }, []);
 
   return (
-    <section
+    <WorkspacePanel
       ref={panelRef}
       className="source-control-panel"
-      aria-label={t("sourceControl.title")}
+      label={t("sourceControl.title")}
     >
-      <header className="source-control-header">
-        <h2>{t("sourceControl.title")}</h2>
-        <div className="project-activity-section__header-actions">
+      <WorkspacePanelHeader
+        className="source-control-header"
+        title={t("sourceControl.title")}
+        badge={changeState.hasChanges ? changeState.files.length : undefined}
+      >
           <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
             <StudioIcon name="refresh" />
           </button>
@@ -216,8 +229,7 @@ export function SourceControlPanel({
               <StudioIcon name="close" />
             </button>
           ) : null}
-        </div>
-      </header>
+      </WorkspacePanelHeader>
 
       <div className="source-control-section">
         <div className="source-control-section-title">
@@ -227,9 +239,6 @@ export function SourceControlPanel({
         <div className="source-control-repository">
           <StudioIcon name="branch" aria-hidden="true" />
           <span className="source-control-repository-name">{projectName}</span>
-          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.more")}>
-            <StudioIcon name="menu" />
-          </button>
         </div>
       </div>
 
@@ -271,7 +280,7 @@ export function SourceControlPanel({
             )}
           </div>
         ) : (
-          <p className="source-control-empty">{t("sourceControl.noChanges")}</p>
+          <PanelEmptyState className="source-control-empty source-control-empty--compact" icon="done" title={t("sourceControl.noChanges")} />
         )}
       </div>
 
@@ -280,7 +289,16 @@ export function SourceControlPanel({
         role="separator"
         aria-orientation="horizontal"
         aria-label={t("sourceControl.resizeHistory")}
+        aria-valuemin={HISTORY_MIN_HEIGHT}
+        aria-valuenow={Math.round(historyHeight ?? HISTORY_MIN_HEIGHT)}
+        tabIndex={0}
         onPointerDown={handleHistoryResizeStart}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+          event.preventDefault();
+          const delta = (event.shiftKey ? 24 : 8) * (event.key === "ArrowUp" ? 1 : -1);
+          resizeHistoryBy(delta);
+        }}
       />
 
       <div ref={historyRef} className="source-control-section source-control-history">
@@ -291,7 +309,7 @@ export function SourceControlPanel({
               className="source-control-disclosure"
               onClick={() => setHistoryCollapsed((current) => !current)}
               aria-expanded="false"
-              aria-label="Expand history"
+              aria-label={t("sourceControl.expandHistory")}
             >
               <StudioIcon name="arrowRight" aria-hidden="true" />
             </button>
@@ -301,7 +319,7 @@ export function SourceControlPanel({
               className="source-control-disclosure"
               onClick={() => setHistoryCollapsed((current) => !current)}
               aria-expanded="true"
-              aria-label="Collapse history"
+              aria-label={t("sourceControl.collapseHistory")}
             >
               <StudioIcon name="arrowDown" aria-hidden="true" />
             </button>
@@ -315,7 +333,7 @@ export function SourceControlPanel({
 
         {!historyCollapsed ? (
           commits.length === 0 ? (
-            <p className="source-control-empty">0 commit</p>
+            <PanelEmptyState className="source-control-empty source-control-empty--compact" icon="branch" title={t("sourceControl.noCommits")} />
           ) : (
             <div className="source-control-history-scroll" data-testid="source-control-history-scroll">
               <ol className="source-control-history-list">
@@ -333,7 +351,7 @@ export function SourceControlPanel({
                             onSelectCommit(commit.id);
                           }}
                           aria-pressed="true"
-                          aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
+                          aria-label={t("sourceControl.selectCommit", { id: shortCommitId(commit.id), message: commit.message })}
                         >
                           <span className="source-control-graph-rail" aria-hidden="true">
                             <span className="source-control-graph-line" />
@@ -357,7 +375,7 @@ export function SourceControlPanel({
                             onSelectCommit(commit.id);
                           }}
                           aria-pressed="false"
-                          aria-label={`Select commit ${shortCommitId(commit.id)} ${commit.message}`}
+                          aria-label={t("sourceControl.selectCommit", { id: shortCommitId(commit.id), message: commit.message })}
                         >
                           <span className="source-control-graph-rail" aria-hidden="true">
                             <span className="source-control-graph-line" />
@@ -398,10 +416,10 @@ export function SourceControlPanel({
               </button>
             </div>
             <dl>
-              <div><dt>ID</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
-              <div><dt>Parent</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
-              <div><dt>Date</dt><dd>{formatCommitDate(selectedCommit.createdAt)}</dd></div>
-              <div><dt>Stats</dt><dd>{selectedCommit.stats.entityCount} ER, {selectedCommit.stats.tableCount ?? 0} tables</dd></div>
+              <div><dt>{t("sourceControl.details.id")}</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
+              <div><dt>{t("sourceControl.details.parent")}</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
+              <div><dt>{t("sourceControl.details.date")}</dt><dd>{formatCommitDate(selectedCommit.createdAt)}</dd></div>
+              <div><dt>{t("sourceControl.details.stats")}</dt><dd>{t("sourceControl.details.statsValue", { entities: selectedCommit.stats.entityCount, tables: selectedCommit.stats.tableCount ?? 0 })}</dd></div>
             </dl>
             <div className="source-control-commit-actions">
               <button type="button" className="source-control-action-button" onClick={() => onCompareWithCurrent(selectedCommit.id)}>
@@ -438,6 +456,6 @@ export function SourceControlPanel({
           </div>
         ) : null}
       </div>
-    </section>
+    </WorkspacePanel>
   );
 }

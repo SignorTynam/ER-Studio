@@ -73,3 +73,26 @@ test("ProjectFileTabs close button stops tab selection propagation", () => {
   assert.match(source, /event\.button === 1/);
   assert.match(source, /onCloseTab\(tab\.id\)/);
 });
+
+test("ProjectFileTabs exposes overflow, bulk close, reveal, copy path, reorder and keyboard navigation", () => {
+  const source = readFileSync(new URL("../src/components/project/ProjectFileTabs.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /project-file-tabs__open-menu/);
+  assert.match(source, /closeOthers\(contextTab\.id\)/);
+  assert.match(source, /closeToRight\(contextTab\.id\)/);
+  assert.match(source, /onRevealFile/);
+  assert.match(source, /navigator\.clipboard\.writeText/);
+  assert.match(source, /application\/x-builder-tab/);
+  assert.match(source, /handleTabKeyDown/);
+  assert.match(source, /contextMenuRef\.current.*offsetWidth/s);
+  assert.match(source, /handleMenuKeyDown/);
+});
+
+test("App confirms closing a dirty tab without claiming edits are discarded", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /if \(tab\?\.dirty\)/);
+  assert.match(source, /projectTabs\.closeModifiedTitle/);
+  assert.match(source, /projectTabs\.closeModifiedMessage/);
+  assert.match(source, /requestConfirmDialog/);
+});

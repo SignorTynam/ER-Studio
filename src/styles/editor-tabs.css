@@ -1,0 +1,162 @@
+.project-file-tabs {
+  position: relative;
+  height: var(--size-tab);
+  min-height: var(--size-tab);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-sidebar);
+}
+
+.project-file-tabs__viewport {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.project-file-tabs__scroller {
+  min-width: 0;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.project-file-tabs__scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.project-file-tab {
+  min-width: 132px;
+  max-width: 220px;
+  height: var(--size-tab);
+  border-right: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: var(--color-bg-sidebar);
+  color: var(--color-text-secondary);
+}
+
+.project-file-tab:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.project-file-tab.active {
+  background: var(--color-bg-editor);
+  color: var(--color-text-primary);
+}
+
+.project-file-tab.active::before {
+  top: 0;
+  bottom: auto;
+  height: 2px;
+  background: var(--color-accent);
+}
+
+.project-file-tab > button[role="tab"] {
+  min-width: 0;
+  height: var(--size-tab);
+  padding: 0 34px 0 var(--space-3);
+  gap: var(--space-1-5);
+}
+
+.project-file-tab__title {
+  font-size: 0.76rem;
+  font-weight: 520;
+}
+
+.project-file-tab__dirty {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50% !important;
+  background: var(--color-modified);
+}
+
+.project-file-tab__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.project-file-tab__close:hover {
+  background: var(--color-bg-selected);
+  color: var(--color-text-primary);
+}
+
+.project-file-tabs__tools {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  height: var(--size-tab);
+  align-items: center;
+  padding: 0 var(--space-1);
+  border-left: 1px solid var(--color-border-default);
+  background: var(--color-bg-panel);
+}
+
+.project-file-tabs__tool,
+.project-file-tabs__new {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.project-file-tabs__tool:hover,
+.project-file-tabs__new:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.project-file-tabs__open-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 4px;
+  z-index: 80;
+  width: min(320px, calc(100vw - 16px));
+  max-height: min(420px, 60vh);
+  overflow: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-popover);
+}
+
+.project-file-tabs__open-menu button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.project-file-tabs__open-menu button:hover,
+.project-file-tabs__open-menu button.active {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.project-file-tabs__open-menu span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

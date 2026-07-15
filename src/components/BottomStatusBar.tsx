@@ -13,6 +13,10 @@ interface WorkspaceNoticeItem {
 }
 
 interface BottomStatusBarProps {
+  projectName?: string;
+  activeFileName?: string;
+  zoomPercent?: number;
+  appVersion?: string;
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
@@ -85,6 +89,18 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
   return (
     <footer className="bottom-status-bar" aria-live="polite">
       <div className="bottom-status-left">
+        {props.projectName ? (
+          <div className="bottom-status-meta-item bottom-status-project" title={props.projectName}>
+            <span className="bottom-status-meta-label">{t("bottomStatus.projectLabel")}</span>
+            <span className="bottom-status-meta-value">{props.projectName}</span>
+          </div>
+        ) : null}
+        {props.activeFileName ? (
+          <div className="bottom-status-meta-item bottom-status-file" title={props.activeFileName}>
+            <span className="bottom-status-meta-label">{t("bottomStatus.fileLabel")}</span>
+            <span className="bottom-status-meta-value">{props.activeFileName}</span>
+          </div>
+        ) : null}
         <div className="bottom-status-workspace">
           <span className="bottom-status-workspace-label">{t("bottomStatus.workspaceLabel")}</span>
           <span className="bottom-status-workspace-value">{getWorkspaceLabel(props, t)}</span>
@@ -125,6 +141,12 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
       </div>
 
       <div className="bottom-status-right">
+        {typeof props.zoomPercent === "number" ? (
+          <div className="bottom-status-meta-item">
+            <span className="bottom-status-meta-label">{t("bottomStatus.zoomLabel")}</span>
+            <span className="bottom-status-meta-value">{Math.round(props.zoomPercent)}%</span>
+          </div>
+        ) : null}
         {props.selectionItemCount > 0 && (
           <div className="bottom-status-meta-item">
             <span className="bottom-status-meta-value">{props.selectionItemCount}</span>
@@ -143,6 +165,11 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
             <span className="bottom-status-meta-label">{t("bottomStatus.errors", { count: errorCount })}</span>
           </div>
         )}
+        {props.appVersion ? (
+          <div className="bottom-status-meta-item">
+            <span className="bottom-status-meta-value">v{props.appVersion}</span>
+          </div>
+        ) : null}
       </div>
     </footer>
   );

@@ -25,7 +25,7 @@ test("empty project normalizes to active Welcome tab", () => {
   assert.equal(state.view.openTabs[0].kind, "welcome");
 });
 
-test("opening schema and sql creates tabs, opening text keeps modal-only behavior", () => {
+test("opening schema, SQL, and text creates editor tabs", () => {
   let state = createEmptyProjectExplorerState("Tabs");
   const schema = createSchemaWorkspaceFile("Main.erschema");
   const sql = createTextWorkspaceFile("query.sql", "sql");
@@ -48,8 +48,9 @@ test("opening schema and sql creates tabs, opening text keeps modal-only behavio
 
   assert.ok(state.view.openTabs.some((tab) => tab.fileId === schema.id));
   assert.ok(state.view.openTabs.some((tab) => tab.fileId === sql.id));
-  assert.equal(state.view.openTabs.some((tab) => tab.fileId === note.id), false);
-  assert.equal(state.project.activeFileId, sql.id);
+  assert.equal(state.view.openTabs.some((tab) => tab.fileId === note.id), true);
+  assert.equal(state.view.activeFileId, note.id);
+  assert.equal(state.project.activeFileId, note.id);
 });
 
 test("closing active tab selects a neighbor and closing all leaves empty editor state", () => {

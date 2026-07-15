@@ -3,6 +3,7 @@ import type { LogicalIssue } from "../../types/logical";
 import type { SqlReverseIssue } from "../../types/sqlReverse";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface SqlReversePanelProps {
   sql: string;
@@ -42,13 +43,25 @@ export function SqlReversePanel({
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const visibleIssues = [...issues, ...logicalIssues];
+  const hasBlockingIssue = Boolean(errorMessage || visibleIssues.some((issue) => issue.level === "error"));
+  const progressState = isPreviewReady ? 3 : tableCount > 0 && !hasBlockingIssue ? 2 : sql.trim() ? 1 : 0;
+  const progressSteps = [
+    t("sqlReversePanel.steps.input"),
+    t("sqlReversePanel.steps.validation"),
+    t("sqlReversePanel.steps.preview"),
+    t("sqlReversePanel.steps.apply"),
+  ];
 
   return (
-    <section className="sql-reverse-panel" aria-label={t("sqlReversePanel.title")}>
-      <header className="sql-reverse-panel__header">
-        <h2>{t("sqlReversePanel.title")}</h2>
-        <div className="project-activity-section__header-actions">
-          <button type="button" className="project-activity-action compact" onClick={() => fileInputRef.current?.click()}>
+    <WorkspacePanel className="sql-reverse-panel" label={t("sqlReversePanel.title")}>
+      <WorkspacePanelHeader className="sql-reverse-panel__header" title={t("sqlReversePanel.title")} badge={visibleIssues.length || undefined}>
+          <button
+            type="button"
+            className="project-activity-action compact"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label={t("sqlReversePanel.importFile")}
+            title={t("sqlReversePanel.importFile")}
+          >
             <StudioIcon name="upload" aria-hidden="true" />
             <span>{t("sqlReversePanel.importFile")}</span>
           </button>
@@ -57,7 +70,6 @@ export function SqlReversePanel({
               <StudioIcon name="close" aria-hidden="true" />
             </button>
           ) : null}
-        </div>
         <input
           ref={fileInputRef}
           className="hidden-input"
@@ -71,7 +83,21 @@ export function SqlReversePanel({
             }
           }}
         />
-      </header>
+      </WorkspacePanelHeader>
+
+      <ol className="sql-reverse-progress" aria-label={t("sqlReversePanel.progressAria")}>
+        {progressSteps.map((label, index) => (
+          <li
+            key={label}
+            className={index < progressState ? "complete" : index === progressState ? "active" : "pending"}
+            aria-current={index === progressState ? "step" : undefined}
+            title={label}
+          >
+            <span aria-hidden="true">{index + 1}</span>
+            <small>{label}</small>
+          </li>
+        ))}
+      </ol>
 
       <textarea
         className="sql-reverse-panel__editor"
@@ -111,6 +137,6 @@ export function SqlReversePanel({
           <span>{t("sqlReversePanel.analyze")}</span>
         </button>
       </footer>
-    </section>
+    </WorkspacePanel>
   );
 }

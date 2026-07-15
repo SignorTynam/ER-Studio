@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import type { CSSProperties, PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type {
   ProjectExplorerNode,
   ProjectExplorerProject,
@@ -9,30 +9,39 @@ import type {
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 import { ProjectExplorerContextMenu } from "./ProjectExplorerContextMenu";
-import { ProjectExplorerTreeItem } from "./ProjectExplorerTreeItem";
+import {
+  ProjectExplorerTreeItem,
+  type ProjectExplorerCreateDraft,
+  type ProjectExplorerCreateKind,
+} from "./ProjectExplorerTreeItem";
 
 interface ProjectExplorerProps {
   project: ProjectExplorerProject;
   files: Record<string, ProjectWorkspaceFile>;
   view: ProjectExplorerViewState;
   embedded?: boolean;
+  dirtyFileIds?: Set<string>;
   onOpenFile: (fileId: string) => void;
-  onCreateSchema: (parentId: string) => void;
-  onCreateTextFile: (parentId: string) => void;
-  onCreateSqlFile?: (parentId: string) => void;
-  onCreateFolder: (parentId: string) => void;
-  onRename: (nodeId: string) => void;
+  onCreateSchema: (parentId: string, name?: string) => void | Promise<void>;
+  onCreateTextFile: (parentId: string, name?: string) => void | Promise<void>;
+  onCreateSqlFile?: (parentId: string, name?: string) => void | Promise<void>;
+  onCreateFolder: (parentId: string, name?: string) => void | Promise<void>;
+  onRename: (nodeId: string, nextName?: string) => void | Promise<void>;
   onDelete: (nodeId: string) => void;
   onToggleFolder: (folderId: string) => void;
   onCollapseAll: () => void;
   onToggleOpen: () => void;
-  onResizeStart: (event: PointerEvent<HTMLDivElement>) => void;
+  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onSelectNode: (nodeId: string) => void;
 }
 
 export function ProjectExplorer(props: ProjectExplorerProps) {
   const { t } = useI18n();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [createDraft, setCreateDraft] = useState<ProjectExplorerCreateDraft | null>(null);
+  const headerMenusRef = useRef<HTMLDivElement | null>(null);
   const nodesById = useMemo(
     () => new Map(props.project.fileTree.map((node) => [node.id, node])),
     [props.project.fileTree],
@@ -56,12 +65,119 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
   const folderCount = props.project.fileTree.filter((node) => node.kind === "folder").length;
   const labels = {
     rename: t("projectExplorer.actions.rename"),
+    nameLabel: t("projectExplorer.dialogs.nameLabel"),
     delete: t("projectExplorer.actions.delete"),
     newSchema: t("projectExplorer.actions.newSchema"),
     newTextFile: t("projectExplorer.actions.newTextFile"),
     newSqlFile: t("projectExplorer.actions.newSqlFile"),
     newFolder: t("projectExplorer.actions.newFolder"),
+    expandFolder: t("projectExplorer.actions.expandFolder"),
+    collapseFolder: t("projectExplorer.actions.collapseFolder"),
+    modified: t("workspaceChrome.saveState.modified"),
+    nameRequired: t("projectExplorer.errors.empty-name"),
+    invalidCharacters: t("projectExplorer.errors.invalid-characters"),
+    renameFailed: t("projectExplorer.errors.rename-failed"),
+    fileKinds: {
+      schema: t("workspaceChrome.fileTypes.schema"),
+      sql: t("workspaceChrome.fileTypes.sql"),
+      text: t("workspaceChrome.fileTypes.text"),
+      unknown: t("workspaceChrome.fileTypes.file"),
+      folder: t("workspaceChrome.fileTypes.folder"),
+      file: t("workspaceChrome.fileTypes.file"),
+    },
   };
+
+  useEffect(() => {
+    if (!newFileMenuOpen && !moreMenuOpen) {
+      return undefined;
+    }
+    function closeMenus(event: PointerEvent) {
+      if (event.target instanceof Node && headerMenusRef.current?.contains(event.target)) {
+        return;
+      }
+      setNewFileMenuOpen(false);
+      setMoreMenuOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setNewFileMenuOpen(false);
+        setMoreMenuOpen(false);
+      }
+    }
+    window.addEventListener("pointerdown", closeMenus);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", closeMenus);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [moreMenuOpen, newFileMenuOpen]);
+
+  function runHeaderAction(action: () => void) {
+    setNewFileMenuOpen(false);
+    setMoreMenuOpen(false);
+    action();
+  }
+
+  function startInlineCreate(parentId: string, kind: ProjectExplorerCreateKind) {
+    const defaultName = kind === "schema"
+      ? t("projectExplorer.defaults.schemaName")
+      : kind === "sql"
+        ? t("projectExplorer.defaults.sqlFileName")
+        : kind === "text"
+          ? t("projectExplorer.defaults.textFileName")
+          : t("projectExplorer.defaults.folderName");
+    if (!expandedFolderIds.has(parentId)) props.onToggleFolder(parentId);
+    props.onSelectNode(parentId);
+    setContextMenu(null);
+    setNewFileMenuOpen(false);
+    setMoreMenuOpen(false);
+    setCreateDraft({ parentId, kind, value: defaultName, error: "" });
+  }
+
+  function getDraftComparableName(draft: ProjectExplorerCreateDraft): string {
+    const value = draft.value.trim();
+    if (draft.kind === "folder") return value.toLocaleLowerCase();
+    const extension = draft.kind === "schema" ? ".erschema" : draft.kind === "sql" ? ".sql" : ".txt";
+    return (value.toLocaleLowerCase().endsWith(extension) ? value : `${value}${extension}`).toLocaleLowerCase();
+  }
+
+  async function submitInlineCreate() {
+    if (!createDraft) return;
+    const value = createDraft.value.trim();
+    if (!value) {
+      setCreateDraft({ ...createDraft, error: labels.nameRequired });
+      return;
+    }
+    if (/[\\/]/.test(value)) {
+      setCreateDraft({ ...createDraft, error: labels.invalidCharacters });
+      return;
+    }
+    const parent = nodesById.get(createDraft.parentId);
+    const duplicate = (parent?.children ?? []).some((childId) => {
+      const child = nodesById.get(childId);
+      return child?.name.toLocaleLowerCase() === getDraftComparableName(createDraft);
+    });
+    if (duplicate) {
+      setCreateDraft({ ...createDraft, error: t("projectExplorer.errors.duplicate-name") });
+      return;
+    }
+    const action = createDraft.kind === "schema"
+      ? props.onCreateSchema
+      : createDraft.kind === "sql"
+        ? props.onCreateSqlFile ?? props.onCreateTextFile
+        : createDraft.kind === "text"
+          ? props.onCreateTextFile
+          : props.onCreateFolder;
+    try {
+      await action(createDraft.parentId, value);
+      setCreateDraft(null);
+    } catch (error) {
+      setCreateDraft((current) => current ? {
+        ...current,
+        error: error instanceof Error ? error.message : labels.renameFailed,
+      } : null);
+    }
+  }
 
   if (!props.embedded && !props.view.explorerOpen) {
     return (
@@ -85,54 +201,106 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
       style={props.embedded ? undefined : ({ "--project-explorer-width": `${props.view.explorerWidth}px` } as CSSProperties)}
       aria-label={t("projectExplorer.title")}
     >
-      <div className="project-explorer-header">
-        <div className="project-explorer-title-block">
+      <div className="project-explorer-header" ref={headerMenusRef}>
+        <div className="project-explorer-header__topline">
           <h2>{t("projectExplorer.title")}</h2>
-          <span className="project-explorer-subtitle">{props.project.name}</span>
-          <span className="project-explorer-meta">
+          <div className="project-explorer-header__top-actions">
+            <div className="project-explorer-header__menu-wrap">
+              <button
+                type="button"
+                className="project-explorer-icon-button"
+                aria-label={t("workspaceChrome.moreActions")}
+                title={t("workspaceChrome.moreActions")}
+                aria-haspopup="menu"
+                aria-expanded={moreMenuOpen}
+                onClick={() => {
+                  setMoreMenuOpen((current) => !current);
+                  setNewFileMenuOpen(false);
+                }}
+              >
+                <StudioIcon name="more" />
+              </button>
+              {moreMenuOpen ? (
+                <div className="project-explorer-new-menu project-explorer-new-menu--more" role="menu">
+                  <button type="button" role="menuitem" onClick={() => runHeaderAction(props.onCollapseAll)}>
+                    <StudioIcon name="collapseAll" aria-hidden="true" />
+                    <span>{t("projectExplorer.actions.collapseAll")}</span>
+                  </button>
+                  <div className="project-explorer-menu-info">
+                    {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="project-explorer-icon-button"
+              aria-label={t("projectExplorer.actions.close")}
+              title={t("projectExplorer.actions.close")}
+              onClick={props.onToggleOpen}
+            >
+              <StudioIcon name="close" />
+            </button>
+          </div>
+        </div>
+        <div className="project-explorer-header__project-row">
+          <span className="project-explorer-subtitle" title={`${props.project.name} — ${t("projectExplorer.meta", { files: fileCount, folders: folderCount })}`}>
+            {props.project.name}
+          </span>
+          <span className="project-explorer-meta" aria-hidden="true">
             {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
           </span>
-        </div>
-        <div className="project-explorer-toolbar" aria-label={t("projectExplorer.actions.aria")}>
-          <div className="project-explorer-toolbar-group">
-          <button
-            type="button"
-            className="project-explorer-icon-button project-explorer-icon-button--primary"
-            aria-label={labels.newSchema}
-            title={labels.newSchema}
-            onClick={() => props.onCreateSchema(selectedTargetFolderId)}
-          >
-            <StudioIcon name="newProject" />
-          </button>
-          <button
-            type="button"
-            className="project-explorer-icon-button"
-            aria-label={labels.newFolder}
-            title={labels.newFolder}
-            onClick={() => props.onCreateFolder(selectedTargetFolderId)}
-          >
-            <StudioIcon name="openProject" />
-          </button>
-          </div>
-          <div className="project-explorer-toolbar-group">
-          <button
-            type="button"
-            className="project-explorer-icon-button"
-            aria-label={t("projectExplorer.actions.collapseAll")}
-            title={t("projectExplorer.actions.collapseAll")}
-            onClick={props.onCollapseAll}
-          >
-            <StudioIcon name="moveToTop" />
-          </button>
-          <button
-            type="button"
-            className="project-explorer-icon-button"
-            aria-label={t("projectExplorer.actions.close")}
-            title={t("projectExplorer.actions.close")}
-            onClick={props.onToggleOpen}
-          >
-            <StudioIcon name="close" />
-          </button>
+          <div className="project-explorer-toolbar" aria-label={t("projectExplorer.actions.aria")}>
+            <div className="project-explorer-header__menu-wrap">
+              <button
+                type="button"
+                className="project-explorer-icon-button project-explorer-icon-button--primary"
+                aria-label={t("workspaceChrome.newFile")}
+                title={t("workspaceChrome.newFile")}
+                aria-haspopup="menu"
+                aria-expanded={newFileMenuOpen}
+                onClick={() => {
+                  setNewFileMenuOpen((current) => !current);
+                  setMoreMenuOpen(false);
+                }}
+              >
+                <StudioIcon name="newProject" />
+              </button>
+              {newFileMenuOpen ? (
+                <div className="project-explorer-new-menu" role="menu">
+                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "schema"))}>
+                    <StudioIcon name="entity" aria-hidden="true" />
+                    <span>{labels.newSchema}</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "sql"))}>
+                    <StudioIcon name="database" aria-hidden="true" />
+                    <span>{labels.newSqlFile}</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "text"))}>
+                    <StudioIcon name="fileText" aria-hidden="true" />
+                    <span>{labels.newTextFile}</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="project-explorer-icon-button"
+              aria-label={labels.newFolder}
+              title={labels.newFolder}
+              onClick={() => startInlineCreate(selectedTargetFolderId, "folder")}
+            >
+              <StudioIcon name="folderPlus" />
+            </button>
+            <button
+              type="button"
+              className="project-explorer-icon-button project-explorer-collapse-button"
+              aria-label={t("projectExplorer.actions.collapseAll")}
+              title={t("projectExplorer.actions.collapseAll")}
+              onClick={props.onCollapseAll}
+            >
+              <StudioIcon name="collapseAll" />
+            </button>
           </div>
         </div>
       </div>
@@ -158,6 +326,8 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
               nodesById={nodesById}
               files={props.files}
               expandedFolderIds={expandedFolderIds}
+              dirtyFileIds={props.dirtyFileIds}
+              createDraft={createDraft}
               labels={labels}
               onOpenFile={props.onOpenFile}
               onSelectNode={props.onSelectNode}
@@ -170,10 +340,13 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
               onToggleFolder={props.onToggleFolder}
               onRename={props.onRename}
               onDelete={props.onDelete}
-              onCreateSchema={props.onCreateSchema}
-              onCreateTextFile={props.onCreateTextFile}
-              onCreateSqlFile={props.onCreateSqlFile}
-              onCreateFolder={props.onCreateFolder}
+              onCreateSchema={(parentId) => startInlineCreate(parentId, "schema")}
+              onCreateTextFile={(parentId) => startInlineCreate(parentId, "text")}
+              onCreateSqlFile={(parentId) => startInlineCreate(parentId, "sql")}
+              onCreateFolder={(parentId) => startInlineCreate(parentId, "folder")}
+              onCreateDraftChange={(value) => setCreateDraft((current) => current ? { ...current, value, error: "" } : null)}
+              onCreateDraftSubmit={() => void submitInlineCreate()}
+              onCreateDraftCancel={() => setCreateDraft(null)}
             />
           </ul>
         ) : (
@@ -181,8 +354,11 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
             <StudioIcon name="openProject" aria-hidden="true" />
             <strong>{t("projectExplorer.empty.title")}</strong>
             <p>{t("projectExplorer.empty.description")}</p>
-            <button type="button" onClick={() => props.onCreateSchema(props.project.rootId)}>
+            <button type="button" onClick={() => startInlineCreate(props.project.rootId, "schema")}>
               {t("projectExplorer.empty.createSchema")}
+            </button>
+            <button type="button" className="project-explorer-empty__secondary" onClick={() => setNewFileMenuOpen(true)}>
+              {t("workspaceChrome.moreFileTypes")}
             </button>
           </div>
         )}
@@ -209,10 +385,10 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
             props.onOpenFile(contextNode.fileId);
           }
         }}
-        onNewSchema={() => props.onCreateSchema(contextTargetFolderId)}
-        onNewTextFile={() => props.onCreateTextFile(contextTargetFolderId)}
-        onNewSqlFile={() => (props.onCreateSqlFile ?? props.onCreateTextFile)(contextTargetFolderId)}
-        onNewFolder={() => props.onCreateFolder(contextTargetFolderId)}
+        onNewSchema={() => startInlineCreate(contextTargetFolderId, "schema")}
+        onNewTextFile={() => startInlineCreate(contextTargetFolderId, "text")}
+        onNewSqlFile={() => startInlineCreate(contextTargetFolderId, "sql")}
+        onNewFolder={() => startInlineCreate(contextTargetFolderId, "folder")}
         onRename={() => {
           if (contextNode) {
             props.onRename(contextNode.id);
