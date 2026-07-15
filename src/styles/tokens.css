@@ -27,13 +27,19 @@
   --color-success: #2f7857;
   --color-info: #3977a8;
   --color-modified: #ad6b19;
+  /* Stati di superficie aggiuntivi (Fase A): disabled + testo su superfici accent/scure. */
+  --color-bg-disabled: #f2f4f1;
+  --color-text-on-accent: #ffffff;
 
   --space-0-5: 2px;
   --space-1: 4px;
   --space-1-5: 6px;
   --space-2: 8px;
+  --space-2-5: 10px;
   --space-3: 12px;
+  --space-3-5: 14px;
   --space-4: 16px;
+  --space-4-5: 18px;
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
@@ -45,6 +51,7 @@
   --size-tree-row: 30px;
   --size-input: 32px;
   --size-button: 32px;
+  --size-button-sm: 28px;
   --size-icon-button: 30px;
   --size-sidebar-min: 220px;
   --size-sidebar-default: 288px;
@@ -58,6 +65,31 @@
   --elevation-flat: none;
   --elevation-popover: 0 8px 24px rgba(19, 29, 24, 0.16);
   --elevation-dialog: 0 20px 48px rgba(19, 29, 24, 0.22);
+
+  /* ------------------------------------------------------------------
+     Tipografia (Fase A) — scala esplicita ancorata ai valori piu
+     ricorrenti oggi in uso (0.68 / 0.72 / 0.76 / 0.82 / 0.9 / 1 rem).
+     I valori intermedi sparsi nei CSS (0.74, 0.78, 0.84, ...) sono
+     debito documentato in TOKEN-DEBT.md: la convergenza sulla scala
+     e un cambio visivo e appartiene alle fasi successive. */
+  --font-size-2xs: 0.68rem; /* micro-etichette, badge, contatori */
+  --font-size-xs: 0.72rem;  /* etichette uppercase, header pannelli */
+  --font-size-sm: 0.76rem;  /* testo secondario denso */
+  --font-size-md: 0.82rem;  /* testo base di liste, tree, form */
+  --font-size-lg: 0.9rem;   /* titoli di sezione */
+  --font-size-xl: 1rem;     /* titoli di pannello/dialogo */
+
+  --line-height-none: 1;
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.55;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;
@@ -107,4 +139,81 @@
   --diagram-node-fill: var(--color-bg-elevated);
   --diagram-stroke: #26352f;
   --diagram-text: var(--color-text-primary);
+
+  /* ------------------------------------------------------------------
+     Alias legacy consolidati (Fase A) — definizioni prima sparse in
+     panels.css / editor-refactor.css / index.css, spostate qui come
+     unica fonte di verita. I valori sono VERBATIM rispetto a cio che
+     vinceva la cascata prima del consolidamento (parita di resa):
+     alcune tinte alpha derivano dalle vecchie palette e NON dai token
+     canonici attuali (vedi TOKEN-DEBT.md per il piano di convergenza). */
+
+  /* Tinte soft semantiche (base storica, non ricavata dai canonici) */
+  --studio-danger-soft: rgba(182, 66, 54, 0.1);
+  --studio-warning-soft: rgba(169, 111, 22, 0.12);
+  --studio-success-soft: rgba(47, 115, 83, 0.1);
+
+  /* Ombre legacy (scala parallela a --elevation-*, da unificare in Fase B) */
+  --studio-shadow-sm: 0 1px 2px rgba(17, 26, 22, 0.05);
+  --studio-shadow-panel: 0 1px 2px rgba(17, 26, 22, 0.04), 0 8px 24px rgba(17, 26, 22, 0.06);
+  --studio-shadow-floating: 0 12px 32px rgba(17, 26, 22, 0.14);
+  --studio-shadow: 0 18px 40px rgba(35, 44, 40, 0.08);
+  --studio-focus-ring: 0 0 0 3px rgba(37, 79, 72, 0.2);
+
+  /* Altezze controlli legacy */
+  --studio-control-height: var(--size-button);
+  --studio-control-height-sm: var(--size-button-sm);
+
+  /* Topbar editor */
+  --editor-topbar: var(--color-bg-elevated);
+  --editor-topbar-text: var(--color-text-primary);
+  --editor-topbar-muted: var(--color-text-secondary);
+  --editor-topbar-line: var(--color-border-default);
+
+  /* Semantica editor */
+  --editor-warning: var(--color-warning);
+  --editor-warning-soft: var(--studio-warning-soft);
+  --editor-error: var(--color-danger);
+  --editor-error-soft: var(--studio-danger-soft);
+  --editor-success: var(--color-success);
+  --editor-success-soft: var(--studio-success-soft);
+  --editor-danger: var(--color-danger);
+
+  /* Stati interattivi dei controlli editor */
+  --editor-interactive-hover-bg: var(--color-bg-hover);
+  --editor-interactive-hover-border: var(--color-border-strong);
+  --editor-interactive-active-bg: #e6ece5;
+  --editor-interactive-active-border: #8b9a90;
+  --editor-interactive-focus-ring: rgba(53, 86, 79, 0.2);
+  --editor-interactive-disabled-bg: var(--color-bg-disabled);
+
+  /* Metriche e superfici dei pannelli */
+  --panel-padding: var(--space-3);
+  --panel-gap: var(--space-2-5);
+  --panel-shadow: var(--studio-shadow-sm);
+  --panel-section-bg: rgba(248, 250, 248, 0.92);
+
+  /* Feedback inline dei pannelli (nomi generici storici) */
+  --warning-bg: rgba(184, 123, 62, 0.1);
+  --warning-border: rgba(184, 123, 62, 0.24);
+  --error-bg: rgba(172, 61, 47, 0.1);
+  --error-border: rgba(172, 61, 47, 0.24);
+  --success-bg: rgba(34, 111, 84, 0.1);
+  --success-border: rgba(34, 111, 84, 0.22);
+  --text-main: var(--color-text-primary);
+  --text-muted: var(--color-text-secondary);
+
+  /* Diagramma - stati di interazione e versioning */
+  --diagram-selection-stroke: var(--color-accent);
+  --diagram-selection-fill: rgba(37, 79, 72, 0.08);
+  --diagram-focus: var(--color-accent);
+  --diagram-drag: var(--color-accent);
+  --diagram-pending: var(--color-warning);
+  --diagram-warning: var(--color-warning);
+  --diagram-warning-fill: rgba(169, 111, 22, 0.14);
+  --diagram-error: var(--color-danger);
+  --diagram-error-fill: rgba(182, 66, 54, 0.12);
+  --diagram-version-added: #2a8a5f;
+  --diagram-version-modified: #b5850a;
+  --diagram-version-removed: #c44536;
 }
