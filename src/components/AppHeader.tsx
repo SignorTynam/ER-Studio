@@ -229,15 +229,28 @@ export function AppHeader(props: AppHeaderProps) {
             </>
           ) : null}
           {props.hasProject ? (
-            <span className={`app-project-context__state is-${props.saveState ?? (props.hasUncommittedChanges ? "modified" : "saved")}`}>
-              <span aria-hidden="true">{props.hasUncommittedChanges ? "●" : "✓"}</span>
-              {props.saveState === "saving"
+            <span
+              className={`app-project-context__state is-${props.saveState ?? (props.hasUncommittedChanges ? "modified" : "saved")}`}
+              title={props.saveState === "saving"
                 ? t("workspaceChrome.saveState.saving")
                 : props.saveState === "error"
                   ? t("workspaceChrome.saveState.error")
                   : props.hasUncommittedChanges
                     ? t("workspaceChrome.saveState.modified")
                     : t("workspaceChrome.saveState.saved")}
+            >
+              <span aria-hidden="true">{props.hasUncommittedChanges ? "●" : "✓"}</span>
+              {props.saveState === "saving" || props.saveState === "error" ? (
+                props.saveState === "saving"
+                  ? t("workspaceChrome.saveState.saving")
+                  : t("workspaceChrome.saveState.error")
+              ) : (
+                <span className="visually-hidden-chrome-state">
+                  {props.hasUncommittedChanges
+                    ? t("workspaceChrome.saveState.modified")
+                    : t("workspaceChrome.saveState.saved")}
+                </span>
+              )}
             </span>
           ) : null}
         </div>

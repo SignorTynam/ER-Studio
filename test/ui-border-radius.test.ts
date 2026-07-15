@@ -27,7 +27,6 @@ function listFiles(root: string, predicate: (filePath: string) => boolean): stri
 const cssFiles = listFiles(SRC_ROOT, (filePath) => filePath.endsWith(".css"));
 const tsxFiles = listFiles(SRC_ROOT, (filePath) => filePath.endsWith(".tsx"));
 const approvedRoundedIconSelectors = [
-  ".designer-topbar-actions .designer-icon-button",
   ".studio-modal__close",
   ".help-close",
   ".notes-modal-close",
@@ -93,8 +92,9 @@ test("approved rounded icon exceptions stay explicit", () => {
 
   assert.match(
     indexCss,
-    /\.designer-topbar-actions \.designer-icon-button,[\s\S]*\.shortcuts-sheet-close\s*\{\s*border-radius:\s*999px !important;\s*\}/,
+    /\.studio-modal__close,[\s\S]*\.shortcuts-sheet-close\s*\{\s*border-radius:\s*999px !important;\s*\}/,
   );
+  assert.doesNotMatch(indexCss, /\.designer-topbar-actions \.designer-icon-button,[\s\S]*border-radius:\s*999px !important/);
   assert.match(
     indexCss,
     /\.command-palette-title-icon,[\s\S]*\.versioning-restore-icon\s*\{\s*border-radius:\s*10px !important;\s*\}/,

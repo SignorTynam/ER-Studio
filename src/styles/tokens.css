@@ -30,6 +30,9 @@
   /* Stati di superficie aggiuntivi (Fase A): disabled + testo su superfici accent/scure. */
   --color-bg-disabled: #f2f4f1;
   --color-text-on-accent: #ffffff;
+  /* Accento leggibile sul chrome scuro (Fase C1): indicatori attivi su header/rail. */
+  --color-accent-on-dark: #73bbaa;
+  --color-modified-on-dark: #e4b466;
 
   --space-0-5: 2px;
   --space-1: 4px;

@@ -11,30 +11,33 @@
 .project-activity-rail {
   width: var(--size-activity-rail);
   padding: var(--space-1) 0;
-  border-right: 1px solid #111613;
-  background: var(--color-bg-rail);
-  color: rgba(237, 243, 239, 0.68);
+  border-right: 1px solid color-mix(in srgb, var(--color-text-on-accent) 8%, transparent);
+  background: var(--color-bg-header);
+  color: color-mix(in srgb, var(--color-text-on-accent) 68%, transparent);
 }
 
 .project-activity-button {
   position: relative;
   width: var(--size-activity-rail);
-  height: 42px;
+  height: calc(var(--size-activity-rail) - var(--space-1-5));
   border: 0;
   border-radius: 0;
   background: transparent;
   color: inherit;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 .project-activity-button:hover {
-  background: rgba(255, 255, 255, 0.065);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--color-text-on-accent) 8%, transparent);
+  color: var(--color-text-on-accent);
 }
 
 .project-activity-button.active,
 .project-activity-button[aria-pressed="true"] {
-  background: rgba(104, 179, 160, 0.13);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--color-accent-on-dark) 16%, transparent);
+  color: var(--color-text-on-accent);
 }
 
 .project-activity-button.active::before {
@@ -42,8 +45,12 @@
   bottom: 7px;
   left: 0;
   width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: #73bbaa;
+  background: var(--color-accent-on-dark);
+}
+
+.project-activity-button:focus-visible {
+  outline: 2px solid var(--color-accent-on-dark);
+  outline-offset: -2px;
 }
 
 .project-activity-badge {
@@ -51,18 +58,17 @@
   right: 4px;
   min-width: 16px;
   height: 16px;
-  padding: 0 4px;
-  border: 2px solid var(--color-bg-rail);
-  border-radius: 8px;
+  padding: 0 var(--space-1);
+  border: 2px solid var(--color-bg-header);
   background: var(--color-danger);
-  color: #ffffff;
+  color: var(--color-text-on-accent);
   font-size: 0.6rem;
   line-height: 12px;
 }
 
 .project-activity-rail__bottom {
   padding-top: var(--space-1);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid color-mix(in srgb, var(--color-text-on-accent) 8%, transparent);
 }
 
 .project-activity-content {
@@ -94,3 +100,8 @@
   background: var(--color-accent);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .project-activity-button {
+    transition: none;
+  }
+}

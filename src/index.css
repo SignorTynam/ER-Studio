@@ -14010,7 +14010,8 @@ summary:focus-visible,
   border-radius: 0 !important;
 }
 
-.designer-topbar-actions .designer-icon-button,
+/* Fase C1: gli icon-button dell'header tornano a spigolo netto come il resto
+   del chrome; le eccezioni rotonde restano solo sui close dei modali (Fase C4). */
 .studio-modal__close,
 .help-close,
 .notes-modal-close,

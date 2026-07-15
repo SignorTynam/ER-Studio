@@ -73,29 +73,38 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: rgba(241, 245, 242, 0.7);
+  color: color-mix(in srgb, var(--color-text-on-accent) 70%, transparent);
 }
 
 .app-project-context__state.is-modified {
-  color: #e4b466;
+  color: var(--color-modified-on-dark);
 }
 
 .app-command-search {
   display: flex;
   min-width: 0;
-  height: 30px;
+  height: var(--size-input);
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-2);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.075);
-  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid color-mix(in srgb, var(--color-text-on-accent) 16%, transparent);
+  background: color-mix(in srgb, var(--color-text-on-accent) 8%, transparent);
+  color: color-mix(in srgb, var(--color-text-on-accent) 82%, transparent);
   cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
 }
 
-.app-command-search:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
+.app-command-search:hover,
+.app-command-search:focus-visible {
+  border-color: color-mix(in srgb, var(--color-text-on-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--color-text-on-accent) 12%, transparent);
+}
+
+.app-command-search:focus-visible {
+  outline: 2px solid var(--color-accent-on-dark);
+  outline-offset: -2px;
 }
 
 .app-command-search span {
@@ -111,12 +120,22 @@
 .workspace-shortcut {
   flex: 0 0 auto;
   padding: 1px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid color-mix(in srgb, var(--color-text-on-accent) 16%, transparent);
   border-radius: var(--radius-control);
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.62);
+  background: color-mix(in srgb, var(--color-bg-header) 60%, transparent);
+  color: color-mix(in srgb, var(--color-text-on-accent) 62%, transparent);
   font-family: inherit;
-  font-size: 0.66rem;
+  font-size: var(--font-size-2xs);
+}
+
+/* Testo di stato solo per screen reader (Fase C1: il "modificato" visivo è il dot). */
+.visually-hidden-chrome-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .app-workspace-region {
