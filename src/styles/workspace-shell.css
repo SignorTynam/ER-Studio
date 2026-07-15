@@ -270,7 +270,7 @@
 
 .app-shell-view-er .designer-canvas-region {
   --diagram-canvas-fill: var(--color-bg-diagram-canvas) !important;
-  --diagram-node-fill: var(--color-bg-elevated) !important;
+  --diagram-node-fill: var(--color-bg-diagram-canvas) !important;
 }
 
 .app-shell-view-translation {
@@ -289,7 +289,7 @@
 
 .app-shell-view-translation .designer-canvas-region {
   --diagram-canvas-fill: var(--color-bg-diagram-canvas) !important;
-  --diagram-node-fill: var(--color-bg-elevated) !important;
+  --diagram-node-fill: var(--color-bg-diagram-canvas) !important;
 }
 
 svg.diagram-canvas {

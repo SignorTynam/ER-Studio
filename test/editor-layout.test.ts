@@ -176,6 +176,12 @@ test("Conceptual and Translation use the historical canvas token without changin
 
   assert.match(restoreBlock, /\.app-shell-view-er[\s\S]*--diagram-canvas-fill:\s*var\(--color-bg-diagram-canvas\)/);
   assert.match(restoreBlock, /\.app-shell-view-translation[\s\S]*--diagram-canvas-fill:\s*var\(--color-bg-diagram-canvas\)/);
+  assert.doesNotMatch(restoreBlock, /--diagram-node-fill:\s*var\(--color-bg-elevated\)/);
+  assert.equal(
+    (restoreBlock.match(/--diagram-node-fill:\s*var\(--color-bg-diagram-canvas\)/g) ?? []).length,
+    2,
+    "Conceptual and Translation nodes should inherit the historical canvas fill",
+  );
   assert.doesNotMatch(restoreBlock, /\.app-shell-view-logical/);
   assert.doesNotMatch(restoreBlock, /var\(--color-bg-editor\)/);
 
