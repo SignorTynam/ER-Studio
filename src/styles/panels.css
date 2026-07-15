@@ -1,18 +1,4 @@
 /* Unified panel layout */
-:root {
-  --panel-bg: #f6faf5;
-  --panel-surface: #ffffff;
-  --panel-surface-active: #e7f0e9;
-  --panel-border: #cbd8cf;
-  --panel-border-strong: #557267;
-  --panel-text: #162820;
-  --panel-muted: #65766f;
-  --panel-radius: 0;
-  --panel-padding: 14px;
-  --panel-gap: 12px;
-  --panel-shadow: none;
-}
-
 .panel-shell,
 .workspace-side-panel,
 .technical-dock-panel,
@@ -409,7 +395,7 @@
   padding: 0 6px;
   border: 1px solid var(--panel-border);
   border-radius: 0;
-  background: #ffffff;
+  background: var(--color-bg-elevated);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.7rem;
   font-style: normal;
@@ -663,7 +649,7 @@
   padding: 3px;
   border: 1px solid var(--panel-border);
   border-radius: 0;
-  background: #ffffff;
+  background: var(--color-bg-elevated);
 }
 
 .workspace-view-button {
@@ -772,37 +758,6 @@
 }
 
 /* Final workspace normalization */
-:root {
-  --panel-bg: var(--studio-surface);
-  --panel-surface: var(--studio-surface-strong);
-  --panel-surface-active: var(--studio-accent-soft);
-  --panel-border: var(--studio-border);
-  --panel-border-strong: var(--studio-border-strong);
-  --panel-text: var(--studio-ink);
-  --panel-muted: var(--studio-muted);
-  --panel-radius: 0;
-  --panel-padding: 12px;
-  --panel-gap: 10px;
-  --panel-shadow: var(--studio-shadow-panel);
-  --editor-shell-bg: var(--studio-bg);
-  --editor-shell-bg-muted: var(--studio-surface);
-  --editor-panel: var(--studio-surface);
-  --editor-panel-strong: var(--studio-surface-strong);
-  --editor-panel-muted: var(--studio-surface-muted);
-  --editor-border: var(--studio-border);
-  --editor-border-strong: var(--studio-border-strong);
-  --editor-text: var(--studio-ink);
-  --editor-text-strong: var(--studio-ink);
-  --editor-text-muted: var(--studio-muted);
-  --editor-topbar: var(--studio-surface-strong);
-  --editor-topbar-text: var(--studio-ink);
-  --editor-topbar-muted: var(--studio-muted);
-  --editor-topbar-line: var(--studio-border);
-  --editor-accent: var(--studio-accent);
-  --editor-accent-soft: var(--studio-accent-soft);
-  --editor-shadow: var(--studio-shadow-panel);
-}
-
 body,
 .app-shell {
   background: var(--studio-bg);
@@ -2348,79 +2303,6 @@ body,
 
 /* Final ER Studio redesign layer. This file is imported last, so these tokens
    and targeted rules define the active visual system without changing logic. */
-:root {
-  --studio-bg: #edf1ec;
-  --studio-surface: #ffffff;
-  --studio-surface-muted: #f4f6f3;
-  --studio-border: #d5ddd4;
-  --studio-border-strong: #b9c6bc;
-  --studio-ink: #111a16;
-  --studio-muted: #5f6d65;
-  --studio-faint: #839088;
-  --studio-accent: #254f48;
-  --studio-accent-strong: #193a35;
-  --studio-accent-soft: rgba(37, 79, 72, 0.1);
-  --studio-danger: #b64236;
-  --studio-danger-soft: rgba(182, 66, 54, 0.1);
-  --studio-warning: #a96f16;
-  --studio-warning-soft: rgba(169, 111, 22, 0.12);
-  --studio-success: #2f7353;
-  --studio-success-soft: rgba(47, 115, 83, 0.1);
-  --studio-radius-sm: 0;
-  --studio-radius-md: 0;
-  --studio-radius-lg: 0;
-  --studio-shadow-sm: 0 1px 2px rgba(17, 26, 22, 0.05);
-  --studio-shadow-panel: 0 1px 2px rgba(17, 26, 22, 0.04), 0 8px 24px rgba(17, 26, 22, 0.06);
-  --studio-focus-ring: 0 0 0 3px rgba(37, 79, 72, 0.2);
-  --editor-shell-bg: var(--studio-bg);
-  --editor-shell-bg-muted: #e6ece5;
-  --editor-panel: var(--studio-surface);
-  --editor-panel-strong: var(--studio-surface);
-  --editor-panel-muted: var(--studio-surface-muted);
-  --editor-border: var(--studio-border);
-  --editor-border-strong: var(--studio-border-strong);
-  --editor-text: var(--studio-ink);
-  --editor-text-strong: var(--studio-ink);
-  --editor-text-muted: var(--studio-muted);
-  --editor-text-faint: var(--studio-faint);
-  --editor-topbar: #ffffff;
-  --editor-topbar-text: var(--studio-ink);
-  --editor-topbar-muted: var(--studio-muted);
-  --editor-topbar-line: var(--studio-border);
-  --editor-accent: var(--studio-accent);
-  --editor-accent-soft: var(--studio-accent-soft);
-  --editor-warning: var(--studio-warning);
-  --editor-warning-soft: var(--studio-warning-soft);
-  --editor-error: var(--studio-danger);
-  --editor-error-soft: var(--studio-danger-soft);
-  --editor-success: var(--studio-success);
-  --editor-success-soft: var(--studio-success-soft);
-  --panel-bg: var(--studio-surface);
-  --panel-surface: var(--studio-surface);
-  --panel-surface-active: #eef4f0;
-  --panel-border: var(--studio-border);
-  --panel-border-strong: var(--studio-accent);
-  --panel-text: var(--studio-ink);
-  --panel-muted: var(--studio-muted);
-  --panel-radius: 0;
-  --panel-padding: 12px;
-  --panel-gap: 10px;
-  --panel-shadow: var(--studio-shadow-sm);
-  --diagram-canvas-fill: #fafafa;
-  --diagram-grid: rgba(17, 26, 22, 0.045);
-  --diagram-stroke: #26322d;
-  --diagram-text: var(--studio-ink);
-  --diagram-selection-stroke: var(--studio-accent);
-  --diagram-selection-fill: rgba(37, 79, 72, 0.08);
-  --diagram-focus: var(--studio-accent);
-  --diagram-drag: var(--studio-accent);
-  --diagram-pending: var(--studio-warning);
-  --diagram-warning: var(--studio-warning);
-  --diagram-warning-fill: rgba(169, 111, 22, 0.14);
-  --diagram-error: var(--studio-danger);
-  --diagram-error-fill: rgba(182, 66, 54, 0.12);
-}
-
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -2464,9 +2346,9 @@ summary:focus-visible,
 
 .app-shell.app-shell-view-logical {
   grid-template-rows: 42px minmax(0, 1fr) auto !important;
-  background: #dfe3dc;
-  --diagram-canvas-fill: #dfe3dc;
-  --diagram-node-fill: #dfe3dc;
+  background: var(--color-bg-diagram-canvas);
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas);
+  --diagram-node-fill: var(--color-bg-diagram-canvas);
   --diagram-stroke: #111111;
   --diagram-text: #111111;
   --diagram-selection-stroke: #111111;
@@ -2480,7 +2362,7 @@ summary:focus-visible,
 .app-header.studio-topbar {
   min-height: 54px;
   padding: 8px 14px;
-  background: #ffffff;
+  background: var(--color-bg-elevated);
   border-bottom: 1px solid var(--studio-border);
   box-shadow: var(--studio-shadow-sm);
   color: var(--studio-ink);
@@ -2492,7 +2374,7 @@ summary:focus-visible,
   border-color: var(--studio-border);
   border-radius: 0;
   background: var(--studio-accent);
-  color: #ffffff;
+  color: var(--color-text-on-accent);
 }
 
 .studio-topbar-brand-copy strong,
@@ -2547,7 +2429,7 @@ summary:focus-visible,
 .studio-topbar-button-primary:hover:not(:disabled) {
   border-color: var(--studio-accent);
   background: var(--studio-accent);
-  color: #ffffff;
+  color: var(--color-text-on-accent);
 }
 
 .studio-topbar-button-primary:hover:not(:disabled) {
@@ -2566,7 +2448,7 @@ summary:focus-visible,
   padding: 3px;
   border: 1px solid var(--studio-border);
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.78);
+  background: color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
   box-shadow: var(--studio-shadow-sm);
 }
 
@@ -2589,7 +2471,7 @@ summary:focus-visible,
 .workspace-stage-tab.active {
   border-color: var(--studio-accent);
   background: var(--studio-accent);
-  color: #ffffff;
+  color: var(--color-text-on-accent);
   box-shadow: 0 4px 12px rgba(37, 79, 72, 0.18);
 }
 
@@ -2652,9 +2534,9 @@ summary:focus-visible,
 .app-shell-view-logical .transformation-canvas-panel,
 .app-shell-view-logical .logical-canvas,
 .app-shell-view-logical .logical-transformation-canvas {
-  --diagram-canvas-fill: #dfe3dc !important;
-  --diagram-node-fill: #dfe3dc !important;
-  background: #dfe3dc !important;
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas) !important;
+  --diagram-node-fill: var(--color-bg-diagram-canvas) !important;
+  background: var(--color-bg-diagram-canvas) !important;
   background-image: none !important;
 }
 
@@ -2671,7 +2553,7 @@ summary:focus-visible,
 .canvas-pan-hint {
   border-color: var(--studio-border);
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent);
   box-shadow: var(--studio-shadow-sm);
   color: var(--studio-ink);
   backdrop-filter: blur(10px);
@@ -2861,7 +2743,7 @@ summary:focus-visible,
 .diagram-notes-editor {
   border: 1px solid var(--studio-border);
   border-radius: 0;
-  background: #fbfcfb;
+  background: var(--color-bg-editor);
 }
 
 .diagram-code-gutter {
@@ -2871,7 +2753,7 @@ summary:focus-visible,
 }
 
 .diagram-code-panel-content {
-  background: #fbfcfb;
+  background: var(--color-bg-editor);
   color: var(--studio-ink);
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
@@ -4304,8 +4186,8 @@ textarea {
 .sql-reverse-preview-shell-logical .sql-reverse-preview-body,
 .sql-reverse-preview-shell-logical .logical-canvas-panel,
 .sql-reverse-preview-shell-logical .logical-canvas {
-  --diagram-canvas-fill: var(--logical-preview-canvas-fill, #dfe3dc);
-  background: var(--logical-preview-canvas-fill, #dfe3dc);
+  --diagram-canvas-fill: var(--logical-preview-canvas-fill, var(--color-bg-diagram-canvas));
+  background: var(--logical-preview-canvas-fill, var(--color-bg-diagram-canvas));
   background-image: none;
 }
 
@@ -4313,8 +4195,8 @@ textarea {
 .sql-reverse-preview-shell-er .sql-reverse-preview-body,
 .sql-reverse-preview-shell-er .canvas-panel,
 .sql-reverse-preview-shell-er .diagram-canvas {
-  --diagram-canvas-fill: var(--er-preview-canvas-fill, #dfe3dc);
-  background: var(--er-preview-canvas-fill, #dfe3dc);
+  --diagram-canvas-fill: var(--er-preview-canvas-fill, var(--color-bg-diagram-canvas));
+  background: var(--er-preview-canvas-fill, var(--color-bg-diagram-canvas));
   background-image: none;
 }
 
@@ -4366,7 +4248,7 @@ textarea {
   padding: 0 4px;
   border-radius: 0;
   background: var(--studio-warning);
-  color: #fff;
+  color: var(--color-text-on-accent);
   font-size: 0.6rem;
   font-weight: 900;
   line-height: 1;
@@ -5516,7 +5398,7 @@ textarea {
   display: grid;
   min-width: 180px;
   padding: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-bg-elevated) 12%, transparent);
   border-radius: 0;
   background: #1f1f1f;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
@@ -5535,7 +5417,7 @@ textarea {
   padding: 8px 10px;
   border-radius: 0;
   background: transparent;
-  color: #ffffff;
+  color: var(--color-text-on-accent);
   text-align: left;
   font-size: 0.82rem;
   font-weight: 600;
@@ -5545,9 +5427,9 @@ textarea {
 
 .designer-language-menu__item:hover,
 .designer-language-menu__item:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-bg-elevated) 10%, transparent);
 }
 
 .designer-language-menu__item.active {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--color-bg-elevated) 16%, transparent);
 }
