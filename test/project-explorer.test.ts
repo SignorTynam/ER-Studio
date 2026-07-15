@@ -12,6 +12,7 @@ import {
   getUniqueProjectNodeName,
   normalizeProjectNodeName,
   renameProjectNode,
+  resolveExplorerCreationParent,
 } from "../src/utils/projectExplorer.ts";
 
 function createState() {
@@ -106,4 +107,31 @@ test("deleteProjectNode sceglie un nuovo schema attivo o lascia il progetto senz
   assert.equal(deletedLast.state.project.activeFileId, null);
   assert.equal(deletedLast.state.view.activeFileId, null);
   assert.equal(Object.values(deletedLast.state.files).filter((file) => file.kind === "schema").length, 0);
+});
+
+test("regressione: creare in Folder A non usa la sottocartella piu profonda espansa", () => {
+  const empty = createEmptyProjectExplorerState("Nested project");
+  const folderAResult = addProjectFolder(empty, empty.project.rootId, "Nuova cartella");
+  assert.equal(folderAResult.ok, true);
+  if (!folderAResult.ok) return;
+
+  const folderAId = folderAResult.nodeId;
+  assert.ok(folderAId);
+  const folderBResult = addProjectFolder(folderAResult.state, folderAId, "Nuova cartella2");
+  assert.equal(folderBResult.ok, true);
+  if (!folderBResult.ok) return;
+
+  const resolvedParentId = resolveExplorerCreationParent({
+    project: folderBResult.state.project,
+    selectedNodeId: folderAId,
+  });
+  const file = createSchemaWorkspaceFile("test.erschema");
+  const created = addProjectFile(folderBResult.state, resolvedParentId, file);
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+
+  const fileNode = created.state.project.fileTree.find((node) => node.fileId === file.id);
+  assert.equal(fileNode?.parentId, folderAId);
+  assert.equal(created.state.project.fileTree.find((node) => node.id === folderAId)?.children?.includes(fileNode?.id ?? ""), true);
+  assert.equal(created.state.project.fileTree.find((node) => node.id === folderBResult.nodeId)?.children?.includes(fileNode?.id ?? ""), false);
 });

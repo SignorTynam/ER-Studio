@@ -74,6 +74,162 @@ export function findProjectNode(project: ProjectExplorerProject, nodeId: string)
   return project.fileTree.find((node) => node.id === nodeId);
 }
 
+export interface ResolveExplorerCreationParentOptions {
+  project: ProjectExplorerProject;
+  requestedParentId?: string | null;
+  contextNodeId?: string | null;
+  selectedNodeId?: string | null;
+}
+
+/**
+ * Resolves the creation target once, before an inline draft is opened.
+ * Explicit row actions win over context-menu targets; toolbar actions use the
+ * selected folder, the selected file's direct parent, or the logical root.
+ */
+export function resolveExplorerCreationParent({
+  project,
+  requestedParentId,
+  contextNodeId,
+  selectedNodeId,
+}: ResolveExplorerCreationParentOptions): string {
+  const nodesById = new Map(project.fileTree.map((node) => [node.id, node]));
+  const resolveNodeTarget = (nodeId: string): string => {
+    const node = nodesById.get(nodeId);
+    if (node?.kind === "folder") {
+      return node.id;
+    }
+    if (node?.parentId && nodesById.get(node.parentId)?.kind === "folder") {
+      return node.parentId;
+    }
+    return project.rootId;
+  };
+
+  if (requestedParentId != null) {
+    const requestedNode = nodesById.get(requestedParentId);
+    return requestedNode?.kind === "folder" ? requestedNode.id : project.rootId;
+  }
+  if (contextNodeId != null) {
+    return resolveNodeTarget(contextNodeId);
+  }
+  if (selectedNodeId != null) {
+    return resolveNodeTarget(selectedNodeId);
+  }
+  return project.rootId;
+}
+
+const PROJECT_NODE_KIND_ORDER: Record<ProjectExplorerNodeKind, number> = {
+  folder: 0,
+  schema: 1,
+  sql: 2,
+  text: 3,
+  unknown: 4,
+};
+
+/** Folders first, then schema, SQL, text and unknown files; names are sorted case-insensitively. */
+export function sortProjectExplorerNodes(nodes: ProjectExplorerNode[]): ProjectExplorerNode[] {
+  return [...nodes].sort((left, right) => {
+    const kindDifference = PROJECT_NODE_KIND_ORDER[left.kind] - PROJECT_NODE_KIND_ORDER[right.kind];
+    if (kindDifference !== 0) {
+      return kindDifference;
+    }
+    const nameDifference = left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true });
+    return nameDifference || left.id.localeCompare(right.id);
+  });
+}
+
+export interface ProjectTreeIntegrityResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/** Validates reciprocal parent/children links without mutating or repairing the project. */
+export function validateProjectTreeIntegrity(project: ProjectExplorerProject): ProjectTreeIntegrityResult {
+  const errors: string[] = [];
+  const nodesById = new Map<string, ProjectExplorerNode>();
+  const duplicateNodeIds = new Set<string>();
+
+  for (const node of project.fileTree) {
+    if (nodesById.has(node.id)) {
+      duplicateNodeIds.add(node.id);
+    } else {
+      nodesById.set(node.id, node);
+    }
+  }
+  for (const nodeId of duplicateNodeIds) {
+    errors.push(`Duplicate node id: ${nodeId}`);
+  }
+
+  const root = nodesById.get(project.rootId);
+  if (!root) {
+    errors.push(`Missing root node: ${project.rootId}`);
+  } else {
+    if (root.kind !== "folder") errors.push(`Root is not a folder: ${root.id}`);
+    if (root.parentId !== null) errors.push(`Root has a parent: ${root.id}`);
+  }
+
+  const childOwners = new Map<string, Set<string>>();
+  for (const parent of project.fileTree) {
+    if (parent.kind !== "folder") {
+      if ((parent.children?.length ?? 0) > 0) errors.push(`Non-folder node has children: ${parent.id}`);
+      continue;
+    }
+    const localChildren = new Set<string>();
+    for (const childId of parent.children ?? []) {
+      if (localChildren.has(childId)) errors.push(`Duplicate child reference ${childId} in ${parent.id}`);
+      localChildren.add(childId);
+      const owners = childOwners.get(childId) ?? new Set<string>();
+      owners.add(parent.id);
+      childOwners.set(childId, owners);
+      const child = nodesById.get(childId);
+      if (!child) {
+        errors.push(`Missing child ${childId} referenced by ${parent.id}`);
+      } else if (child.parentId !== parent.id) {
+        errors.push(`Child ${child.id} points to ${child.parentId ?? "null"}, expected ${parent.id}`);
+      }
+    }
+  }
+
+  for (const node of project.fileTree) {
+    if (node.id === project.rootId) continue;
+    if (!node.parentId) {
+      errors.push(`Node has no parent: ${node.id}`);
+      continue;
+    }
+    const parent = nodesById.get(node.parentId);
+    if (!parent) {
+      errors.push(`Missing parent ${node.parentId} for ${node.id}`);
+      continue;
+    }
+    if (parent.kind !== "folder") errors.push(`Parent is not a folder: ${node.parentId}`);
+    const references = (parent.children ?? []).filter((childId) => childId === node.id).length;
+    if (references === 0) errors.push(`Parent ${parent.id} does not contain child ${node.id}`);
+  }
+
+  for (const [childId, owners] of childOwners) {
+    if (owners.size > 1) errors.push(`Node ${childId} is present in multiple folders: ${[...owners].join(", ")}`);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (nodeId: string) => {
+    if (visiting.has(nodeId)) {
+      errors.push(`Cycle detected at ${nodeId}`);
+      return;
+    }
+    if (visited.has(nodeId)) return;
+    visiting.add(nodeId);
+    const node = nodesById.get(nodeId);
+    for (const childId of node?.children ?? []) {
+      if (nodesById.has(childId)) visit(childId);
+    }
+    visiting.delete(nodeId);
+    visited.add(nodeId);
+  };
+  for (const nodeId of nodesById.keys()) visit(nodeId);
+
+  return { valid: errors.length === 0, errors };
+}
+
 export function getProjectNodeChildren(project: ProjectExplorerProject, parentId: string): ProjectExplorerNode[] {
   const parent = findProjectNode(project, parentId);
   const childIds = parent?.children ?? [];

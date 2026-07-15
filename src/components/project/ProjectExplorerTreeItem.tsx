@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { ProjectExplorerNode, ProjectWorkspaceFile } from "../../types/projectExplorer";
+import { sortProjectExplorerNodes } from "../../utils/projectExplorer";
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 
 export type ProjectExplorerCreateKind = "schema" | "sql" | "text" | "folder";
@@ -10,10 +11,12 @@ export interface ProjectExplorerCreateDraft {
   kind: ProjectExplorerCreateKind;
   value: string;
   error: string;
+  origin: "toolbar" | "row" | "context-menu" | "empty-state";
 }
 
 interface ProjectExplorerTreeItemProps {
   node: ProjectExplorerNode;
+  rootId: string;
   depth: number;
   activeFileId: string | null;
   selectedNodeId: string | null;
@@ -33,6 +36,7 @@ interface ProjectExplorerTreeItemProps {
     newTextFile: string;
     newSqlFile: string;
     newFolder: string;
+    more: string;
     expandFolder: string;
     collapseFolder: string;
     modified: string;
@@ -47,10 +51,6 @@ interface ProjectExplorerTreeItemProps {
   onToggleFolder: (folderId: string) => void;
   onRename: (nodeId: string, nextName?: string) => void | Promise<void>;
   onDelete: (nodeId: string) => void;
-  onCreateSchema: (parentId: string) => void;
-  onCreateTextFile: (parentId: string) => void;
-  onCreateSqlFile?: (parentId: string) => void;
-  onCreateFolder: (parentId: string) => void;
   onCreateDraftChange?: (value: string) => void;
   onCreateDraftSubmit?: () => void;
   onCreateDraftCancel?: () => void;
@@ -79,24 +79,72 @@ function getCreateDraftIcon(kind: ProjectExplorerCreateKind): StudioIconName {
   return "fileText";
 }
 
-function getProjectFileExtensionLabel(node: ProjectExplorerNode, file?: ProjectWorkspaceFile): string {
-  if (node.kind === "folder") {
-    return "";
-  }
+interface ProjectExplorerCreateRowProps {
+  draft: ProjectExplorerCreateDraft;
+  depth: number;
+  nameLabel: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}
 
-  const name = file?.name ?? node.name;
-  if (node.kind === "schema") {
-    return ".erschema";
-  }
-  if (node.kind === "sql") {
-    return ".sql";
-  }
-  if (node.kind === "text") {
-    return ".txt";
-  }
+export function ProjectExplorerCreateRow({
+  draft,
+  depth,
+  nameLabel,
+  onChange,
+  onSubmit,
+  onCancel,
+}: ProjectExplorerCreateRowProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const extension = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
-  return extension || "file";
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    const extensionIndex = draft.kind === "folder" ? -1 : input.value.lastIndexOf(".");
+    input.setSelectionRange(0, extensionIndex > 0 ? extensionIndex : input.value.length);
+  }, [draft.kind]);
+
+  return (
+    <li className="project-explorer-node project-explorer-node--create">
+      <div
+        className="project-explorer-item project-explorer-item--create selected"
+        style={{ "--project-explorer-depth": depth } as CSSProperties}
+        role="treeitem"
+        aria-selected="true"
+      >
+        <div className="project-explorer-item__main">
+          <span className="project-explorer-item__chevron" aria-hidden="true" />
+          <span className="project-explorer-item__icon" aria-hidden="true">
+            <StudioIcon name={getCreateDraftIcon(draft.kind)} />
+          </span>
+          <span className="project-explorer-item__rename-wrap">
+            <input
+              ref={inputRef}
+              className="project-explorer-item__rename"
+              autoFocus
+              value={draft.value}
+              aria-label={nameLabel}
+              aria-invalid={Boolean(draft.error)}
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onSubmit();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  onCancel();
+                }
+              }}
+            />
+            {draft.error ? <span className="project-explorer-item__rename-error" role="alert">{draft.error}</span> : null}
+          </span>
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
@@ -109,7 +157,6 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   const isSelected = props.node.id === props.selectedNodeId;
   const isDirty = Boolean(props.node.fileId && props.dirtyFileIds?.has(props.node.fileId));
   const showsCreateDraft = isFolder && props.expanded && props.createDraft?.parentId === props.node.id;
-  const extensionLabel = getProjectFileExtensionLabel(props.node, props.file);
   const rowClassName = [
     "project-explorer-item",
     isFolder ? "folder" : "file",
@@ -217,10 +264,12 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
       event.preventDefault();
       if (isFolder && props.expanded) {
         props.onToggleFolder(props.node.id);
-      } else if (props.node.parentId) {
+      } else if (props.node.parentId && props.node.parentId !== props.rootId) {
         const parent = document.querySelector<HTMLElement>(`[role="treeitem"][data-project-node-id="${props.node.parentId}"]`);
-        parent?.focus();
-        props.onSelectNode(props.node.parentId);
+        if (parent) {
+          parent.focus();
+          props.onSelectNode(props.node.parentId);
+        }
       }
       return;
     }
@@ -311,45 +360,17 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
           ) : (
             <span className="project-explorer-item__name" title={props.node.name}>{props.node.name}</span>
           )}
-          {!renaming && extensionLabel ? <span className="project-explorer-item__extension">{extensionLabel}</span> : null}
-          {isDirty ? <span className="project-explorer-item__dirty" aria-label={props.labels.modified} /> : null}
+          {isDirty ? <span className="project-explorer-item__dirty" aria-label={props.labels.modified} title={props.labels.modified} /> : null}
         </div>
         <span className="project-explorer-item__actions">
-          {isFolder ? (
-            <>
-              <button
-                type="button"
-                aria-label={props.labels.newSchema}
-                title={props.labels.newSchema}
-                onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}
-              >
-                <StudioIcon name="newProject" />
-              </button>
-              <button
-                type="button"
-                aria-label={props.labels.newFolder}
-                title={props.labels.newFolder}
-                onClick={(event) => stopAndRun(event, () => props.onCreateFolder(props.node.id))}
-              >
-                <StudioIcon name="folderPlus" />
-              </button>
-            </>
-          ) : null}
           <button
             type="button"
-            aria-label={props.labels.rename}
-            title={props.labels.rename}
-            onClick={(event) => stopAndRun(event, startRename)}
+            aria-label={`${props.labels.more}: ${props.node.name}`}
+            title={props.labels.more}
+            aria-haspopup="menu"
+            onClick={(event) => stopAndRun(event, () => props.onContextMenu(props.node, event))}
           >
-            <StudioIcon name="rename" />
-          </button>
-          <button
-            type="button"
-            aria-label={props.labels.delete}
-            title={props.labels.delete}
-            onClick={(event) => stopAndRun(event, () => props.onDelete(props.node.id))}
-          >
-            <StudioIcon name="delete" />
+            <StudioIcon name="more" />
           </button>
         </span>
       </div>
@@ -357,48 +378,16 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
       {isFolder && props.expanded && (props.childrenNodes.length > 0 || showsCreateDraft) ? (
         <ul className="project-explorer-children" role="group">
           {showsCreateDraft && props.createDraft ? (
-            <li className="project-explorer-node project-explorer-node--create">
-              <div
-                className="project-explorer-item project-explorer-item--create selected"
-                style={{ "--project-explorer-depth": props.depth + 1 } as CSSProperties}
-                role="treeitem"
-                aria-selected="true"
-              >
-                <span className="project-explorer-item__chevron" aria-hidden="true" />
-                <span className="project-explorer-item__icon" aria-hidden="true">
-                  <StudioIcon name={getCreateDraftIcon(props.createDraft.kind)} />
-                </span>
-                <span className="project-explorer-item__rename-wrap">
-                  <input
-                    className="project-explorer-item__rename"
-                    autoFocus
-                    value={props.createDraft.value}
-                    aria-label={props.labels.nameLabel}
-                    aria-invalid={Boolean(props.createDraft.error)}
-                    onFocus={(event) => {
-                      const extensionIndex = props.createDraft?.kind === "folder" ? -1 : event.currentTarget.value.lastIndexOf(".");
-                      event.currentTarget.setSelectionRange(0, extensionIndex > 0 ? extensionIndex : event.currentTarget.value.length);
-                    }}
-                    onChange={(event) => props.onCreateDraftChange?.(event.target.value)}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        props.onCreateDraftSubmit?.();
-                      } else if (event.key === "Escape") {
-                        event.preventDefault();
-                        props.onCreateDraftCancel?.();
-                      }
-                    }}
-                  />
-                  {props.createDraft.error ? (
-                    <span className="project-explorer-item__rename-error" role="alert">{props.createDraft.error}</span>
-                  ) : null}
-                </span>
-              </div>
-            </li>
+            <ProjectExplorerCreateRow
+              draft={props.createDraft}
+              depth={props.depth + 1}
+              nameLabel={props.labels.nameLabel}
+              onChange={(value) => props.onCreateDraftChange?.(value)}
+              onSubmit={() => props.onCreateDraftSubmit?.()}
+              onCancel={() => props.onCreateDraftCancel?.()}
+            />
           ) : null}
-          {props.childrenNodes.map((child) => (
+          {sortProjectExplorerNodes(props.childrenNodes).map((child) => (
             <ProjectExplorerTreeItem
               key={child.id}
               {...props}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { StudioIcon } from "../icons/StudioIcon";
+import { WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface ProjectActivityPanelHeaderProps {
   title: string;
@@ -17,18 +17,14 @@ export function ProjectActivityPanelHeader({
   children,
 }: ProjectActivityPanelHeaderProps) {
   return (
-    <header className="project-activity-section__header project-activity-section__header--with-close">
-      <div>
-        <span className="project-activity-section__marker" aria-hidden="true" />
-        <h2>{title}</h2>
-        {subtitle ? <p>{subtitle}</p> : null}
-      </div>
-      <div className="project-activity-section__header-actions">
-        {children}
-        <button type="button" className="project-activity-header-close" onClick={onClose} aria-label={closeLabel}>
-          <StudioIcon name="close" aria-hidden="true" />
-        </button>
-      </div>
-    </header>
+    <WorkspacePanelHeader
+      className="project-activity-section__header"
+      title={title}
+      subtitle={subtitle}
+      closeLabel={closeLabel}
+      onClose={onClose}
+    >
+      {children}
+    </WorkspacePanelHeader>
   );
 }

@@ -6,7 +6,7 @@ import type {
 } from "../../features/versioning/useProjectVersioning";
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
 import { StudioIcon } from "../icons/StudioIcon";
-import { PanelEmptyState, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
+import { PanelEmptyState, PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface SourceControlPanelProps {
   projectName: string;
@@ -220,15 +220,15 @@ export function SourceControlPanel({
         className="source-control-header"
         title={t("sourceControl.title")}
         badge={changeState.hasChanges ? changeState.files.length : undefined}
+        onClose={onClose}
+        closeLabel={closeLabel ?? t("workspaceActivity.closePanel")}
       >
-          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
-            <StudioIcon name="refresh" />
-          </button>
-          {onClose ? (
-            <button type="button" className="project-activity-header-close" onClick={onClose} aria-label={closeLabel ?? t("workspaceActivity.closePanel")}>
-              <StudioIcon name="close" />
-            </button>
-          ) : null}
+        <PanelIconButton
+          icon="refresh"
+          label={t("sourceControl.refresh")}
+          className="source-control-icon-button"
+          onClick={onRefresh}
+        />
       </WorkspacePanelHeader>
 
       <div className="source-control-section">

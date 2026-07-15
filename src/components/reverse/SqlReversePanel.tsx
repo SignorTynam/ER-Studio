@@ -54,7 +54,13 @@ export function SqlReversePanel({
 
   return (
     <WorkspacePanel className="sql-reverse-panel" label={t("sqlReversePanel.title")}>
-      <WorkspacePanelHeader className="sql-reverse-panel__header" title={t("sqlReversePanel.title")} badge={visibleIssues.length || undefined}>
+      <WorkspacePanelHeader
+        className="sql-reverse-panel__header"
+        title={t("sqlReversePanel.title")}
+        badge={visibleIssues.length || undefined}
+        onClose={onClose}
+        closeLabel={closeLabel ?? t("workspaceActivity.closePanel")}
+      >
           <button
             type="button"
             className="project-activity-action compact"
@@ -65,11 +71,6 @@ export function SqlReversePanel({
             <StudioIcon name="upload" aria-hidden="true" />
             <span>{t("sqlReversePanel.importFile")}</span>
           </button>
-          {onClose ? (
-            <button type="button" className="project-activity-header-close" onClick={onClose} aria-label={closeLabel ?? t("workspaceActivity.closePanel")}>
-              <StudioIcon name="close" aria-hidden="true" />
-            </button>
-          ) : null}
         <input
           ref={fileInputRef}
           className="hidden-input"

@@ -7,9 +7,12 @@ import type {
   ProjectWorkspaceFile,
 } from "../../types/projectExplorer";
 import { useI18n } from "../../i18n/useI18n";
+import { resolveExplorerCreationParent, sortProjectExplorerNodes } from "../../utils/projectExplorer";
 import { StudioIcon } from "../icons/StudioIcon";
+import { PanelIconButton, PanelMenu, PanelMenuItem, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 import { ProjectExplorerContextMenu } from "./ProjectExplorerContextMenu";
 import {
+  ProjectExplorerCreateRow,
   ProjectExplorerTreeItem,
   type ProjectExplorerCreateDraft,
   type ProjectExplorerCreateKind,
@@ -35,9 +38,16 @@ interface ProjectExplorerProps {
   onSelectNode: (nodeId: string) => void;
 }
 
+type ExplorerMenuState = {
+  x: number;
+  y: number;
+  nodeId: string | null;
+  origin: "row" | "context-menu";
+};
+
 export function ProjectExplorer(props: ProjectExplorerProps) {
   const { t } = useI18n();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ExplorerMenuState | null>(null);
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<ProjectExplorerCreateDraft | null>(null);
@@ -47,22 +57,17 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     [props.project.fileTree],
   );
   const root = nodesById.get(props.project.rootId);
-  const rootChildren = (root?.children ?? [])
-    .map((childId) => nodesById.get(childId))
-    .filter((node): node is ProjectExplorerNode => Boolean(node));
+  const rootChildren = sortProjectExplorerNodes(
+    (root?.children ?? [])
+      .map((childId) => nodesById.get(childId))
+      .filter((node): node is ProjectExplorerNode => Boolean(node)),
+  );
   const expandedFolderIds = useMemo(() => new Set(props.view.expandedFolderIds), [props.view.expandedFolderIds]);
-  const selectedNode = props.view.selectedNodeId ? nodesById.get(props.view.selectedNodeId) : undefined;
-  const selectedTargetFolderId =
-    selectedNode?.kind === "folder"
-      ? selectedNode.id
-      : selectedNode?.parentId ?? props.project.rootId;
   const contextNode = contextMenu?.nodeId ? nodesById.get(contextMenu.nodeId) ?? null : null;
-  const contextTargetFolderId =
-    contextNode?.kind === "folder"
-      ? contextNode.id
-      : contextNode?.parentId ?? props.project.rootId;
   const fileCount = Object.keys(props.files).length;
-  const folderCount = props.project.fileTree.filter((node) => node.kind === "folder").length;
+  const folderCount = props.project.fileTree.filter(
+    (node) => node.kind === "folder" && node.id !== props.project.rootId,
+  ).length;
   const labels = {
     rename: t("projectExplorer.actions.rename"),
     nameLabel: t("projectExplorer.dialogs.nameLabel"),
@@ -71,6 +76,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     newTextFile: t("projectExplorer.actions.newTextFile"),
     newSqlFile: t("projectExplorer.actions.newSqlFile"),
     newFolder: t("projectExplorer.actions.newFolder"),
+    more: t("projectExplorer.actions.more"),
     expandFolder: t("projectExplorer.actions.expandFolder"),
     collapseFolder: t("projectExplorer.actions.collapseFolder"),
     modified: t("workspaceChrome.saveState.modified"),
@@ -88,13 +94,9 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
   };
 
   useEffect(() => {
-    if (!newFileMenuOpen && !moreMenuOpen) {
-      return undefined;
-    }
+    if (!newFileMenuOpen && !moreMenuOpen) return undefined;
     function closeMenus(event: PointerEvent) {
-      if (event.target instanceof Node && headerMenusRef.current?.contains(event.target)) {
-        return;
-      }
+      if (event.target instanceof Node && headerMenusRef.current?.contains(event.target)) return;
       setNewFileMenuOpen(false);
       setMoreMenuOpen(false);
     }
@@ -118,7 +120,17 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     action();
   }
 
-  function startInlineCreate(parentId: string, kind: ProjectExplorerCreateKind) {
+  function startInlineCreate(
+    kind: ProjectExplorerCreateKind,
+    origin: ProjectExplorerCreateDraft["origin"],
+    target: { requestedParentId?: string | null; contextNodeId?: string | null } = {},
+  ) {
+    const parentId = resolveExplorerCreationParent({
+      project: props.project,
+      requestedParentId: target.requestedParentId,
+      contextNodeId: target.contextNodeId,
+      selectedNodeId: props.view.selectedNodeId,
+    });
     const defaultName = kind === "schema"
       ? t("projectExplorer.defaults.schemaName")
       : kind === "sql"
@@ -126,12 +138,14 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         : kind === "text"
           ? t("projectExplorer.defaults.textFileName")
           : t("projectExplorer.defaults.folderName");
-    if (!expandedFolderIds.has(parentId)) props.onToggleFolder(parentId);
-    props.onSelectNode(parentId);
+
+    if (parentId !== props.project.rootId && !expandedFolderIds.has(parentId)) {
+      props.onToggleFolder(parentId);
+    }
     setContextMenu(null);
     setNewFileMenuOpen(false);
     setMoreMenuOpen(false);
-    setCreateDraft({ parentId, kind, value: defaultName, error: "" });
+    setCreateDraft({ parentId, kind, value: defaultName, error: "", origin });
   }
 
   function getDraftComparableName(draft: ProjectExplorerCreateDraft): string {
@@ -142,40 +156,41 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
   }
 
   async function submitInlineCreate() {
-    if (!createDraft) return;
-    const value = createDraft.value.trim();
+    const draft = createDraft;
+    if (!draft) return;
+    const value = draft.value.trim();
     if (!value) {
-      setCreateDraft({ ...createDraft, error: labels.nameRequired });
+      setCreateDraft({ ...draft, error: labels.nameRequired });
       return;
     }
     if (/[\\/]/.test(value)) {
-      setCreateDraft({ ...createDraft, error: labels.invalidCharacters });
+      setCreateDraft({ ...draft, error: labels.invalidCharacters });
       return;
     }
-    const parent = nodesById.get(createDraft.parentId);
+    const parent = nodesById.get(draft.parentId);
     const duplicate = (parent?.children ?? []).some((childId) => {
       const child = nodesById.get(childId);
-      return child?.name.toLocaleLowerCase() === getDraftComparableName(createDraft);
+      return child?.name.toLocaleLowerCase() === getDraftComparableName(draft);
     });
     if (duplicate) {
-      setCreateDraft({ ...createDraft, error: t("projectExplorer.errors.duplicate-name") });
+      setCreateDraft({ ...draft, error: t("projectExplorer.errors.duplicate-name") });
       return;
     }
-    const action = createDraft.kind === "schema"
+    const action = draft.kind === "schema"
       ? props.onCreateSchema
-      : createDraft.kind === "sql"
+      : draft.kind === "sql"
         ? props.onCreateSqlFile ?? props.onCreateTextFile
-        : createDraft.kind === "text"
+        : draft.kind === "text"
           ? props.onCreateTextFile
           : props.onCreateFolder;
     try {
-      await action(createDraft.parentId, value);
-      setCreateDraft(null);
+      await action(draft.parentId, value);
+      setCreateDraft((current) => current === draft ? null : current);
     } catch (error) {
-      setCreateDraft((current) => current ? {
+      setCreateDraft((current) => current === draft ? {
         ...current,
         error: error instanceof Error ? error.message : labels.renameFailed,
-      } : null);
+      } : current);
     }
   }
 
@@ -195,114 +210,82 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
     );
   }
 
+  const updateDraftValue = (value: string) => {
+    setCreateDraft((current) => current ? { ...current, value, error: "" } : null);
+  };
+  const openNodeMenu: Parameters<typeof ProjectExplorerTreeItem>[0]["onContextMenu"] = (node, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    props.onSelectNode(node.id);
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id,
+      origin: event.type === "click" ? "row" : "context-menu",
+    });
+  };
+
   return (
     <aside
       className={props.embedded ? "project-explorer project-explorer--embedded" : "project-explorer"}
       style={props.embedded ? undefined : ({ "--project-explorer-width": `${props.view.explorerWidth}px` } as CSSProperties)}
       aria-label={t("projectExplorer.title")}
     >
-      <div className="project-explorer-header" ref={headerMenusRef}>
-        <div className="project-explorer-header__topline">
-          <h2>{t("projectExplorer.title")}</h2>
-          <div className="project-explorer-header__top-actions">
-            <div className="project-explorer-header__menu-wrap">
-              <button
-                type="button"
-                className="project-explorer-icon-button"
-                aria-label={t("workspaceChrome.moreActions")}
-                title={t("workspaceChrome.moreActions")}
-                aria-haspopup="menu"
-                aria-expanded={moreMenuOpen}
-                onClick={() => {
-                  setMoreMenuOpen((current) => !current);
-                  setNewFileMenuOpen(false);
-                }}
-              >
-                <StudioIcon name="more" />
-              </button>
-              {moreMenuOpen ? (
-                <div className="project-explorer-new-menu project-explorer-new-menu--more" role="menu">
-                  <button type="button" role="menuitem" onClick={() => runHeaderAction(props.onCollapseAll)}>
-                    <StudioIcon name="collapseAll" aria-hidden="true" />
-                    <span>{t("projectExplorer.actions.collapseAll")}</span>
-                  </button>
-                  <div className="project-explorer-menu-info">
-                    {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              className="project-explorer-icon-button"
-              aria-label={t("projectExplorer.actions.close")}
-              title={t("projectExplorer.actions.close")}
-              onClick={props.onToggleOpen}
-            >
-              <StudioIcon name="close" />
-            </button>
+      <div className="project-explorer-header-host" ref={headerMenusRef}>
+        <WorkspacePanelHeader
+          className="project-explorer-header"
+          title={t("projectExplorer.title")}
+          onClose={props.onToggleOpen}
+          closeLabel={t("projectExplorer.actions.close")}
+        >
+          <div className="project-explorer-header__menu-wrap">
+            <PanelIconButton
+              icon="newProject"
+              label={t("workspaceChrome.newFile")}
+              className="project-explorer-icon-button project-explorer-icon-button--primary"
+              aria-haspopup="menu"
+              aria-expanded={newFileMenuOpen}
+              onClick={() => {
+                setNewFileMenuOpen((current) => !current);
+                setMoreMenuOpen(false);
+              }}
+            />
+            {newFileMenuOpen ? (
+              <PanelMenu className="project-explorer-new-menu">
+                <PanelMenuItem icon="entity" label={labels.newSchema} onClick={() => runHeaderAction(() => startInlineCreate("schema", "toolbar"))} />
+                <PanelMenuItem icon="database" label={labels.newSqlFile} onClick={() => runHeaderAction(() => startInlineCreate("sql", "toolbar"))} />
+                <PanelMenuItem icon="fileText" label={labels.newTextFile} onClick={() => runHeaderAction(() => startInlineCreate("text", "toolbar"))} />
+              </PanelMenu>
+            ) : null}
           </div>
-        </div>
-        <div className="project-explorer-header__project-row">
-          <span className="project-explorer-subtitle" title={`${props.project.name} — ${t("projectExplorer.meta", { files: fileCount, folders: folderCount })}`}>
-            {props.project.name}
-          </span>
-          <span className="project-explorer-meta" aria-hidden="true">
-            {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
-          </span>
-          <div className="project-explorer-toolbar" aria-label={t("projectExplorer.actions.aria")}>
-            <div className="project-explorer-header__menu-wrap">
-              <button
-                type="button"
-                className="project-explorer-icon-button project-explorer-icon-button--primary"
-                aria-label={t("workspaceChrome.newFile")}
-                title={t("workspaceChrome.newFile")}
-                aria-haspopup="menu"
-                aria-expanded={newFileMenuOpen}
-                onClick={() => {
-                  setNewFileMenuOpen((current) => !current);
-                  setMoreMenuOpen(false);
-                }}
-              >
-                <StudioIcon name="newProject" />
-              </button>
-              {newFileMenuOpen ? (
-                <div className="project-explorer-new-menu" role="menu">
-                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "schema"))}>
-                    <StudioIcon name="entity" aria-hidden="true" />
-                    <span>{labels.newSchema}</span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "sql"))}>
-                    <StudioIcon name="database" aria-hidden="true" />
-                    <span>{labels.newSqlFile}</span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => runHeaderAction(() => startInlineCreate(selectedTargetFolderId, "text"))}>
-                    <StudioIcon name="fileText" aria-hidden="true" />
-                    <span>{labels.newTextFile}</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
+          <PanelIconButton
+            icon="folderPlus"
+            label={labels.newFolder}
+            className="project-explorer-icon-button"
+            onClick={() => startInlineCreate("folder", "toolbar")}
+          />
+          <div className="project-explorer-header__menu-wrap">
+            <PanelIconButton
+              icon="more"
+              label={t("workspaceChrome.moreActions")}
               className="project-explorer-icon-button"
-              aria-label={labels.newFolder}
-              title={labels.newFolder}
-              onClick={() => startInlineCreate(selectedTargetFolderId, "folder")}
-            >
-              <StudioIcon name="folderPlus" />
-            </button>
-            <button
-              type="button"
-              className="project-explorer-icon-button project-explorer-collapse-button"
-              aria-label={t("projectExplorer.actions.collapseAll")}
-              title={t("projectExplorer.actions.collapseAll")}
-              onClick={props.onCollapseAll}
-            >
-              <StudioIcon name="collapseAll" />
-            </button>
+              aria-haspopup="menu"
+              aria-expanded={moreMenuOpen}
+              onClick={() => {
+                setMoreMenuOpen((current) => !current);
+                setNewFileMenuOpen(false);
+              }}
+            />
+            {moreMenuOpen ? (
+              <PanelMenu className="project-explorer-new-menu project-explorer-new-menu--more">
+                <PanelMenuItem icon="collapseAll" label={t("projectExplorer.actions.collapseAll")} onClick={() => runHeaderAction(props.onCollapseAll)} />
+                <div className="project-explorer-menu-info">
+                  {t("projectExplorer.meta", { files: fileCount, folders: folderCount })}
+                </div>
+              </PanelMenu>
+            ) : null}
           </div>
-        </div>
+        </WorkspacePanelHeader>
       </div>
 
       <div
@@ -311,50 +294,61 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         aria-label={t("projectExplorer.treeAria")}
         onContextMenu={(event) => {
           event.preventDefault();
-          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null });
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, origin: "context-menu" });
         }}
       >
-        {root && rootChildren.length > 0 ? (
+        {root && (rootChildren.length > 0 || createDraft?.parentId === props.project.rootId) ? (
           <ul className="project-explorer-list">
-            <ProjectExplorerTreeItem
-              node={root}
-              depth={0}
-              activeFileId={props.view.activeFileId}
-              selectedNodeId={props.view.selectedNodeId}
-              expanded={expandedFolderIds.has(root.id)}
-              childrenNodes={rootChildren}
-              nodesById={nodesById}
-              files={props.files}
-              expandedFolderIds={expandedFolderIds}
-              dirtyFileIds={props.dirtyFileIds}
-              createDraft={createDraft}
-              labels={labels}
-              onOpenFile={props.onOpenFile}
-              onSelectNode={props.onSelectNode}
-              onContextMenu={(node, event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                props.onSelectNode(node.id);
-                setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
-              }}
-              onToggleFolder={props.onToggleFolder}
-              onRename={props.onRename}
-              onDelete={props.onDelete}
-              onCreateSchema={(parentId) => startInlineCreate(parentId, "schema")}
-              onCreateTextFile={(parentId) => startInlineCreate(parentId, "text")}
-              onCreateSqlFile={(parentId) => startInlineCreate(parentId, "sql")}
-              onCreateFolder={(parentId) => startInlineCreate(parentId, "folder")}
-              onCreateDraftChange={(value) => setCreateDraft((current) => current ? { ...current, value, error: "" } : null)}
-              onCreateDraftSubmit={() => void submitInlineCreate()}
-              onCreateDraftCancel={() => setCreateDraft(null)}
-            />
+            {createDraft?.parentId === props.project.rootId ? (
+              <ProjectExplorerCreateRow
+                draft={createDraft}
+                depth={0}
+                nameLabel={labels.nameLabel}
+                onChange={updateDraftValue}
+                onSubmit={() => void submitInlineCreate()}
+                onCancel={() => setCreateDraft(null)}
+              />
+            ) : null}
+            {rootChildren.map((child) => (
+              <ProjectExplorerTreeItem
+                key={child.id}
+                node={child}
+                rootId={props.project.rootId}
+                depth={0}
+                activeFileId={props.view.activeFileId}
+                selectedNodeId={props.view.selectedNodeId}
+                expanded={expandedFolderIds.has(child.id)}
+                childrenNodes={(child.children ?? [])
+                  .map((childId) => nodesById.get(childId))
+                  .filter((node): node is ProjectExplorerNode => Boolean(node))}
+                nodesById={nodesById}
+                files={props.files}
+                file={child.fileId ? props.files[child.fileId] : undefined}
+                expandedFolderIds={expandedFolderIds}
+                dirtyFileIds={props.dirtyFileIds}
+                createDraft={createDraft}
+                labels={labels}
+                onOpenFile={props.onOpenFile}
+                onSelectNode={props.onSelectNode}
+                onContextMenu={openNodeMenu}
+                onToggleFolder={props.onToggleFolder}
+                onRename={props.onRename}
+                onDelete={props.onDelete}
+                onCreateDraftChange={updateDraftValue}
+                onCreateDraftSubmit={() => void submitInlineCreate()}
+                onCreateDraftCancel={() => setCreateDraft(null)}
+              />
+            ))}
           </ul>
         ) : (
           <div className="project-explorer-empty">
             <StudioIcon name="openProject" aria-hidden="true" />
             <strong>{t("projectExplorer.empty.title")}</strong>
             <p>{t("projectExplorer.empty.description")}</p>
-            <button type="button" onClick={() => startInlineCreate(props.project.rootId, "schema")}>
+            <button
+              type="button"
+              onClick={() => startInlineCreate("schema", "empty-state", { requestedParentId: props.project.rootId })}
+            >
               {t("projectExplorer.empty.createSchema")}
             </button>
             <button type="button" className="project-explorer-empty__secondary" onClick={() => setNewFileMenuOpen(true)}>
@@ -381,23 +375,17 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         rootId={props.project.rootId}
         canCreateChildren={!contextNode || contextNode.kind === "folder"}
         onOpen={() => {
-          if (contextNode?.fileId) {
-            props.onOpenFile(contextNode.fileId);
-          }
+          if (contextNode?.fileId) props.onOpenFile(contextNode.fileId);
         }}
-        onNewSchema={() => startInlineCreate(contextTargetFolderId, "schema")}
-        onNewTextFile={() => startInlineCreate(contextTargetFolderId, "text")}
-        onNewSqlFile={() => startInlineCreate(contextTargetFolderId, "sql")}
-        onNewFolder={() => startInlineCreate(contextTargetFolderId, "folder")}
+        onNewSchema={() => startInlineCreate("schema", contextMenu?.origin ?? "context-menu", { contextNodeId: contextMenu?.nodeId })}
+        onNewTextFile={() => startInlineCreate("text", contextMenu?.origin ?? "context-menu", { contextNodeId: contextMenu?.nodeId })}
+        onNewSqlFile={() => startInlineCreate("sql", contextMenu?.origin ?? "context-menu", { contextNodeId: contextMenu?.nodeId })}
+        onNewFolder={() => startInlineCreate("folder", contextMenu?.origin ?? "context-menu", { contextNodeId: contextMenu?.nodeId })}
         onRename={() => {
-          if (contextNode) {
-            props.onRename(contextNode.id);
-          }
+          if (contextNode) props.onRename(contextNode.id);
         }}
         onDelete={() => {
-          if (contextNode) {
-            props.onDelete(contextNode.id);
-          }
+          if (contextNode) props.onDelete(contextNode.id);
         }}
         onClose={() => setContextMenu(null)}
       />
