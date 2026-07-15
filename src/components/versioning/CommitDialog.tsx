@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ProjectUncommittedChangeCategories } from "../../features/versioning/useProjectVersioning";
 import { useI18n } from "../../i18n/useI18n";
-import { StudioIcon } from "../icons/StudioIcon";
+import { Button, Field, Modal } from "../ui";
 
 interface CommitDialogProps {
   open: boolean;
@@ -50,111 +50,92 @@ export function CommitDialog({
     }
   }, [canCommit, open, suggestedMessage]);
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="help-modal-backdrop" role="presentation" onClick={busy ? undefined : onClose}>
-      <div
-        className="help-modal action-modal versioning-commit-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="versioning-commit-title"
-        aria-describedby="versioning-commit-description"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="commit-dialog"
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={busy}
+      title={firstCommit ? t("versioning.createFirstCommit") : t("versioning.newCommit")}
+      subtitle={t("versioning.commitDialogDescription")}
+      className="action-modal versioning-commit-dialog"
+      testId="commit-dialog"
+    >
+      <form
+        className="action-modal-content versioning-commit-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(message, description);
+        }}
       >
-        <div className="help-modal-head">
-          <div>
-            <h2 id="versioning-commit-title">{firstCommit ? t("versioning.createFirstCommit") : t("versioning.newCommit")}</h2>
-            <p id="versioning-commit-description" className="action-modal-subtitle">
-              {t("versioning.commitDialogDescription")}
-            </p>
+        {changedCategories.length > 0 ? (
+          <div className="versioning-dialog-section" data-testid="commit-dialog-categories">
+            <span>{t("versioning.changedCategories")}</span>
+            <div className="versioning-category-list">
+              {changedCategories.map((key) => (
+                <span key={key} className="versioning-category-pill">
+                  {t(`versioning.categories.${key}`)}
+                </span>
+              ))}
+            </div>
           </div>
+        ) : null}
+        <div className="versioning-dialog-section" data-testid="commit-message-suggestion">
+          <span>{t("versioning.messageSuggestion")}</span>
           <button
             type="button"
-            className="help-close"
-            onClick={onClose}
-            aria-label={t("common.actions.close")}
-            disabled={busy}
+            className="versioning-suggestion-button"
+            onClick={() => setMessage(suggestedMessage)}
+            disabled={busy || !canCommit}
           >
-            <StudioIcon name="close" aria-hidden="true" />
+            {suggestedMessage}
           </button>
         </div>
-        <form
-          className="action-modal-content versioning-commit-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit(message, description);
-          }}
-        >
-          {changedCategories.length > 0 ? (
-            <div className="versioning-dialog-section" data-testid="commit-dialog-categories">
-              <span>{t("versioning.changedCategories")}</span>
-              <div className="versioning-category-list">
-                {changedCategories.map((key) => (
-                  <span key={key} className="versioning-category-pill">
-                    {t(`versioning.categories.${key}`)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="versioning-dialog-section" data-testid="commit-message-suggestion">
-            <span>{t("versioning.messageSuggestion")}</span>
-            <button
-              type="button"
-              className="versioning-suggestion-button"
-              onClick={() => setMessage(suggestedMessage)}
-              disabled={busy || !canCommit}
-            >
-              {suggestedMessage}
-            </button>
-          </div>
-          <label className="action-modal-field">
-            <span>{t("versioning.commitMessage")}</span>
+        <Field label={t("versioning.commitMessage")}>
+          {({ id }) => (
             <input
+              id={id}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               disabled={busy}
               autoFocus
               data-testid="commit-message-input"
             />
-          </label>
-          <label className="action-modal-field">
-            <span>{t("versioning.optionalDescription")}</span>
+          )}
+        </Field>
+        <Field label={t("versioning.optionalDescription")}>
+          {({ id }) => (
             <textarea
+              id={id}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               disabled={busy}
               rows={4}
               data-testid="commit-description-input"
             />
-          </label>
-          <div className="versioning-message-examples" aria-label={t("versioning.messageExamples")}>
-            <span>{t("versioning.examples.initialSchema")}</span>
-            <span>{t("versioning.examples.addedEntities")}</span>
-            <span>{t("versioning.examples.refinedLayout")}</span>
-            <span>{t("versioning.examples.updatedLogical")}</span>
-          </div>
-          {hint ? <p className={canCommit ? "action-modal-hint" : "action-modal-error"}>{hint}</p> : null}
-          {error ? <p className="action-modal-error">{error}</p> : null}
-          <div className="action-modal-actions">
-            <button type="button" className="header-button" onClick={onClose} disabled={busy}>
-              {t("common.actions.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="mode-button active"
-              disabled={busy || !canCommit}
-              data-testid="create-commit-button"
-            >
-              {t("versioning.createCommit")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          )}
+        </Field>
+        <div className="versioning-message-examples" aria-label={t("versioning.messageExamples")}>
+          <span>{t("versioning.examples.initialSchema")}</span>
+          <span>{t("versioning.examples.addedEntities")}</span>
+          <span>{t("versioning.examples.refinedLayout")}</span>
+          <span>{t("versioning.examples.updatedLogical")}</span>
+        </div>
+        {hint ? <p className={canCommit ? "action-modal-hint" : "action-modal-error"}>{hint}</p> : null}
+        {error ? <p className="action-modal-error">{error}</p> : null}
+        <div className="ui-modal__footer action-modal-actions">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            {t("common.actions.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={busy || !canCommit}
+            data-testid="create-commit-button"
+          >
+            {t("versioning.createCommit")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
