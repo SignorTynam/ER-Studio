@@ -2,6 +2,13 @@
   grid-template-columns: var(--size-activity-rail) minmax(0, var(--project-explorer-width));
   border-right: 1px solid var(--color-border-default);
   background: var(--color-bg-sidebar);
+  /* Fase C1: i tooltip della rail sporgono a destra; i figli gestiscono il proprio overflow. */
+  overflow: visible;
+}
+
+.project-activity-rail .ui-tooltip-anchor {
+  display: flex;
+  width: var(--size-activity-rail);
 }
 
 .project-activity-panel--collapsed {

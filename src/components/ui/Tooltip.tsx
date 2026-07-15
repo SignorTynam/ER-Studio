@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { cx } from "./cx";
 
-export type TooltipPosition = "top" | "bottom";
+export type TooltipPosition = "top" | "bottom" | "right";
 
 export interface TooltipProps {
   label: ReactNode;

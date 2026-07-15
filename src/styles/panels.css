@@ -2459,7 +2459,7 @@ summary:focus-visible,
   border-radius: 0;
   color: var(--studio-muted);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: var(--font-weight-semibold);
 }
 
 .workspace-stage-tab:hover:not(:disabled) {
@@ -2472,11 +2472,11 @@ summary:focus-visible,
   border-color: var(--studio-accent);
   background: var(--studio-accent);
   color: var(--color-text-on-accent);
-  box-shadow: 0 4px 12px rgba(37, 79, 72, 0.18);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 .workspace-stage-connector {
-  color: rgba(95, 109, 101, 0.48);
+  color: color-mix(in srgb, var(--color-text-secondary) 48%, transparent);
 }
 
 .workspace-stage-badge {

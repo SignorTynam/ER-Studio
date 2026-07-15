@@ -3,6 +3,7 @@ import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import type { WorkspaceView } from "../types/translation";
 import { StudioIcon } from "./icons/StudioIcon";
+import { Tooltip } from "./ui";
 import type { ProjectActivityId } from "./project/ProjectActivityPanel";
 
 type TopbarMenuId = "file" | "importExport" | "info" | "help" | "language";
@@ -269,18 +270,19 @@ export function AppHeader(props: AppHeaderProps) {
 
       <div className="designer-topbar-actions">
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>
-          <button
-            type="button"
-            className="designer-icon-button app-topbar-menu__icon-trigger"
-            onClick={() => toggleTopbarMenu("help")}
-            title={t("appHeader.actions.helpTitle")}
-            aria-label={t("appHeader.actions.helpAria")}
-            aria-haspopup="menu"
-            aria-expanded={activeTopbarMenu === "help"}
-            data-testid="app-header-help-menu"
-          >
-            <StudioIcon name="help" aria-hidden="true" />
-          </button>
+          <Tooltip position="bottom" label={t("appHeader.actions.helpTitle")}>
+            <button
+              type="button"
+              className="designer-icon-button app-topbar-menu__icon-trigger"
+              onClick={() => toggleTopbarMenu("help")}
+              aria-label={t("appHeader.actions.helpAria")}
+              aria-haspopup="menu"
+              aria-expanded={activeTopbarMenu === "help"}
+              data-testid="app-header-help-menu"
+            >
+              <StudioIcon name="help" aria-hidden="true" />
+            </button>
+          </Tooltip>
 
           {activeTopbarMenu === "help" ? (
             <div
@@ -297,18 +299,19 @@ export function AppHeader(props: AppHeaderProps) {
         </div>
 
         <div className="designer-language-menu app-topbar-menu" ref={languageMenuRef}>
-          <button
-            type="button"
-            className="designer-icon-button app-topbar-menu__icon-trigger"
-            onClick={() => toggleTopbarMenu("language")}
-            title={t("appHeader.actions.languageTitle")}
-            aria-label={t("appHeader.actions.languageAria")}
-            aria-haspopup="menu"
-            aria-expanded={activeTopbarMenu === "language"}
-            data-testid="app-header-language"
-          >
-            <StudioIcon name="globe" aria-hidden="true" />
-          </button>
+          <Tooltip position="bottom" label={t("appHeader.actions.languageTitle")}>
+            <button
+              type="button"
+              className="designer-icon-button app-topbar-menu__icon-trigger"
+              onClick={() => toggleTopbarMenu("language")}
+              aria-label={t("appHeader.actions.languageAria")}
+              aria-haspopup="menu"
+              aria-expanded={activeTopbarMenu === "language"}
+              data-testid="app-header-language"
+            >
+              <StudioIcon name="globe" aria-hidden="true" />
+            </button>
+          </Tooltip>
 
           {activeTopbarMenu === "language" ? (
             <div
@@ -341,16 +344,17 @@ export function AppHeader(props: AppHeaderProps) {
           ) : null}
         </div>
 
-        <button
-          type="button"
-          className="designer-icon-button"
-          onClick={props.onOpenCommandMenu}
-          title={t("appHeader.actions.menuTitle")}
-          aria-label={t("appHeader.actions.menuAria")}
-          data-testid="app-header-menu"
-        >
-          <StudioIcon name="menu" aria-hidden="true" />
-        </button>
+        <Tooltip position="bottom" label={t("appHeader.actions.menuTitle")}>
+          <button
+            type="button"
+            className="designer-icon-button"
+            onClick={props.onOpenCommandMenu}
+            aria-label={t("appHeader.actions.menuAria")}
+            data-testid="app-header-menu"
+          >
+            <StudioIcon name="menu" aria-hidden="true" />
+          </button>
+        </Tooltip>
       </div>
     </header>
   );

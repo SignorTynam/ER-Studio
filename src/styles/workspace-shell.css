@@ -328,20 +328,64 @@ svg.diagram-canvas {
   padding: 0 var(--space-2);
   border-top: 1px solid var(--color-border-default);
   background: var(--color-bg-header);
-  color: rgba(241, 245, 242, 0.78);
-  font-size: 0.68rem;
+  color: color-mix(in srgb, var(--color-text-on-accent) 78%, transparent);
+  font-size: var(--font-size-2xs);
 }
 
+/* Fase C1: etichette quiete (niente maiuscolo urlato), gruppi separati da filetti. */
 .bottom-status-workspace-label,
 .bottom-status-panels-label,
 .bottom-status-meta-label {
-  color: rgba(241, 245, 242, 0.54);
+  color: color-mix(in srgb, var(--color-text-on-accent) 54%, transparent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .bottom-status-workspace-value,
 .bottom-status-panels-value,
 .bottom-status-meta-value {
-  color: rgba(241, 245, 242, 0.88);
+  color: color-mix(in srgb, var(--color-text-on-accent) 88%, transparent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bottom-status-left > * + *,
+.bottom-status-right > * + * {
+  padding-left: var(--space-2);
+  border-left: 1px solid color-mix(in srgb, var(--color-text-on-accent) 14%, transparent);
+}
+
+/* Toni dei messaggi leggibili sul chrome scuro. */
+.bottom-status-bar .bottom-status-message.tone-warning {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-modified-on-dark);
+}
+
+.bottom-status-bar .bottom-status-message.tone-error {
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-on-accent) 45%);
+}
+
+.bottom-status-bar .bottom-status-message.tone-success {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent-on-dark);
+}
+
+.bottom-status-bar .bottom-status-meta-warning .bottom-status-meta-value {
+  color: var(--color-modified-on-dark);
+}
+
+.bottom-status-bar .bottom-status-meta-error .bottom-status-meta-value {
+  color: color-mix(in srgb, var(--color-danger) 55%, var(--color-text-on-accent) 45%);
+}
+
+.bottom-status-dismiss:focus-visible {
+  outline: 2px solid var(--color-accent-on-dark);
+  outline-offset: -2px;
 }
 
 .bottom-status-message,

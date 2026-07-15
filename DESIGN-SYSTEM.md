@@ -186,3 +186,16 @@ la Fase C sposterà il look sulle classi `ui-*` e ritirerà le skin.
 
 ### Deprecati
 - `components/panels.tsx` (`PanelShell`, `PanelHeader`, `PanelTabs`, `PanelSection`, `CollapsiblePanel`, `PanelCard`, `WarningCard`, `EmptyStateCard`): **@deprecated**, vivi solo per inspector/dock/sidebar fino al ridisegno di Fase C. Rimossi gli orfani `WorkspacePanelBody`, `PanelStepCard`, `WorkspaceViewBar`, `WorkspaceViewButton`, `CommandOptionRow`.
+
+## Chrome scuro (Fase C1)
+
+Il chrome (header, activity rail, status bar) vive su `--color-bg-header`: **un solo scuro**.
+Token dedicati per la leggibilità su scuro: `--color-accent-on-dark` `#73bbaa` (indicatori
+attivi, focus ring del chrome) e `--color-modified-on-dark` `#e4b466` (dot "modificato",
+toni warning della status bar). Testi su scuro via `color-mix` su `--color-text-on-accent`
+(88% valori · 78% testo · 54% etichette · 8–16% superfici hover/bordi). Geometria a spigolo
+netto: nessuna forma rotonda nel chrome (eccezioni 999px rimaste solo sui close dei modali,
+in revisione in Fase C4). Ritmo verticale: header `--size-header` 44 · tab `--size-tab` 36 ·
+status `--size-statusbar` 24; indicatore attivo delle tab singolo (barra superiore accent).
+Tooltip: primitivo `ui/Tooltip` (posizioni `top|bottom|right`) su tutti gli icon-button di
+header e rail al posto dei `title` nativi.
