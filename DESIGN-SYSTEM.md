@@ -147,3 +147,42 @@ Gli alias verranno progressivamente deprecati.
 4. Focus visibile e non rimosso; target interattivi ≥ 32px.
 5. Transizioni via `--motion-*` e rispettose di `prefers-reduced-motion`.
 6. Responsive: breakpoint esistenti (`860px`, `640px`) invariati.
+
+## Componenti condivisi (Fase B)
+
+Libreria canonica: **`src/components/ui/`** (import da `../components/ui`). Regola di fase:
+la resa visiva di Button/Modal/Field viaggia ancora sulle classi legacy (doppia classe);
+la Fase C sposterà il look sulle classi `ui-*` e ritirerà le skin.
+
+### Button (`ui/Button.tsx`)
+- Varianti: `primary` (azione principale, skin `mode-button active`) · `secondary` (default, skin `header-button`) · `danger` (skin `header-button`, semantica distruttiva) · `ghost` (stilato da token in `ui.css`).
+- Dimensioni: `md` (32px) · `sm` (28px) — in Fase B effettive solo su `ghost`.
+- Stati: `disabled`; `loading` → spinner + `aria-busy` + input bloccato.
+- Icone opzionali `iconLeft`/`iconRight` dal set `StudioIcon`. `type="button"` di default.
+
+### Modal (`ui/Modal.tsx`)
+- Struttura: backdrop → card (`role="dialog"`, `aria-modal`) → header (titolo/sottotitolo/close) → children → footer opzionale.
+- Comportamento garantito: focus iniziale (rispetta `autoFocus`/`data-autofocus` del contenuto), focus trap su Tab/Shift+Tab, Esc, click sul backdrop, ripristino del focus alla chiusura, scroll-lock del body con conteggio; `busy` blocca tutte le vie di chiusura.
+- Header custom: `hideClose` + `ariaLabelledBy` puntato all'heading nei children.
+- `legacySkin`: `help` (default, famiglia `help-modal-*`) · `studio` (famiglia `studio-modal-*`) · `none`.
+- I form con submit renderizzano il footer dentro il proprio `<form>` (classi `ui-modal__footer action-modal-actions`).
+
+### Field (`ui/Field.tsx`)
+- `label` + controllo + `help` + `error`; con children-funzione fornisce `{ id, invalid, describedBy }` per `aria-invalid`/`aria-describedby`.
+- L'errore ha `role="alert"`; copre i pattern di validazione esistenti (nome vuoto, caratteri non validi, duplicati).
+
+### Tooltip (`ui/Tooltip.tsx`)
+- Compare su hover **e** focus, ritardo configurabile (default 350ms), Esc per nascondere, transizione disattivata con `prefers-reduced-motion`.
+- Il nodo resta nel DOM (`data-visible`): con children-funzione fornisce l'`aria-describedby` da mettere sul controllo. Adozione prevista in Fase C (oggi l'app usa `title` nativi).
+
+### Badge (`ui/Badge.tsx`)
+- Toni: `neutral | info | success | warning | danger` dai token semantici, maiuscoletto compatto. Adozione delle pill esistenti in Fase C.
+
+### Toast (`WorkspaceToastStack`)
+- Normalizzato in Fase B: titoli default e tempo relativo via i18n (`workspaceToasts.*`, en/it/sq), `role="alert"` per gli errori, `aria-live="polite"` sullo stack. Toni allineati alla scala semantica (`error` esterno ↔ `danger` dei token).
+
+### Icon button
+- `PanelIconButton` (riesportato da `ui/`) resta il primitivo per i soli-icona: `aria-label` obbligatoria, 28–30px, stile dalle co-classi di superficie fino alla Fase C.
+
+### Deprecati
+- `components/panels.tsx` (`PanelShell`, `PanelHeader`, `PanelTabs`, `PanelSection`, `CollapsiblePanel`, `PanelCard`, `WarningCard`, `EmptyStateCard`): **@deprecated**, vivi solo per inspector/dock/sidebar fino al ridisegno di Fase C. Rimossi gli orfani `WorkspacePanelBody`, `PanelStepCard`, `WorkspaceViewBar`, `WorkspaceViewButton`, `CommandOptionRow`.
