@@ -59,11 +59,11 @@ test("image export no longer enforces viewport-sized minimums", () => {
   assert.doesNotMatch(exportSource, /1280\s*[x,]\s*720|720\s*[x,]\s*1280/);
 });
 
-test("PNG export is transparent and does not paint a white raster background", () => {
+test("PNG export keeps transparent as the default background", () => {
   const downloadPngBody = functionBody("downloadPng");
 
   assert.match(downloadPngBody, /format:\s*"png"/);
-  assert.match(downloadPngBody, /background:\s*"transparent"/);
+  assert.match(downloadPngBody, /options\?\.background\s*\?\?\s*"transparent"/);
   assert.match(downloadPngBody, /styleMode:\s*"print"/);
   assert.doesNotMatch(downloadPngBody, /fillStyle\s*=\s*["']#ffffff["']/i);
   assert.doesNotMatch(downloadPngBody, /fillRect\(/);
@@ -77,7 +77,8 @@ test("JPEG export exists, uses JPEG MIME, and paints a white background", () => 
   assert.match(downloadJpegBody, /styleMode:\s*"print"/);
   assert.match(exportSource, /image\/jpeg/);
   assert.match(exportSource, /JPEG_QUALITY\s*=\s*0\.92/);
-  assert.match(exportSource, /fillStyle\s*=\s*["']#ffffff["']/i);
+  assert.match(exportSource, /background === "white"[\s\S]*return "#ffffff"/);
+  assert.match(exportSource, /fillStyle\s*=\s*backgroundColor/);
   assert.match(exportSource, /fillRect\(0,\s*0,\s*width,\s*height\)/);
 });
 
@@ -85,11 +86,11 @@ test("SVG export uses white print output", () => {
   const downloadSvgBody = functionBody("downloadSvg");
 
   assert.match(downloadSvgBody, /format:\s*"svg"/);
-  assert.match(downloadSvgBody, /background:\s*"white"/);
+  assert.match(downloadSvgBody, /options\?\.background\s*\?\?\s*"white"/);
   assert.match(downloadSvgBody, /styleMode:\s*"print"/);
   assert.match(exportSource, /serializeSvg[\s\S]*background:\s*options\.background\s*\?\?\s*"white"/);
-  assert.match(exportSource, /function prependWhiteExportBackground/);
-  assert.match(exportSource, /if \(background === "white"\)/);
+  assert.match(exportSource, /function prependExportBackground/);
+  assert.match(exportSource, /background === "white"/);
 });
 
 test("export removes validation UI from cloned SVG", () => {
@@ -159,10 +160,10 @@ test("PNG, SVG, and JPEG request explicit export modes", () => {
   const downloadJpegBody = functionBody("downloadJpeg");
 
   assert.match(downloadPngBody, /format:\s*"png"/);
-  assert.match(downloadPngBody, /background:\s*"transparent"/);
+  assert.match(downloadPngBody, /options\?\.background\s*\?\?\s*"transparent"/);
   assert.match(downloadPngBody, /styleMode:\s*"print"/);
   assert.match(downloadSvgBody, /format:\s*"svg"/);
-  assert.match(downloadSvgBody, /background:\s*"white"/);
+  assert.match(downloadSvgBody, /options\?\.background\s*\?\?\s*"white"/);
   assert.match(downloadSvgBody, /styleMode:\s*"print"/);
   assert.match(downloadJpegBody, /format:\s*"jpeg"/);
   assert.match(downloadJpegBody, /background:\s*"white"/);
@@ -194,14 +195,28 @@ test("SVG download no longer defaults to transparent background", () => {
   const downloadSvgBody = functionBody("downloadSvg");
 
   assert.doesNotMatch(downloadSvgBody, /background:\s*"transparent"/);
-  assert.match(downloadSvgBody, /background:\s*"white"/);
+  assert.match(downloadSvgBody, /options\?\.background\s*\?\?\s*"white"/);
+});
+
+test("Conceptual and Translation exports request the computed canvas background", () => {
+  assert.match(exportSource, /type ExportBackground = "transparent" \| "white" \| "canvas"/);
+  assert.match(exportSource, /getPropertyValue\("--diagram-canvas-fill"\)/);
+  assert.match(exportSource, /prependExportBackground\([\s\S]*backgroundColor/);
+  assert.match(
+    appSource,
+    /downloadPng\([\s\S]*?background:\s*diagramView === "er" \|\| diagramView === "translation" \? "canvas" : "transparent"/,
+  );
+  assert.match(
+    appSource,
+    /downloadSvg\([\s\S]*?background:\s*diagramView === "er" \|\| diagramView === "translation" \? "canvas" : "white"/,
+  );
 });
 
 test("print export pipeline uses only allowed monochrome paint constants", () => {
   const printBodies = [
     localFunctionBody("applyPrintExportStyle"),
     localFunctionBody("normalizePrintExportElements"),
-    localFunctionBody("prependWhiteExportBackground"),
+    localFunctionBody("prependExportBackground"),
   ].join("\n");
   const colorMatches = printBodies.match(/#[0-9a-fA-F]{6}|rgba?\([^)]*\)|currentColor/g) ?? [];
   const allowedColors = new Set(["#000000", "#ffffff"]);

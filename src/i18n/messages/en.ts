@@ -225,10 +225,6 @@ export const en: DeepPartialMessages = {
       modified: "Modified",
       error: "Save error",
     },
-    theme: {
-      switchLight: "Switch to light theme",
-      switchDark: "Switch to dark theme",
-    },
     fileTypes: {
       schema: "ER schema",
       sql: "SQL",

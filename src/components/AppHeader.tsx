@@ -13,7 +13,6 @@ interface AppHeaderProps {
   projectName?: string;
   activeFileName?: string;
   saveState?: "saved" | "modified" | "saving" | "error";
-  theme?: "light" | "dark";
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
@@ -59,7 +58,6 @@ interface AppHeaderProps {
   onOpenVersionAnnouncement: () => void;
   onActivityPanelSelect: (panel: ProjectActivityId) => void;
   onCreateCommit: () => void;
-  onToggleTheme?: () => void;
 }
 
 export function AppHeader(props: AppHeaderProps) {
@@ -257,17 +255,6 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
 
       <div className="designer-topbar-actions">
-        {props.onToggleTheme ? (
-          <button
-            type="button"
-            className="designer-icon-button"
-            onClick={props.onToggleTheme}
-            title={props.theme === "dark" ? t("workspaceChrome.theme.switchLight") : t("workspaceChrome.theme.switchDark")}
-            aria-label={props.theme === "dark" ? t("workspaceChrome.theme.switchLight") : t("workspaceChrome.theme.switchDark")}
-          >
-            <StudioIcon name={props.theme === "dark" ? "themeLight" : "themeDark"} aria-hidden="true" />
-          </button>
-        ) : null}
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>
           <button
             type="button"

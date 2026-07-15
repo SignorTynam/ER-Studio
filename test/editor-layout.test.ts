@@ -11,6 +11,9 @@ const editorCssSource = readFileSync(new URL("../src/styles/editor-refactor.css"
 const panelsCssSource = readFileSync(new URL("../src/styles/panels.css", import.meta.url), "utf8");
 const projectExplorerCssSource = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
 const appCommandCssSource = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
+const workspaceShellCssSource = readFileSync(new URL("../src/styles/workspace-shell.css", import.meta.url), "utf8");
+const tokensCssSource = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+const diagramCanvasSource = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
 const allCssSource = `${editorCssSource}\n${panelsCssSource}\n${projectExplorerCssSource}`;
 
 function cssBlockFrom(source: string, selector: string): string {
@@ -159,4 +162,28 @@ test("File menu stacking is above workspace activity and canvas controls", () =>
   assert.match(appCommandCssSource, /\.app-command-topbar[\s\S]*z-index:\s*1000/);
   assert.match(appCommandCssSource, /\.app-file-menu__panel[\s\S]*z-index:\s*10000/);
   assert.doesNotMatch(projectExplorerCssSource, /z-index:\s*10000/);
+});
+
+test("Conceptual and Translation use the historical canvas token without changing Logical", () => {
+  assert.match(tokensCssSource, /--color-bg-diagram-canvas:\s*#dfe3dc\s*;/i);
+  assert.doesNotMatch(workspaceShellCssSource, /--diagram-canvas-fill:\s*var\(--color-bg-editor\)/);
+
+  const restoreStart = workspaceShellCssSource.indexOf("/* Historical canvas surface");
+  const restoreEnd = workspaceShellCssSource.indexOf("svg.diagram-canvas", restoreStart);
+  assert.notEqual(restoreStart, -1, "historical canvas block should exist");
+  assert.ok(restoreEnd > restoreStart, "historical canvas block should end before generic SVG safeguards");
+  const restoreBlock = workspaceShellCssSource.slice(restoreStart, restoreEnd);
+
+  assert.match(restoreBlock, /\.app-shell-view-er[\s\S]*--diagram-canvas-fill:\s*var\(--color-bg-diagram-canvas\)/);
+  assert.match(restoreBlock, /\.app-shell-view-translation[\s\S]*--diagram-canvas-fill:\s*var\(--color-bg-diagram-canvas\)/);
+  assert.doesNotMatch(restoreBlock, /\.app-shell-view-logical/);
+  assert.doesNotMatch(restoreBlock, /var\(--color-bg-editor\)/);
+
+  const backgroundStart = diagramCanvasSource.indexOf('data-export-background="true"');
+  assert.notEqual(backgroundStart, -1, "interactive SVG background must remain present");
+  const backgroundRect = diagramCanvasSource.slice(backgroundStart - 160, backgroundStart + 520);
+  assert.match(backgroundRect, /<rect/);
+  assert.match(backgroundRect, /fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(backgroundRect, /onPointerDown=\{handleCanvasPointerDown\}/);
+  assert.doesNotMatch(backgroundRect, /pointerEvents="none"/);
 });

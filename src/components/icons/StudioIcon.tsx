@@ -41,7 +41,6 @@ import {
   Lightbulb,
   List,
   Menu,
-  Moon,
   MoreHorizontal,
   Merge,
   Minus,
@@ -59,7 +58,6 @@ import {
   Save,
   Scan,
   Search,
-  Sun,
   Sparkles,
   Split,
   Tag,
@@ -150,8 +148,6 @@ export type StudioIconName =
   | "simpleId"
   | "split"
   | "success"
-  | "themeDark"
-  | "themeLight"
   | "translate"
   | "type"
   | "undo"
@@ -234,8 +230,6 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   show: PanelRightOpen,
   split: Split,
   success: CircleCheck,
-  themeDark: Moon,
-  themeLight: Sun,
   translate: Workflow,
   type: FileType,
   undo: Undo2,

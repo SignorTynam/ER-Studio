@@ -252,30 +252,44 @@
   font-size: 0.7rem;
 }
 
-.diagram-canvas,
-.canvas-panel,
-.designer-canvas-region,
-.workspace-canvas-region,
-.logical-canvas,
-.translation-stage-canvas {
-  background-color: var(--color-bg-editor) !important;
-}
-
-:root[data-theme] .app-shell .designer-canvas-region,
-:root[data-theme] .app-shell .designer-workspace,
-:root[data-theme] .app-shell .canvas-panel,
-:root[data-theme] .app-shell .diagram-canvas {
-  --diagram-canvas-fill: var(--color-bg-editor) !important;
-  --diagram-node-fill: var(--color-bg-elevated) !important;
-  background-color: var(--color-bg-editor) !important;
-  background-image: none !important;
-}
-
-:root[data-theme] .app-shell .designer-canvas-region,
-:root[data-theme] .app-shell .canvas-panel {
+.app-shell .designer-canvas-region,
+.app-shell .canvas-panel {
   overflow: hidden;
   isolation: isolate;
   contain: paint;
+}
+
+/* Historical canvas surface: Logical intentionally stays outside this block. */
+.app-shell-view-er .designer-workspace,
+.app-shell-view-er .designer-canvas-region,
+.app-shell-view-er .canvas-panel,
+.app-shell-view-er .diagram-canvas {
+  background-color: var(--color-bg-diagram-canvas) !important;
+  background-image: none !important;
+}
+
+.app-shell-view-er .designer-canvas-region {
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas) !important;
+  --diagram-node-fill: var(--color-bg-elevated) !important;
+}
+
+.app-shell-view-translation {
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas);
+}
+
+.app-shell-view-translation .designer-translation-view,
+.app-shell-view-translation .translation-workspace-shell,
+.app-shell-view-translation .designer-workspace,
+.app-shell-view-translation .designer-canvas-region,
+.app-shell-view-translation .canvas-panel,
+.app-shell-view-translation .diagram-canvas {
+  background-color: var(--color-bg-diagram-canvas) !important;
+  background-image: none !important;
+}
+
+.app-shell-view-translation .designer-canvas-region {
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas) !important;
+  --diagram-node-fill: var(--color-bg-elevated) !important;
 }
 
 svg.diagram-canvas {
@@ -285,7 +299,6 @@ svg.diagram-canvas {
 
 .diagram-canvas > svg,
 .diagram-canvas svg.diagram-svg {
-  background: var(--color-bg-editor) !important;
   color: var(--color-text-primary);
 }
 
@@ -340,14 +353,14 @@ svg.diagram-canvas {
   white-space: nowrap;
 }
 
-:root[data-theme] .workspace-welcome-project__stat {
+.workspace-welcome-project__stat {
   border: 0;
   border-bottom: 1px solid var(--color-border-subtle);
   background: transparent;
 }
 
 /* Welcome and empty-editor states use the same restrained, editor-first rhythm. */
-:root[data-theme] .workspace-welcome-page {
+.workspace-welcome-page {
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -356,17 +369,17 @@ svg.diagram-canvas {
   background: var(--color-bg-editor);
 }
 
-:root[data-theme] .workspace-welcome-page__content {
+.workspace-welcome-page__content {
   width: min(880px, 100%);
   gap: var(--space-6);
 }
 
-:root[data-theme] .workspace-welcome-hero {
+.workspace-welcome-hero {
   align-items: center;
   gap: var(--space-4);
 }
 
-:root[data-theme] .workspace-welcome-logo {
+.workspace-welcome-logo {
   width: 52px;
   height: 52px;
   padding: var(--space-2);
@@ -375,28 +388,28 @@ svg.diagram-canvas {
   box-shadow: none;
 }
 
-:root[data-theme] .workspace-welcome-logo::after {
+.workspace-welcome-logo::after {
   display: none;
 }
 
-:root[data-theme] .workspace-welcome-page h1 {
+.workspace-welcome-page h1 {
   margin: var(--space-1) 0;
   font-size: clamp(1.7rem, 3vw, 2.4rem);
   line-height: 1.05;
   letter-spacing: -0.025em;
 }
 
-:root[data-theme] .workspace-welcome-page__subtitle {
+.workspace-welcome-page__subtitle {
   max-width: 680px;
   font-size: 0.9rem;
   line-height: 1.55;
 }
 
-:root[data-theme] .workspace-welcome-grid {
+.workspace-welcome-grid {
   gap: var(--space-5);
 }
 
-:root[data-theme] .workspace-welcome-panel {
+.workspace-welcome-panel {
   padding: var(--space-3) 0 0;
   border: 0;
   border-top: 1px solid var(--color-border-default);
@@ -405,12 +418,12 @@ svg.diagram-canvas {
   box-shadow: none;
 }
 
-:root[data-theme] .workspace-welcome-action-grid {
+.workspace-welcome-action-grid {
   gap: var(--space-2);
 }
 
-:root[data-theme] .workspace-welcome-action-card,
-:root[data-theme] .workspace-welcome-action-row {
+.workspace-welcome-action-card,
+.workspace-welcome-action-row {
   min-height: 58px;
   padding: var(--space-2) var(--space-3);
   border-color: var(--color-border-subtle);
@@ -419,25 +432,25 @@ svg.diagram-canvas {
   box-shadow: none;
 }
 
-:root[data-theme] .workspace-welcome-action-card--primary,
-:root[data-theme] .workspace-welcome-action-row--primary {
+.workspace-welcome-action-card--primary,
+.workspace-welcome-action-row--primary {
   border-color: var(--color-accent);
   background: var(--color-accent-muted);
 }
 
-:root[data-theme] .workspace-welcome-action-card__icon,
-:root[data-theme] .workspace-welcome-action-row__icon {
+.workspace-welcome-action-card__icon,
+.workspace-welcome-action-row__icon {
   width: 30px;
   height: 30px;
   border: 0;
   background: transparent;
 }
 
-:root[data-theme] .workspace-welcome-capability-grid {
+.workspace-welcome-capability-grid {
   gap: 0;
 }
 
-:root[data-theme] .workspace-welcome-capability {
+.workspace-welcome-capability {
   padding: var(--space-2) var(--space-3);
   border: 0;
   border-left: 1px solid var(--color-border-subtle);
@@ -445,18 +458,18 @@ svg.diagram-canvas {
   background: transparent;
 }
 
-:root[data-theme] .workspace-welcome-capability:first-child {
+.workspace-welcome-capability:first-child {
   border-left: 0;
 }
 
-:root[data-theme] .workspace-empty-editor {
+.workspace-empty-editor {
   align-items: flex-start;
   justify-content: center;
   padding-top: clamp(52px, 12vh, 120px);
   background: var(--color-bg-editor);
 }
 
-:root[data-theme] .workspace-empty-editor__panel {
+.workspace-empty-editor__panel {
   width: min(520px, calc(100% - 40px));
   padding: 0;
   border: 0;
@@ -464,7 +477,7 @@ svg.diagram-canvas {
   box-shadow: none;
 }
 
-:root[data-theme] .workspace-empty-editor__action {
+.workspace-empty-editor__action {
   min-height: 54px;
   border-radius: var(--radius-control);
   background: var(--color-bg-panel);

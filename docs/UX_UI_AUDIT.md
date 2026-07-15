@@ -6,7 +6,7 @@ Audited branch: `ui-fixes`
 
 ## Outcome
 
-The branch now presents one coherent desktop-editor shell instead of several overlapping generations of UI. The completed pass establishes canonical light and dark tokens, a persistent activity rail, a keyboard-operable Explorer and tab system, main-column SQL/text editors, shared panel primitives, visible project/file/save context, a functional status bar, and overlay behavior for narrow screens.
+The branch now presents one coherent desktop-editor shell instead of several overlapping generations of UI. The completed pass establishes canonical light-theme tokens, a persistent activity rail, a keyboard-operable Explorer and tab system, main-column SQL/text editors, shared panel primitives, visible project/file/save context, a functional status bar, and overlay behavior for narrow screens.
 
 The implementation preserves project serialization, diagram transforms, session restoration, version snapshots, translation flows, and export behavior. The work was incremental: the large domain coordinator in `App.tsx` remains in place, while new presentation responsibilities were extracted behind focused components and styles.
 
@@ -15,7 +15,7 @@ The implementation preserves project serialization, diagram transforms, session 
 - Branch status, `main...ui-fixes` history, and diff.
 - Workspace shell, Explorer, tabs, versioning, SQL Reverse, welcome, dialog, layout-state, i18n, and test sources.
 - Browser flows at 1440×900, 1180×760, and 720×760.
-- No-project, project welcome, schema, SQL, text, Source Control, compare, dirty tabs, Explorer context menu, light theme, dark theme, laptop, and narrow states.
+- No-project, project welcome, schema, SQL, text, Source Control, compare, dirty tabs, Explorer context menu, laptop, and narrow states.
 - Automated component/domain suite, production build, and Playwright E2E suite.
 
 ## Findings and resolution
@@ -29,13 +29,13 @@ The implementation preserves project serialization, diagram transforms, session 
 | High | Explorer | Missing desktop tree keys, inline editing, useful create actions, and robust menus. | Added roving tree focus, arrows/Home/End/F2/Delete/context key, inline create/rename validation, semantic actions, and measured keyboard menus. | Completed |
 | High | Tabs | No overflow navigation, open-tabs menu, context actions, reorder, or honest dirty-close flow. | Added scrollers, tab list, context and bulk actions, reveal/copy-path, drag reorder, keyboard navigation, stable dirty slots, and custom confirmation. | Completed |
 | High | Dirty state | Tab dirty flags could remain stale after a project commit. | Dirty presentation is resynchronized from version state after commit and tab mutations. | Completed |
-| Medium | Header | Project/file/save context and command access were weak. | Added compact project/file state, central command trigger, theme control, and clearer global/document grouping. | Completed |
+| Medium | Header | Project/file/save context and command access were weak. | Added compact project/file state, central command trigger, and clearer global/document grouping. | Completed |
 | Medium | Editor navigation | Active-file context was not visible below the tabs. | Added a truncatable breadcrumb, file type, Reveal action, and schema view segments. | Completed |
 | Medium | Panels | Reverse, Problems, and Source Control repeated header and empty-state structures. | Introduced shared panel, header, and empty-state primitives and migrated the main workspace panels. | Completed |
 | Medium | Status bar | The existing component was not mounted in the active shell. | Mounted a compact status bar with project, file, workspace, zoom, validation, and version data only. | Completed |
 | Medium | Welcome / empty states | States read as decorative landing pages and used oversized cards. | Flattened surfaces, reduced radius/elevation, prioritized actions, and made Explorer empty guidance compact. | Completed |
 | Medium | Responsive layout | Desktop columns compressed at narrow widths. | Below 900px the active panel behaves as a drawer with backdrop; header, tabs, and status content simplify progressively. | Completed |
-| Medium | Theme | Acceptance required both light and dark verification. | Added persisted light/dark preferences using dedicated semantic tokens, not inversion. | Completed |
+| Medium | Theme | A persisted system-aware dark mode conflicted with the product's fixed visual identity and canvas colors. | Removed theme switching and retained one explicit light color scheme; the dark header, rail, and status bar remain fixed brand surfaces. | Completed |
 | Medium | Dialog accessibility | Focus was not consistently trapped or restored. | Added safe initial focus, Tab trapping, Escape/cancel handling, and trigger restoration. | Completed |
 | Low | Localization | New workspace chrome was incomplete outside English. | Added all new strings and coverage for EN, IT, and SQ. | Completed |
 

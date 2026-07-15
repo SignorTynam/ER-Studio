@@ -1029,12 +1029,6 @@ export default function App() {
   const logicalHistory = useHistory<LogicalWorkspaceDocument>(initialLogicalWorkspaceRef.current);
   const initialSerializedCode = sessionBootstrap.codeDraft;
   const [booting, setBooting] = useState(true);
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "light";
-    const stored = window.localStorage.getItem("builder:workspace-theme");
-    if (stored === "light" || stored === "dark") return stored;
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
   const [diagramView, setDiagramView] = useState<WorkspaceView>(sessionBootstrap.diagramView);
   const [tool, setTool] = useState<ToolKind>(sessionBootstrap.tool);
   const [mode] = useState<EditorMode>(sessionBootstrap.mode);
@@ -1246,11 +1240,6 @@ export default function App() {
     selection.edgeIds.length === 1 && selection.nodeIds.length === 0
       ? history.present.edges.find((edge) => edge.id === selection.edgeIds[0])
       : undefined;
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("builder:workspace-theme", theme);
-  }, [theme]);
 
   useEffect(() => {
     window.localStorage.setItem("builder:last-activity-panel", activeActivityPanel);
@@ -6848,7 +6837,9 @@ export default function App() {
     }
 
     try {
-      await downloadPng(svgRef.current, "builder-diagram.png");
+      await downloadPng(svgRef.current, "builder-diagram.png", {
+        background: diagramView === "er" || diagramView === "translation" ? "canvas" : "transparent",
+      });
       setStatus(t("workspace.exports.pngExported"));
       showSuccessNotice(t("workspace.downloads.pngExported"), { title: t("workspace.noticeTitles.exportCompleted") });
     } catch (error) {
@@ -6899,7 +6890,9 @@ export default function App() {
       return;
     }
 
-    downloadSvg(svgRef.current, "builder-diagram.svg");
+    downloadSvg(svgRef.current, "builder-diagram.svg", {
+      background: diagramView === "er" || diagramView === "translation" ? "canvas" : "white",
+    });
     setStatus(t("workspace.exports.svgExported"));
     showSuccessNotice(t("workspace.downloads.svgExported"), { title: t("workspace.noticeTitles.exportCompleted") });
   }
@@ -7344,7 +7337,6 @@ export default function App() {
           projectName={hasProject ? projectExplorer.project.name : undefined}
           activeFileName={activeProjectFile?.name}
           saveState={hasVersioningUncommittedChanges ? "modified" : "saved"}
-          theme={theme}
           diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
         codePanelOpen={codePanelOpen}
@@ -7392,7 +7384,6 @@ export default function App() {
         onOpenWhatsNew={() => setWhatsNewOpen(true)}
         onOpenVersionAnnouncement={openVersionAnnouncementManually}
         onActivityPanelSelect={handleSelectActivityPanel}
-        onToggleTheme={() => setTheme((current) => current === "light" ? "dark" : "light")}
           onCreateCommit={() => {
             setActiveActivityPanel("version");
             setWorkspaceActivityOpen(true);

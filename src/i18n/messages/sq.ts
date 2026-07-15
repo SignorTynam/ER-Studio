@@ -225,10 +225,6 @@ export const sq: DeepPartialMessages = {
       modified: "I ndryshuar",
       error: "Gabim ruajtjeje",
     },
-    theme: {
-      switchLight: "Kalo nÃ« temÃ«n e Ã§elÃ«t",
-      switchDark: "Kalo nÃ« temÃ«n e errÃ«t",
-    },
     fileTypes: {
       schema: "SkemÃ« ER",
       sql: "SQL",

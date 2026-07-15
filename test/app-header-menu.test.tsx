@@ -164,3 +164,20 @@ test("Topbar menu usa stacking context sopra workspace e toolbox", () => {
   assert.match(css, /\.app-topbar-menu\s*\{[\s\S]*z-index:\s*1001/);
   assert.match(css, /\.app-topbar-menu__panel\s*\{[\s\S]*z-index:\s*10000/);
 });
+
+test("workspace uses one explicit light theme without a theme toggle", () => {
+  const headerSource = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const mainSource = readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8");
+  const tokensSource = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+  const markup = renderHeader();
+
+  assert.doesNotMatch(headerSource, /\bonToggleTheme\b/);
+  assert.doesNotMatch(headerSource, /\btheme\??\s*:/);
+  assert.doesNotMatch(markup, /switch to (?:light|dark) theme/i);
+  assert.doesNotMatch(`${appSource}\n${mainSource}`, /builder:workspace-theme/);
+  assert.doesNotMatch(`${appSource}\n${mainSource}`, /prefers-color-scheme:\s*dark/);
+  assert.doesNotMatch(`${appSource}\n${mainSource}`, /dataset\.theme|data-theme/);
+  assert.doesNotMatch(tokensSource, /data-theme\s*=\s*["']dark["']/);
+  assert.match(tokensSource, /:root\s*\{[\s\S]*color-scheme:\s*light/);
+});

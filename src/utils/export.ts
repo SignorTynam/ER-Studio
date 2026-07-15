@@ -1,5 +1,5 @@
 type ExportFormat = "svg" | "png" | "jpeg";
-type ExportBackground = "transparent" | "white";
+type ExportBackground = "transparent" | "white" | "canvas";
 type ExportStyleMode = "normal" | "print";
 
 interface SvgExportOptions {
@@ -14,6 +14,7 @@ interface PreparedSvgExport {
   markup: string;
   width: number;
   height: number;
+  backgroundColor: string | null;
 }
 
 const DEFAULT_EXPORT_PADDING = 20;
@@ -321,19 +322,30 @@ function neutralizeWorldTransform(clone: SVGSVGElement) {
   getExportWorldGroup(clone)?.removeAttribute("transform");
 }
 
-function prependWhiteExportBackground(
+function resolveExportBackgroundColor(svgElement: SVGSVGElement, background: ExportBackground): string | null {
+  if (background === "white") {
+    return "#ffffff";
+  }
+  if (background === "canvas") {
+    return window.getComputedStyle(svgElement).getPropertyValue("--diagram-canvas-fill").trim() || null;
+  }
+  return null;
+}
+
+function prependExportBackground(
   clone: SVGSVGElement,
   x: number,
   y: number,
   width: number,
   height: number,
+  fill: string,
 ) {
   const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   background.setAttribute("x", x.toString());
   background.setAttribute("y", y.toString());
   background.setAttribute("width", width.toString());
   background.setAttribute("height", height.toString());
-  background.setAttribute("fill", "#ffffff");
+  background.setAttribute("fill", fill);
   background.setAttribute("aria-hidden", "true");
 
   const firstChild = clone.firstChild;
@@ -347,6 +359,7 @@ function prependWhiteExportBackground(
 export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOptions = {}): PreparedSvgExport {
   const format = options.format ?? "svg";
   const background = options.background ?? (format === "jpeg" ? "white" : "transparent");
+  const backgroundColor = resolveExportBackgroundColor(svgElement, background);
   const styleMode = options.styleMode ?? (format === "jpeg" ? "print" : "normal");
   const padding = options.padding ?? DEFAULT_EXPORT_PADDING;
   const clone = svgElement.cloneNode(true) as SVGSVGElement;
@@ -373,15 +386,16 @@ export function prepareSvgExport(svgElement: SVGSVGElement, options: SvgExportOp
   clone.setAttribute("viewBox", `${viewBoxX} ${viewBoxY} ${exportWidth} ${exportHeight}`);
   clone.setAttribute("width", exportWidth.toString());
   clone.setAttribute("height", exportHeight.toString());
-  clone.style.background = background === "white" ? "#ffffff" : "transparent";
-  if (background === "white") {
-    prependWhiteExportBackground(clone, viewBoxX, viewBoxY, exportWidth, exportHeight);
+  clone.style.background = backgroundColor ?? "transparent";
+  if (backgroundColor) {
+    prependExportBackground(clone, viewBoxX, viewBoxY, exportWidth, exportHeight, backgroundColor);
   }
 
   return {
     markup: `<?xml version="1.0" encoding="UTF-8"?>\n${clone.outerHTML}`,
     width: exportWidth,
     height: exportHeight,
+    backgroundColor,
   };
 }
 
@@ -394,8 +408,16 @@ export function serializeSvg(svgElement: SVGSVGElement, options: SvgExportOption
   }).markup;
 }
 
-export function downloadSvg(svgElement: SVGSVGElement, fileName: string) {
-  const svgMarkup = serializeSvg(svgElement, { format: "svg", background: "white", styleMode: "print" });
+export function downloadSvg(
+  svgElement: SVGSVGElement,
+  fileName: string,
+  options?: Pick<SvgExportOptions, "background">,
+) {
+  const svgMarkup = serializeSvg(svgElement, {
+    format: "svg",
+    background: options?.background ?? "white",
+    styleMode: "print",
+  });
   const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
   downloadBlob(blob, fileName);
 }
@@ -406,7 +428,7 @@ async function rasterizeSvg(
   options: Required<Pick<SvgExportOptions, "format" | "background">> & Pick<SvgExportOptions, "scale" | "styleMode">,
 ) {
   const scale = options.scale ?? DEFAULT_RASTER_SCALE;
-  const { markup, width, height } = prepareSvgExport(svgElement, {
+  const { markup, width, height, backgroundColor } = prepareSvgExport(svgElement, {
     format: options.format,
     background: options.background,
     styleMode: options.styleMode,
@@ -436,8 +458,8 @@ async function rasterizeSvg(
 
     context.scale(scale, scale);
 
-    if (options.background === "white") {
-      context.fillStyle = "#ffffff";
+    if (backgroundColor) {
+      context.fillStyle = backgroundColor;
       context.fillRect(0, 0, width, height);
     }
 
@@ -465,8 +487,16 @@ async function rasterizeSvg(
   }
 }
 
-export async function downloadPng(svgElement: SVGSVGElement, fileName: string) {
-  await rasterizeSvg(svgElement, fileName, { format: "png", background: "transparent", styleMode: "print" });
+export async function downloadPng(
+  svgElement: SVGSVGElement,
+  fileName: string,
+  options?: Pick<SvgExportOptions, "background">,
+) {
+  await rasterizeSvg(svgElement, fileName, {
+    format: "png",
+    background: options?.background ?? "transparent",
+    styleMode: "print",
+  });
 }
 
 export async function downloadJpeg(svgElement: SVGSVGElement, fileName: string) {

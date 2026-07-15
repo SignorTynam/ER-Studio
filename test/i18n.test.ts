@@ -614,7 +614,6 @@ test("locale state can switch among all supported locales", () => {
 test("workspace redesign strings exist in English, Italian, and Albanian", () => {
   const keys = [
     "workspaceChrome.commandSearch",
-    "workspaceChrome.theme.switchDark",
     "projectExplorer.actions.expandFolder",
     "projectExplorer.errors.invalid-characters",
     "projectTabs.closeModifiedTitle",

@@ -223,10 +223,6 @@ export const it = {
       modified: "Modificato",
       error: "Errore di salvataggio",
     },
-    theme: {
-      switchLight: "Passa al tema chiaro",
-      switchDark: "Passa al tema scuro",
-    },
     fileTypes: {
       schema: "Schema ER",
       sql: "SQL",
