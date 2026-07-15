@@ -71,10 +71,6 @@ export function WorkspacePanelHeaderActions({ children, className = "" }: { chil
   return <div className={["workspace-panel__header-actions", className].filter(Boolean).join(" ")}>{children}</div>;
 }
 
-export function WorkspacePanelBody({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={["workspace-panel__body", className].filter(Boolean).join(" ")} {...props} />;
-}
-
 interface PanelIconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   icon: StudioIconName;
   label: string;

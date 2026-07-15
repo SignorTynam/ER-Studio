@@ -1,3 +1,9 @@
+/**
+ * @deprecated Set legacy dei pannelli delle superfici designer (inspector,
+ * dock tecnico, sidebar ER). Non usare per superfici nuove: il set canonico
+ * è `components/workspace/WorkspacePanel.tsx` + i primitivi `components/ui/`.
+ * I consumer residui verranno migrati con il ridisegno della Fase C.
+ */
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useI18n } from "../i18n/useI18n";
@@ -207,58 +213,6 @@ export function PanelCard({
   );
 }
 
-interface PanelStepCardProps extends PanelCardBaseProps {}
-
-export function PanelStepCard(props: PanelStepCardProps) {
-  return <PanelCard {...props} className={joinClasses("panel-step-card", props.className)} />;
-}
-
-interface WorkspaceViewBarProps {
-  children: ReactNode;
-  className?: string;
-}
-
-export function WorkspaceViewBar({ children, className }: WorkspaceViewBarProps) {
-  return (
-    <nav className={joinClasses("workspace-view-bar", className)} aria-label="Viste workspace">
-      {children}
-    </nav>
-  );
-}
-
-interface WorkspaceViewButtonProps {
-  children: ReactNode;
-  active?: boolean;
-  badge?: number;
-  onClick: () => void;
-  className?: string;
-  ariaLabel?: string;
-}
-
-export function WorkspaceViewButton({
-  children,
-  active,
-  badge,
-  onClick,
-  className,
-  ariaLabel,
-}: WorkspaceViewButtonProps) {
-  const hasBadge = typeof badge === "number" && badge > 0;
-
-  return (
-    <button
-      type="button"
-      className={joinClasses("workspace-view-button", active ? "active" : "", className)}
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      aria-label={ariaLabel}
-    >
-      <span>{children}</span>
-      {hasBadge ? <span className="workspace-view-badge">{badge}</span> : null}
-    </button>
-  );
-}
-
 interface WarningCardProps {
   children: ReactNode;
   type?: PanelTone;
@@ -303,41 +257,4 @@ interface EmptyStateCardProps {
 
 export function EmptyStateCard({ children, className }: EmptyStateCardProps) {
   return <div className={joinClasses("empty-state-card", className)}>{children}</div>;
-}
-
-interface CommandOptionRowProps {
-  label: string;
-  shortcut?: string;
-  active?: boolean;
-  disabled?: boolean;
-  className?: string;
-  title?: string;
-  ariaLabel?: string;
-  onClick?: () => void;
-}
-
-export function CommandOptionRow({
-  label,
-  shortcut,
-  active,
-  disabled,
-  className,
-  title,
-  ariaLabel,
-  onClick,
-}: CommandOptionRowProps) {
-  return (
-    <button
-      type="button"
-      className={joinClasses("command-option-row", active ? "active" : "", className)}
-      onClick={onClick}
-      disabled={disabled}
-      title={title ?? label}
-      aria-label={ariaLabel ?? label}
-      aria-pressed={active ? true : undefined}
-    >
-      <span className="command-option-label">{label}</span>
-      {shortcut ? <kbd className="keyboard-badge">{shortcut}</kbd> : null}
-    </button>
-  );
 }
