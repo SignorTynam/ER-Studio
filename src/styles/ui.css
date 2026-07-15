@@ -1,0 +1,183 @@
+/* ---------------------------------------------------------------------------
+   Primitivi UI condivisi (Fase B) — src/components/ui/*.
+
+   Regola di fase: qui si stilano SOLO le classi nuove che non esistevano
+   (ghost button, spinner, tooltip, badge, help dei field). Le varianti
+   primary/secondary/danger di Button e la shell Modal/Field viaggiano sulle
+   skin legacy (header-button, mode-button, help-modal-*, action-modal-*) per
+   parita di resa; la Fase C sposterà il look su queste classi.
+   Solo token: nessun colore/dimensione hardcoded.
+--------------------------------------------------------------------------- */
+
+/* Button ------------------------------------------------------------------ */
+
+.ui-button--ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: var(--size-button);
+  padding: var(--space-1) var(--space-2-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.ui-button--ghost:hover:not(:disabled),
+.ui-button--ghost:focus-visible {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.ui-button--ghost:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.ui-button--ghost:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.ui-button--ghost.ui-button--sm {
+  min-height: var(--size-button-sm);
+  padding: var(--space-0-5) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-button__spinner {
+  width: var(--space-3);
+  height: var(--space-3);
+  flex: 0 0 auto;
+  margin-right: var(--space-1-5);
+  border: var(--space-0-5) solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: ui-button-spin 0.8s linear infinite;
+}
+
+@keyframes ui-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Modal (soli hook comportamentali in Fase B) ------------------------------ */
+
+.ui-modal:focus {
+  outline: none;
+}
+
+/* Field -------------------------------------------------------------------- */
+
+.ui-field__help {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+
+/* Tooltip ------------------------------------------------------------------ */
+
+.ui-tooltip-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.ui-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + var(--space-1-5));
+  transform: translateX(-50%);
+  z-index: 12000; /* sopra i menu contestuali esistenti */
+  width: max-content;
+  max-width: min(260px, 80vw);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-text-primary);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--motion-fast) ease,
+    visibility var(--motion-fast) ease;
+}
+
+.ui-tooltip[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ui-tooltip--bottom {
+  bottom: auto;
+  top: calc(100% + var(--space-1-5));
+}
+
+/* Badge -------------------------------------------------------------------- */
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-4-5);
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ui-badge--info {
+  border-color: color-mix(in srgb, var(--color-info) 40%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-info) 10%, var(--color-bg-elevated));
+  color: var(--color-info);
+}
+
+.ui-badge--success {
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-bg-elevated));
+  color: var(--color-success);
+}
+
+.ui-badge--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-bg-elevated));
+  color: var(--color-warning);
+}
+
+.ui-badge--danger {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg-elevated));
+  color: var(--color-danger);
+}
+
+/* Reduced motion ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button--ghost,
+  .ui-tooltip {
+    transition: none;
+  }
+
+  .ui-button__spinner {
+    animation-duration: 1.6s;
+  }
+}

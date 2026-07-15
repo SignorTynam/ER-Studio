@@ -15,6 +15,7 @@ import "./styles/editor-tabs.css";
 import "./styles/context-menu.css";
 import "./styles/panels-workspace.css";
 import "./styles/responsive.css";
+import "./styles/ui.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
