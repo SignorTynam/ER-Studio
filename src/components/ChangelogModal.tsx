@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { useI18n } from "../i18n/useI18n";
 import type { AppChangelogEntry, AppChangelogImpact } from "../utils/appMeta";
 import { StudioIcon } from "./icons/StudioIcon";
+import { Modal } from "./ui";
 
 interface ChangelogModalProps {
   appName: string;
@@ -42,15 +43,16 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="studio-modal-backdrop changelog-modal-modern-backdrop" role="presentation" onClick={onClose}>
-      <section
-        className="studio-modal studio-modal--wide changelog-modal-modern"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="changelog-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="studio-modal__header changelog-modal-modern__header">
+    <Modal
+      open
+      onClose={onClose}
+      legacySkin="studio"
+      hideClose
+      backdropClassName="changelog-modal-modern-backdrop"
+      className="studio-modal--wide changelog-modal-modern"
+      ariaLabelledBy="changelog-modal-title"
+    >
+      <header className="studio-modal__header changelog-modal-modern__header">
           <div>
             <span className="changelog-modal-modern__eyebrow">{t("changelog.eyebrow", { appName })}</span>
             <h2 id="changelog-modal-title" className="studio-modal__title">{t("changelog.title")}</h2>
@@ -117,7 +119,6 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
             );
           })}
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

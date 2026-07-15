@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Locale } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
+import { Modal } from "./ui";
 
 interface ShortcutItem {
   keys: string;
@@ -153,14 +154,14 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
   const resultCount = visibleSections.reduce((count, section) => count + section.items.length, 0);
 
   return (
-    <div className="studio-modal-backdrop" role="presentation" onClick={props.onClose}>
-      <div
-        className="studio-modal studio-modal--wide shortcuts-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="keyboard-shortcuts-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={props.onClose}
+      legacySkin="studio"
+      hideClose
+      className="studio-modal--wide shortcuts-modal"
+      ariaLabelledBy="keyboard-shortcuts-title"
+    >
         <div className="shortcuts-sheet">
           <div className="shortcuts-sheet-header">
             <div className="shortcuts-sheet-title-row">
@@ -248,7 +249,6 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
             {t("keyboardShortcuts.visibleCount", { count: resultCount })}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

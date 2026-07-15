@@ -2,6 +2,7 @@ import type { ProjectCommit } from "../../features/versioning/projectCommitSnaps
 import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../../features/versioning/projectVersionRestore";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { Button, Modal } from "../ui";
 
 interface RestoreVersionDialogProps {
   open: boolean;
@@ -65,39 +66,40 @@ export function RestoreVersionDialog({
   const commitKind = t(getCommitKindKey(commit));
 
   return (
-    <div className="help-modal-backdrop versioning-restore-backdrop" role="presentation" onClick={busy ? undefined : onClose}>
-      <div
-        className="help-modal action-modal versioning-restore-dialog versioning-restore-dialog-v2"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="versioning-restore-title"
-        aria-describedby="versioning-restore-description"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="restore-version-dialog"
-      >
-        <header className="versioning-restore-header">
-          <div className="versioning-restore-kicker">
-            <span className="versioning-restore-icon" aria-hidden="true">
-              <StudioIcon name="warning" />
-            </span>
-            <div>
-              <h2 id="versioning-restore-title">{t("versioning.restore.title")}</h2>
-              <p id="versioning-restore-description" className="action-modal-subtitle">
-                {t("versioning.restore.confirmMessage")}
-              </p>
-            </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={busy}
+      hideClose
+      backdropClassName="versioning-restore-backdrop"
+      className="action-modal versioning-restore-dialog versioning-restore-dialog-v2"
+      ariaLabelledBy="versioning-restore-title"
+      ariaDescribedBy="versioning-restore-description"
+      testId="restore-version-dialog"
+    >
+      <header className="versioning-restore-header">
+        <div className="versioning-restore-kicker">
+          <span className="versioning-restore-icon" aria-hidden="true">
+            <StudioIcon name="warning" />
+          </span>
+          <div>
+            <h2 id="versioning-restore-title">{t("versioning.restore.title")}</h2>
+            <p id="versioning-restore-description" className="action-modal-subtitle">
+              {t("versioning.restore.confirmMessage")}
+            </p>
           </div>
-          <button
-            type="button"
-            className="help-close"
-            onClick={onClose}
-            aria-label={t("common.actions.close")}
-            disabled={busy}
-          >
-            <StudioIcon name="close" aria-hidden="true" />
-          </button>
-        </header>
-        <div className="action-modal-content versioning-restore-body">
+        </div>
+        <button
+          type="button"
+          className="help-close"
+          onClick={onClose}
+          aria-label={t("common.actions.close")}
+          disabled={busy}
+        >
+          <StudioIcon name="close" aria-hidden="true" />
+        </button>
+      </header>
+      <div className="action-modal-content versioning-restore-body">
           <section className="versioning-restore-target" data-testid="restore-version-target">
             <div className="versioning-restore-target-heading">
               <span className="versioning-type-badge is-restore">{t("versioning.restore.targetVersion")}</span>
@@ -146,22 +148,21 @@ export function RestoreVersionDialog({
             </ol>
           </section>
           {error ? <p className="action-modal-error">{error}</p> : null}
-          <div className="action-modal-actions versioning-restore-actions">
-            <button type="button" className="header-button" onClick={onClose} disabled={busy}>
-              {t("common.actions.cancel")}
-            </button>
-            <button
-              type="button"
-              className="mode-button active versioning-restore-confirm"
-              onClick={onConfirm}
-              disabled={busy}
-              data-testid="confirm-restore-button"
-            >
-              {t("versioning.restore.restoreThisVersion")}
-            </button>
-          </div>
+        <div className="action-modal-actions versioning-restore-actions">
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            {t("common.actions.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            className="versioning-restore-confirm"
+            onClick={onConfirm}
+            disabled={busy}
+            data-testid="confirm-restore-button"
+          >
+            {t("versioning.restore.restoreThisVersion")}
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

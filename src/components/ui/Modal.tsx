@@ -36,6 +36,43 @@ const FOCUSABLE_SELECTOR = [
 
 export type ModalSize = "sm" | "md" | "lg";
 
+/**
+ * Skin legacy emesse in Fase B per parità di resa: i modali esistenti
+ * appartengono a due famiglie CSS (help-modal-* e studio-modal-*).
+ * La Fase C sposterà il look su ui-modal-* e ritirerà le skin.
+ */
+export type ModalLegacySkin = "help" | "studio" | "none";
+
+const LEGACY_SKIN_CLASSES: Record<ModalLegacySkin, {
+  backdrop: string;
+  card: string;
+  head: string;
+  title: string;
+  subtitle: string;
+  close: string;
+  footer: string;
+}> = {
+  help: {
+    backdrop: "help-modal-backdrop",
+    card: "help-modal",
+    head: "help-modal-head",
+    title: "",
+    subtitle: "action-modal-subtitle",
+    close: "help-close",
+    footer: "action-modal-actions",
+  },
+  studio: {
+    backdrop: "studio-modal-backdrop",
+    card: "studio-modal",
+    head: "studio-modal__header",
+    title: "studio-modal__title",
+    subtitle: "studio-modal__subtitle",
+    close: "studio-modal__close",
+    footer: "studio-modal__footer",
+  },
+  none: { backdrop: "", card: "", head: "", title: "", subtitle: "", close: "", footer: "" },
+};
+
 export interface ModalProps {
   open: boolean;
   /** Chiamato da Esc, click sul backdrop e bottone di chiusura (mai mentre `busy`). */
@@ -52,12 +89,16 @@ export interface ModalProps {
   hideClose?: boolean;
   /** Riceve il focus all'apertura (in alternativa: primo elemento focalizzabile). */
   initialFocusRef?: RefObject<HTMLElement>;
+  /** Famiglia di classi legacy da emettere per parità di resa (default `help`). */
+  legacySkin?: ModalLegacySkin;
   /** Classi extra sulla card (in Fase B ospitano le skin legacy, es. `action-modal`). */
   className?: string;
   backdropClassName?: string;
   headerActions?: ReactNode;
   /** Etichetta alternativa quando non c'è `title`. */
   ariaLabel?: string;
+  /** Per header custom nei children: id dell'heading che intitola il dialogo. */
+  ariaLabelledBy?: string;
   ariaDescribedBy?: string;
   testId?: string;
   children: ReactNode;
@@ -86,10 +127,12 @@ export function Modal({
   closeOnBackdrop = true,
   hideClose = false,
   initialFocusRef,
+  legacySkin = "help",
   className,
   backdropClassName,
   headerActions,
   ariaLabel,
+  ariaLabelledBy,
   ariaDescribedBy,
   testId,
   children,
@@ -167,32 +210,37 @@ export function Modal({
 
   const canDismiss = !busy;
   const showHeader = title != null || subtitle != null || headerActions != null || !hideClose;
+  const skin = LEGACY_SKIN_CLASSES[legacySkin];
 
   return (
     <div
-      className={cx("ui-modal-backdrop", "help-modal-backdrop", backdropClassName)}
+      className={cx("ui-modal-backdrop", skin.backdrop, backdropClassName)}
       role="presentation"
       onClick={canDismiss && closeOnBackdrop ? onClose : undefined}
       onKeyDown={handleTrapKeyDown}
     >
       <div
         ref={cardRef}
-        className={cx("ui-modal", `ui-modal--${size}`, "help-modal", className)}
+        className={cx("ui-modal", `ui-modal--${size}`, skin.card, className)}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title != null ? titleId : undefined}
-        aria-label={title == null ? ariaLabel : undefined}
+        aria-labelledby={title != null ? titleId : ariaLabelledBy}
+        aria-label={title == null && ariaLabelledBy == null ? ariaLabel : undefined}
         aria-describedby={ariaDescribedBy ?? (subtitle != null ? subtitleId : undefined)}
         onClick={(event) => event.stopPropagation()}
         tabIndex={-1}
         data-testid={testId}
       >
         {showHeader ? (
-          <div className="ui-modal__head help-modal-head">
+          <div className={cx("ui-modal__head", skin.head)}>
             <div className="ui-modal__titles">
-              {title != null ? <h2 id={titleId}>{title}</h2> : null}
+              {title != null ? (
+                <h2 id={titleId} className={cx(skin.title) || undefined}>
+                  {title}
+                </h2>
+              ) : null}
               {subtitle != null ? (
-                <p id={subtitleId} className="ui-modal__subtitle action-modal-subtitle">
+                <p id={subtitleId} className={cx("ui-modal__subtitle", skin.subtitle)}>
                   {subtitle}
                 </p>
               ) : null}
@@ -201,7 +249,7 @@ export function Modal({
             {!hideClose ? (
               <button
                 type="button"
-                className="ui-modal__close help-close"
+                className={cx("ui-modal__close", skin.close)}
                 onClick={onClose}
                 aria-label={t("common.actions.close")}
                 disabled={busy}
@@ -212,7 +260,7 @@ export function Modal({
           </div>
         ) : null}
         {children}
-        {footer ? <div className="ui-modal__footer action-modal-actions">{footer}</div> : null}
+        {footer ? <div className={cx("ui-modal__footer", skin.footer)}>{footer}</div> : null}
       </div>
     </div>
   );
