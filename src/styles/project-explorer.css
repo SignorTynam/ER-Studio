@@ -320,8 +320,9 @@
 .project-explorer-header__actions button:focus-visible,
 .project-explorer-item__actions button:focus-visible,
 .project-explorer-item:focus-visible,
+.project-explorer-item__chevron:focus-visible,
 .project-explorer-empty button:focus-visible {
-  outline: 2px solid var(--studio-focus-ring);
+  outline: 2px solid var(--studio-accent);
   outline-offset: -2px;
 }
 
@@ -1294,22 +1295,8 @@ body.source-control-resizing * {
   color: var(--editor-text-strong);
 }
 
-.project-explorer-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  background: var(--editor-accent);
-}
-
 .project-explorer-item.selected:not(.active) {
   background: var(--editor-panel-muted);
-}
-
-.project-explorer-item.active.selected {
-  box-shadow: inset 0 0 0 1px rgba(61, 122, 110, 0.2);
 }
 
 .project-explorer-item__main {
@@ -1322,8 +1309,8 @@ body.source-control-resizing * {
 }
 
 .project-explorer-children {
-  border-left: 1px solid var(--editor-border);
-  margin-left: 15px;
+  border-left: 1px solid color-mix(in srgb, var(--editor-border) 75%, transparent);
+  margin-left: 10px;
 }
 
 .project-explorer-item__chevron,
@@ -1367,16 +1354,9 @@ body.source-control-resizing * {
 }
 
 .project-explorer-item__extension {
-  opacity: 0;
   max-width: 62px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.project-explorer-item:hover .project-explorer-item__extension,
-.project-explorer-item:focus-within .project-explorer-item__extension,
-.project-explorer-item.active .project-explorer-item__extension {
-  opacity: 0.85;
 }
 
 .project-explorer-item__actions {
@@ -1389,9 +1369,17 @@ body.source-control-resizing * {
 }
 
 .project-explorer-item:hover .project-explorer-item__actions,
-.project-explorer-item:focus-within .project-explorer-item__actions {
+.project-explorer-item:focus-within .project-explorer-item__actions,
+.project-explorer-item.selected .project-explorer-item__actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (pointer: coarse) {
+  .project-explorer-item__actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .project-explorer-empty {
@@ -2343,7 +2331,7 @@ body.source-control-resizing * {
 }
 
 .project-explorer-children {
-  border-left-color: color-mix(in srgb, var(--editor-border) 78%, var(--studio-accent) 22%);
+  border-left-color: color-mix(in srgb, var(--editor-border) 88%, var(--studio-accent) 12%);
 }
 
 .project-explorer-item {
@@ -2366,12 +2354,6 @@ body.source-control-resizing * {
   background: color-mix(in srgb, var(--editor-panel-muted) 70%, var(--editor-panel) 30%);
 }
 
-.project-explorer-item.active::before {
-  top: 3px;
-  bottom: 3px;
-  width: 3px;
-}
-
 .project-explorer-item__main {
   grid-template-columns: 18px 20px minmax(0, 1fr) auto auto;
   gap: 6px;
@@ -2382,9 +2364,24 @@ body.source-control-resizing * {
   color: color-mix(in srgb, var(--editor-text-muted) 84%, var(--editor-text-strong) 16%);
 }
 
-.project-explorer-item.file.active .project-explorer-item__icon,
 .project-explorer-item.folder .project-explorer-item__icon {
+  color: color-mix(in srgb, var(--studio-accent) 58%, var(--editor-text-muted) 42%);
+}
+
+.project-explorer-item.folder[aria-expanded="true"] .project-explorer-item__icon {
   color: var(--studio-accent-strong);
+}
+
+.project-explorer-item[data-kind="schema"] .project-explorer-item__icon {
+  color: var(--studio-accent-strong);
+}
+
+.project-explorer-item[data-kind="sql"] .project-explorer-item__icon {
+  color: color-mix(in srgb, var(--studio-warning) 72%, var(--editor-text) 28%);
+}
+
+.project-explorer-item[data-kind="text"] .project-explorer-item__icon {
+  color: var(--editor-text-muted);
 }
 
 .project-explorer-item__name {
@@ -2962,6 +2959,38 @@ body.source-control-resizing * {
     width: min(var(--project-explorer-width, 280px), 82vw);
     min-width: min(var(--project-explorer-width, 280px), 82vw);
     max-width: min(var(--project-explorer-width, 280px), 82vw);
+  }
+}
+
+.project-explorer-item {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.project-explorer-item__actions {
+  transition: opacity 140ms ease;
+}
+
+.project-explorer-item__chevron .studio-icon {
+  transition: transform 120ms ease;
+}
+
+.project-explorer-item__chevron.is-expanded .studio-icon {
+  transform: rotate(90deg);
+}
+
+.project-explorer-item__icon .studio-icon {
+  transition: color 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-explorer-item,
+  .project-explorer-item__actions,
+  .project-explorer-item__chevron .studio-icon,
+  .project-explorer-item__icon .studio-icon {
+    transition: none;
   }
 }
 

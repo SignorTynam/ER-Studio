@@ -187,6 +187,8 @@
 
 .project-explorer-header {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: 0;
   padding: 0;
   border-bottom: 1px solid var(--color-border-default);
@@ -238,11 +240,14 @@
 }
 
 .project-explorer-meta {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -323,8 +328,14 @@
 }
 
 .project-explorer-item.active {
+  border-left-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-bg-selected) 45%, transparent);
   color: var(--color-accent);
-  font-weight: 600;
+}
+
+.project-explorer-item.active .project-explorer-item__name {
+  color: var(--color-accent-hover);
+  font-weight: 680;
 }
 
 .project-explorer-item.active.selected {
@@ -336,13 +347,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 14px);
+  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 8px);
 }
 
 .project-explorer-item__main {
   min-width: 0;
   height: var(--size-tree-row);
-  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 14px);
+  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 8px);
   gap: var(--space-1);
 }
 
@@ -362,21 +373,27 @@
 }
 
 .project-explorer-item__name {
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .project-explorer-item__extension,
 .project-explorer-item__empty {
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text-muted);
   font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .project-explorer-item__dirty {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
   border-radius: 50%;
   background: var(--color-modified);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--editor-panel) 90%, transparent);
 }
 
 .project-explorer-item__actions {
@@ -432,10 +449,81 @@
 
 .project-explorer-empty {
   min-height: 0;
-  padding: var(--space-4) var(--space-3);
-  border: 0 !important;
-  background: transparent !important;
+  margin: var(--space-3);
+  padding: var(--space-5) var(--space-3);
+  gap: var(--space-2);
+  border: 1px dashed var(--color-border-default);
+  background: var(--color-bg-panel);
+  box-shadow: none;
   color: var(--color-text-muted);
+}
+
+.project-explorer-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.project-explorer-empty p {
+  max-width: 200px;
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.project-explorer-empty button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: var(--size-icon-button);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.project-explorer-empty button:hover,
+.project-explorer-empty button:focus-visible {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+button.project-explorer-empty__cta {
+  margin-top: var(--space-1);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--studio-surface);
+  font-weight: 700;
+}
+
+button.project-explorer-empty__cta:hover,
+button.project-explorer-empty__cta:focus-visible {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+  color: var(--studio-surface);
+}
+
+.project-explorer-empty__secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1-5);
+}
+
+.project-explorer-empty__secondary-row button {
+  min-height: 26px;
+  padding: var(--space-0-5) var(--space-2);
+  font-size: 0.74rem;
 }
 
 .project-explorer-empty > svg {

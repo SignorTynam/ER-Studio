@@ -49,6 +49,8 @@ interface ProjectExplorerTreeItemProps {
   onSelectNode: (nodeId: string) => void;
   onContextMenu: (node: ProjectExplorerNode, event: ReactMouseEvent) => void;
   onToggleFolder: (folderId: string) => void;
+  onCreateSchema: (parentId: string) => void;
+  onCreateSqlFile: (parentId: string) => void;
   onRename: (nodeId: string, nextName?: string) => void | Promise<void>;
   onDelete: (nodeId: string) => void;
   onCreateDraftChange?: (value: string) => void;
@@ -56,12 +58,12 @@ interface ProjectExplorerTreeItemProps {
   onCreateDraftCancel?: () => void;
 }
 
-function getProjectNodeIcon(node: ProjectExplorerNode): StudioIconName {
+function getProjectNodeIcon(node: ProjectExplorerNode, expanded: boolean): StudioIconName {
   if (node.kind === "folder") {
-    return "openProject";
+    return expanded ? "openProject" : "folder";
   }
   if (node.kind === "schema") {
-    return "entity";
+    return "schema";
   }
   if (node.kind === "sql") {
     return "database";
@@ -73,8 +75,8 @@ function getProjectNodeIcon(node: ProjectExplorerNode): StudioIconName {
 }
 
 function getCreateDraftIcon(kind: ProjectExplorerCreateKind): StudioIconName {
-  if (kind === "folder") return "openProject";
-  if (kind === "schema") return "entity";
+  if (kind === "folder") return "folder";
+  if (kind === "schema") return "schema";
   if (kind === "sql") return "database";
   return "fileText";
 }
@@ -113,6 +115,7 @@ export function ProjectExplorerCreateRow({
         style={{ "--project-explorer-depth": depth } as CSSProperties}
         role="treeitem"
         aria-selected="true"
+        data-kind={draft.kind}
       >
         <div className="project-explorer-item__main">
           <span className="project-explorer-item__chevron" aria-hidden="true" />
@@ -157,6 +160,11 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   const isSelected = props.node.id === props.selectedNodeId;
   const isDirty = Boolean(props.node.fileId && props.dirtyFileIds?.has(props.node.fileId));
   const showsCreateDraft = isFolder && props.expanded && props.createDraft?.parentId === props.node.id;
+  const extensionMatch = isFolder ? null : /\.([A-Za-z0-9]+)$/.exec(props.node.name);
+  const hasVisibleExtension = Boolean(extensionMatch && extensionMatch.index > 0);
+  const displayName = hasVisibleExtension && extensionMatch
+    ? props.node.name.slice(0, extensionMatch.index)
+    : props.node.name;
   const rowClassName = [
     "project-explorer-item",
     isFolder ? "folder" : "file",
@@ -302,6 +310,7 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
         role="treeitem"
         tabIndex={isSelected || (!props.selectedNodeId && props.depth === 0) ? 0 : -1}
         data-project-node-id={props.node.id}
+        data-kind={props.node.kind}
         aria-expanded={isFolder ? props.expanded : undefined}
         aria-selected={isSelected}
         aria-current={isActive ? "page" : undefined}
@@ -315,17 +324,17 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
           {isFolder ? (
             <button
               type="button"
-              className="project-explorer-item__chevron"
+              className={props.expanded ? "project-explorer-item__chevron is-expanded" : "project-explorer-item__chevron"}
               aria-label={props.expanded ? props.labels.collapseFolder : props.labels.expandFolder}
               onClick={(event) => stopAndRun(event, () => props.onToggleFolder(props.node.id))}
             >
-              <StudioIcon name={props.expanded ? "arrowDown" : "arrowRight"} aria-hidden="true" />
+              <StudioIcon name="arrowRight" aria-hidden="true" />
             </button>
           ) : (
             <span className="project-explorer-item__chevron" aria-hidden="true" />
           )}
           <span className="project-explorer-item__icon" aria-hidden="true">
-            <StudioIcon name={getProjectNodeIcon(props.node)} />
+            <StudioIcon name={getProjectNodeIcon(props.node, props.expanded)} />
           </span>
           {renaming ? (
             <span className="project-explorer-item__rename-wrap">
@@ -358,11 +367,36 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
               {renameError ? <span className="project-explorer-item__rename-error" role="alert">{renameError}</span> : null}
             </span>
           ) : (
-            <span className="project-explorer-item__name" title={props.node.name}>{props.node.name}</span>
+            <>
+              <span className="project-explorer-item__name" title={props.node.name}>{displayName}</span>
+              {hasVisibleExtension && extensionMatch ? (
+                <span className="project-explorer-item__extension" aria-hidden="true">{extensionMatch[1]}</span>
+              ) : null}
+            </>
           )}
-          {isDirty ? <span className="project-explorer-item__dirty" aria-label={props.labels.modified} title={props.labels.modified} /> : null}
+          {isDirty ? <span className="project-explorer-item__dirty" role="img" aria-label={props.labels.modified} title={props.labels.modified} /> : null}
         </div>
         <span className="project-explorer-item__actions">
+          {isFolder ? (
+            <>
+              <button
+                type="button"
+                aria-label={`${props.labels.newSchema}: ${props.node.name}`}
+                title={props.labels.newSchema}
+                onClick={(event) => stopAndRun(event, () => props.onCreateSchema(props.node.id))}
+              >
+                <StudioIcon name="newProject" />
+              </button>
+              <button
+                type="button"
+                aria-label={`${props.labels.newSqlFile}: ${props.node.name}`}
+                title={props.labels.newSqlFile}
+                onClick={(event) => stopAndRun(event, () => props.onCreateSqlFile(props.node.id))}
+              >
+                <StudioIcon name="database" />
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             aria-label={`${props.labels.more}: ${props.node.name}`}

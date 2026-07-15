@@ -134,7 +134,7 @@ export function ProjectExplorerContextMenu({
       {canCreateChildren ? (
         <div className="project-explorer-context-menu__section">
           <button type="button" className="project-explorer-context-menu__item" role="menuitem" onClick={() => run(onNewSchema)}>
-          <StudioIcon name="newProject" aria-hidden="true" />
+          <StudioIcon name="schema" aria-hidden="true" />
           <span>{t("projectExplorer.contextMenu.newSchema")}</span>
           <span className="project-explorer-context-menu__shortcut">S</span>
           </button>

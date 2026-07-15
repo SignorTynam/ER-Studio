@@ -517,7 +517,7 @@ export function addProjectFolder(state: ProjectExplorerState, parentId: string, 
       },
       view: {
         ...state.view,
-        expandedFolderIds: Array.from(new Set([...state.view.expandedFolderIds, parentId])),
+        expandedFolderIds: Array.from(new Set([...state.view.expandedFolderIds, parentId, nodeId])),
       },
     },
   };

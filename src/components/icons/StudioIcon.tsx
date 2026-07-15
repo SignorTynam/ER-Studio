@@ -28,6 +28,7 @@ import {
   FileText,
   FileType,
   Focus,
+  Folder,
   FolderPlus,
   FolderOpen,
   GitBranchPlus,
@@ -107,6 +108,7 @@ export type StudioIconName =
   | "fit"
   | "fix"
   | "focus"
+  | "folder"
   | "folderPlus"
   | "globe"
   | "help"
@@ -142,6 +144,7 @@ export type StudioIconName =
   | "reset"
   | "role"
   | "save"
+  | "schema"
   | "search"
   | "select"
   | "show"
@@ -194,6 +197,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   fit: Scan,
   fix: WandSparkles,
   focus: Focus,
+  folder: Folder,
   folderPlus: FolderPlus,
   globe: Globe2,
   help: CircleHelp,
@@ -255,6 +259,16 @@ function CustomIcon({
 
   if (name === "relationship") {
     return <path {...common} d="M12 4 21 12 12 20 3 12 12 4z" />;
+  }
+
+  if (name === "schema") {
+    return (
+      <>
+        <rect {...common} x="3.5" y="4" width="8" height="6" rx="1" />
+        <rect {...common} x="12.5" y="14" width="8" height="6" rx="1" />
+        <path {...common} d="M7.5 10v4.5a2 2 0 0 0 2 2h3" />
+      </>
+    );
   }
 
   if (name === "attribute") {
