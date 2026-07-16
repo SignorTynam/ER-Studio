@@ -157,6 +157,8 @@ test("cardinality flow: connector cardinality renders without canvas-fill backgr
 
   assert.match(markup, /class="edge-label cardinality-label connector-label"/);
   assert.match(markup, />\(1,1\)<\/text>/);
+  // Fase C3.2: le etichette poggiano su chip bg-elevated, non sul canvas-fill.
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
   assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
 });
 
@@ -175,6 +177,7 @@ test("cardinality flow: attribute cardinality renders without canvas-fill backgr
 
   assert.match(markup, /class="edge-label cardinality-label attribute-cardinality-label"/);
   assert.match(markup, />\(0,N\)<\/text>/);
+  assert.match(markup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
   assert.doesNotMatch(markup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
 });
 
@@ -208,6 +211,7 @@ test("cardinality flow: hierarchy constraint labels do not use backgrounds or wh
 
   assert.match(isaMarkup, /class="edge-label inheritance-constraint-label"/);
   assert.match(isaMarkup, />\(t,e\)<\/text>/);
+  assert.match(isaMarkup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
   assert.doesNotMatch(isaMarkup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
   assert.match(css, /\.inheritance-constraint-label\s*\{[\s\S]*?paint-order:\s*normal;[\s\S]*?stroke:\s*none;[\s\S]*?stroke-width:\s*0;[\s\S]*?\}/);
   assert.doesNotMatch(canvasSource, /layout\.visualLayout\.labelPoint\.x\s*-\s*labelWidth\s*\/\s*2/);
@@ -229,7 +233,7 @@ test("cardinality flow: role labels keep their separate backgrounds", () => {
   const roleMarkup = renderEdge(connector("edge-1", "participation-edge-1"), sourceNode, targetNode);
 
   assert.match(roleMarkup, /class="edge-label connector-role-label"/);
-  assert.match(roleMarkup, /<rect[^>]+fill="var\(--diagram-canvas-fill\)"/);
+  assert.match(roleMarkup, /<rect class="edge-label-chip"[^>]+fill="var\(--color-bg-elevated\)"/);
 });
 
 test("cardinality flow: new connector between entity and relationship opens cardinality dialog", () => {

@@ -94,10 +94,10 @@ test("SVG export uses white print output", () => {
 });
 
 test("export removes validation UI from cloned SVG", () => {
-  // Fase C3.1: i nodi segnalano la validazione con bordo+badge (niente più halo);
-  // l'halo resta solo sugli archi fino alla sotto-parte C3.2.
+  // Fase C3.1/C3.2: nodi e archi segnalano la validazione con bordo+badge
+  // (niente più halo perimetrale).
   assert.doesNotMatch(diagramNodeSource, /node-validation-halo/);
-  assert.match(diagramEdgeSource, /className="diagram-validation-halo edge-validation-halo"/);
+  assert.doesNotMatch(diagramEdgeSource, /edge-validation-halo/);
   assert.match(exportSource, /function removeExportOnlyUi/);
   assert.match(exportSource, /\.diagram-validation-badge/);
   assert.match(exportSource, /\.diagram-validation-halo/);

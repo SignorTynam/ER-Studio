@@ -75,18 +75,6 @@ function getValidationStroke(level: DiagramIssueLevel): string {
   return DIAGRAM_STROKE;
 }
 
-function getValidationHalo(level: DiagramIssueLevel): string {
-  if (level === "error") {
-    return DIAGRAM_ERROR_FILL;
-  }
-
-  if (level === "warning") {
-    return DIAGRAM_WARNING_FILL;
-  }
-
-  return "transparent";
-}
-
 function distance(left: Point, right: Point): number {
   return Math.hypot(right.x - left.x, right.y - left.y);
 }
@@ -161,7 +149,7 @@ function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, t
   return (
     <g className={`diagram-validation-badge ${level}`} pointerEvents="all">
       {title ? <title>{title}</title> : null}
-      <circle cx={x} cy={y} r={7.5} fill="#fffdf7" stroke={stroke} strokeWidth={1.7} />
+      <circle cx={x} cy={y} r={7.5} fill="var(--color-bg-elevated)" stroke={stroke} strokeWidth={1.7} />
       <circle cx={x} cy={y} r={5.4} fill={fill} stroke="none" opacity={0.65} />
       <circle cx={x} cy={y} r={2.6} fill={stroke} opacity={0.95} />
     </g>
@@ -236,7 +224,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
     props.translationHighlight === "selected"
       ? DIAGRAM_TRANSLATION_PENDING
       : versionStroke ?? (isEdgeHighlighted ? DIAGRAM_FOCUS : strokeColor);
-  const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const baseOpacity = isGhost ? 0.58 : 1;
   const labelOpacity = isGhost ? 0.72 : 1;
   const inheritanceConstraintY = geometry.labelPoint.y - (displayLabel ? 18 : 8);
@@ -315,17 +302,6 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
           strokeWidth={16}
         />
       ) : null}
-      {!isGhost && props.validationLevel ? (
-        <path
-          className="diagram-validation-halo edge-validation-halo"
-          d={pathData}
-          fill="none"
-          stroke={haloColor}
-          strokeWidth={5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ) : null}
       <path
         d={pathData}
         fill="none"
@@ -348,6 +324,19 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       />
       {inheritanceConstraintLabel ? (
         <>
+          <rect
+            className="edge-label-chip"
+            x={geometry.labelPoint.x - (inheritanceConstraintLabel.length * 7 + 10) / 2}
+            y={inheritanceConstraintY - 13}
+            width={inheritanceConstraintLabel.length * 7 + 10}
+            height={18}
+            rx={3}
+            fill="var(--color-bg-elevated)"
+            stroke="var(--color-border-subtle)"
+            strokeWidth={1}
+            opacity={labelOpacity}
+            pointerEvents="none"
+          />
           <text
             x={geometry.labelPoint.x}
             y={inheritanceConstraintY}
@@ -363,6 +352,19 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       ) : null}
       {displayLabel ? (
         <>
+          <rect
+            className="edge-label-chip"
+            x={displayLabelPoint.x - displayLabelWidth / 2}
+            y={displayLabelY - 13}
+            width={displayLabelWidth}
+            height={18}
+            rx={3}
+            fill="var(--color-bg-elevated)"
+            stroke="var(--color-border-subtle)"
+            strokeWidth={1}
+            opacity={labelOpacity}
+            pointerEvents="none"
+          />
           <text
             x={displayLabelPoint.x}
             y={displayLabelY}
@@ -385,13 +387,16 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
       {roleLabel ? (
         <>
           <rect
+            className="edge-label-chip"
             x={roleLabelPoint.x - roleLabelWidth / 2}
             y={roleLabelY - 13}
             width={roleLabelWidth}
             height={18}
             rx={3}
-            fill="var(--diagram-canvas-fill)"
-            opacity={0.9}
+            fill="var(--color-bg-elevated)"
+            stroke="var(--color-border-subtle)"
+            strokeWidth={1}
+            opacity={labelOpacity}
             pointerEvents="none"
           />
           <text
