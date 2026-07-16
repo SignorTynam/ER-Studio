@@ -5,6 +5,7 @@ import {
   type ReactNode,
 } from "react";
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
+import { Tooltip, type TooltipPosition } from "../ui/Tooltip";
 
 interface WorkspacePanelProps {
   label: string;
@@ -75,23 +76,26 @@ interface PanelIconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEleme
   icon: StudioIconName;
   label: string;
   active?: boolean;
+  /** Posizione del tooltip (Fase C2: sostituisce i `title` nativi). */
+  tooltipPosition?: TooltipPosition;
 }
 
 export const PanelIconButton = forwardRef<HTMLButtonElement, PanelIconButtonProps>(function PanelIconButton(
-  { icon, label, active = false, className = "", title, type = "button", ...props },
+  { icon, label, active = false, className = "", title, type = "button", tooltipPosition = "bottom", ...props },
   ref,
 ) {
   return (
-    <button
-      ref={ref}
-      type={type}
-      className={["panel-icon-button", active ? "active" : "", className].filter(Boolean).join(" ")}
-      aria-label={label}
-      title={title ?? label}
-      {...props}
-    >
-      <StudioIcon name={icon} aria-hidden="true" />
-    </button>
+    <Tooltip position={tooltipPosition} label={title ?? label}>
+      <button
+        ref={ref}
+        type={type}
+        className={["panel-icon-button", active ? "active" : "", className].filter(Boolean).join(" ")}
+        aria-label={label}
+        {...props}
+      >
+        <StudioIcon name={icon} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 });
 

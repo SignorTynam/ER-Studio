@@ -326,9 +326,12 @@ export function SourceControlPanel({
           )}
           <span>{t("sourceControl.graph")}</span>
           <span className="source-control-count">{t("versioning.commitCount", { count: commits.length })}</span>
-          <button type="button" className="source-control-icon-button" onClick={onRefresh} aria-label={t("sourceControl.refresh")}>
-            <StudioIcon name="refresh" />
-          </button>
+          <PanelIconButton
+            icon="refresh"
+            label={t("sourceControl.refresh")}
+            className="source-control-icon-button"
+            onClick={onRefresh}
+          />
         </div>
 
         {!historyCollapsed ? (
