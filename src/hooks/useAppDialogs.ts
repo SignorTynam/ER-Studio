@@ -6,6 +6,8 @@ export interface ConfirmDialogState {
   message: string;
   confirmLabel: string;
   cancelLabel: string;
+  /** Fase C4b: true per conferme distruttive (bottone primario in variante danger). */
+  danger: boolean;
 }
 
 export interface PromptDialogState {
@@ -23,6 +25,7 @@ interface RequestConfirmOptions {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  danger?: boolean;
 }
 
 interface RequestPromptOptions {
@@ -108,6 +111,7 @@ export function useAppDialogs({
         message: options.message,
         confirmLabel: options.confirmLabel ?? defaultConfirmLabel,
         cancelLabel: options.cancelLabel ?? defaultCancelLabel,
+        danger: options.danger ?? false,
       });
     });
   }

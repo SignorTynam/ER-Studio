@@ -37,6 +37,7 @@ import { SqlReverseLogicalPreview } from "./components/SqlReverseLogicalPreview"
 import { SqlReversePreviewFrame } from "./components/SqlReversePreviewFrame";
 import { WorkspaceToastStack } from "./components/WorkspaceToastStack";
 import { StudioIcon } from "./components/icons/StudioIcon";
+import { Button, Field, Modal } from "./components/ui";
 import { PanelSection, WarningCard } from "./components/panels";
 import { useHistory } from "./hooks/useHistory";
 import { useAppDialogs } from "./hooks/useAppDialogs";
@@ -954,7 +955,6 @@ export default function App() {
     promptValue,
     promptError,
     promptInputRef,
-    dialogRef: appDialogRef,
     setPromptValue,
     setPromptError,
     requestConfirmDialog,
@@ -1795,6 +1795,7 @@ export default function App() {
       message: t("dialogs.unsavedChanges.message", { action: actionLabel }),
       confirmLabel: t("dialogs.unsavedChanges.confirm"),
       cancelLabel: t("dialogs.unsavedChanges.cancel"),
+      danger: true,
     });
   }
 
@@ -2261,6 +2262,7 @@ export default function App() {
       message: t("sqlReverse.app.confirmImportMessage"),
       confirmLabel: t("sqlReverse.app.confirmImport"),
       cancelLabel: t("common.actions.cancel"),
+      danger: true,
     });
     if (!confirmed) {
       setStatusWarning(t("sqlReverse.app.importCancelled"));
@@ -3124,6 +3126,7 @@ export default function App() {
       title: t("projectExplorer.dialogs.deleteTitle"),
       message: t("projectExplorer.dialogs.deleteMessage", { name: node.name }),
       confirmLabel: t("common.actions.delete"),
+      danger: true,
     });
     if (!confirmed) {
       return;
@@ -3522,15 +3525,8 @@ export default function App() {
       }
 
       if (event.key === "Escape") {
-        if (promptDialog) {
-          event.preventDefault();
-          closePromptDialog(null);
-          return;
-        }
-
-        if (confirmDialog) {
-          event.preventDefault();
-          closeConfirmDialog(false);
+        // Fase C4b: confirm/prompt vivono sulla Modal shell, che gestisce Esc da sé.
+        if (promptDialog || confirmDialog) {
           return;
         }
 
@@ -7604,61 +7600,57 @@ export default function App() {
       {keyboardShortcutsOpen ? <KeyboardShortcutsModal onClose={() => setKeyboardShortcutsOpen(false)} /> : null}
 
       {confirmDialog ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => closeConfirmDialog(false)}>
-          <div
-            ref={appDialogRef}
-            className="help-modal action-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="help-modal-head">
-              <h2 id="confirm-dialog-title">{confirmDialog.title}</h2>
-            </div>
-
-            <div className="action-modal-content">
-              <p>{confirmDialog.message}</p>
-              <div className="action-modal-actions">
-                <button type="button" className="header-button" data-dialog-safe onClick={() => closeConfirmDialog(false)}>
-                  {confirmDialog.cancelLabel}
-                </button>
-                <button type="button" className="mode-button active" onClick={() => closeConfirmDialog(true)}>
-                  {confirmDialog.confirmLabel}
-                </button>
-              </div>
-            </div>
+        <Modal
+          open
+          onClose={() => closeConfirmDialog(false)}
+          title={confirmDialog.title}
+          size="sm"
+          className="action-modal"
+          footer={
+            <>
+              <Button variant="secondary" data-dialog-safe onClick={() => closeConfirmDialog(false)}>
+                {confirmDialog.cancelLabel}
+              </Button>
+              <Button
+                variant={confirmDialog.danger ? "danger" : "primary"}
+                onClick={() => closeConfirmDialog(true)}
+              >
+                {confirmDialog.confirmLabel}
+              </Button>
+            </>
+          }
+        >
+          <div className="action-modal-content">
+            <p>{confirmDialog.message}</p>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {promptDialog ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => closePromptDialog(null)}>
-          <div
-            ref={appDialogRef}
-            className="help-modal action-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="prompt-dialog-title"
-            onClick={(event) => event.stopPropagation()}
+        <Modal
+          open
+          onClose={() => closePromptDialog(null)}
+          title={promptDialog.title}
+          size="sm"
+          className="action-modal"
+        >
+          <form
+            className="action-modal-content"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitPromptDialog();
+            }}
           >
-            <div className="help-modal-head">
-              <h2 id="prompt-dialog-title">{promptDialog.title}</h2>
-            </div>
-
-            <form
-              className="action-modal-content"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitPromptDialog();
-              }}
-            >
-              <label className="field action-modal-field">
-                <span>{promptDialog.label}</span>
+            <Field label={promptDialog.label} error={promptError || undefined}>
+              {({ id, invalid, describedBy }) => (
                 <input
+                  id={id}
                   ref={promptInputRef}
                   value={promptValue}
                   placeholder={promptDialog.placeholder}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={describedBy}
+                  autoFocus
                   onChange={(event) => {
                     setPromptValue(event.target.value);
                     if (promptError) {
@@ -7666,42 +7658,41 @@ export default function App() {
                     }
                   }}
                 />
-              </label>
-              {promptError ? <p className="action-modal-error">{promptError}</p> : null}
+              )}
+            </Field>
 
-              <div className="action-modal-actions">
-                <button type="button" className="header-button" onClick={() => closePromptDialog(null)}>
-                  {promptDialog.cancelLabel}
-                </button>
-                <button type="submit" className="mode-button active">
-                  {promptDialog.confirmLabel}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="ui-modal__footer action-modal-actions">
+              <Button variant="secondary" onClick={() => closePromptDialog(null)}>
+                {promptDialog.cancelLabel}
+              </Button>
+              <Button type="submit" variant="primary">
+                {promptDialog.confirmLabel}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       ) : null}
 
       {errorsPanelOpen ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setErrorsPanelOpen(false)}>
-          <div
-            className="help-modal action-modal errors-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="errors-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="help-modal-head errors-modal-head">
+        <Modal
+          open
+          onClose={() => setErrorsPanelOpen(false)}
+          size="md"
+          className="action-modal errors-modal"
+          hideClose
+          ariaLabelledBy="errors-dialog-title"
+        >
+            <div className="ui-modal__head errors-modal-head">
               <div className="errors-modal-heading">
                 <span className="errors-modal-heading-icon" aria-hidden="true">
                   <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
                 </span>
                 <div>
-                  <h2 id="errors-dialog-title">Errors</h2>
+                  <h2 id="errors-dialog-title">{t("errors.title")}</h2>
                   <p>{t("errors.issueCount", { count: issues.filter(issueTargetExists).length })}</p>
                 </div>
               </div>
-              <button type="button" className="help-close" onClick={() => setErrorsPanelOpen(false)} aria-label={t("errors.closeAria")}>
+              <button type="button" className="ui-modal__close" onClick={() => setErrorsPanelOpen(false)} aria-label={t("errors.closeAria")}>
                 <StudioIcon name="close" aria-hidden="true" />
               </button>
             </div>
@@ -7753,8 +7744,7 @@ export default function App() {
                 ))
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
 
       {cardinalityDialog ? (
@@ -7775,17 +7765,13 @@ export default function App() {
       ) : null}
 
       {mixedIdentifierDialog ? (
-        <div className="help-modal-backdrop" role="presentation" onClick={() => setMixedIdentifierDialog(null)}>
-          <div
-            className="help-modal action-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mixed-id-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="help-modal-head">
-              <h2 id="mixed-id-dialog-title">{t("workspace.externalIdentifierDialog.title")}</h2>
-            </div>
+        <Modal
+          open
+          onClose={() => setMixedIdentifierDialog(null)}
+          title={t("workspace.externalIdentifierDialog.title")}
+          size="sm"
+          className="action-modal"
+        >
             <form
               className="action-modal-content"
               onSubmit={(event) => {
@@ -7833,18 +7819,17 @@ export default function App() {
                   </label>
                 ))}
               </div>
-              {mixedIdentifierDialog.error ? <p className="action-modal-error">{mixedIdentifierDialog.error}</p> : null}
-              <div className="action-modal-actions">
-                <button type="button" className="header-button" onClick={() => setMixedIdentifierDialog(null)}>
+              {mixedIdentifierDialog.error ? <p className="action-modal-error" role="alert">{mixedIdentifierDialog.error}</p> : null}
+              <div className="ui-modal__footer action-modal-actions">
+                <Button variant="secondary" onClick={() => setMixedIdentifierDialog(null)}>
                   {t("workspace.externalIdentifierDialog.cancel")}
-                </button>
-                <button type="submit" className="mode-button active" disabled={mixedIdentifierDialog.importedParts.length === 0}>
+                </Button>
+                <Button type="submit" variant="primary" disabled={mixedIdentifierDialog.importedParts.length === 0}>
                   {t("workspace.externalIdentifierDialog.create")}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       ) : null}
 
       {generalizationGroupDialog ? (() => {
@@ -7853,17 +7838,13 @@ export default function App() {
         const subtypeLabel = getEntityLabel(history.present, dialog.subtypeId);
         const supertypeLabel = getEntityLabel(history.present, dialog.supertypeId);
         return (
-          <div className="help-modal-backdrop" role="presentation" onClick={cancelGeneralizationGroupDialog}>
-            <div
-              className="help-modal action-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="isa-dialog-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="help-modal-head">
-                <h2 id="isa-dialog-title">{t("workspace.generalizationGroupDialog.title")}</h2>
-              </div>
+          <Modal
+            open
+            onClose={cancelGeneralizationGroupDialog}
+            title={t("workspace.generalizationGroupDialog.title")}
+            size="sm"
+            className="action-modal"
+          >
               <form
                 className="action-modal-content"
                 onSubmit={(event) => {
@@ -7985,102 +7966,77 @@ export default function App() {
                   </>
                 ) : null}
 
-                {dialog.error ? <p className="action-modal-error">{dialog.error}</p> : null}
-                <div className="action-modal-actions">
-                  <button type="button" className="header-button" onClick={cancelGeneralizationGroupDialog}>
+                {dialog.error ? <p className="action-modal-error" role="alert">{dialog.error}</p> : null}
+                <div className="ui-modal__footer action-modal-actions">
+                  <Button variant="secondary" onClick={cancelGeneralizationGroupDialog}>
                     {t("common.actions.cancel")}
-                  </button>
-                  <button type="submit" className="mode-button active">
+                  </Button>
+                  <Button type="submit" variant="primary">
                     {t("common.actions.confirm")}
-                  </button>
+                  </Button>
                 </div>
               </form>
-            </div>
-          </div>
+          </Modal>
         );
       })() : null}
 
       {introOpen ? (
-        <div className="intro-modal-backdrop" role="presentation" onClick={() => setIntroOpen(false)}>
-          <div
-            className="intro-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="intro-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="intro-modal-head">
-              <h2 id="intro-modal-title">{t("intro.title", { appTitle: APP_TITLE })}</h2>
-              <button type="button" className="help-close" onClick={() => setIntroOpen(false)} aria-label={t("intro.closeAria")}>
-                <StudioIcon name="close" aria-hidden="true" />
-              </button>
-            </div>
+        <Modal
+          open
+          onClose={() => setIntroOpen(false)}
+          title={t("intro.title", { appTitle: APP_TITLE })}
+          size="md"
+          className="intro-modal"
+          backdropClassName="intro-modal-backdrop"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIntroOpen(false);
+                  setAboutOpen(true);
+                }}
+              >
+                {t("intro.openGuide")}
+              </Button>
+              <Button variant="primary" onClick={() => setIntroOpen(false)}>
+                {t("intro.startDrawing")}
+              </Button>
+            </>
+          }
+        >
+          <div className="intro-modal-content">
+            <p>
+              {t("intro.description")}
+            </p>
 
-            <div className="intro-modal-content">
-              <p>
-                {t("intro.description")}
-              </p>
-
-              <div className="intro-grid">
-                <article>
-                  <h3>{t("intro.cards.create.title")}</h3>
-                  <p>{t("intro.cards.create.description")}</p>
-                </article>
-                <article>
-                  <h3>{t("intro.cards.connect.title")}</h3>
-                  <p>{t("intro.cards.connect.description")}</p>
-                </article>
-                <article>
-                  <h3>{t("intro.cards.refine.title")}</h3>
-                  <p>{t("intro.cards.refine.description")}</p>
-                </article>
-              </div>
-
-              <div className="intro-actions">
-                <button
-                  type="button"
-                  className="header-button"
-                  onClick={() => {
-                    setIntroOpen(false);
-                    setAboutOpen(true);
-                  }}
-                >
-                  {t("intro.openGuide")}
-                </button>
-                <button type="button" className="mode-button active" onClick={() => setIntroOpen(false)}>
-                  {t("intro.startDrawing")}
-                </button>
-              </div>
+            <div className="intro-grid">
+              <article>
+                <h3>{t("intro.cards.create.title")}</h3>
+                <p>{t("intro.cards.create.description")}</p>
+              </article>
+              <article>
+                <h3>{t("intro.cards.connect.title")}</h3>
+                <p>{t("intro.cards.connect.description")}</p>
+              </article>
+              <article>
+                <h3>{t("intro.cards.refine.title")}</h3>
+                <p>{t("intro.cards.refine.description")}</p>
+              </article>
             </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {aboutOpen ? (
-        <div className="studio-modal-backdrop" role="presentation" onClick={() => setAboutOpen(false)}>
-          <div
-            className="studio-modal studio-modal--medium about-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="about-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="studio-modal__header">
-              <div>
-                <h2 id="about-modal-title" className="studio-modal__title">{t("about.title")}</h2>
-                <p className="studio-modal__subtitle">{t("about.subtitle")}</p>
-              </div>
-              <button
-                type="button"
-                className="studio-modal__close"
-                onClick={() => setAboutOpen(false)}
-                aria-label={t("about.closeAria")}
-                autoFocus
-              >
-                <StudioIcon name="close" aria-hidden="true" />
-              </button>
-            </div>
-
+        <Modal
+          open
+          onClose={() => setAboutOpen(false)}
+          title={t("about.title")}
+          subtitle={t("about.subtitle")}
+          size="md"
+          className="about-modal"
+        >
             <div className="studio-modal__body">
               <div className="studio-modal__meta about-meta">
                 <strong>{APP_TITLE}</strong>
@@ -8157,8 +8113,7 @@ export default function App() {
               </details>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
 
       {versionAnnouncement ? (
