@@ -27,12 +27,6 @@ function listFiles(root: string, predicate: (filePath: string) => boolean): stri
 const cssFiles = listFiles(SRC_ROOT, (filePath) => filePath.endsWith(".css"));
 const tsxFiles = listFiles(SRC_ROOT, (filePath) => filePath.endsWith(".tsx"));
 const approvedRoundedIconSelectors = [
-  ".studio-modal__close",
-  ".help-close",
-  ".notes-modal-close",
-  ".entity-key-modal-close",
-  ".command-palette-close",
-  ".shortcuts-sheet-close",
   ".command-palette-title-icon",
   ".command-palette-item-icon",
   ".errors-modal-heading-icon",
@@ -90,11 +84,8 @@ test("new workspace surfaces avoid oversized decorative radii", () => {
 test("approved rounded icon exceptions stay explicit", () => {
   const indexCss = readProjectFile(join(SRC_ROOT, "index.css"));
 
-  assert.match(
-    indexCss,
-    /\.studio-modal__close,[\s\S]*\.shortcuts-sheet-close\s*\{\s*border-radius:\s*999px !important;\s*\}/,
-  );
-  assert.doesNotMatch(indexCss, /\.designer-topbar-actions \.designer-icon-button,[\s\S]*border-radius:\s*999px !important/);
+  // Fase C4a: nessuna eccezione rotonda (999px) residua nel design system.
+  assert.doesNotMatch(indexCss, /border-radius:\s*999px !important/);
   assert.match(
     indexCss,
     /\.command-palette-title-icon,[\s\S]*\.versioning-restore-icon\s*\{\s*border-radius:\s*10px !important;\s*\}/,

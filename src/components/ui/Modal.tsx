@@ -37,9 +37,9 @@ const FOCUSABLE_SELECTOR = [
 export type ModalSize = "sm" | "md" | "lg";
 
 /**
- * Skin legacy emesse in Fase B per parità di resa: i modali esistenti
- * appartengono a due famiglie CSS (help-modal-* e studio-modal-*).
- * La Fase C sposterà il look su ui-modal-* e ritirerà le skin.
+ * Fase C4a: il look vive su ui-modal-* (ui.css, token). Le skin legacy
+ * restano disponibili come opt-in transitorio per i modali non ancora
+ * rifiniti; il default è "none".
  */
 export type ModalLegacySkin = "help" | "studio" | "none";
 
@@ -127,7 +127,7 @@ export function Modal({
   closeOnBackdrop = true,
   hideClose = false,
   initialFocusRef,
-  legacySkin = "help",
+  legacySkin = "none",
   className,
   backdropClassName,
   headerActions,

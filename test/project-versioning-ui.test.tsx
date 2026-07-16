@@ -134,7 +134,7 @@ test("dialog commit disabilita la creazione quando non ci sono modifiche", () =>
   );
 
   assert.match(markup, /Nessuna modifica rispetto a HEAD/);
-  assert.match(markup, /<button type="submit" class="[^"]*mode-button active[^"]*" disabled="" data-testid="create-commit-button"/);
+  assert.match(markup, /<button type="submit" class="[^"]*ui-button--primary[^"]*" disabled="" data-testid="create-commit-button"/);
   setCurrentLocale(DEFAULT_LOCALE);
 });
 

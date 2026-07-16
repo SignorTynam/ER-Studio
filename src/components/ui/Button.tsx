@@ -6,18 +6,6 @@ import { cx } from "./cx";
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "md" | "sm";
 
-/**
- * Fase B: la resa visiva delle varianti primary/secondary/danger viaggia
- * sulle classi legacy già usate dalle stesse superfici (parità di resa).
- * La Fase C stilerà `.ui-button--*` con i token e sgancerà queste skin.
- */
-const LEGACY_SKIN: Record<ButtonVariant, string> = {
-  primary: "mode-button active",
-  secondary: "header-button",
-  danger: "header-button",
-  ghost: "",
-};
-
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   /** Variante visiva; default `secondary`. */
   variant?: ButtonVariant;
@@ -64,7 +52,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         `ui-button--${variant}`,
         `ui-button--${size}`,
         loading ? "is-loading" : "",
-        LEGACY_SKIN[variant],
         className,
       )}
       disabled={disabled || loading}

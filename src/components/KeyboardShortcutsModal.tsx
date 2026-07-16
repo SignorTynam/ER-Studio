@@ -157,9 +157,9 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
     <Modal
       open
       onClose={props.onClose}
-      legacySkin="studio"
+      size="lg"
       hideClose
-      className="studio-modal--wide shortcuts-modal"
+      className="shortcuts-modal"
       ariaLabelledBy="keyboard-shortcuts-title"
     >
         <div className="shortcuts-sheet">

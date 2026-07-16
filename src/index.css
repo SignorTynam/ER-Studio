@@ -14010,16 +14010,8 @@ summary:focus-visible,
   border-radius: 0 !important;
 }
 
-/* Fase C1: gli icon-button dell'header tornano a spigolo netto come il resto
-   del chrome; le eccezioni rotonde restano solo sui close dei modali (Fase C4). */
-.studio-modal__close,
-.help-close,
-.notes-modal-close,
-.entity-key-modal-close,
-.command-palette-close,
-.shortcuts-sheet-close {
-  border-radius: 999px !important;
-}
+/* Fase C4a: nessuna eccezione rotonda residua — anche i close dei modali
+   seguono la policy a spigolo netto del linguaggio Studio. */
 
 .command-palette-title-icon,
 .command-palette-item-icon,

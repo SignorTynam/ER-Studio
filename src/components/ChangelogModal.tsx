@@ -46,10 +46,10 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
     <Modal
       open
       onClose={onClose}
-      legacySkin="studio"
+      size="lg"
       hideClose
       backdropClassName="changelog-modal-modern-backdrop"
-      className="studio-modal--wide changelog-modal-modern"
+      className="changelog-modal-modern"
       ariaLabelledBy="changelog-modal-title"
     >
       <header className="studio-modal__header changelog-modal-modern__header">

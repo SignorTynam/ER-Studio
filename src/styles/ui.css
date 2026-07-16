@@ -53,6 +53,92 @@
   font-size: var(--font-size-sm);
 }
 
+/* Fase C4a: varianti dai token, skin legacy (mode-button/header-button) sganciate.
+   Doppia classe nel selettore per vincere i reset legacy tipo
+   `.action-modal-actions button` senza !important. */
+.ui-button.ui-button--primary,
+.ui-button.ui-button--secondary,
+.ui-button.ui-button--danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-height: var(--size-button);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.ui-button.ui-button--primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button.ui-button--primary:hover:not(:disabled),
+.ui-button.ui-button--primary:focus-visible {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button.ui-button--secondary {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.ui-button.ui-button--secondary:hover:not(:disabled),
+.ui-button.ui-button--secondary:focus-visible {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.ui-button.ui-button--danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button.ui-button--danger:hover:not(:disabled),
+.ui-button.ui-button--danger:focus-visible {
+  border-color: color-mix(in srgb, var(--color-danger) 82%, var(--color-bg-header) 18%);
+  background: color-mix(in srgb, var(--color-danger) 82%, var(--color-bg-header) 18%);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button.ui-button--primary:focus-visible,
+.ui-button.ui-button--secondary:focus-visible,
+.ui-button.ui-button--danger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ui-button.ui-button--danger:focus-visible {
+  outline-color: var(--color-danger);
+}
+
+.ui-button.ui-button--primary:disabled,
+.ui-button.ui-button--secondary:disabled,
+.ui-button.ui-button--danger:disabled {
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-disabled);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.ui-button.ui-button--sm:not(.ui-button--ghost) {
+  min-height: var(--size-button-sm);
+  padding: var(--space-0-5) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
 .ui-button__spinner {
   width: var(--space-3);
   height: var(--space-3);
@@ -70,10 +156,108 @@
   }
 }
 
-/* Modal (soli hook comportamentali in Fase B) ------------------------------ */
+/* Modal (Fase C4a: look dai token, skin legacy sganciate) ------------------- */
+
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-bg-header) 45%, transparent);
+}
+
+.ui-modal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: min(84vh, 720px);
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  box-shadow: var(--elevation-dialog);
+}
 
 .ui-modal:focus {
   outline: none;
+}
+
+/* Larghezze a specificità zero: le classi di dimensionamento dei singoli
+   modali (es. .action-modal) devono poter vincere. */
+:where(.ui-modal--sm) {
+  width: min(420px, calc(100vw - 32px));
+}
+
+:where(.ui-modal--md) {
+  width: min(560px, calc(100vw - 32px));
+}
+
+:where(.ui-modal--lg) {
+  width: min(780px, calc(100vw - 32px));
+}
+
+.ui-modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.ui-modal__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-modal__head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.ui-modal__subtitle {
+  margin: var(--space-0-5) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+
+.ui-modal__close {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-button-sm);
+  height: var(--size-button-sm);
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.ui-modal__close:hover:not(:disabled),
+.ui-modal__close:focus-visible {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.ui-modal__close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.ui-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2-5) var(--space-3) var(--space-3);
 }
 
 /* Field -------------------------------------------------------------------- */
