@@ -40,9 +40,6 @@ export const FIXED_ATTRIBUTE_MARKER_GAP = 28;
 const DEFAULT_MARKER_GAP = FIXED_ATTRIBUTE_MARKER_GAP;
 const COLLISION_PADDING = 2;
 const MIN_VERTICAL_STEP = 48;
-const MIN_HORIZONTAL_STEP = 72;
-const HORIZONTAL_OFFSETS_PER_LANE = 12;
-const MAX_PERIMETER_SLOT_CANDIDATES = 4096;
 
 export function getAttributeMarkerCenter(attribute: AttributeNode): Point {
   return {
@@ -343,30 +340,6 @@ function getVerticalStep(attributes: AttributeNode[]): number {
   return Math.max(MIN_VERTICAL_STEP, maxHeight + 12);
 }
 
-function getHorizontalStep(
-  host: AttributeLayoutHost,
-  attributes: AttributeNode[],
-  markerGap: number,
-  collisionPadding: number,
-): number {
-  const sampleMarker = {
-    x: host.x,
-    y: host.y - markerGap,
-  };
-  const maxLayoutWidth = attributes.reduce((max, attribute) => {
-    const positioned = placeAttributeMarker(attribute, sampleMarker, false);
-    return Math.max(
-      max,
-      buildAttributeLayoutBounds(host, positioned, collisionPadding).width,
-    );
-  }, 0);
-
-  return Math.max(
-    MIN_HORIZONTAL_STEP,
-    maxLayoutWidth + ATTRIBUTE_MARKER_RADIUS * 2 + collisionPadding * 2,
-  );
-}
-
 function getLeftSlotMarker(
   host: AttributeLayoutHost,
   offsetIndex: number,
@@ -381,54 +354,49 @@ function getLeftSlotMarker(
 
 function getBottomSlotMarker(
   host: AttributeLayoutHost,
-  lane: number,
   offsetIndex: number,
   markerGap: number,
-  laneGap: number,
   horizontalOffsets: number[],
 ): Point {
   return {
     x: host.x + (horizontalOffsets[offsetIndex] ?? host.width),
-    y: host.y + host.height + markerGap + lane * laneGap,
+    y: host.y + host.height + markerGap,
   };
 }
 
 function getTopSlotMarker(
   host: AttributeLayoutHost,
-  lane: number,
   offsetIndex: number,
   markerGap: number,
-  laneGap: number,
   horizontalOffsets: number[],
 ): Point {
   return {
     x: host.x + (horizontalOffsets[offsetIndex] ?? host.width),
-    y: host.y - markerGap - lane * laneGap,
+    y: host.y - markerGap,
   };
 }
 
 function buildPerimeterHorizontalOffsets(
   host: AttributeLayoutHost,
-  horizontalStep: number,
   count: number,
 ): number[] {
   if (count <= 0) {
     return [];
   }
 
-  return Array.from({ length: count }, (_, index) => {
-    if (index === 0) {
-      return 0;
-    }
-    if (index === 1) {
-      return host.width;
-    }
+  const offsets = [0];
+  if (count > 1) {
+    offsets.push(host.width);
+  }
 
-    const externalStep = Math.ceil((index - 1) / 2);
-    return index % 2 === 0
-      ? -externalStep * horizontalStep
-      : host.width + externalStep * horizontalStep;
-  });
+  for (let pass = 1; offsets.length < count; pass += 1) {
+    const divisor = 2 ** pass;
+    for (let numerator = 1; numerator < divisor && offsets.length < count; numerator += 2) {
+      offsets.push((numerator / divisor) * host.width);
+    }
+  }
+
+  return offsets;
 }
 
 function boundsIntersect(left: Bounds, right: Bounds): boolean {
@@ -463,14 +431,7 @@ export function buildLeftPriorityPerimeterSlots(
   requestedCount = attributes.length,
 ): AttributeLayoutSlot[] {
   const markerGap = options?.markerGap ?? DEFAULT_MARKER_GAP;
-  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
   const verticalStep = getVerticalStep(attributes);
-  const horizontalStep = getHorizontalStep(
-    host,
-    attributes,
-    markerGap,
-    collisionPadding,
-  );
   const slots: AttributeLayoutSlot[] = [];
   const leftMinY = host.y;
   const leftMaxY = host.y + host.height;
@@ -489,43 +450,23 @@ export function buildLeftPriorityPerimeterSlots(
     });
   });
 
-  const horizontalOffsets = buildPerimeterHorizontalOffsets(
-    host,
-    horizontalStep,
-    HORIZONTAL_OFFSETS_PER_LANE,
-  );
+  const horizontalOffsets = buildPerimeterHorizontalOffsets(host, requestedCount);
   let perimeterIndex = 0;
   while (slots.length < requestedCount) {
-    const lane = Math.floor(perimeterIndex / HORIZONTAL_OFFSETS_PER_LANE);
-    const offsetIndex = perimeterIndex % HORIZONTAL_OFFSETS_PER_LANE;
     slots.push({
       side: "top",
-      lane,
-      offsetIndex,
-      marker: getTopSlotMarker(
-        host,
-        lane,
-        offsetIndex,
-        markerGap,
-        verticalStep,
-        horizontalOffsets,
-      ),
+      lane: 0,
+      offsetIndex: perimeterIndex,
+      marker: getTopSlotMarker(host, perimeterIndex, markerGap, horizontalOffsets),
     });
     if (slots.length >= requestedCount) {
       break;
     }
     slots.push({
       side: "bottom",
-      lane,
-      offsetIndex,
-      marker: getBottomSlotMarker(
-        host,
-        lane,
-        offsetIndex,
-        markerGap,
-        verticalStep,
-        horizontalOffsets,
-      ),
+      lane: 0,
+      offsetIndex: perimeterIndex,
+      marker: getBottomSlotMarker(host, perimeterIndex, markerGap, horizontalOffsets),
     });
     perimeterIndex += 1;
   }
@@ -574,36 +515,22 @@ function findFirstAvailablePerimeterSlot(
   options?: AttributeLayoutOptions,
 ): AttributeLayoutSlot {
   const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
-  let candidateCount = Math.min(
-    Math.max(attributesForStep.length + occupiedBounds.length + 8, 12),
-    MAX_PERIMETER_SLOT_CANDIDATES,
+  const slots = buildLeftPriorityPerimeterSlots(
+    host,
+    attributesForStep,
+    options,
+    Math.max(attributesForStep.length + 8, 12),
   );
-
-  while (candidateCount <= MAX_PERIMETER_SLOT_CANDIDATES) {
-    const slots = buildLeftPriorityPerimeterSlots(host, attributesForStep, options, candidateCount);
-    for (const slot of slots) {
-      if (occupiedSlotKeys.has(getSlotKey(slot))) {
-        continue;
-      }
-
-      const { marker } = slot;
-      if (!isSlotAvailable(host, attribute, marker, occupiedBounds, collisionPadding)) {
-        continue;
-      }
-
-      return slot;
-    }
-
-    if (candidateCount === MAX_PERIMETER_SLOT_CANDIDATES) {
-      break;
-    }
-    candidateCount = Math.min(
-      candidateCount * 2,
-      MAX_PERIMETER_SLOT_CANDIDATES,
-    );
-  }
-
-  throw new Error(`Nessuno slot perimetrale libero trovato per l'attributo "${attribute.label}".`);
+  const availableSlots = slots.filter((slot) => !occupiedSlotKeys.has(getSlotKey(slot)));
+  return availableSlots.find((slot) =>
+    isSlotAvailable(
+      host,
+      attribute,
+      slot.marker,
+      occupiedBounds,
+      collisionPadding,
+    ),
+  ) ?? availableSlots[0] ?? slots[0];
 }
 
 export function buildCompactAttributeSlots(
@@ -621,13 +548,7 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   options?: AttributeLayoutOptions,
 ): T {
   const attributesForStep = [...existingAttributes, newAttribute];
-  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
-  const occupiedBounds = [
-    ...(options?.occupiedBounds ?? []),
-    ...existingAttributes.map((attribute) =>
-      buildAttributeLayoutBounds(host, attribute, collisionPadding),
-    ),
-  ];
+  const occupiedBounds = [...(options?.occupiedBounds ?? [])];
   const occupiedSlotKeys = getOccupiedSlotKeys(host, existingAttributes, attributesForStep, options);
   const slot = findFirstAvailablePerimeterSlot(
     host,
@@ -724,13 +645,6 @@ export function distributeAttributesAroundHost<T extends AttributeNode>(
     );
     const positioned = placeAttributeMarker(attribute, slot.marker, false) as T;
     occupiedSlotKeys.add(getSlotKey(slot));
-    occupiedBounds.push(
-      buildAttributeLayoutBounds(
-        host,
-        positioned,
-        options?.collisionPadding ?? COLLISION_PADDING,
-      ),
-    );
     return positioned;
   });
   const positionedById = new Map<string, AttributeNode>(

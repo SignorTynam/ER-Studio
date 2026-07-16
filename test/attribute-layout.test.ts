@@ -507,18 +507,20 @@ test("attribute layout: real application flow adds twenty attributes without mov
     assert.equal(getAttribute(diagram, result.attributeId).label, label);
     const positioned = getAttributesById(diagram, attributeIds);
     assertUniqueMarkers(positioned);
-    assertNoAttributeBoundsOverlap(setup.host, positioned);
+    assertConstantPerimeterGap(setup.host, positioned);
     assertNoDanglingEdges(diagram);
   }
 
   assert.equal(attributeIds.length, 20);
   assert.equal(getDirectAttributeIds(diagram, setup.host.id).length, 20);
-  assert.ok(
-    getAttributesById(diagram, attributeIds).some((candidate) => {
+  getAttributesById(diagram, attributeIds).forEach((candidate) => {
+    const side = getDirectAttributeLayoutSide(setup.host, candidate);
+    if (side === "top" || side === "bottom") {
       const marker = getAttributeMarkerCenter(candidate);
-      return marker.x < setup.host.x || marker.x > setup.host.x + setup.host.width;
-    }),
-  );
+      assert.ok(marker.x >= setup.host.x);
+      assert.ok(marker.x <= setup.host.x + setup.host.width);
+    }
+  });
 });
 
 test("attribute layout: exact fifth-to-sixth transition preserves the first five positions", () => {
@@ -541,16 +543,23 @@ test("attribute layout: exact fifth-to-sixth transition preserves the first five
 
   assertNodesUnchanged(diagram, firstFiveSnapshot);
   assertEdgesUnchanged(diagram, firstFiveEdges);
-  firstFive.forEach((candidate) => {
-    assert.notDeepEqual(getAttributeMarkerCenter(sixth), getAttributeMarkerCenter(candidate));
-    assert.equal(
-      boundsIntersect(
-        buildAttributeLayoutBounds(setup.host, sixth),
-        buildAttributeLayoutBounds(setup.host, candidate),
-      ),
-      false,
-    );
-  });
+  assert.deepEqual(layoutSides(setup.host, firstFive), ["left", "top", "bottom", "top", "bottom"]);
+  assert.deepEqual(firstFive.map(getAttributeMarkerCenter), [
+    { x: setup.host.x - FIXED_ATTRIBUTE_MARKER_GAP, y: setup.host.y + setup.host.height / 2 },
+    { x: setup.host.x, y: setup.host.y - FIXED_ATTRIBUTE_MARKER_GAP },
+    { x: setup.host.x, y: setup.host.y + setup.host.height + FIXED_ATTRIBUTE_MARKER_GAP },
+    { x: setup.host.x + setup.host.width, y: setup.host.y - FIXED_ATTRIBUTE_MARKER_GAP },
+    {
+      x: setup.host.x + setup.host.width,
+      y: setup.host.y + setup.host.height + FIXED_ATTRIBUTE_MARKER_GAP,
+    },
+  ]);
+  assertConstantPerimeterGap(setup.host, [sixth]);
+  assert.equal(
+    buildLeftPriorityPerimeterSlots(setup.host, [...firstFive, sixth], undefined, 10)
+      .every((slot) => slot.lane === 0),
+    true,
+  );
   assertNoDanglingEdges(diagram);
 });
 
@@ -571,7 +580,7 @@ test("attribute layout: additions from sixth through tenth preserve every earlie
       assertEdgesUnchanged(diagram, edgeSnapshot);
       const positioned = getAttributesById(diagram, attributeIds);
       assertUniqueMarkers(positioned);
-      assertNoAttributeBoundsOverlap(setup.host, positioned);
+      assertConstantPerimeterGap(setup.host, positioned);
       assertNoDanglingEdges(diagram);
     }
   }
@@ -608,36 +617,47 @@ test("attribute layout: two distant entities independently accept ten alternatin
   assert.equal(firstIds.length, 10);
   assert.equal(secondIds.length, 10);
   assert.equal(new Set([...firstIds, ...secondIds]).size, 20);
-  assertNoAttributeBoundsOverlap(firstSetup.host, getAttributesById(diagram, firstIds));
-  assertNoAttributeBoundsOverlap(secondHost, getAttributesById(diagram, secondIds));
+  assertConstantPerimeterGap(firstSetup.host, getAttributesById(diagram, firstIds));
+  assertConstantPerimeterGap(secondHost, getAttributesById(diagram, secondIds));
 });
 
-test("attribute layout: blocked first top and bottom lane advances to a farther lane", () => {
+test("attribute layout: thirty slots stay in lane zero and within the host width", () => {
+  const host = hostEntity();
+  const slots = buildLeftPriorityPerimeterSlots(
+    host,
+    Array.from({ length: 30 }, (_, index) => attribute(`slot${index + 1}`, index)),
+    undefined,
+    30,
+  );
+
+  assert.equal(slots.length, 30);
+  assert.equal(slots.every((slot) => slot.lane === 0), true);
+  slots
+    .filter((slot) => slot.side === "top" || slot.side === "bottom")
+    .forEach((slot) => {
+      assert.ok(slot.marker.x >= host.x);
+      assert.ok(slot.marker.x <= host.x + host.width);
+    });
+});
+
+test("attribute layout: blocked fixed perimeter falls back to intentional overlap", () => {
   const host = hostEntity();
   const existing = distributeAttributesAroundHost(
     host,
     Array.from({ length: 3 }, (_, index) => attribute(`existing${index + 1}`, index)),
   );
   const existingSnapshot = structuredClone(existing);
-  const laneBlockers: Bounds[] = [
-    {
-      x: host.x - 10_000,
-      y: host.y - FIXED_ATTRIBUTE_MARKER_GAP - 60,
-      width: 20_000,
-      height: 100,
-    },
-    {
-      x: host.x - 10_000,
-      y: host.y + host.height + FIXED_ATTRIBUTE_MARKER_GAP - 25,
-      width: 20_000,
-      height: 100,
-    },
-  ];
+  const perimeterBlocker: Bounds = {
+    x: host.x - FIXED_ATTRIBUTE_MARKER_GAP - 300,
+    y: host.y - FIXED_ATTRIBUTE_MARKER_GAP - 100,
+    width: host.width + FIXED_ATTRIBUTE_MARKER_GAP + 600,
+    height: host.height + FIXED_ATTRIBUTE_MARKER_GAP * 2 + 200,
+  };
   const next = placeNewAttributeAroundHost(
     host,
     existing,
-    attribute("lane-check", 3),
-    { occupiedBounds: laneBlockers },
+    attribute("overlap-check", 3),
+    { occupiedBounds: [perimeterBlocker] },
   );
   const marker = getAttributeMarkerCenter(next);
   const matchingSlot = buildLeftPriorityPerimeterSlots(
@@ -652,19 +672,20 @@ test("attribute layout: blocked first top and bottom lane advances to a farther 
 
   assert.deepEqual(existing, existingSnapshot);
   assert.ok(matchingSlot);
-  assert.ok(matchingSlot.lane > 0);
+  assert.equal(matchingSlot.lane, 0);
+  assertConstantPerimeterGap(host, [next]);
   assert.equal(
-    laneBlockers.some((bounds) => boundsIntersect(buildAttributeLayoutBounds(host, next), bounds)),
-    false,
+    boundsIntersect(buildAttributeLayoutBounds(host, next), perimeterBlocker),
+    true,
   );
 });
 
-test("attribute layout: relation and composite host accept ten incremental attributes", () => {
+test("attribute layout: relation and composite host accept fifteen fixed-distance attributes", () => {
   for (const initialHost of [relationshipNode(), hostAttribute()]) {
     let diagram = incrementalDiagram(initialHost, []);
     const attributeIds: string[] = [];
 
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       const nodeSnapshot = snapshotNodes(diagram, diagram.nodes.map((node) => node.id));
       const edgeSnapshot = snapshotEdges(diagram);
       const nextId = `${initialHost.id}-attribute${index + 1}`;
@@ -688,30 +709,60 @@ test("attribute layout: relation and composite host accept ten incremental attri
     assert.ok(updatedHost);
     const positioned = getAttributesById(diagram, attributeIds);
     assertUniqueMarkers(positioned);
-    assertNoAttributeBoundsOverlap(updatedHost, positioned);
+    assertConstantPerimeterGap(updatedHost, positioned);
+    assert.equal(
+      buildLeftPriorityPerimeterSlots(updatedHost, positioned, undefined, 20)
+        .every((slot) => slot.lane === 0),
+      true,
+    );
   }
 });
 
-test("attribute layout: expandable batch layout supports twenty attributes without overlap", () => {
-  const host = hostEntity();
-  const source = Array.from({ length: 20 }, (_, index) => ({
-    ...attribute(`batch-attribute${index + 1}`, index),
-    label: index === 9 || index === 16
-      ? `ATTRIBUTO${index + 1}_CON_UNA_LABEL_ESTREMAMENTE_LUNGA`
-      : `ATTRIBUTO${index + 1}`,
-  }));
-  const positioned = distributeAttributesAroundHost(host, source);
+test("attribute layout: narrow host accepts overlapping long labels at fixed distance", () => {
+  const host = { ...hostEntity(), width: 40, height: 64 };
+  let diagram = incrementalDiagram(host, []);
+  const attributeIds: string[] = [];
+
+  for (let index = 0; index < 20; index += 1) {
+    const nodeSnapshot = snapshotNodes(diagram, diagram.nodes.map((node) => node.id));
+    const edgeSnapshot = snapshotEdges(diagram);
+    const nextId = `long-attribute${index + 1}`;
+    diagram = connectAndPlaceAttribute(diagram, host.id, {
+      ...attribute(nextId, index),
+      label: `ATTRIBUTO${index + 1}_CON_UNA_LABEL_ESTREMAMENTE_LUNGA`,
+    });
+    attributeIds.push(nextId);
+
+    assertNodesUnchanged(diagram, nodeSnapshot);
+    assertEdgesUnchanged(diagram, edgeSnapshot);
+  }
+
+  const positioned = getAttributesById(diagram, attributeIds);
+  const hasOverlap = positioned.some((candidate, index) =>
+    positioned.slice(index + 1).some((other) =>
+      boundsIntersect(
+        buildAttributeLayoutBounds(host, candidate),
+        buildAttributeLayoutBounds(host, other),
+      ),
+    ),
+  );
 
   assert.equal(positioned.length, 20);
   assertUniqueMarkers(positioned);
-  assertNoAttributeBoundsOverlap(host, positioned);
-  assert.ok(positioned.some((candidate) => {
+  assertConstantPerimeterGap(host, positioned);
+  assert.equal(hasOverlap, true);
+  assertNoDanglingEdges(diagram);
+  positioned.forEach((candidate) => {
+    const side = getDirectAttributeLayoutSide(host, candidate);
     const marker = getAttributeMarkerCenter(candidate);
-    return marker.x < host.x || marker.x > host.x + host.width;
-  }));
+    if (side === "top" || side === "bottom") {
+      assert.ok(marker.x >= host.x);
+      assert.ok(marker.x <= host.x + host.width);
+    }
+  });
 });
 
-test("attribute layout: fifty uniform incremental attributes stay collision-free", () => {
+test("attribute layout: fifty incremental attributes stay on the fixed perimeter", () => {
   const host = hostEntity();
   const diagram = addUniformAttributesIncrementally(host, 50);
   const attributeIds = Array.from({ length: 50 }, (_, index) => `attribute${index + 1}`);
@@ -719,13 +770,8 @@ test("attribute layout: fifty uniform incremental attributes stay collision-free
 
   assert.equal(getDirectAttributeIds(diagram, host.id).length, 50);
   assertUniqueMarkers(positioned);
-  assertNoAttributeBoundsOverlap(host, positioned);
+  assertConstantPerimeterGap(host, positioned);
   assertNoDanglingEdges(diagram);
-  assert.ok(positioned.some((candidate) => {
-    const marker = getAttributeMarkerCenter(candidate);
-    return marker.y < host.y - FIXED_ATTRIBUTE_MARKER_GAP ||
-      marker.y > host.y + host.height + FIXED_ATTRIBUTE_MARKER_GAP;
-  }));
 });
 
 test("attribute layout: diagram integration preserves three existing entity attributes", () => {
@@ -776,16 +822,13 @@ test("attribute layout: diagram integration respects manually moved attribute bo
   const next = getAttribute(translated, "new-manual-case");
 
   assertNodesUnchanged(translated, snapshot);
+  assertConstantPerimeterGap(host, [next]);
   assert.equal(
     boundsIntersect(
       buildAttributeLayoutBounds(host, manuallyMoved),
       buildAttributeLayoutBounds(host, next),
     ),
-    false,
-  );
-  assert.notDeepEqual(
-    { x: next.x, y: next.y },
-    { x: host.x - FIXED_ATTRIBUTE_MARKER_GAP - 10, y: host.y + host.height / 2 - next.height / 2 },
+    true,
   );
 });
 
@@ -805,16 +848,10 @@ test("attribute layout: consecutive diagram additions never move earlier attribu
   assertNodesUnchanged(afterFourth, originalSnapshot);
   assertNodesUnchanged(afterFifth, originalSnapshot);
   assertNodesUnchanged(afterFifth, fourthSnapshot);
-  const fifth = getAttribute(afterFifth, "fifth");
-  ["first", "second", "third", "fourth"].forEach((id) => {
-    assert.equal(
-      boundsIntersect(
-        buildAttributeLayoutBounds(host, getAttribute(afterFifth, id)),
-        buildAttributeLayoutBounds(host, fifth),
-      ),
-      false,
-    );
-  });
+  assertConstantPerimeterGap(host, [
+    getAttribute(afterFifth, "fourth"),
+    getAttribute(afterFifth, "fifth"),
+  ]);
 });
 
 test("attribute layout: incremental diagram placement preserves relationship attributes", () => {
@@ -897,7 +934,7 @@ test("attribute layout: first composite child converts and resizes only its host
   assertNoDanglingEdges(translated);
 });
 
-test("attribute layout: a differently sized long label does not move or overlap existing attributes", () => {
+test("attribute layout: a differently sized long label does not move existing attributes", () => {
   const host = hostEntity();
   const existing = [
     { ...attribute("short-a", 0), label: "A", x: 105, y: 205, width: 80 },
@@ -915,15 +952,7 @@ test("attribute layout: a differently sized long label does not move or overlap 
   const next = getAttribute(translated, "long-label");
 
   assertNodesUnchanged(translated, snapshot);
-  existing.forEach((candidate) => {
-    assert.equal(
-      boundsIntersect(
-        buildAttributeLayoutBounds(host, candidate),
-        buildAttributeLayoutBounds(host, next),
-      ),
-      false,
-    );
-  });
+  assertConstantPerimeterGap(host, [next]);
 });
 
 test("attribute layout: left connector corridor reserves the center slot", () => {
@@ -962,6 +991,14 @@ test("attribute layout: many attributes follow the perimeter without using right
   assert.ok(sides.filter((side) => side === "top").length > 0);
   assert.ok(sides.filter((side) => side === "bottom").length > 0);
   assertConstantPerimeterGap(host, positioned);
+  positioned.forEach((candidate) => {
+    const side = getDirectAttributeLayoutSide(host, candidate);
+    if (side === "top" || side === "bottom") {
+      const marker = getAttributeMarkerCenter(candidate);
+      assert.ok(marker.x >= host.x);
+      assert.ok(marker.x <= host.x + host.width);
+    }
+  });
 });
 
 test("attribute layout: relationship attributes use the same perimeter strategy", () => {
@@ -1033,6 +1070,14 @@ test("sql reverse diagram uses left-priority perimeter attribute layout", () => 
   assert.equal(attributes.length, 25);
   assert.notDeepEqual(layoutSides(host, attributes), Array.from({ length: attributes.length }, () => "left"));
   assertUniqueMarkers(attributes);
-  assertNoAttributeBoundsOverlap(host, attributes);
+  assertConstantPerimeterGap(host, attributes);
+  attributes.forEach((attribute) => {
+    const side = getDirectAttributeLayoutSide(host, attribute);
+    if (side === "top" || side === "bottom") {
+      const marker = getAttributeMarkerCenter(attribute);
+      assert.ok(marker.x >= host.x);
+      assert.ok(marker.x <= host.x + host.width);
+    }
+  });
   assertNoDanglingEdges(result.diagram);
 });
