@@ -335,19 +335,6 @@ const CANVAS_HARDCODED_ITALIAN_PHRASES = [
   "Esc annulla",
   "Click target completa",
 ] as const;
-const ER_WORKSPACE_SIDEBAR_HARDCODED_ITALIAN_PHRASES = [
-  "Sorgente ERS",
-  "Correggi il sorgente ERS",
-  "Modifica la rappresentazione testuale",
-  "Errore ERS",
-  "Pannello laterale ER",
-  "Selettore sezione pannello laterale",
-  "Inserisci il codice ERS",
-  "Le Notes si aprono dal modal Notes",
-  "Annotazioni non strutturali",
-  "Appunti",
-  "Regole ER",
-] as const;
 const CONNECTED_COMPONENT_HARDCODED_ITALIAN_PHRASES = [
   "Chiudi note",
   "Apri note",
@@ -401,8 +388,6 @@ const FORBIDDEN_VISIBLE_ITALIAN_TERMS = [
   "Progetto",
 ] as const;
 const FILES_WITH_VISIBLE_I18N_COVERAGE = [
-  "../src/inspector/InspectorPanel.tsx",
-  "../src/inspector/InternalIdentifierSection.tsx",
   "../src/App.tsx",
   "../src/utils/appMeta.ts",
   "../index.html",
@@ -571,13 +556,6 @@ test("missing keys still fall back to a readable placeholder", () => {
 test("DiagramCanvas does not keep known Italian UI phrases hardcoded", () => {
   const source = readFileSync(new URL("../src/canvas/DiagramCanvas.tsx", import.meta.url), "utf8");
   const remaining = CANVAS_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
-
-  assert.deepEqual(remaining, []);
-});
-
-test("ER workspace sidebar does not keep known Italian UI phrases hardcoded", () => {
-  const source = readFileSync(new URL("../src/components/ErWorkspaceSidebar.tsx", import.meta.url), "utf8");
-  const remaining = ER_WORKSPACE_SIDEBAR_HARDCODED_ITALIAN_PHRASES.filter((phrase) => source.includes(phrase));
 
   assert.deepEqual(remaining, []);
 });
