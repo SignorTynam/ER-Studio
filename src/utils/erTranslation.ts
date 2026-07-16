@@ -94,7 +94,6 @@ const ER_TRANSLATION_STEP_DEFS: Array<{
 ];
 
 const STEP_ORDER: ErTranslationStep[] = ["generalizations", "composite-attributes", "review"];
-const COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUPERTYPE_CARDINALITY = "(0,1)";
 const SUBSTITUTION_SUBTYPE_CARDINALITY = "(1,1)";
 const SIMPLE_MULTIVALUED_ATTRIBUTE_HIERARCHY_BLOCK =
@@ -485,6 +484,24 @@ function getCardinalityMaxValue(
 
   const parsed = Number(rawMax);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function deriveCollapseUpAttributeCardinality(cardinality: string | undefined): string {
+  if (cardinality === undefined || cardinality.trim().length === 0) {
+    return "(0,1)";
+  }
+
+  const normalized = normalizeCardinalityInput(cardinality);
+  if (!normalized.valid || !normalized.value) {
+    return cardinality;
+  }
+
+  const max = getCardinalityMaxValue(normalized.value);
+  if (max === null) {
+    return cardinality;
+  }
+
+  return `(0,${max})`;
 }
 
 function isMultivaluedCardinality(cardinality: string | undefined): boolean {
@@ -1481,12 +1498,12 @@ function moveSubtypeAttributesIntoSupertype(
     nextDiagram = {
       ...nextDiagram,
       nodes: nextDiagram.nodes.map((node) =>
-        node.id === root.id
+        node.id === root.id && node.type === "attribute"
           ? {
               ...node,
               label: nextLabel,
               isIdentifier: false,
-              cardinality: COLLAPSE_UP_IMPORTED_ATTRIBUTE_CARDINALITY,
+              cardinality: deriveCollapseUpAttributeCardinality(node.cardinality),
             }
           : node,
       ),

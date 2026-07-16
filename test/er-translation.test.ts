@@ -281,6 +281,43 @@ function createCollapseUpDiagram(options: { childAttributes?: boolean; existingT
   };
 }
 
+function createVehicleCollapseUpDiagram(
+  cardinality: string | undefined,
+  options: { isMultivalued?: boolean } = {},
+): DiagramDocument {
+  const groupId = "G_VEICOLO";
+  return {
+    meta: {
+      name: "Vehicle collapse up cardinality",
+      version: 1,
+    },
+    notes: "",
+    nodes: [
+      createEntity("VEICOLO", "VEICOLO"),
+      createEntity("AUTO", "AUTO"),
+      createEntity("MOTO", "MOTO"),
+      createAttribute("optional", "optional", {
+        cardinality,
+        isMultivalued: options.isMultivalued ?? false,
+      }),
+    ],
+    edges: [
+      createAttributeEdge("edge-optional", "optional", "AUTO"),
+      createInheritanceEdge("edge-isa-AUTO", "AUTO", "VEICOLO", groupId),
+      createInheritanceEdge("edge-isa-MOTO", "MOTO", "VEICOLO", groupId),
+    ],
+    generalizationGroups: [
+      {
+        id: groupId,
+        supertypeId: "VEICOLO",
+        subtypeIds: ["AUTO", "MOTO"],
+        isaCompleteness: "partial",
+        isaDisjointness: "disjoint",
+      },
+    ],
+  };
+}
+
 function createSameConstraintMultiHierarchyDiagram(): DiagramDocument {
   return parseErsDiagram(`entity PERSONA {
   identifier CF
@@ -915,6 +952,131 @@ test("collapse up con figlie con attributi importa gli attributi come opzionali 
   assert.ok(entity1);
   assert.deepEqual(entity1.internalIdentifiers?.[0]?.attributeIds, ["Attribute9"]);
   assertNoDanglingReferences(translated);
+});
+
+test("collapse up preserva cardinalita e flag di un attributo semplice multivalore (0,N)", () => {
+  const translated = applyGeneralizationTranslation(
+    createVehicleCollapseUpDiagram("(0,N)", { isMultivalued: true }),
+    {
+      supertypeId: "G_VEICOLO",
+      rule: "generalization-collapse-up",
+    },
+  );
+
+  assert.equal(translated.nodes.some((node) => node.id === "AUTO"), false);
+  assert.equal(translated.nodes.some((node) => node.id === "MOTO"), false);
+  assert.equal(translated.edges.some((edge) => edge.type === "inheritance"), false);
+  assert.equal(translated.generalizationGroups?.some((group) => group.id === "G_VEICOLO"), false);
+
+  const optional = getDirectEntityAttributes(translated, "VEICOLO").find(
+    (attribute) => attribute.id === "optional",
+  );
+  assert.ok(optional);
+  assert.equal(optional.label, "optional");
+  assert.equal(optional.cardinality, "(0,N)");
+  assert.equal(optional.isMultivalued, true);
+  assertNoDanglingReferences(translated);
+});
+
+test("workspace rileva dopo collapse up il Fix per l'attributo multivalore importato", () => {
+  const source = createVehicleCollapseUpDiagram("(0,N)", { isMultivalued: true });
+  let workspace = createEmptyErTranslationWorkspace(source);
+  let overview = buildErTranslationOverview(workspace);
+  const hierarchyItem = overview.itemsByStep.generalizations.find((item) => item.id === "G_VEICOLO");
+  assert.ok(hierarchyItem);
+  const collapseUpChoice = getErTranslationChoicesForItem(workspace, hierarchyItem).find(
+    (choice) => choice.rule === "generalization-collapse-up",
+  );
+  assert.ok(collapseUpChoice);
+
+  workspace = applyErTranslationChoice(
+    source,
+    workspace,
+    collapseUpChoice,
+    hierarchyItem.targetType,
+    hierarchyItem.id,
+  );
+  overview = buildErTranslationOverview(workspace);
+
+  const optionalItem = overview.itemsByStep["composite-attributes"].find((item) => item.id === "optional");
+  assert.ok(optionalItem);
+  assert.equal(optionalItem.status, "pending");
+  assert.equal(overview.steps.find((step) => step.id === "composite-attributes")?.completed, false);
+  assert.deepEqual(
+    getErTranslationChoicesForItem(workspace, optionalItem)
+      .map((choice) => choice.rule)
+      .sort(),
+    ["simple-multivalued-shared", "simple-multivalued-unique"],
+  );
+});
+
+test("Fix Shared dopo collapse up conserva (0,N) sul lato del supertipo owner", () => {
+  const collapsed = applyGeneralizationTranslation(
+    createVehicleCollapseUpDiagram("(0,N)", { isMultivalued: true }),
+    {
+      supertypeId: "G_VEICOLO",
+      rule: "generalization-collapse-up",
+    },
+  );
+  const translated = applySimpleMultivaluedAttributeTranslation(
+    collapsed,
+    "optional",
+    "simple-multivalued-shared",
+  );
+
+  assert.equal(getDirectEntityAttributes(translated, "VEICOLO").some((attribute) => attribute.id === "optional"), false);
+  const attributeEntity = translated.nodes.find(
+    (node): node is EntityNode => node.type === "entity" && node.label === "OPTIONAL",
+  );
+  assert.ok(attributeEntity);
+  const relationship = getRelationshipByLabel(translated, "HAS_OPTIONAL");
+  assert.equal(getConnectorCardinality(translated, "VEICOLO", relationship.id), "(0,N)");
+  assert.equal(getConnectorCardinality(translated, attributeEntity.id, relationship.id), "(1,N)");
+  assert.equal(
+    getDirectEntityAttributes(translated, attributeEntity.id).some(
+      (attribute) => attribute.id === "optional" && attribute.isIdentifier,
+    ),
+    true,
+  );
+  assertNoDanglingReferences(translated);
+});
+
+test("collapse up rende opzionale un attributo scalare (1,1) e usa (0,1) se la cardinalita manca", () => {
+  for (const cardinality of ["(1,1)", undefined]) {
+    const translated = applyGeneralizationTranslation(createVehicleCollapseUpDiagram(cardinality), {
+      supertypeId: "G_VEICOLO",
+      rule: "generalization-collapse-up",
+    });
+    const optional = getDirectEntityAttributes(translated, "VEICOLO").find(
+      (attribute) => attribute.id === "optional",
+    );
+    assert.ok(optional);
+    assert.equal(optional.cardinality, "(0,1)");
+  }
+});
+
+test("collapse up rende opzionale un attributo multivalore obbligatorio (1,N)", () => {
+  const translated = applyGeneralizationTranslation(createVehicleCollapseUpDiagram("(1,N)"), {
+    supertypeId: "G_VEICOLO",
+    rule: "generalization-collapse-up",
+  });
+  const optional = getDirectEntityAttributes(translated, "VEICOLO").find(
+    (attribute) => attribute.id === "optional",
+  );
+  assert.ok(optional);
+  assert.equal(optional.cardinality, "(0,N)");
+});
+
+test("collapse up preserva un massimo numerico maggiore di uno", () => {
+  const translated = applyGeneralizationTranslation(createVehicleCollapseUpDiagram("(1,5)"), {
+    supertypeId: "G_VEICOLO",
+    rule: "generalization-collapse-up",
+  });
+  const optional = getDirectEntityAttributes(translated, "VEICOLO").find(
+    (attribute) => attribute.id === "optional",
+  );
+  assert.ok(optional);
+  assert.equal(optional.cardinality, "(0,5)");
 });
 
 test("collapse up riusa il discriminatore del gruppo se esiste gia sul padre", () => {
