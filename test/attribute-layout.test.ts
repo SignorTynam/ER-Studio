@@ -160,6 +160,48 @@ function assertNoDanglingEdges(diagram: DiagramDocument): void {
   });
 }
 
+function getAttributesById(diagram: DiagramDocument, ids: string[]): AttributeNode[] {
+  return ids.map((id) => getAttribute(diagram, id));
+}
+
+function assertUniqueMarkers(attributes: AttributeNode[]): void {
+  const markerKeys = attributes.map((candidate) => {
+    const marker = getAttributeMarkerCenter(candidate);
+    return `${marker.x}:${marker.y}`;
+  });
+  assert.equal(new Set(markerKeys).size, markerKeys.length);
+}
+
+function assertNoAttributeBoundsOverlap(host: AttributeLayoutHost, attributes: AttributeNode[]): void {
+  attributes.forEach((candidate, index) => {
+    attributes.slice(index + 1).forEach((other) => {
+      assert.equal(
+        boundsIntersect(
+          buildAttributeLayoutBounds(host, candidate),
+          buildAttributeLayoutBounds(host, other),
+        ),
+        false,
+        `${candidate.id} overlaps ${other.id}`,
+      );
+    });
+  });
+}
+
+function addUniformAttributesIncrementally(
+  host: EntityNode | RelationshipNode | AttributeNode,
+  count: number,
+): DiagramDocument {
+  let diagram = incrementalDiagram(host, []);
+  for (let index = 0; index < count; index += 1) {
+    diagram = connectAndPlaceAttribute(
+      diagram,
+      host.id,
+      attribute(`attribute${index + 1}`, index),
+    );
+  }
+  return diagram;
+}
+
 function layoutSides(host: AttributeLayoutHost, attributes: AttributeNode[]): AttributeLayoutSide[] {
   return attributes.map((candidate) => getDirectAttributeLayoutSide(host, candidate));
 }
@@ -254,6 +296,133 @@ test("attribute layout: incremental placement does not move existing attributes"
   });
   assert.deepEqual(layoutSides(host, [...positioned, next]), ["left", "left", "left", "top", "bottom", "top"]);
   assertConstantPerimeterGap(host, [next]);
+});
+
+test("attribute layout: real incremental sequence from first to seventh uses distinct perimeter slots", () => {
+  const host = hostEntity();
+  let diagram = incrementalDiagram(host, []);
+  const attributeIds: string[] = [];
+
+  for (let index = 0; index < 7; index += 1) {
+    const snapshot = snapshotNodes(diagram, diagram.nodes.map((node) => node.id));
+    const nextId = `attribute${index + 1}`;
+    diagram = connectAndPlaceAttribute(diagram, host.id, attribute(nextId, index));
+    attributeIds.push(nextId);
+
+    assertNodesUnchanged(diagram, snapshot);
+    const positioned = getAttributesById(diagram, attributeIds);
+    assert.notDeepEqual(
+      { x: positioned.at(-1)?.x, y: positioned.at(-1)?.y },
+      { x: 620, y: 180 + index * 44 },
+    );
+    assertUniqueMarkers(positioned);
+    assertNoAttributeBoundsOverlap(host, positioned);
+    assertNoDanglingEdges(diagram);
+  }
+
+  const positioned = getAttributesById(diagram, attributeIds);
+  assert.deepEqual(layoutSides(host, positioned), ["left", "left", "left", "top", "bottom", "top", "bottom"]);
+  assert.notDeepEqual(
+    getAttributeMarkerCenter(positioned[3]),
+    getAttributeMarkerCenter(positioned[0]),
+  );
+});
+
+test("attribute layout: fourth incremental attribute follows the three left slots", () => {
+  const host = hostEntity();
+  const beforeFourth = addUniformAttributesIncrementally(host, 3);
+  const snapshot = snapshotNodes(beforeFourth, beforeFourth.nodes.map((node) => node.id));
+  const afterFourth = connectAndPlaceAttribute(beforeFourth, host.id, attribute("attribute4", 3));
+  const positioned = getAttributesById(afterFourth, ["attribute1", "attribute2", "attribute3", "attribute4"]);
+  const expectedSlots = buildLeftPriorityPerimeterSlots(host, positioned);
+
+  assertNodesUnchanged(afterFourth, snapshot);
+  assertUniqueMarkers(positioned);
+  assert.deepEqual(getAttributeMarkerCenter(positioned[3]), expectedSlots[3].marker);
+  assert.notDeepEqual(getAttributeMarkerCenter(positioned[3]), getAttributeMarkerCenter(positioned[0]));
+});
+
+test("attribute layout: fifth incremental attribute follows and preserves the first four", () => {
+  const host = hostEntity();
+  const beforeFifth = addUniformAttributesIncrementally(host, 4);
+  const snapshot = snapshotNodes(beforeFifth, beforeFifth.nodes.map((node) => node.id));
+  const afterFifth = connectAndPlaceAttribute(beforeFifth, host.id, attribute("attribute5", 4));
+  const positioned = getAttributesById(
+    afterFifth,
+    ["attribute1", "attribute2", "attribute3", "attribute4", "attribute5"],
+  );
+  const expectedSlots = buildLeftPriorityPerimeterSlots(host, positioned);
+
+  assertNodesUnchanged(afterFifth, snapshot);
+  assertUniqueMarkers(positioned);
+  assertNoAttributeBoundsOverlap(host, positioned);
+  assert.deepEqual(getAttributeMarkerCenter(positioned[4]), expectedSlots[4].marker);
+});
+
+test("attribute layout: exhausted initial search never falls back to occupied slot zero", () => {
+  const host = hostEntity();
+  const next = attribute("fallback-check", 0);
+  const firstSlot = buildLeftPriorityPerimeterSlots(host, [next], undefined, 1)[0];
+  const occupiedBounds: Bounds[] = [
+    {
+      x: firstSlot.marker.x - 12,
+      y: firstSlot.marker.y - 12,
+      width: 24,
+      height: 24,
+    },
+    ...Array.from({ length: 255 }, (_, index) => ({
+      x: 10_000 + index * 4,
+      y: 10_000,
+      width: 1,
+      height: 1,
+    })),
+  ];
+  const positioned = placeNewAttributeAroundHost(host, [], next, { occupiedBounds });
+
+  assert.notDeepEqual(getAttributeMarkerCenter(positioned), firstSlot.marker);
+  assert.equal(
+    occupiedBounds.some((bounds) =>
+      boundsIntersect(buildAttributeLayoutBounds(host, positioned), bounds),
+    ),
+    false,
+  );
+});
+
+test("attribute layout: relationship and composite incremental sequences never reuse markers", () => {
+  for (const host of [relationshipNode(), hostAttribute()]) {
+    const diagram = addUniformAttributesIncrementally(host, 5);
+    const updatedHost = diagram.nodes.find(
+      (node): node is AttributeLayoutHost =>
+        node.id === host.id &&
+        (node.type === "entity" || node.type === "relationship" || node.type === "attribute"),
+    );
+    assert.ok(updatedHost);
+    const positioned = getAttributesById(
+      diagram,
+      ["attribute1", "attribute2", "attribute3", "attribute4", "attribute5"],
+    );
+
+    assertUniqueMarkers(positioned);
+    assertNoAttributeBoundsOverlap(updatedHost, positioned);
+    assertNoDanglingEdges(diagram);
+  }
+});
+
+test("attribute layout: batch and incremental placement share the same initial perimeter sequence", () => {
+  const host = hostEntity();
+  const sourceAttributes = Array.from({ length: 7 }, (_, index) => attribute(`attribute${index + 1}`, index));
+  const batch = distributeAttributesAroundHost(host, sourceAttributes);
+  const incrementalDiagramResult = addUniformAttributesIncrementally(host, sourceAttributes.length);
+  const incremental = getAttributesById(
+    incrementalDiagramResult,
+    sourceAttributes.map((candidate) => candidate.id),
+  );
+
+  assert.deepEqual(
+    incremental.slice(0, 5).map(getAttributeMarkerCenter),
+    batch.slice(0, 5).map(getAttributeMarkerCenter),
+  );
+  assert.deepEqual(layoutSides(host, incremental), layoutSides(host, batch));
 });
 
 test("attribute layout: diagram integration preserves three existing entity attributes", () => {

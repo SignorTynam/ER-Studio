@@ -116,9 +116,9 @@ function buildConnectorCorridor(start: Point, end: Point, padding: number): Boun
 export function buildAttributeLayoutOptionsForHost(
   diagram: DiagramDocument,
   hostNode: AttributeLayoutHost,
-  attributeIdsBeingLaidOut: string[],
+  managedAttributeIds: string[],
 ): AttributeLayoutOptions {
-  const layoutAttributeIds = new Set(attributeIdsBeingLaidOut);
+  const managedIds = new Set(managedAttributeIds);
   const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
   const occupiedBounds: Bounds[] = [];
   const nodePadding = 14;
@@ -129,7 +129,7 @@ export function buildAttributeLayoutOptionsForHost(
       return;
     }
 
-    if (node.type === "attribute" && layoutAttributeIds.has(node.id)) {
+    if (node.type === "attribute" && managedIds.has(node.id)) {
       return;
     }
 
@@ -524,9 +524,13 @@ function findFirstAvailablePerimeterSlot(
   options?: AttributeLayoutOptions,
 ): AttributeLayoutSlot {
   const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
-  let candidateCount = Math.max(attributesForStep.length + occupiedBounds.length + 8, 12);
+  const maxCandidateCount = 4096;
+  let candidateCount = Math.min(
+    Math.max(attributesForStep.length + occupiedBounds.length + 8, 12),
+    maxCandidateCount,
+  );
 
-  while (candidateCount < 256) {
+  while (candidateCount <= maxCandidateCount) {
     const slots = buildLeftPriorityPerimeterSlots(host, attributesForStep, options, candidateCount);
     for (const slot of slots) {
       if (occupiedSlotKeys.has(getSlotKey(slot))) {
@@ -541,10 +545,13 @@ function findFirstAvailablePerimeterSlot(
       return slot;
     }
 
-    candidateCount *= 2;
+    if (candidateCount === maxCandidateCount) {
+      break;
+    }
+    candidateCount = Math.min(candidateCount * 2, maxCandidateCount);
   }
 
-  return buildLeftPriorityPerimeterSlots(host, attributesForStep, options, candidateCount)[0];
+  throw new Error(`Nessuno slot perimetrale libero trovato per l'attributo "${attribute.label}".`);
 }
 
 export function buildCompactAttributeSlots(
@@ -622,7 +629,10 @@ export function layoutIncrementallyConnectedAttribute(
     buildAttributeLayoutOptionsForHost(
       diagramWithUpdatedHost,
       connection.host,
-      [connection.attribute.id],
+      [
+        connection.attribute.id,
+        ...existingAttributes.map((attribute) => attribute.id),
+      ],
     ),
   );
 
