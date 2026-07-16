@@ -1,6 +1,20 @@
-import type { AttributeNode, Bounds, EntityNode, Point, RelationshipNode } from "../types/diagram";
+import type {
+  AttributeNode,
+  Bounds,
+  DiagramDocument,
+  DiagramEdge,
+  EntityNode,
+  Point,
+  RelationshipNode,
+} from "../types/diagram";
+import { getMultivaluedAttributeSize } from "./diagram";
 import { buildAttributeLabelBounds } from "./edgeLabelLayout";
-import { GRID_SIZE, snapValue } from "./geometry";
+import {
+  GRID_SIZE,
+  clipPointToNodePerimeter,
+  getNodeCenter,
+  snapValue,
+} from "./geometry";
 
 export type AttributeLayoutSide = "top" | "right" | "bottom" | "left";
 
@@ -88,6 +102,138 @@ function padBounds(bounds: Bounds, padding: number): Bounds {
     width: bounds.width + padding * 2,
     height: bounds.height + padding * 2,
   };
+}
+
+function buildConnectorCorridor(start: Point, end: Point, padding: number): Bounds {
+  return {
+    x: Math.min(start.x, end.x) - padding,
+    y: Math.min(start.y, end.y) - padding,
+    width: Math.abs(end.x - start.x) + padding * 2,
+    height: Math.abs(end.y - start.y) + padding * 2,
+  };
+}
+
+export function buildAttributeLayoutOptionsForHost(
+  diagram: DiagramDocument,
+  hostNode: AttributeLayoutHost,
+  attributeIdsBeingLaidOut: string[],
+): AttributeLayoutOptions {
+  const layoutAttributeIds = new Set(attributeIdsBeingLaidOut);
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const occupiedBounds: Bounds[] = [];
+  const nodePadding = 14;
+  const connectorPadding = 28;
+
+  diagram.nodes.forEach((node) => {
+    if (node.id === hostNode.id) {
+      return;
+    }
+
+    if (node.type === "attribute" && layoutAttributeIds.has(node.id)) {
+      return;
+    }
+
+    if (node.type === "entity" || node.type === "relationship" || node.type === "attribute") {
+      occupiedBounds.push(padBounds(node, nodePadding));
+    }
+  });
+
+  diagram.edges.forEach((edge) => {
+    if (
+      hostNode.type === "attribute" ||
+      edge.type !== "connector" ||
+      (edge.sourceId !== hostNode.id && edge.targetId !== hostNode.id)
+    ) {
+      return;
+    }
+
+    const otherNode = nodeById.get(edge.sourceId === hostNode.id ? edge.targetId : edge.sourceId);
+    if (!otherNode) {
+      return;
+    }
+
+    const otherCenter = getNodeCenter(otherNode);
+    const hostEndpoint = clipPointToNodePerimeter(hostNode, otherCenter);
+    const otherEndpoint = clipPointToNodePerimeter(otherNode, getNodeCenter(hostNode));
+    occupiedBounds.push(buildConnectorCorridor(hostEndpoint, otherEndpoint, connectorPadding));
+  });
+
+  return {
+    occupiedBounds,
+    preserveInputOrder: true,
+  };
+}
+
+export function findDirectHostedAttributes(
+  diagram: DiagramDocument,
+  hostId: string,
+): AttributeNode[] {
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+
+  return diagram.edges.flatMap((edge) => {
+    if (edge.type !== "attribute") {
+      return [];
+    }
+
+    const candidateId =
+      edge.sourceId === hostId
+        ? edge.targetId
+        : edge.targetId === hostId
+          ? edge.sourceId
+          : undefined;
+    if (!candidateId) {
+      return [];
+    }
+
+    const candidateNode = nodeById.get(candidateId);
+    return candidateNode?.type === "attribute" ? [candidateNode] : [];
+  });
+}
+
+export interface DirectAttributeConnection {
+  edge: Extract<DiagramEdge, { type: "attribute" }>;
+  host: AttributeLayoutHost;
+  attribute: AttributeNode;
+}
+
+export function getDirectAttributeConnection(
+  diagram: DiagramDocument,
+  edgeId: string,
+): DirectAttributeConnection | undefined {
+  const edge = diagram.edges.find(
+    (candidate): candidate is Extract<DiagramEdge, { type: "attribute" }> =>
+      candidate.id === edgeId && candidate.type === "attribute",
+  );
+  if (!edge) {
+    return undefined;
+  }
+
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const source = nodeById.get(edge.sourceId);
+  const target = nodeById.get(edge.targetId);
+  if (!source || !target) {
+    return undefined;
+  }
+
+  if (source.type === "attribute" && target.type === "attribute") {
+    return { edge, host: target, attribute: source };
+  }
+
+  if (
+    source.type === "attribute" &&
+    (target.type === "entity" || target.type === "relationship")
+  ) {
+    return { edge, host: target, attribute: source };
+  }
+
+  if (
+    target.type === "attribute" &&
+    (source.type === "entity" || source.type === "relationship")
+  ) {
+    return { edge, host: source, attribute: target };
+  }
+
+  return undefined;
 }
 
 function unionBounds(bounds: Bounds[]): Bounds {
@@ -416,7 +562,13 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   options?: AttributeLayoutOptions,
 ): T {
   const attributesForStep = [...existingAttributes, newAttribute];
-  const occupiedBounds = [...(options?.occupiedBounds ?? [])];
+  const collisionPadding = options?.collisionPadding ?? COLLISION_PADDING;
+  const occupiedBounds = [
+    ...(options?.occupiedBounds ?? []),
+    ...existingAttributes.map((attribute) =>
+      buildAttributeLayoutBounds(host, attribute, collisionPadding),
+    ),
+  ];
   const occupiedSlotKeys = getOccupiedSlotKeys(host, existingAttributes, attributesForStep, options);
   const slot = findFirstAvailablePerimeterSlot(
     host,
@@ -428,6 +580,60 @@ export function placeNewAttributeAroundHost<T extends AttributeNode>(
   );
 
   return placeAttributeMarker(newAttribute, slot.marker, false) as T;
+}
+
+export function layoutIncrementallyConnectedAttribute(
+  diagram: DiagramDocument,
+  edgeId: string,
+): DiagramDocument {
+  const initialConnection = getDirectAttributeConnection(diagram, edgeId);
+  if (!initialConnection) {
+    return diagram;
+  }
+
+  const diagramWithUpdatedHost =
+    initialConnection.host.type === "attribute" && initialConnection.host.isMultivalued !== true
+      ? {
+          ...diagram,
+          nodes: diagram.nodes.map((node) =>
+            node.id === initialConnection.host.id && node.type === "attribute"
+              ? {
+                  ...node,
+                  ...getMultivaluedAttributeSize(node.label),
+                  isMultivalued: true,
+                }
+              : node,
+          ),
+        }
+      : diagram;
+  const connection = getDirectAttributeConnection(diagramWithUpdatedHost, edgeId);
+  if (!connection) {
+    return diagramWithUpdatedHost;
+  }
+
+  const existingAttributes = findDirectHostedAttributes(
+    diagramWithUpdatedHost,
+    connection.host.id,
+  ).filter((attribute) => attribute.id !== connection.attribute.id);
+  const positioned = placeNewAttributeAroundHost(
+    connection.host,
+    existingAttributes,
+    connection.attribute,
+    buildAttributeLayoutOptionsForHost(
+      diagramWithUpdatedHost,
+      connection.host,
+      [connection.attribute.id],
+    ),
+  );
+
+  return {
+    ...diagramWithUpdatedHost,
+    nodes: diagramWithUpdatedHost.nodes.map((node) =>
+      node.id === positioned.id && node.type === "attribute"
+        ? { ...node, x: positioned.x, y: positioned.y }
+        : node,
+    ),
+  };
 }
 
 export function distributeAttributesAroundHost<T extends AttributeNode>(

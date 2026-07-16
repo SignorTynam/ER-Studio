@@ -49,7 +49,6 @@ import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   AttributeNode,
-  Bounds,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
@@ -145,15 +144,14 @@ import {
 import { downloadJpeg, downloadPng, downloadSvg } from "./utils/export";
 import {
   GRID_SIZE,
-  clipPointToNodePerimeter,
-  getNodeCenter,
   getNodeConnectionSide,
   snapValue,
 } from "./utils/geometry";
 import {
+  buildAttributeLayoutOptionsForHost,
   distributeAttributesAroundHost,
-  placeNewAttributeAroundHost,
-  type AttributeLayoutOptions,
+  findDirectHostedAttributes,
+  layoutIncrementallyConnectedAttribute,
 } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
 import {
@@ -811,134 +809,6 @@ function getConnectionFailureReason(
 type AttributeCreationHost = Extract<DiagramNode, { type: "entity" | "relationship" | "attribute" }>;
 type AttributeNodeDraft = Extract<DiagramNode, { type: "attribute" }>;
 type DirectAttributeLayoutHost = EntityNode | RelationshipNode | AttributeNode;
-
-function padBounds(bounds: Bounds, padding: number): Bounds {
-  return {
-    x: bounds.x - padding,
-    y: bounds.y - padding,
-    width: bounds.width + padding * 2,
-    height: bounds.height + padding * 2,
-  };
-}
-
-function buildConnectorCorridor(start: Point, end: Point, padding: number): Bounds {
-  return {
-    x: Math.min(start.x, end.x) - padding,
-    y: Math.min(start.y, end.y) - padding,
-    width: Math.abs(end.x - start.x) + padding * 2,
-    height: Math.abs(end.y - start.y) + padding * 2,
-  };
-}
-
-function buildAttributeLayoutOptionsForHost(
-  diagram: DiagramDocument,
-  hostNode: DirectAttributeLayoutHost,
-  attributeIdsBeingLaidOut: string[],
-): AttributeLayoutOptions {
-  const layoutAttributeIds = new Set(attributeIdsBeingLaidOut);
-  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
-  const occupiedBounds: Bounds[] = [];
-  const nodePadding = 14;
-  const connectorPadding = 28;
-
-  diagram.nodes.forEach((node) => {
-    if (node.id === hostNode.id) {
-      return;
-    }
-
-    if (node.type === "attribute" && layoutAttributeIds.has(node.id)) {
-      return;
-    }
-
-    if (node.type === "entity" || node.type === "relationship" || node.type === "attribute") {
-      occupiedBounds.push(padBounds(node, nodePadding));
-    }
-  });
-
-  diagram.edges.forEach((edge) => {
-    if (
-      hostNode.type === "attribute" ||
-      edge.type !== "connector" ||
-      (edge.sourceId !== hostNode.id && edge.targetId !== hostNode.id)
-    ) {
-      return;
-    }
-
-    const otherNode = nodeById.get(edge.sourceId === hostNode.id ? edge.targetId : edge.sourceId);
-    if (!otherNode) {
-      return;
-    }
-
-    const otherCenter = getNodeCenter(otherNode);
-    const hostEndpoint = clipPointToNodePerimeter(hostNode, otherCenter);
-    const otherEndpoint = clipPointToNodePerimeter(otherNode, getNodeCenter(hostNode));
-    occupiedBounds.push(buildConnectorCorridor(hostEndpoint, otherEndpoint, connectorPadding));
-  });
-
-  return {
-    occupiedBounds,
-    preserveInputOrder: true,
-  };
-}
-
-function findDirectHostedAttributes(
-  diagram: DiagramDocument,
-  hostId: string,
-): AttributeNodeDraft[] {
-  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
-
-  return diagram.edges.flatMap((edge) => {
-    if (edge.type !== "attribute") {
-      return [];
-    }
-
-    const candidateId =
-      edge.sourceId === hostId
-        ? edge.targetId
-        : edge.targetId === hostId
-          ? edge.sourceId
-          : undefined;
-
-    if (!candidateId) {
-      return [];
-    }
-
-    const candidateNode = nodeById.get(candidateId);
-    return candidateNode?.type === "attribute" ? [candidateNode] : [];
-  });
-}
-
-function getNextAttributePosition(
-  diagram: DiagramDocument,
-  hostNode: AttributeCreationHost,
-  nextAttribute: AttributeNodeDraft,
-): Point {
-  const hostedAttributes = findDirectHostedAttributes(diagram, hostNode.id);
-  const layoutHost =
-    hostNode.type === "attribute" && hostNode.isMultivalued !== true
-      ? {
-          ...hostNode,
-          ...getMultivaluedAttributeSize(hostNode.label),
-          isMultivalued: true,
-        }
-      : hostNode;
-
-  const positionedNextAttribute = placeNewAttributeAroundHost(
-    layoutHost,
-    hostedAttributes,
-    nextAttribute,
-    buildAttributeLayoutOptionsForHost(
-      diagram,
-      layoutHost,
-      hostedAttributes.map((attribute) => attribute.id),
-    ),
-  );
-
-  return {
-    x: positionedNextAttribute.x,
-    y: positionedNextAttribute.y,
-  };
-}
 
 function layoutDirectAttributesAroundHost(
   diagram: DiagramDocument,
@@ -4509,39 +4379,10 @@ export default function App() {
           prepared.diagram.edges.find((edge) => edge.id === nextEdge.id) ?? nextEdge;
       }
     }
-    const nextDiagramWithEdge =
-      type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
-        ? (() => {
-            const nextSize = getMultivaluedAttributeSize(targetNode.label);
-            return updateNodeInDiagram(nextDiagramBase, targetNode.id, {
-              isMultivalued: true,
-              width: nextSize.width,
-              height: nextSize.height,
-            } as Partial<DiagramNode>);
-          })()
+    const nextDiagram =
+      type === "attribute"
+        ? layoutIncrementallyConnectedAttribute(nextDiagramBase, nextEdge.id)
         : nextDiagramBase;
-    const directAttributeHostId =
-      type === "attribute" && sourceNode.type === "attribute" && targetNode.type === "attribute"
-        ? targetNode.id
-        : type === "attribute" && sourceNode.type !== "attribute" && targetNode.type === "attribute"
-          ? sourceNode.id
-          : type === "attribute" && targetNode.type !== "attribute" && sourceNode.type === "attribute"
-            ? targetNode.id
-            : undefined;
-    const directAttributeHost = directAttributeHostId
-      ? nextDiagramWithEdge.nodes.find(
-          (node): node is AttributeCreationHost =>
-            node.id === directAttributeHostId &&
-            (node.type === "entity" || node.type === "relationship" || node.type === "attribute"),
-        )
-      : undefined;
-    const nextDiagram = directAttributeHost
-      ? layoutDirectAttributesAroundHost(
-          nextDiagramWithEdge,
-          directAttributeHost,
-          findDirectHostedAttributes(nextDiagramWithEdge, directAttributeHost.id).map((attribute) => attribute.id),
-        )
-      : nextDiagramWithEdge;
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [edgeToSelect.id] });
@@ -5438,38 +5279,13 @@ export default function App() {
       DiagramNode,
       { type: "attribute" }
     >;
-    const nextAttribute = {
-      ...draftAttribute,
-      ...getNextAttributePosition(history.present, hostNode, draftAttribute),
-    };
-    const nextEdge = createEdge("attribute", nextAttribute.id, hostNode.id, history.present);
+    const nextEdge = createEdge("attribute", draftAttribute.id, hostNode.id, history.present);
     const nextDiagramBase: DiagramDocument = {
       ...history.present,
-      nodes: [...history.present.nodes, nextAttribute],
+      nodes: [...history.present.nodes, draftAttribute],
       edges: [...history.present.edges, nextEdge],
     };
-    const nextDiagramWithHostResize =
-      hostNode.type === "attribute"
-        ? (() => {
-            const nextSize = getMultivaluedAttributeSize(hostNode.label);
-            return updateNodeInDiagram(nextDiagramBase, hostNode.id, {
-              isMultivalued: true,
-              width: nextSize.width,
-              height: nextSize.height,
-            } as Partial<DiagramNode>);
-          })()
-        : nextDiagramBase;
-    const layoutHost = nextDiagramWithHostResize.nodes.find(
-      (node): node is AttributeCreationHost =>
-        node.id === hostNode.id && (node.type === "entity" || node.type === "relationship" || node.type === "attribute"),
-    );
-    const nextDiagram = layoutHost
-      ? layoutDirectAttributesAroundHost(
-          nextDiagramWithHostResize,
-          layoutHost,
-          findDirectHostedAttributes(nextDiagramWithHostResize, layoutHost.id).map((attribute) => attribute.id),
-        )
-      : nextDiagramWithHostResize;
+    const nextDiagram = layoutIncrementallyConnectedAttribute(nextDiagramBase, nextEdge.id);
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
