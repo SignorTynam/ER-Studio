@@ -3015,7 +3015,7 @@ summary:focus-visible,
   grid-template-columns: 1fr;
   grid-template-rows: 24px auto;
   place-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   width: 100%;
   min-height: 52px;
   padding: 5px 4px;
@@ -3024,8 +3024,8 @@ summary:focus-visible,
   background: transparent;
   color: var(--studio-ink);
   text-align: center;
-  font-size: 0.72rem;
-  font-weight: 760;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .designer-toolbar-icon {
@@ -3036,13 +3036,15 @@ summary:focus-visible,
   font-size: 0;
 }
 
+/* Fase C3.3: label su una riga (niente wrapping lettera-per-lettera);
+   il title nativo porta il nome completo quando tronca. */
 .designer-toolbar-label {
   min-width: 0;
   max-width: 82px;
   overflow: hidden;
-  line-height: 1.15;
+  line-height: var(--line-height-tight);
   text-overflow: ellipsis;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .designer-context-toolbar {
@@ -3051,13 +3053,13 @@ summary:focus-visible,
   top: 64px;
   left: 14px;
   display: grid;
-  width: 72px;
+  width: 76px;
   max-height: calc(100% - 96px);
   gap: 0;
-  padding: 4px;
-  border: 1px solid var(--studio-border);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-default);
   border-radius: 0;
-  background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
+  background: var(--color-bg-elevated);
   box-shadow: var(--studio-shadow-sm);
   overflow-x: hidden;
   overflow-y: auto;
@@ -3080,7 +3082,7 @@ summary:focus-visible,
 }
 
 .designer-toolbar-button.active {
-  border-color: rgba(37, 79, 72, 0.34);
+  border-color: color-mix(in srgb, var(--color-accent) 34%, transparent);
   background: var(--studio-accent-soft);
   color: var(--studio-accent-strong);
 }
@@ -3089,10 +3091,10 @@ summary:focus-visible,
 .designer-translation-toolbar,
 .designer-logical-toolbar {
   display: grid;
-  width: 72px;
+  width: 76px;
   max-height: calc(100% - 96px);
   gap: 0;
-  padding: 4px;
+  padding: var(--space-1);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -3101,9 +3103,9 @@ summary:focus-visible,
 .designer-translation-toolbar .designer-toolbar-button,
 .designer-logical-toolbar .designer-toolbar-button {
   grid-template-columns: 1fr;
-  grid-template-rows: 28px auto;
+  grid-template-rows: 24px auto;
   justify-items: center;
-  min-height: 62px;
+  min-height: 56px;
   padding: 5px 3px;
   border-radius: 0;
   text-align: center;
@@ -3112,18 +3114,19 @@ summary:focus-visible,
 .designer-er-toolbar .designer-toolbar-label,
 .designer-translation-toolbar .designer-toolbar-label,
 .designer-logical-toolbar .designer-toolbar-label {
-  max-width: 58px;
-  font-size: 0.64rem;
-  white-space: normal;
+  max-width: 64px;
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
 }
 
+/* Fase C3.3: separatori di gruppo percepibili (naviga / crea / connetti / modifica / dettagli). */
 .designer-er-toolbar .designer-toolbar-separator,
 .designer-translation-toolbar .designer-toolbar-separator,
 .designer-logical-toolbar .designer-toolbar-separator {
   width: 100%;
   height: 1px;
-  margin: 3px 0;
-  background: var(--studio-border);
+  margin: var(--space-1) 0;
+  background: var(--color-border-default);
 }
 
 .errors-modal {
