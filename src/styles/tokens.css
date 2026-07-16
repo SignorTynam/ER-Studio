@@ -143,6 +143,7 @@
   --diagram-node-fill: var(--color-bg-elevated);
   --diagram-stroke: #26352f;
   --diagram-text: var(--color-text-primary);
+  --diagram-label-fill: var(--color-text-primary);
 
   /* ------------------------------------------------------------------
      Alias legacy consolidati (Fase A) — definizioni prima sparse in

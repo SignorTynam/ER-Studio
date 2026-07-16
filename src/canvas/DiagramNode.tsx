@@ -45,18 +45,6 @@ function getValidationStroke(level: DiagramIssueLevel): string {
   return DIAGRAM_STROKE;
 }
 
-function getValidationHalo(level: DiagramIssueLevel): string {
-  if (level === "error") {
-    return DIAGRAM_ERROR_FILL;
-  }
-
-  if (level === "warning") {
-    return DIAGRAM_WARNING_FILL;
-  }
-
-  return "transparent";
-}
-
 function formatValidationTitle(messages?: string[]): string | undefined {
   if (!messages || messages.length === 0) {
     return undefined;
@@ -80,7 +68,7 @@ function renderValidationBadge(x: number, y: number, level: DiagramIssueLevel, t
   return (
     <g className={`diagram-validation-badge ${level}`} pointerEvents="all">
       {title ? <title>{title}</title> : null}
-      <circle cx={x} cy={y} r={8} fill="#fffdf7" stroke={stroke} strokeWidth={1.8} />
+      <circle cx={x} cy={y} r={8} fill="var(--color-bg-elevated)" stroke={stroke} strokeWidth={1.8} />
       <circle cx={x} cy={y} r={3.4} fill={stroke} opacity={level === "error" ? 0.95 : 0.88} />
       <circle cx={x} cy={y} r={5.8} fill={fill} stroke="none" opacity={0.65} />
       <circle cx={x} cy={y} r={2.7} fill={stroke} opacity={0.95} />
@@ -178,7 +166,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
     props.translationHighlight === "selected"
       ? DIAGRAM_TRANSLATION_PENDING
       : versionStroke ?? (isShapeHighlighted ? DIAGRAM_FOCUS : strokeColor);
-  const haloColor = isGhost ? "transparent" : getValidationHalo(props.validationLevel);
   const validationTitle = isGhost ? undefined : formatValidationTitle(props.validationMessages);
   const baseFill = isGhost ? "none" : DIAGRAM_NODE_FILL;
   const baseDash = isGhost ? "10 8" : undefined;
@@ -229,18 +216,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
         {validationTitle ? <title>{validationTitle}</title> : null}
-        {!isGhost && props.validationLevel ? (
-          <rect
-            className="diagram-validation-halo node-validation-halo"
-            x={node.x - 8}
-            y={node.y - 8}
-            width={node.width + 16}
-            height={node.height + 16}
-            fill="none"
-            stroke={haloColor}
-            strokeWidth={7}
-          />
-        ) : null}
         <rect
           x={node.x}
           y={node.y}
@@ -303,15 +278,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
         {validationTitle ? <title>{validationTitle}</title> : null}
-        {!isGhost && props.validationLevel ? (
-          <polygon
-            className="diagram-validation-halo node-validation-halo"
-            points={`${cx},${node.y - 8} ${node.x + node.width + 8},${cy} ${cx},${node.y + node.height + 8} ${node.x - 8},${cy}`}
-            fill="none"
-            stroke={haloColor}
-            strokeWidth={7}
-          />
-        ) : null}
         <polygon
           points={points}
           fill={baseFill}
@@ -363,18 +329,6 @@ export function DiagramNodeView(props: DiagramNodeProps) {
         onDoubleClick={isGhost ? undefined : (event) => props.onDoubleClick(event, node)}
       >
         {validationTitle ? <title>{validationTitle}</title> : null}
-        {!isGhost && props.validationLevel ? (
-          <rect
-            className="diagram-validation-halo node-validation-halo"
-            x={node.x - 10}
-            y={node.y - 8}
-            width={node.width + 20}
-            height={node.height + 16}
-            fill="none"
-            stroke={haloColor}
-            strokeWidth={7}
-          />
-        ) : null}
         {isCompositeAttribute ? (
           <>
             <rect
@@ -441,7 +395,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                     cx={node.x + 10}
                     cy={cy}
                     r={DIAGRAM_ATTRIBUTE_MARKER_RADIUS}
-                    fill={isGhost ? "none" : isIdentifier ? selectedStrokeColor : DIAGRAM_NODE_FILL}
+                    fill={isGhost ? "none" : isIdentifier ? DIAGRAM_FOCUS : DIAGRAM_NODE_FILL}
                     stroke={selectedStrokeColor}
                     strokeWidth={isShapeHighlighted ? 2.4 : 2}
                     strokeDasharray={baseDash}
@@ -450,7 +404,7 @@ export function DiagramNodeView(props: DiagramNodeProps) {
                   <text
                     x={labelLayout.x}
                     y={labelLayout.y}
-                    className="attribute-label"
+                    className={isIdentifier ? "attribute-label attribute-label--identifier" : "attribute-label"}
                     textAnchor={labelLayout.textAnchor}
                     dominantBaseline={labelLayout.dominantBaseline}
                     fill={selectedStrokeColor}

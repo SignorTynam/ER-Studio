@@ -4128,15 +4128,20 @@ textarea:disabled {
   background-size: 28px 28px;
 }
 
+/* Fase C3.1: selezione e feedback tutti sull'accento (via il glow oro hardcoded). */
+.diagram-node:not(.ghost):hover {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-accent) 26%, transparent));
+}
+
 .diagram-node.selected,
 .diagram-edge.selected {
-  filter: drop-shadow(0 0 5px rgba(183, 126, 0, 0.58));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 48%, transparent));
 }
 
 .diagram-node:focus-visible,
 .diagram-edge:focus-visible {
   outline: none;
-  box-shadow: none;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 62%, transparent));
 }
 
 .entity-label,
@@ -4144,6 +4149,12 @@ textarea:disabled {
 .attribute-label,
 .edge-label {
   letter-spacing: 0;
+}
+
+/* Notazione ER: gli attributi identificanti sono sottolineati oltre al pallino pieno. */
+.attribute-label--identifier {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .composite-attribute-capsule {
