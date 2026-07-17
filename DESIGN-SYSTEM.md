@@ -48,9 +48,20 @@ collassarli sullo stesso token.
 |---|---|---|
 | `--color-text-primary` | `#17201c` | Testo principale |
 | `--color-text-secondary` | `#4f5f57` | Testo secondario |
-| `--color-text-muted` | `#748078` | Meta/didascalie (⚠ sotto AA come testo normale: vedi TOKEN-DEBT) |
-| `--color-text-disabled` | `#9ca69f` | Testo disabilitato |
+| `--color-text-muted` | `#636d66` | Meta/didascalie — ✅ AA su tutti gli sfondi chiari (min 4.51:1; corretto in D1 da #748078) |
+| `--color-text-disabled` | `#9ca69f` | Testo disabilitato (esente da AA) |
 | `--color-text-on-accent` | `#ffffff` | Testo/icone su superfici accent o scure |
+
+### Colori sul chrome scuro
+
+| Token | Valore | Uso |
+|---|---|---|
+| `--color-accent-on-dark` | `#73bbaa` | Indicatori attivi e focus ring su header/rail/status (7.6:1 su bg-header) |
+| `--color-modified-on-dark` | `#e4b466` | Dot "modificato" e toni warning sul chrome scuro (8.3:1) |
+
+Testo su chrome scuro: `color-mix(in srgb, var(--color-text-on-accent) X%, transparent)` —
+88% valori · 78% testo · 54% etichette. Bianchi puri (bordi/hover dei dropdown scuri):
+`color-mix(... 8–16%, transparent)`, equivalente esatto di `rgba(255,255,255,X)`.
 
 ### Accento e semantici
 
@@ -60,7 +71,7 @@ collassarli sullo stesso token.
 | `--color-accent-hover` | `#24594f` | Hover/pressed dell'accento |
 | `--color-accent-muted` | `#dcebe6` | Tinta soft dell'accento (sfondi evidenziati) |
 | `--color-danger` | `#bd4b3f` | Errori, azioni distruttive |
-| `--color-warning` | `#a8741c` | Avvisi (⚠ come testo è sotto AA su sfondi chiari) |
+| `--color-warning` | `#a8741c` | Avvisi (⚠ come **testo** sotto AA su sfondi chiari 3.4–4.05:1 — usare come UI/bordo, o `--color-text-*` per il testo) |
 | `--color-success` | `#2f7857` | Conferme |
 | `--color-info` | `#3977a8` | Informazioni |
 | `--color-modified` | `#ad6b19` | Indicatore "modificato/non salvato" (dot dirty di tab ed Explorer) |
@@ -217,3 +228,39 @@ disabled `--color-bg-disabled` + `--color-text-disabled`. Empty state: card trat
 `--color-border-default` su `--color-bg-panel` (pattern Explorer). Marcatori di modifica
 nelle liste (M/A): `--color-modified` semibold. Step di processo (SQL Reverse): striscia
 orizzontale singola, indicatori quadrati `--radius-control` 18px, mai cerchi.
+
+## Accessibilità (validata in Fase D)
+
+Audit automatico permanente: `tests/e2e/accessibility.spec.ts` scansiona con
+**axe-core** (wcag2a/2aa/21a/21aa) welcome-senza-progetto, chrome+explorer+welcome,
+Modal shell e command palette — **0 violazioni**. Responsive verificato in
+`tests/e2e/responsive.spec.ts` (6 larghezze, nessun overflow).
+
+### Contrasto (rapporti validati)
+- Testo `--color-text-primary` / `--color-text-secondary` su sfondi chiari: ≥ 7:1.
+- `--color-text-muted` #636d66: **≥ 4.51:1 su ogni sfondo** (era il flag storico, chiuso).
+- Bianco su `--color-accent` 5.88:1, su `--color-accent-hover` 8.02:1, su `--color-danger` 4.95:1.
+- On-dark: `--color-accent-on-dark` 7.6:1, `--color-modified-on-dark` 8.3:1 su bg-header.
+- CTA primaria welcome (testo on-accent): 5.88/5.27 a riposo, 8.02/7.09 in hover.
+
+### Focus visibile
+Due pattern, mai `outline: none` senza sostituto:
+- Superfici chiare: `outline: 2px solid var(--color-accent)` con `outline-offset: -2px` (o `2px` per i Button).
+- Chrome scuro (rail, search, dismiss): `outline: 2px solid var(--color-accent-on-dark)`.
+- Nodi/archi del canvas: alone accent via `drop-shadow` (il focus da tastiera prima era invisibile).
+Non usare mai `--studio-focus-ring` (valore box-shadow) dentro `outline:`.
+
+### Ruoli e semantica (lezioni di D1)
+- **File tab = `role="toolbar"`, non tablist**: sono tab-documento senza `tabpanel`;
+  roving tabindex + frecce + `aria-current="page"`. Un `role="tab"` senza `tabpanel`/`aria-controls` è scorretto e axe lo segnala (`aria-required-children`).
+- **Tree**: `role="tree"` va sulla lista che contiene i `treeitem`, non su un contenitore
+  che include anche empty-state/CTA (che risulterebbero figli non ammessi). `ul`/`li`
+  interni con `role="none"`.
+- **Regioni scrollabili senza controlli** (liste lunghe nei modali): `tabIndex={0}` + `role="group"`, altrimenti irraggiungibili da tastiera.
+- **Immagini decorative** (logo affiancato al nome testuale): `alt=""` + `aria-hidden`, niente `aria-label` su contenitori senza ruolo.
+
+### Motion
+Reset globale `prefers-reduced-motion: reduce` in `foundations.css` (`*` con `!important`,
+mai scavalcato). Durate su `--motion-fast` (120ms) / `--motion-normal` (180ms); le
+animazioni coreografiche del changelog (stagger 280/70/80ms) restano fuori scala e
+sono disattivate dal reset.
