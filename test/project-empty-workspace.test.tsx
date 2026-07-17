@@ -138,6 +138,8 @@ test("workspace mounts a compact status bar and responsive drawer rules", () => 
   assert.match(statusSource, /zoomPercent/);
   assert.match(responsiveCss, /@media \(max-width: 900px\)/);
   assert.match(responsiveCss, /position: absolute/);
+  assert.match(responsiveCss, /min-width: var\(--size-activity-rail\)/);
+  assert.match(responsiveCss, /max-width: var\(--size-activity-rail\)/);
   assert.match(responsiveCss, /project-activity-panel:not\(\.project-activity-panel--collapsed\)::after/);
 });
 

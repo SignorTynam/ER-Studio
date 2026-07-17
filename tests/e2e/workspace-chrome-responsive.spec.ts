@@ -38,6 +38,7 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
 
   for (const viewport of [
     { width: 703, height: 861 },
+    { width: 582, height: 861 },
     { width: 390, height: 844 },
     { width: 320, height: 568 },
   ]) {
@@ -50,10 +51,12 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
         document.querySelectorAll<HTMLElement>(".workspace-empty-editor__button"),
       );
       const panel = document.querySelector<HTMLElement>(".workspace-empty-editor__panel");
+      const activityPanel = document.querySelector<HTMLElement>(".project-activity-panel");
 
       return {
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
+        activityPanelWidth: activityPanel?.getBoundingClientRect().width ?? 0,
         headerSizes: headerButtons.map((button) => button.getBoundingClientRect().width),
         actionWidths: actions.map((button) => button.getBoundingClientRect().width),
         panelWidth: panel?.getBoundingClientRect().width ?? 0,
@@ -61,8 +64,41 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
     });
 
     expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+    expect(geometry.activityPanelWidth).toBeLessThanOrEqual(49);
     expect(geometry.headerSizes.every((size) => size <= 32)).toBe(true);
     expect(new Set(geometry.actionWidths.map(Math.round)).size).toBeGreaterThan(1);
     expect(geometry.actionWidths.every((size) => size < geometry.panelWidth)).toBe(true);
   }
+
+  await page.setViewportSize({ width: 582, height: 861 });
+  const activityButton = page.locator(".project-activity-button").first();
+  const activityPanel = page.locator(".project-activity-panel");
+  if (!(await activityPanel.evaluate((element) => element.classList.contains("project-activity-panel--collapsed")))) {
+    await activityButton.click();
+  }
+  await expect(page.locator(".project-activity-panel--collapsed")).toBeVisible();
+
+  await activityButton.click();
+  await expect(page.locator(".project-activity-panel--collapsed")).toHaveCount(0);
+
+  const openDrawerGeometry = await page.evaluate(() => {
+    const activityPanel = document.querySelector<HTMLElement>(".project-activity-panel");
+    const activityContent = document.querySelector<HTMLElement>(".project-activity-content");
+    const panelBounds = activityPanel?.getBoundingClientRect();
+    const contentBounds = activityContent?.getBoundingClientRect();
+    return {
+      panelWidth: panelBounds?.width ?? 0,
+      panelRight: panelBounds?.right ?? 0,
+      contentLeft: contentBounds?.left ?? 0,
+      contentRight: contentBounds?.right ?? 0,
+      viewportWidth: document.documentElement.clientWidth,
+    };
+  });
+
+  expect(openDrawerGeometry.panelWidth).toBeLessThanOrEqual(49);
+  expect(openDrawerGeometry.contentLeft).toBeCloseTo(openDrawerGeometry.panelRight, 1);
+  expect(openDrawerGeometry.contentRight).toBeLessThan(openDrawerGeometry.viewportWidth);
+
+  await activityButton.click();
+  await expect(page.locator(".project-activity-panel--collapsed")).toBeVisible();
 });

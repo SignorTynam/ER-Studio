@@ -69,6 +69,8 @@
     z-index: 60;
     grid-column: 1;
     width: var(--size-activity-rail);
+    min-width: var(--size-activity-rail);
+    max-width: var(--size-activity-rail);
     overflow: visible;
   }
 
