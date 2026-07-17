@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MessageKey } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon } from "./icons/StudioIcon";
+import { Button, Modal } from "./ui";
 
 interface NotesModalProps {
   open: boolean;
@@ -113,21 +114,6 @@ export function NotesModal(props: NotesModalProps) {
     }, 0);
   }, [props.notes, props.open]);
 
-  useEffect(() => {
-    if (!props.open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        requestClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  });
-
   if (!props.open) {
     return null;
   }
@@ -161,12 +147,13 @@ export function NotesModal(props: NotesModalProps) {
   }
 
   return (
-    <div className="notes-modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) {
-        requestClose();
-      }
-    }}>
-      <section className="notes-modal" role="dialog" aria-modal="true" aria-labelledby="notes-modal-title">
+    <Modal
+      open
+      onClose={requestClose}
+      hideClose
+      className="notes-modal"
+      ariaLabelledBy="notes-modal-title"
+    >
         <header className="notes-modal-header">
           <div>
             <h2 id="notes-modal-title">{t("notesPanel.title")}</h2>
@@ -200,14 +187,13 @@ export function NotesModal(props: NotesModalProps) {
           aria-label={t("notesPanel.editorAria")}
         />
         <footer className="notes-modal-actions">
-          <button type="button" className="studio-secondary-button" onClick={requestClose}>
+          <Button variant="secondary" onClick={requestClose}>
             {t("common.actions.cancel")}
-          </button>
-          <button type="button" className="studio-primary-button" onClick={handleSave} disabled={isReadOnly}>
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={isReadOnly}>
             {t("common.actions.save")}
-          </button>
+          </Button>
         </footer>
-      </section>
-    </div>
+    </Modal>
   );
 }

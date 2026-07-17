@@ -796,15 +796,16 @@ body {
   background: rgba(0, 0, 0, 0.32);
 }
 
-.notes-modal {
+/* Fase C4b: card sulla Modal shell; doppia classe per vincere la base .ui-modal. */
+.ui-modal.notes-modal {
   width: min(760px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 48px));
   display: grid;
   grid-template-rows: auto auto minmax(220px, 1fr) auto;
-  border: 1px solid var(--studio-border, #cfd4d1);
+  border: 1px solid var(--color-border-default);
   border-radius: 0;
-  background: var(--studio-surface-strong, var(--color-bg-elevated));
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-dialog);
   overflow: hidden;
 }
 
@@ -6116,7 +6117,9 @@ textarea:disabled {
   backdrop-filter: blur(3px);
 }
 
-.designer-cardinality-modal {
+/* Fase C4b: la card vive sulla Modal shell; questa regola (doppia classe)
+   vince sulla base .ui-modal per conservare la griglia e la larghezza custom. */
+.ui-modal.designer-cardinality-modal {
   width: min(500px, calc(100vw - 48px));
   max-height: min(720px, calc(100vh - 48px));
   display: grid;
@@ -6126,7 +6129,7 @@ textarea:disabled {
   border-radius: 0;
   background: var(--editor-panel-strong);
   color: var(--editor-text);
-  box-shadow: 0 18px 48px rgba(12, 18, 15, 0.22);
+  box-shadow: var(--elevation-dialog);
 }
 
 .designer-cardinality-modal__header {

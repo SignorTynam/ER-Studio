@@ -3,6 +3,7 @@ import { translate, type MessageKey, type TranslationParams } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
 import type { DiagramDocument } from "../types/diagram";
 import { CONNECTOR_CARDINALITY_PRESETS } from "../utils/cardinality";
+import { Button, Modal } from "./ui";
 
 export type CardinalityDialogTarget =
   | { kind: "attribute"; attributeId: string }
@@ -133,40 +134,32 @@ export function CardinalityModal(props: CardinalityModalProps) {
     }
 
     function handleDocumentKeyDown(event: KeyboardEvent) {
+      // Enter conferma da qualsiasi campo; Esc lo gestisce la Modal shell (Fase C4b).
       if (shouldConfirmCardinalityModalFromKeyboard(event)) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         props.onSubmit();
-        return;
-      }
-
-      if (shouldCancelCardinalityModalFromKeyboard(event)) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        props.onCancel();
       }
     }
 
     document.addEventListener("keydown", handleDocumentKeyDown, true);
     return () => document.removeEventListener("keydown", handleDocumentKeyDown, true);
-  }, [props.onSubmit, props.onCancel]);
+  }, [props.onSubmit]);
 
   const subtitle = getSubtitle(state, t, props.sourceLabel, props.targetLabel, props.contextLabel);
   const isCustom = state.presetValue === "custom";
   const primaryLabel = getCardinalityModalPrimaryLabel(state, t);
 
   return (
-    <div className="designer-modal-backdrop" role="presentation" onClick={props.onCancel}>
-      <section
-        className="designer-cardinality-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cardinality-dialog-title"
-        aria-describedby="cardinality-dialog-subtitle"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={props.onCancel}
+      hideClose
+      className="designer-cardinality-modal"
+      ariaLabelledBy="cardinality-dialog-title"
+      ariaDescribedBy="cardinality-dialog-subtitle"
+    >
         <header className="designer-cardinality-modal__header">
           <div>
             <div className="designer-cardinality-modal__eyebrow">
@@ -236,18 +229,17 @@ export function CardinalityModal(props: CardinalityModalProps) {
             <small>{t("cardinalityModal.custom.help")}</small>
           </label>
 
-          {state.error ? <p className="designer-cardinality-error">{state.error}</p> : null}
+          {state.error ? <p className="designer-cardinality-error" role="alert">{state.error}</p> : null}
 
           <footer className="designer-cardinality-actions">
-            <button type="button" className="designer-cardinality-button secondary" onClick={props.onCancel}>
+            <Button variant="secondary" onClick={props.onCancel}>
               {t("cardinalityModal.cancel")}
-            </button>
-            <button ref={primaryButtonRef} type="submit" className="designer-cardinality-button primary">
+            </Button>
+            <Button ref={primaryButtonRef} type="submit" variant="primary">
               {primaryLabel}
-            </button>
+            </Button>
           </footer>
         </form>
-      </section>
-    </div>
+    </Modal>
   );
 }
