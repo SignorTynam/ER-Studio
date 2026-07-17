@@ -5,147 +5,100 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { SourceControlPanel } from "../src/components/versioning/SourceControlPanel.tsx";
+import { getPreferredCompareView, getSourceControlChangeCode, sortSourceControlChanges } from "../src/components/versioning/sourceControlPresentation.ts";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
-import {
-  createProjectCommitInState,
-  getProjectUncommittedChangeState,
-} from "../src/features/versioning/useProjectVersioning.ts";
+import { getProjectUncommittedChangeState, type ProjectFileChange } from "../src/features/versioning/useProjectVersioning.ts";
 import { createProjectWideSnapshotForTest } from "./support/projectWideSnapshot.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
+const noop = () => undefined;
 
-test("Source Control panel mostra repository, changes, input e bottone commit", () => {
+function renderPanel() {
   const snapshot = createProjectWideSnapshotForTest();
   const changeState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), snapshot);
-  const markup = renderToStaticMarkup(
+  return renderToStaticMarkup(
     <I18nProvider>
       <SourceControlPanel
-        projectName="ER Studio"
-        commitMessage="Initial commit"
-        changeState={changeState}
-        commits={[]}
-        headCommitId={null}
-        selectedCommitId={null}
-        onCommitMessageChange={() => undefined}
-        onCommit={() => undefined}
-        onRefresh={() => undefined}
-        onSelectCommit={() => undefined}
-        onCompareWithCurrent={() => undefined}
-        onCompareWithHead={() => undefined}
-        onCompareWithParent={() => undefined}
-        onRestoreCommit={() => undefined}
-        onDeleteCommit={() => undefined}
+        projectName="ER Studio" projectFilePaths={{}} workingFileIds={Object.keys(snapshot.files ?? {})}
+        commitMessage="Initial snapshot" changeState={changeState} commits={[]} headCommitId={null} selectedCommitId={null}
+        onCommitMessageChange={noop} onCommit={noop} onRefresh={noop} onReviewAllChanges={noop}
+        onReviewFile={noop} onOpenFile={noop} onSelectCommit={noop} onCompareWithCurrent={noop}
+        onCompareWithHead={noop} onCompareWithParent={noop} onRestoreCommit={noop} onDeleteCommit={noop}
       />
     </I18nProvider>,
   );
+}
 
+test("Source Control presents local snapshots without fake Git concepts", () => {
+  const markup = renderPanel();
+  const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
   assert.match(markup, /Source Control/i);
-  assert.match(markup, /Repositories/i);
-  assert.match(markup, /Changes/i);
-  assert.doesNotMatch(markup, /newfeatures/);
+  assert.match(markup, /No local snapshots|Nessuno snapshot locale/);
   assert.match(markup, /textarea/);
-  assert.match(markup, /Create first commit|Crea primo commit/);
+  assert.doesNotMatch(markup, /Repositories/i);
+  assert.doesNotMatch(source, /branchName|source-control-branch-pill|>main</);
 });
 
-test("Source Control panel mostra branch pill logiche senza branch fake", () => {
+test("Changes are expanded, History is collapsed, and there is one meaningful refresh", () => {
+  const markup = renderPanel();
   const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
-
-  assert.doesNotMatch(source, /branchName/);
-  assert.match(source, /source-control-branch-pill/);
-  assert.doesNotMatch(source, /newfeatures/);
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(markup, /aria-expanded="true"[^>]*>[\s\S]*Changes/i);
+  assert.match(markup, /aria-expanded="false"[^>]*>[\s\S]*History/i);
+  assert.equal((source.match(/icon="refresh"/g) ?? []).length, 1);
+  assert.match(appSource, /syncActiveSchemaToProject/);
+  assert.doesNotMatch(source, /pointermove|historyResize|source-control-history-splitter|--source-control-history-height/);
 });
 
-test("Source Control panel supporta Ctrl+Enter per commit", () => {
+test("Source Control persists disclosures and keeps Ctrl+Enter commit", () => {
   const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
-
+  assert.match(source, /SOURCE_CONTROL_CHANGES_EXPANDED_KEY/);
+  assert.match(source, /SOURCE_CONTROL_HISTORY_EXPANDED_KEY/);
   assert.match(source, /event\.key === "Enter"/);
-  assert.match(source, /onCommit\(\)/);
+  assert.match(source, /props\.onCommit\(\)/);
 });
 
-test("Source Control usa panel primitives e splitter accessibile da tastiera", () => {
+test("change presentation uses stable status ordering and file-specific compare modes", () => {
+  const changes: ProjectFileChange[] = [
+    { fileId: "d", name: "deleted.sql", kind: "sql", status: "deleted" },
+    { fileId: "a", name: "added.txt", kind: "text", status: "added" },
+    { fileId: "m", name: "modified.erschema", kind: "schema", status: "modified" },
+    { fileId: "r", name: "renamed.txt", kind: "text", status: "renamed", previousName: "old.txt" },
+  ];
+  assert.deepEqual(sortSourceControlChanges(changes).map((change) => change.status), ["modified", "added", "renamed", "deleted"]);
+  assert.deepEqual(changes.map((change) => getSourceControlChangeCode(change.status)), ["D", "A", "M", "R"]);
+  assert.equal(getPreferredCompareView("schema"), "er");
+  assert.equal(getPreferredCompareView("sql"), "sql");
+  assert.equal(getPreferredCompareView("text"), "text");
+});
+
+test("App scopes review per file and routes restore/delete through the global confirm dialog", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(source, /scope:\s*\{\s*kind: "file"/);
+  assert.match(source, /preferredView: getPreferredCompareView/);
+  assert.match(source, /initialScope=\{versionCompareSession\.scope\}/);
+  assert.match(source, /requestConfirmDialog\(\{[\s\S]*confirmRestoreTitle/);
+  assert.match(source, /requestConfirmDialog\(\{[\s\S]*confirmDeleteTitle/);
+});
+
+test("history detail replaces the list and exposes real metadata", () => {
   const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
-
-  assert.match(source, /<WorkspacePanel/);
-  assert.match(source, /<WorkspacePanelHeader/);
-  assert.match(source, /<PanelEmptyState/);
-  assert.match(source, /tabIndex=\{0\}/);
-  assert.match(source, /event\.key !== "ArrowUp" && event\.key !== "ArrowDown"/);
-  assert.match(source, /event\.shiftKey \? 24 : 8/);
-  assert.match(source, /clampHeight/);
+  assert.match(source, /selectedCommit \? \(/);
+  assert.match(source, /source-control-back-button/);
+  assert.match(source, /selectedCommit\.description/);
+  assert.match(source, /selectedCommit\.author/);
+  assert.match(source, /selectedCommit\.automatic/);
+  assert.match(source, /getCommitStats/);
+  assert.doesNotMatch(source, /PendingAction|source-control-inline-confirm/);
 });
 
-test("App non monta piu la modal Versioni progetto dal Source Control", () => {
-  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-
-  assert.doesNotMatch(source, /components\/versioning\/VersioningPanel/);
-  assert.doesNotMatch(source, /components\/versioning\/CommitDialog/);
-  assert.doesNotMatch(source, /components\/versioning\/RestoreVersionDialog/);
-  assert.doesNotMatch(source, /<VersioningPanel/);
-  assert.doesNotMatch(source, /<CommitDialog/);
-  assert.doesNotMatch(source, /<RestoreVersionDialog/);
-  assert.doesNotMatch(source, /studio-modal versioning-panel/);
-});
-
-test("App marca dirty i tab usando i file modificati e non il dirty globale", () => {
-  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
-  const visibleTabsStart = source.indexOf("const visibleProjectTabs");
-  const visibleTabsEnd = source.indexOf("const visibleActivityIssues", visibleTabsStart);
-  const visibleTabsSource = source.slice(visibleTabsStart, visibleTabsEnd);
-
-  assert.match(source, /applyProjectTabDirtyFileIds/);
-  assert.match(source, /versioningChangeState\.files\.map\(\(file\) => file\.fileId\)/);
-  assert.doesNotMatch(visibleTabsSource, /hasVersioningUncommittedChanges/);
-});
-
-test("Source Control panel renderizza graph scrollabile e dettagli commit selezionato", async () => {
-  let versioning = createEmptyProjectVersioningState();
-  const snapshot = createProjectWideSnapshotForTest();
-  for (let index = 0; index < 30; index += 1) {
-    const nextSnapshot = createProjectWideSnapshotForTest();
-    const textFile = Object.values(nextSnapshot.files ?? {}).find((file) => file.kind === "text");
-    assert.ok(textFile && textFile.kind === "text");
-    nextSnapshot.files = {
-      ...(nextSnapshot.files ?? {}),
-      [textFile.id]: {
-        ...textFile,
-        content: `note ${index}`,
-      },
-    };
-    const result = await createProjectCommitInState(versioning, {
-      snapshot: nextSnapshot,
-      message: `Commit ${index}`,
-    });
-    assert.equal(result.status, "created");
-    if (result.status !== "created") throw new Error("commit failed");
-    versioning = result.versioning;
-  }
-  const commits = [...versioning.commits].reverse();
-  const selected = commits[0];
-  const markup = renderToStaticMarkup(
-    <I18nProvider>
-      <SourceControlPanel
-        projectName="ER Studio"
-        commitMessage=""
-        changeState={getProjectUncommittedChangeState(versioning, snapshot)}
-        commits={commits}
-        headCommitId={versioning.headCommitId}
-        selectedCommitId={selected.id}
-        onCommitMessageChange={() => undefined}
-        onCommit={() => undefined}
-        onRefresh={() => undefined}
-        onSelectCommit={() => undefined}
-        onCompareWithCurrent={() => undefined}
-        onCompareWithHead={() => undefined}
-        onCompareWithParent={() => undefined}
-        onRestoreCommit={() => undefined}
-        onDeleteCommit={() => undefined}
-      />
-    </I18nProvider>,
-  );
-
-  assert.match(markup, /data-testid="source-control-history-scroll"/);
-  assert.match(markup, /source-control-graph-row/);
-  assert.match(markup, /source-control-commit-details/);
-  assert.match(markup, /Delete commit/);
+test("legacy Source Control CSS selectors were removed from shared styles", () => {
+  const sharedCss = ["project-explorer.css", "panels-workspace.css", "responsive.css"]
+    .map((name) => readFileSync(new URL(`../src/styles/${name}`, import.meta.url), "utf8")).join("\n");
+  assert.doesNotMatch(sharedCss, /\.source-control/);
+  const css = readFileSync(new URL("../src/styles/source-control-panel.css", import.meta.url), "utf8");
+  assert.match(css, /max-height:\s*45%/);
+  assert.match(css, /min-width:\s*0/);
+  assert.match(css, /min-height:\s*0/);
 });

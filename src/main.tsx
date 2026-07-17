@@ -14,6 +14,8 @@ import "./styles/activity-rail.css";
 import "./styles/editor-tabs.css";
 import "./styles/context-menu.css";
 import "./styles/panels-workspace.css";
+import "./styles/errors-panel.css";
+import "./styles/source-control-panel.css";
 import "./styles/responsive.css";
 import "./styles/ui.css";
 

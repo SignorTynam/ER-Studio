@@ -1,16 +1,28 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useI18n } from "../../i18n/useI18n";
-import type {
-  ProjectFileChange,
-  ProjectUncommittedChangeState,
-} from "../../features/versioning/useProjectVersioning";
+import type { ProjectFileChange, ProjectUncommittedChangeState } from "../../features/versioning/useProjectVersioning";
 import type { ProjectCommit } from "../../features/versioning/projectCommitSnapshot";
-import { StudioIcon } from "../icons/StudioIcon";
+import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 import { PanelEmptyState, PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
+import {
+  SOURCE_CONTROL_CHANGES_EXPANDED_KEY,
+  SOURCE_CONTROL_HISTORY_EXPANDED_KEY,
+  formatSourceControlDate,
+  getChangedCategoryKeys,
+  getCommitStats,
+  getSourceControlChangeCode,
+  readSourceControlDisclosure,
+  shortCommitId,
+  sortSourceControlChanges,
+  writeSourceControlDisclosure,
+} from "./sourceControlPresentation";
 
 interface SourceControlPanelProps {
   projectName: string;
+  projectFilePaths: Record<string, string>;
+  workingFileIds: readonly string[];
   commitMessage: string;
+  commitBusy?: boolean;
   changeState: ProjectUncommittedChangeState;
   commits: ProjectCommit[];
   headCommitId: string | null;
@@ -18,6 +30,9 @@ interface SourceControlPanelProps {
   onCommitMessageChange: (value: string) => void;
   onCommit: () => void;
   onRefresh: () => void;
+  onReviewAllChanges: () => void;
+  onReviewFile: (change: ProjectFileChange) => void;
+  onOpenFile: (fileId: string) => void;
   onSelectCommit: (commitId: string | null) => void;
   onCompareWithCurrent: (commitId: string) => void;
   onCompareWithHead: (commitId: string) => void;
@@ -28,437 +43,228 @@ interface SourceControlPanelProps {
   closeLabel?: string;
 }
 
-type PendingAction = { kind: "restore" | "delete"; commitId: string } | null;
-
-type HistoryResizeState = {
-  startY: number;
-  startHeight: number;
-};
-
-const HISTORY_MIN_HEIGHT = 116;
-const HISTORY_MIN_TOP_HEIGHT = 140;
-const HISTORY_SPLITTER_HEIGHT = 8;
-
-function clampHeight(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function formatCommitDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function shortCommitId(id: string | null | undefined) {
-  return id ? id.slice(0, 8) : "-";
-}
-
-function getChangeStatusLabel(change: ProjectFileChange): string {
-  switch (change.status) {
-    case "added":
-      return "A";
-    case "deleted":
-      return "D";
-    case "renamed":
-      return "R";
-    case "modified":
-    default:
-      return "M";
-  }
-}
-
-function getChangeIconName(change: ProjectFileChange) {
-  if (change.kind === "schema") {
-    return "entity";
-  }
-  if (change.kind === "sql") {
-    return "database";
-  }
+function getChangeIconName(change: ProjectFileChange): StudioIconName {
+  if (change.kind === "schema") return "entity";
+  if (change.kind === "sql") return "database";
   return "fileText";
 }
 
-export function SourceControlPanel({
-  projectName,
-  commitMessage,
-  changeState,
-  commits,
-  headCommitId,
-  selectedCommitId,
-  onCommitMessageChange,
-  onCommit,
-  onRefresh,
-  onSelectCommit,
-  onCompareWithCurrent,
-  onCompareWithHead,
-  onCompareWithParent,
-  onRestoreCommit,
-  onDeleteCommit,
-  onClose,
-  closeLabel,
-}: SourceControlPanelProps) {
-  const { t } = useI18n();
-  const [historyCollapsed, setHistoryCollapsed] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [historyHeight, setHistoryHeight] = useState<number | null>(null);
-  const canCommit = changeState.summary.canCommit && commitMessage.trim().length > 0;
-  const selectedCommit = commits.find((commit) => commit.id === selectedCommitId) ?? null;
-  const panelRef = useRef<HTMLElement | null>(null);
-  const historyRef = useRef<HTMLDivElement | null>(null);
-  const historyResizeRef = useRef<HistoryResizeState | null>(null);
+function DisclosureHeader({
+  expanded,
+  title,
+  count,
+  onToggle,
+  expandLabel,
+  collapseLabel,
+}: {
+  expanded: boolean;
+  title: string;
+  count?: number;
+  onToggle: () => void;
+  expandLabel: string;
+  collapseLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="source-control-disclosure"
+      aria-expanded={expanded}
+      aria-label={expanded ? collapseLabel : expandLabel}
+      onClick={onToggle}
+    >
+      <StudioIcon name={expanded ? "arrowDown" : "arrowRight"} aria-hidden="true" />
+      <span>{title}</span>
+      {typeof count === "number" ? <small>{count}</small> : null}
+    </button>
+  );
+}
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+export function SourceControlPanel(props: SourceControlPanelProps) {
+  const { t, locale } = useI18n();
+  const [changesExpanded, setChangesExpanded] = useState(() => readSourceControlDisclosure(SOURCE_CONTROL_CHANGES_EXPANDED_KEY, true));
+  const [historyExpanded, setHistoryExpanded] = useState(() => readSourceControlDisclosure(SOURCE_CONTROL_HISTORY_EXPANDED_KEY, false));
+  const sortedChanges = useMemo(() => sortSourceControlChanges(props.changeState.files), [props.changeState.files]);
+  const selectedCommit = props.commits.find((commit) => commit.id === props.selectedCommitId) ?? null;
+  const workingFileIds = useMemo(() => new Set(props.workingFileIds), [props.workingFileIds]);
+  const canCommit = props.changeState.summary.canCommit && props.commitMessage.trim().length > 0 && !props.commitBusy;
+  const changedCategories = getChangedCategoryKeys(props.changeState.categories);
+
+  useEffect(() => writeSourceControlDisclosure(SOURCE_CONTROL_CHANGES_EXPANDED_KEY, changesExpanded), [changesExpanded]);
+  useEffect(() => writeSourceControlDisclosure(SOURCE_CONTROL_HISTORY_EXPANDED_KEY, historyExpanded), [historyExpanded]);
+  useEffect(() => {
+    if (selectedCommit) setHistoryExpanded(true);
+  }, [selectedCommit]);
+
+  function handleCommitKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && canCommit) {
       event.preventDefault();
-      onCommit();
+      props.onCommit();
     }
   }
-
-  function handleConfirmPendingAction() {
-    if (!pendingAction) {
-      return;
-    }
-
-    if (pendingAction.kind === "restore") {
-      onRestoreCommit(pendingAction.commitId);
-    } else {
-      onDeleteCommit(pendingAction.commitId);
-    }
-    setPendingAction(null);
-  }
-
-  function handleHistoryResizeStart(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!historyRef.current) {
-      return;
-    }
-
-    event.preventDefault();
-    const currentHeight = historyHeight ?? historyRef.current.getBoundingClientRect().height;
-    historyResizeRef.current = {
-      startY: event.clientY,
-      startHeight: currentHeight,
-    };
-    document.body.classList.add("source-control-resizing");
-  }
-
-  function resizeHistoryBy(delta: number) {
-    const panel = panelRef.current;
-    const history = historyRef.current;
-    if (!panel || !history) return;
-    const panelHeight = panel.getBoundingClientRect().height;
-    const maxHeight = Math.max(HISTORY_MIN_HEIGHT, panelHeight - HISTORY_MIN_TOP_HEIGHT - HISTORY_SPLITTER_HEIGHT);
-    const currentHeight = historyHeight ?? history.getBoundingClientRect().height;
-    setHistoryHeight(clampHeight(currentHeight + delta, HISTORY_MIN_HEIGHT, maxHeight));
-  }
-
-  useLayoutEffect(() => {
-    if (historyHeight !== null || !historyRef.current) {
-      return;
-    }
-
-    setHistoryHeight(historyRef.current.getBoundingClientRect().height);
-  }, [historyHeight]);
-
-  useEffect(() => {
-    const panel = panelRef.current;
-
-    if (!panel) {
-      return;
-    }
-
-    if (historyHeight === null) {
-      panel.style.removeProperty("--source-control-history-height");
-      return;
-    }
-
-    panel.style.setProperty("--source-control-history-height", `${historyHeight}px`);
-
-    return () => {
-      panel.style.removeProperty("--source-control-history-height");
-    };
-  }, [historyHeight]);
-
-  useEffect(() => {
-    function handlePointerMove(event: PointerEvent) {
-      const resizeState = historyResizeRef.current;
-      const panel = panelRef.current;
-
-      if (!resizeState || !panel) {
-        return;
-      }
-
-      const panelHeight = panel.getBoundingClientRect().height;
-      const maxHeight = Math.max(HISTORY_MIN_HEIGHT, panelHeight - HISTORY_MIN_TOP_HEIGHT - HISTORY_SPLITTER_HEIGHT);
-      const nextHeight = clampHeight(resizeState.startHeight + (resizeState.startY - event.clientY), HISTORY_MIN_HEIGHT, maxHeight);
-      setHistoryHeight(nextHeight);
-    }
-
-    function stopResize() {
-      if (!historyResizeRef.current) {
-        return;
-      }
-
-      historyResizeRef.current = null;
-      document.body.classList.remove("source-control-resizing");
-    }
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopResize);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopResize);
-      document.body.classList.remove("source-control-resizing");
-    };
-  }, []);
 
   return (
-    <WorkspacePanel
-      ref={panelRef}
-      className="source-control-panel"
-      label={t("sourceControl.title")}
-    >
+    <WorkspacePanel className="source-control-panel project-activity-section" label={t("sourceControl.title")}>
       <WorkspacePanelHeader
-        className="source-control-header"
         title={t("sourceControl.title")}
-        badge={changeState.hasChanges ? changeState.files.length : undefined}
-        onClose={onClose}
-        closeLabel={closeLabel ?? t("workspaceActivity.closePanel")}
+        badge={props.changeState.hasChanges ? Math.max(sortedChanges.length, 1) : undefined}
+        onClose={() => {
+          props.onSelectCommit(null);
+          props.onClose?.();
+        }}
+        closeLabel={props.closeLabel ?? t("workspaceActivity.closePanel")}
       >
-        <PanelIconButton
-          icon="refresh"
-          label={t("sourceControl.refresh")}
-          className="source-control-icon-button"
-          onClick={onRefresh}
-        />
+        <PanelIconButton icon="refresh" label={t("sourceControl.refresh")} onClick={props.onRefresh} />
       </WorkspacePanelHeader>
 
-      <div className="source-control-section">
-        <div className="source-control-section-title">
-          <StudioIcon name="arrowDown" aria-hidden="true" />
-          <span>{t("sourceControl.repositories")}</span>
-        </div>
-        <div className="source-control-repository">
-          <StudioIcon name="branch" aria-hidden="true" />
-          <span className="source-control-repository-name">{projectName}</span>
-        </div>
+      <div className="source-control-repository-summary">
+        <StudioIcon name="history" aria-hidden="true" />
+        <span>
+          <strong>{props.projectName}</strong>
+          <small>{props.headCommitId ? t("sourceControl.localHead", { id: shortCommitId(props.headCommitId) }) : t("sourceControl.noLocalSnapshots")}</small>
+        </span>
       </div>
 
-      <div className="source-control-section source-control-changes">
-        <div className="source-control-section-title">
-          <StudioIcon name="arrowDown" aria-hidden="true" />
-          <span>{t("sourceControl.changes")}</span>
-          {changeState.hasChanges ? <span className="source-control-badge">{changeState.files.length}</span> : null}
-        </div>
+      <div className="source-control-commit-composer">
         <textarea
           className="source-control-commit-input"
-          value={commitMessage}
-          onChange={(event) => onCommitMessageChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t("sourceControl.commitPlaceholder", { project: projectName })}
+          value={props.commitMessage}
+          onChange={(event) => props.onCommitMessageChange(event.target.value)}
+          onKeyDown={handleCommitKeyDown}
+          placeholder={t("sourceControl.commitPlaceholder", { project: props.projectName })}
           rows={2}
         />
-        <button type="button" className="source-control-commit-button" onClick={onCommit} disabled={!canCommit}>
+        <button type="button" className="source-control-primary-button" onClick={props.onCommit} disabled={!canCommit}>
           <StudioIcon name="done" aria-hidden="true" />
-          <span>{commits.length === 0 ? t("sourceControl.createFirstCommit") : t("sourceControl.commit")}</span>
+          <span>{props.commits.length === 0 ? t("sourceControl.createFirstCommit") : t("sourceControl.commit")}</span>
         </button>
-
-        {changeState.hasChanges ? (
-          <div className="source-control-change-list">
-            {changeState.files.length === 0 ? (
-              <div className="source-control-change-item">
-                <StudioIcon name="openProject" aria-hidden="true" />
-                <span>{projectName}</span>
-                <small>M</small>
-              </div>
-            ) : (
-              changeState.files.map((file) => (
-                <div className={`source-control-change-item is-${file.status}`} key={`${file.status}-${file.fileId}`}>
-                  <StudioIcon name={getChangeIconName(file)} aria-hidden="true" />
-                  <span title={file.previousName ? `${file.previousName} -> ${file.name}` : file.name}>{file.name}</span>
-                  <small>{getChangeStatusLabel(file)}</small>
-                </div>
-              ))
-            )}
-          </div>
-        ) : (
-          <PanelEmptyState className="source-control-empty source-control-empty--compact" icon="done" title={t("sourceControl.noChanges")} />
-        )}
       </div>
 
-      <div
-        className="source-control-history-splitter"
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label={t("sourceControl.resizeHistory")}
-        aria-valuemin={HISTORY_MIN_HEIGHT}
-        aria-valuenow={Math.round(historyHeight ?? HISTORY_MIN_HEIGHT)}
-        tabIndex={0}
-        onPointerDown={handleHistoryResizeStart}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-          event.preventDefault();
-          const delta = (event.shiftKey ? 24 : 8) * (event.key === "ArrowUp" ? 1 : -1);
-          resizeHistoryBy(delta);
-        }}
-      />
+      <section className="source-control-section source-control-changes" aria-label={t("sourceControl.changes")}>
+        <DisclosureHeader
+          expanded={changesExpanded}
+          title={t("sourceControl.changes")}
+          count={props.changeState.hasChanges ? Math.max(sortedChanges.length, 1) : 0}
+          onToggle={() => setChangesExpanded((value) => !value)}
+          expandLabel={t("sourceControl.expandChanges")}
+          collapseLabel={t("sourceControl.collapseChanges")}
+        />
+        {changesExpanded ? (
+          <div className="source-control-section__body">
+            {props.changeState.hasChanges ? (
+              <>
+                <button type="button" className="source-control-review-all" onClick={props.onReviewAllChanges}>
+                  <StudioIcon name="split" aria-hidden="true" />
+                  <span>{t("sourceControl.reviewAllChanges")}</span>
+                </button>
+                {sortedChanges.length > 0 ? (
+                  <ul className="source-control-change-list">
+                    {sortedChanges.map((change) => {
+                      const path = props.projectFilePaths[change.fileId] ?? change.name;
+                      const canOpen = change.status !== "deleted" && workingFileIds.has(change.fileId);
+                      return (
+                        <li className={`source-control-change-row is-${change.status}`} key={`${change.status}-${change.fileId}`}>
+                          <button type="button" className="source-control-change-main" onClick={() => props.onReviewFile(change)} title={path}>
+                            <StudioIcon name={getChangeIconName(change)} aria-hidden="true" />
+                            <span>
+                              <strong>{change.name}</strong>
+                              <small>{change.previousName ? `${change.previousName} → ${path}` : path}</small>
+                            </span>
+                            <b aria-label={t(`sourceControl.${change.status}`)}>{getSourceControlChangeCode(change.status)}</b>
+                          </button>
+                          {canOpen ? (
+                            <PanelIconButton icon="show" label={t("sourceControl.openFile", { name: change.name })} onClick={() => props.onOpenFile(change.fileId)} />
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="source-control-project-change">
+                    <StudioIcon name="openProject" aria-hidden="true" />
+                    <span>
+                      <strong>{t("sourceControl.projectChanges")}</strong>
+                      <small>{changedCategories.map((key) => t(`sourceControl.categories.${key}`)).join(", ")}</small>
+                    </span>
+                    <b>M</b>
+                  </div>
+                )}
+              </>
+            ) : (
+              <PanelEmptyState className="source-control-empty" icon="done" title={t("sourceControl.noChanges")} />
+            )}
+          </div>
+        ) : null}
+      </section>
 
-      <div ref={historyRef} className="source-control-section source-control-history">
-        <div className="source-control-section-title source-control-history-header">
-          {historyCollapsed ? (
-            <button
-              type="button"
-              className="source-control-disclosure"
-              onClick={() => setHistoryCollapsed((current) => !current)}
-              aria-expanded="false"
-              aria-label={t("sourceControl.expandHistory")}
-            >
-              <StudioIcon name="arrowRight" aria-hidden="true" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="source-control-disclosure"
-              onClick={() => setHistoryCollapsed((current) => !current)}
-              aria-expanded="true"
-              aria-label={t("sourceControl.collapseHistory")}
-            >
-              <StudioIcon name="arrowDown" aria-hidden="true" />
-            </button>
-          )}
-          <span>{t("sourceControl.graph")}</span>
-          <span className="source-control-count">{t("versioning.commitCount", { count: commits.length })}</span>
-          <PanelIconButton
-            icon="refresh"
-            label={t("sourceControl.refresh")}
-            className="source-control-icon-button"
-            onClick={onRefresh}
-          />
-        </div>
-
-        {!historyCollapsed ? (
-          commits.length === 0 ? (
-            <PanelEmptyState className="source-control-empty source-control-empty--compact" icon="branch" title={t("sourceControl.noCommits")} />
-          ) : (
-            <div className="source-control-history-scroll" data-testid="source-control-history-scroll">
-              <ol className="source-control-history-list">
-                {commits.map((commit) => {
-                  const isHead = commit.id === headCommitId;
-                  const selected = commit.id === selectedCommitId;
+      <section className={historyExpanded ? "source-control-section source-control-history is-expanded" : "source-control-section source-control-history"} aria-label={t("sourceControl.history")}>
+        <DisclosureHeader
+          expanded={historyExpanded}
+          title={t("sourceControl.history")}
+          count={props.commits.length}
+          onToggle={() => {
+            if (historyExpanded && selectedCommit) props.onSelectCommit(null);
+            setHistoryExpanded((value) => !value);
+          }}
+          expandLabel={t("sourceControl.expandHistory")}
+          collapseLabel={t("sourceControl.collapseHistory")}
+        />
+        {historyExpanded ? (
+          <div className="source-control-history__body">
+            {selectedCommit ? (
+              <div className="source-control-commit-details" data-testid="source-control-commit-details">
+                <button type="button" className="source-control-back-button" onClick={() => props.onSelectCommit(null)}>
+                  <StudioIcon name="arrowLeft" aria-hidden="true" />
+                  <span>{t("sourceControl.backToHistory")}</span>
+                </button>
+                <h3>{selectedCommit.message}</h3>
+                {selectedCommit.description ? <p>{selectedCommit.description}</p> : null}
+                <dl>
+                  <div><dt>{t("sourceControl.details.id")}</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
+                  <div><dt>{t("sourceControl.details.parent")}</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
+                  <div><dt>{t("sourceControl.details.date")}</dt><dd>{formatSourceControlDate(selectedCommit.createdAt, locale)}</dd></div>
+                  {selectedCommit.author ? <div><dt>{t("sourceControl.details.author")}</dt><dd>{selectedCommit.author}</dd></div> : null}
+                  <div><dt>{t("sourceControl.details.kind")}</dt><dd>{selectedCommit.automatic ? t("sourceControl.automatic") : t("sourceControl.manual")}</dd></div>
+                </dl>
+                <div className="source-control-stats">
+                  {getCommitStats(selectedCommit).map((stat) => (
+                    <span key={stat.key}><b>{stat.value}</b>{t(`sourceControl.stats.${stat.key}`)}</span>
+                  ))}
+                </div>
+                {selectedCommit.tags?.length ? (
+                  <div className="source-control-tags">{selectedCommit.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                ) : null}
+                <div className="source-control-commit-actions">
+                  <button type="button" onClick={() => props.onCompareWithCurrent(selectedCommit.id)}>{t("sourceControl.compareCurrent")}</button>
+                  <button type="button" onClick={() => props.onCompareWithHead(selectedCommit.id)} disabled={!props.headCommitId || selectedCommit.id === props.headCommitId}>{t("sourceControl.compareHead")}</button>
+                  <button type="button" onClick={() => props.onCompareWithParent(selectedCommit.id)} disabled={!selectedCommit.parentId}>{t("sourceControl.comparePrevious")}</button>
+                  <button type="button" onClick={() => props.onRestoreCommit(selectedCommit.id)}>{t("sourceControl.restore")}</button>
+                  <button type="button" className="is-danger" onClick={() => props.onDeleteCommit(selectedCommit.id)}>{t("sourceControl.deleteCommit")}</button>
+                </div>
+              </div>
+            ) : props.commits.length === 0 ? (
+              <PanelEmptyState className="source-control-empty" icon="history" title={t("sourceControl.noCommits")} />
+            ) : (
+              <ol className="source-control-history-list" data-testid="source-control-history-scroll">
+                {props.commits.map((commit) => {
+                  const isHead = commit.id === props.headCommitId;
                   return (
                     <li key={commit.id}>
-                      {selected ? (
-                        <button
-                          type="button"
-                          className={`source-control-graph-row${isHead ? " is-head" : ""} is-selected`}
-                          onClick={() => {
-                            setPendingAction(null);
-                            onSelectCommit(commit.id);
-                          }}
-                          aria-pressed="true"
-                          aria-label={t("sourceControl.selectCommit", { id: shortCommitId(commit.id), message: commit.message })}
-                        >
-                          <span className="source-control-graph-rail" aria-hidden="true">
-                            <span className="source-control-graph-line" />
-                            <span className="source-control-graph-node" />
-                          </span>
-                          <span className="source-control-graph-main">
-                            <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
-                            <span className="source-control-graph-meta">
-                              {shortCommitId(commit.id)}
-                              {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
-                              {isHead ? <span className="source-control-branch-pill">main</span> : null}
-                            </span>
-                          </span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className={`source-control-graph-row${isHead ? " is-head" : ""}`}
-                          onClick={() => {
-                            setPendingAction(null);
-                            onSelectCommit(commit.id);
-                          }}
-                          aria-pressed="false"
-                          aria-label={t("sourceControl.selectCommit", { id: shortCommitId(commit.id), message: commit.message })}
-                        >
-                          <span className="source-control-graph-rail" aria-hidden="true">
-                            <span className="source-control-graph-line" />
-                            <span className="source-control-graph-node" />
-                          </span>
-                          <span className="source-control-graph-main">
-                            <span className="source-control-graph-title" title={commit.message}>{commit.message}</span>
-                            <span className="source-control-graph-meta">
-                              {shortCommitId(commit.id)}
-                              {isHead ? <span className="source-control-branch-pill">HEAD</span> : null}
-                              {isHead ? <span className="source-control-branch-pill">main</span> : null}
-                            </span>
-                          </span>
-                        </button>
-                      )}
+                      <button type="button" className={isHead ? "source-control-history-row is-head" : "source-control-history-row"} onClick={() => props.onSelectCommit(commit.id)}>
+                        <span className="source-control-timeline" aria-hidden="true"><i /><b /></span>
+                        <span>
+                          <strong>{commit.message}</strong>
+                          <small>{shortCommitId(commit.id)} · {formatSourceControlDate(commit.createdAt, locale, true)}</small>
+                        </span>
+                        {isHead ? <em>HEAD</em> : null}
+                      </button>
                     </li>
                   );
                 })}
               </ol>
-            </div>
-          )
-        ) : null}
-
-        {selectedCommit ? (
-          <div className="source-control-commit-details" data-testid="source-control-commit-details">
-            <div className="source-control-commit-details__header">
-              <strong title={selectedCommit.message}>{selectedCommit.message}</strong>
-              <button
-                type="button"
-                className="project-activity-header-close source-control-commit-details__close"
-                onClick={() => {
-                  setPendingAction(null);
-                  onSelectCommit(null);
-                }}
-                aria-label={t("sourceControl.closeDetails")}
-              >
-                <StudioIcon name="close" aria-hidden="true" />
-              </button>
-            </div>
-            <dl>
-              <div><dt>{t("sourceControl.details.id")}</dt><dd>{shortCommitId(selectedCommit.id)}</dd></div>
-              <div><dt>{t("sourceControl.details.parent")}</dt><dd>{shortCommitId(selectedCommit.parentId)}</dd></div>
-              <div><dt>{t("sourceControl.details.date")}</dt><dd>{formatCommitDate(selectedCommit.createdAt)}</dd></div>
-              <div><dt>{t("sourceControl.details.stats")}</dt><dd>{t("sourceControl.details.statsValue", { entities: selectedCommit.stats.entityCount, tables: selectedCommit.stats.tableCount ?? 0 })}</dd></div>
-            </dl>
-            <div className="source-control-commit-actions">
-              <button type="button" className="source-control-action-button" onClick={() => onCompareWithCurrent(selectedCommit.id)}>
-                {t("sourceControl.compareCurrent")}
-              </button>
-              <button type="button" className="source-control-action-button" onClick={() => onCompareWithHead(selectedCommit.id)} disabled={!headCommitId || selectedCommit.id === headCommitId}>
-                {t("sourceControl.compareHead")}
-              </button>
-              <button type="button" className="source-control-action-button" onClick={() => onCompareWithParent(selectedCommit.id)} disabled={!selectedCommit.parentId}>
-                {t("sourceControl.comparePrevious")}
-              </button>
-              <button type="button" className="source-control-action-button" onClick={() => setPendingAction({ kind: "restore", commitId: selectedCommit.id })}>
-                {t("sourceControl.restore")}
-              </button>
-              <button type="button" className="source-control-action-button is-danger" onClick={() => setPendingAction({ kind: "delete", commitId: selectedCommit.id })}>
-                {t("sourceControl.deleteCommit")}
-              </button>
-            </div>
-            {pendingAction?.commitId === selectedCommit.id ? (
-              <div className="source-control-inline-confirm" role="alert">
-                <span>
-                  {pendingAction.kind === "restore"
-                    ? t("sourceControl.confirmRestore")
-                    : t("sourceControl.confirmDelete")}
-                </span>
-                <button type="button" className="source-control-action-button" onClick={() => setPendingAction(null)}>
-                  {t("sourceControl.cancel")}
-                </button>
-                <button type="button" className="source-control-action-button is-danger" onClick={handleConfirmPendingAction}>
-                  {pendingAction.kind === "restore" ? t("sourceControl.restore") : t("sourceControl.deleteCommit")}
-                </button>
-              </div>
-            ) : null}
+            )}
           </div>
         ) : null}
-      </div>
+      </section>
     </WorkspacePanel>
   );
 }

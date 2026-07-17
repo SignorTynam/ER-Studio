@@ -19,10 +19,12 @@ import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceEditorHeader } from "./components/workspace/WorkspaceEditorHeader";
-import { PanelEmptyState, PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "./components/workspace/WorkspacePanel";
+import { PanelIconButton } from "./components/workspace/WorkspacePanel";
 import { WorkspaceTextEditor } from "./components/workspace/WorkspaceTextEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
+import { ErrorsPanel } from "./components/validation/ErrorsPanel";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
+import { getPreferredCompareView } from "./components/versioning/sourceControlPresentation";
 import { VersionCompareMode } from "./components/versioning/VersionCompareMode";
 import {
   CardinalityModal,
@@ -243,9 +245,16 @@ import {
 import {
   getProjectUncommittedChangeState,
   useProjectVersioning,
+  type ProjectFileChange,
 } from "./features/versioning/useProjectVersioning";
 import { updateProjectSchemaFileIfContentChanged } from "./features/versioning/projectCommitSnapshot";
-import type { VersionCompareRef } from "./features/versioning/projectVersionVisualDiff";
+import type { VersionCompareRef, VersionCompareScope } from "./features/versioning/projectVersionVisualDiff";
+import {
+  getValidationActivityPresentation,
+  localizeValidationIssue,
+  presentValidationIssue,
+  validationIssueTargetExists,
+} from "./utils/validationIssuePresentation";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -274,6 +283,7 @@ import {
 interface VersionCompareSession {
   left: VersionCompareRef;
   right: VersionCompareRef;
+  scope?: VersionCompareScope;
 }
 
 type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
@@ -951,7 +961,7 @@ export default function App() {
   const [, setRestoreDialogBusy] = useState(false);
   const [, setRestoreDialogError] = useState("");
   const [, setCommitDialogError] = useState("");
-  const [, setCommitDialogBusy] = useState(false);
+  const [commitDialogBusy, setCommitDialogBusy] = useState(false);
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -981,7 +991,6 @@ export default function App() {
   const [cardinalityDialog, setCardinalityDialog] = useState<CardinalityDialogState | null>(null);
   const [mixedIdentifierDialog, setMixedIdentifierDialog] = useState<MixedIdentifierDialogState | null>(null);
   const [generalizationGroupDialog, setGeneralizationGroupDialog] = useState<GeneralizationGroupDialogState | null>(null);
-  const [errorsPanelOpen, setErrorsPanelOpen] = useState(false);
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
   const [codeDiagnostics, setCodeDiagnostics] = useState<EditorDiagnostic[]>([]);
@@ -1295,14 +1304,6 @@ export default function App() {
     [currentProjectCommitSnapshot, projectVersioning.versioning],
   );
   const hasVersioningUncommittedChanges = versioningChangeState.hasChanges;
-  const commitDialogHint =
-    versioningChangeState.status === "no-head-empty"
-      ? t("versioning.emptyProject")
-      : versioningChangeState.status === "no-head-with-content"
-        ? t("versioning.createFirstCommit")
-        : versioningChangeState.status === "clean"
-          ? t("versioning.noChangesComparedToHead")
-          : "";
   const appShellClassName = [
     "app-shell",
     focusMode ? "focus-mode" : "",
@@ -1361,7 +1362,6 @@ export default function App() {
     cardinalityDialog !== null ||
     mixedIdentifierDialog !== null ||
     generalizationGroupDialog !== null ||
-    errorsPanelOpen ||
     sqlReverseWorkflow.step !== "idle";
 
   function persistWorkspaceSessionNow() {
@@ -1829,7 +1829,6 @@ export default function App() {
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
     setVersionAnnouncement(null);
-    setErrorsPanelOpen(false);
     setNotesPanelOpen(false);
     setCommandMenuOpen(true);
   }
@@ -1966,102 +1965,12 @@ export default function App() {
     selectIssueTarget(issue);
   }
 
-  function getIssueTargetNodeLabel(issue: ValidationIssue): string {
-    if (issue.targetType !== "node") {
-      return issue.targetId;
-    }
-    return history.present.nodes.find((candidate) => candidate.id === issue.targetId)?.label ?? issue.targetId;
-  }
-
-  function getIssueEdgeLabels(issue: ValidationIssue): { source: string; target: string } {
-    if (issue.targetType !== "edge") {
-      return { source: issue.targetId, target: issue.targetId };
-    }
-
-    const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
-    if (!edge) {
-      return { source: issue.targetId, target: issue.targetId };
-    }
-
-    return {
-      source: history.present.nodes.find((node) => node.id === edge.sourceId)?.label ?? edge.sourceId,
-      target: history.present.nodes.find((node) => node.id === edge.targetId)?.label ?? edge.targetId,
-    };
-  }
-
   function getLocalizedValidationIssueMessage(issue: ValidationIssue): string {
-    const label = getIssueTargetNodeLabel(issue);
-    const edgeLabels = getIssueEdgeLabels(issue);
-
-    if (issue.id.startsWith("attribute-conflict-")) {
-      return t("validationIssues.attributeConflict", { label });
-    }
-    if (issue.id.startsWith("attribute-invalid-cardinality-")) {
-      return t("validationIssues.attributeInvalidCardinality", { label });
-    }
-    if (issue.id.startsWith("attribute-")) {
-      return t("validationIssues.attributeMissingHost", { label });
-    }
-    if (issue.id.startsWith("relationship-identifier-")) {
-      return t("validationIssues.relationshipIdentifierAttribute", { label });
-    }
-    if (issue.id.startsWith("relationship-")) {
-      return t("validationIssues.relationshipNeedsEntities", { label });
-    }
-    if (issue.id.startsWith("loop-role-missing-")) {
-      return t("validationIssues.loopRoleMissing");
-    }
-    if (issue.id.startsWith("loop-role-duplicate-")) {
-      return t("validationIssues.loopRoleDuplicate");
-    }
-    if (issue.id.startsWith("entity-no-attributes-")) {
-      return t("validationIssues.entityNoAttributes", { label });
-    }
-    if (issue.id.startsWith("subtype-no-attributes-")) {
-      return t("validationIssues.subtypeNoAttributes", { label });
-    }
-    if (issue.id.startsWith("supertype-no-relationship-")) {
-      return t("validationIssues.supertypeNoRelationship", { label });
-    }
-    if (issue.id.startsWith("weak-entity-")) {
-      return t("validationIssues.weakEntityNoExternalIdentifier", { label });
-    }
-    if (issue.id.startsWith("missing-")) {
-      return t("validationIssues.edgeMissingEndpoint", { id: issue.targetId });
-    }
-    if (issue.id.startsWith("invalid-")) {
-      return t("validationIssues.edgeInvalidConnection", edgeLabels);
-    }
-    if (issue.id.startsWith("duplicate-")) {
-      return t("validationIssues.edgeDuplicate", edgeLabels);
-    }
-    if (issue.id.startsWith("cardinality-")) {
-      return t("validationIssues.edgeMissingCardinality", edgeLabels);
-    }
-
-    return issue.message;
-  }
-
-  function getIssueElementLabel(issue: ValidationIssue): string {
-    if (issue.targetType === "node") {
-      const node = history.present.nodes.find((candidate) => candidate.id === issue.targetId);
-      return node ? `${node.label} (${node.type})` : issue.targetId;
-    }
-
-    const edge = history.present.edges.find((candidate) => candidate.id === issue.targetId);
-    if (!edge) {
-      return issue.targetId;
-    }
-
-    const source = history.present.nodes.find((node) => node.id === edge.sourceId)?.label ?? edge.sourceId;
-    const target = history.present.nodes.find((node) => node.id === edge.targetId)?.label ?? edge.targetId;
-    return `${source} - ${target}`;
+    return localizeValidationIssue(issue, history.present, t);
   }
 
   function issueTargetExists(issue: ValidationIssue): boolean {
-    return issue.targetType === "node"
-      ? history.present.nodes.some((node) => node.id === issue.targetId)
-      : history.present.edges.some((edge) => edge.id === issue.targetId);
+    return validationIssueTargetExists(history.present, issue);
   }
 
   function selectIssueTarget(issue: ValidationIssue): boolean {
@@ -3468,7 +3377,7 @@ export default function App() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
         event.preventDefault();
         if (diagramView === "er") {
-          setErrorsPanelOpen(true);
+          handleOpenErrorsPanel();
           return;
         }
 
@@ -3540,12 +3449,6 @@ export default function App() {
           return;
         }
 
-        if (errorsPanelOpen) {
-          event.preventDefault();
-          setErrorsPanelOpen(false);
-          return;
-        }
-
         if (versionAnnouncement) {
           event.preventDefault();
           closeVersionAnnouncement();
@@ -3600,7 +3503,6 @@ export default function App() {
     commandMenuOpen,
     confirmDialog,
     diagramView,
-    errorsPanelOpen,
     history,
     identifierSelection,
     generalizationGroupDialog,
@@ -4206,7 +4108,6 @@ export default function App() {
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
-    setErrorsPanelOpen(false);
     setVersionCompareSession(null);
     setSourceControlCommitMessage("");
     setSelectedSourceCommitId(null);
@@ -6283,6 +6184,44 @@ export default function App() {
     });
   }
 
+  function handleOpenErrorsPanel() {
+    setActiveActivityPanel("errors");
+    setWorkspaceActivityOpen(true);
+  }
+
+  function handleReviewAllSourceChanges() {
+    if (!projectVersioning.versioning.headCommitId) {
+      setStatusWarning(t("sourceControl.reviewNeedsSnapshot"));
+      return;
+    }
+    setVersionCompareSession({
+      left: { kind: "head" },
+      right: { kind: "working-copy" },
+      scope: { kind: "project" },
+    });
+  }
+
+  function handleReviewSourceFile(change: ProjectFileChange) {
+    if (!projectVersioning.versioning.headCommitId) {
+      setStatusWarning(t("sourceControl.reviewNeedsSnapshot"));
+      return;
+    }
+    setVersionCompareSession({
+      left: { kind: "head" },
+      right: { kind: "working-copy" },
+      scope: {
+        kind: "file",
+        fileId: change.fileId,
+        preferredView: getPreferredCompareView(change.kind),
+      },
+    });
+  }
+
+  function handleRefreshSourceControl() {
+    setProjectExplorer((current) => syncActiveSchemaToProject(current));
+    setStatus(t("sourceControl.refreshed"));
+  }
+
   function handleCompareCommitWithHead(commitId: string) {
     const headCommitId = projectVersioning.versioning.headCommitId;
     if (!headCommitId) {
@@ -6330,6 +6269,20 @@ export default function App() {
   }
 
   async function handleConfirmRestoreCommit(requestedCommitId: string) {
+    const requestedCommit = projectVersioning.getCommitById(requestedCommitId);
+    if (!requestedCommit) {
+      handleMissingDiffCommit(requestedCommitId);
+      return;
+    }
+    const confirmed = await requestConfirmDialog({
+      title: t("sourceControl.confirmRestoreTitle"),
+      message: t("sourceControl.confirmRestoreCommit", { message: requestedCommit.message }),
+      confirmLabel: t("sourceControl.restore"),
+      cancelLabel: t("sourceControl.cancel"),
+      danger: true,
+    });
+    if (!confirmed) return;
+
     setRestoreDialogBusy(true);
     setRestoreDialogError("");
 
@@ -6443,7 +6396,23 @@ export default function App() {
     }
   }
 
-  function handleDeleteProjectCommit(commitId: string) {
+  async function handleDeleteProjectCommit(commitId: string) {
+    const commit = projectVersioning.getCommitById(commitId);
+    if (!commit) {
+      handleMissingDiffCommit(commitId);
+      return;
+    }
+    const confirmed = await requestConfirmDialog({
+      title: t("sourceControl.confirmDeleteTitle"),
+      message: commitId === projectVersioning.versioning.headCommitId
+        ? t("sourceControl.confirmDeleteHead", { message: commit.message })
+        : t("sourceControl.confirmDeleteCommit", { message: commit.message }),
+      confirmLabel: t("sourceControl.deleteCommit"),
+      cancelLabel: t("sourceControl.cancel"),
+      danger: true,
+    });
+    if (!confirmed) return;
+
     const result = projectVersioning.deleteCommit(commitId);
     if (result.status === "missing-commit") {
       handleMissingDiffCommit(commitId);
@@ -6460,7 +6429,7 @@ export default function App() {
     ) {
       setVersionCompareSession(null);
     }
-    const message = `Commit ${commitId.slice(0, 8)} deleted`;
+    const message = t("sourceControl.deletedNotice", { id: commitId.slice(0, 8) });
     setStatus(message);
     showSuccessNotice(message, { title: t("sourceControl.title") });
   }
@@ -6885,17 +6854,19 @@ export default function App() {
         />
       </SqlReversePreviewFrame>
     ) : null;
+  const visibleActivityIssues = issues.filter(issueTargetExists);
+  const visibleActivityIssuePresentations = visibleActivityIssues.map((issue) => presentValidationIssue(issue, history.present, t));
+  const errorsActivityPresentation = getValidationActivityPresentation(visibleActivityIssues);
   const activityItems: ProjectActivityItem[] = [
     { id: "file", label: t("appHeader.menus.file"), icon: "openProject", shortcut: "Ctrl+Shift+E" },
     { id: "code", label: t("appHeader.menus.code"), icon: "code", shortcut: "Ctrl+`" },
     { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
-    { id: "errors", label: t("appHeader.menus.errors"), icon: issues.some((issue) => issue.level === "error") ? "error" : "warning", badge: issues.length, shortcut: "Ctrl+Shift+M" },
+    { id: "errors", label: t("appHeader.menus.errors"), ...errorsActivityPresentation, shortcut: "Ctrl+Shift+M" },
     { id: "version", label: t("appHeader.menus.version"), icon: "branch", badge: hasVersioningUncommittedChanges ? 1 : undefined },
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
   const visibleProjectTabs = applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds);
-  const visibleActivityIssues = issues.filter(issueTargetExists);
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
     if (created) {
@@ -7036,62 +7007,40 @@ export default function App() {
         closeLabel={t("workspaceActivity.closePanel")}
       />
     ) : activeActivityPanel === "errors" ? (
-      <WorkspacePanel className="project-activity-section" label={t("workspaceActivity.errors.title")}>
-        <WorkspacePanelHeader
-          title={t("workspaceActivity.errors.title")}
-          badge={visibleActivityIssues.length}
-        >
-          <button
-            type="button"
-            className={["project-activity-action", "compact", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
-            onClick={handleToggleDiagnosticsVisibility}
-            aria-pressed={showDiagnostics}
-            title={showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}
-          >
-            <StudioIcon name={showDiagnostics ? "viewOn" : "viewOff"} aria-hidden="true" />
-          </button>
-          <button type="button" className="project-activity-header-close" onClick={handleToggleActivityPanelOpen} aria-label={t("workspaceActivity.closePanel")}>
-            <StudioIcon name="close" aria-hidden="true" />
-          </button>
-        </WorkspacePanelHeader>
-        {visibleActivityIssues.length === 0 ? (
-          <PanelEmptyState className="project-activity-empty" icon="success" title={t("errors.empty")} />
-        ) : (
-          <div className="project-activity-issue-list">
-            {visibleActivityIssues.map((issue) => (
-              <button
-                type="button"
-                key={issue.id}
-                className={`project-activity-issue level-${issue.level}`}
-                onClick={() => selectIssueTarget(issue)}
-              >
-                <StudioIcon name={issue.level === "error" ? "error" : "warning"} aria-hidden="true" />
-                <span>
-                  <strong>{getIssueElementLabel(issue)}</strong>
-                  <small>{getLocalizedValidationIssueMessage(issue)}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </WorkspacePanel>
+      <ErrorsPanel
+        issues={visibleActivityIssuePresentations}
+        showIndicators={showDiagnostics}
+        onToggleIndicators={handleToggleDiagnosticsVisibility}
+        onSelectIssue={(issueId) => {
+          const issue = visibleActivityIssues.find((candidate) => candidate.id === issueId);
+          if (issue) handleIssueNotice(issue);
+        }}
+        onClose={handleToggleActivityPanelOpen}
+        closeLabel={t("workspaceActivity.closePanel")}
+      />
     ) : activeActivityPanel === "version" ? (
       <SourceControlPanel
         projectName={projectExplorer.project.name}
+        projectFilePaths={projectFilePaths}
+        workingFileIds={Object.keys(projectExplorer.files)}
         commitMessage={sourceControlCommitMessage}
+        commitBusy={commitDialogBusy}
         changeState={versioningChangeState}
         commits={projectVersioning.commitsNewestFirst}
         headCommitId={projectVersioning.versioning.headCommitId}
         selectedCommitId={selectedSourceCommitId}
         onCommitMessageChange={setSourceControlCommitMessage}
         onCommit={handleCreateSourceControlCommit}
-        onRefresh={() => setStatus(commitDialogHint || t("workspaceActivity.version.clean"))}
+        onRefresh={handleRefreshSourceControl}
+        onReviewAllChanges={handleReviewAllSourceChanges}
+        onReviewFile={handleReviewSourceFile}
+        onOpenFile={handleProjectExplorerOpenFile}
         onSelectCommit={setSelectedSourceCommitId}
         onCompareWithCurrent={handleCompareCommitWithCurrent}
         onCompareWithHead={handleCompareCommitWithHead}
         onCompareWithParent={handleCompareCommitWithParent}
         onRestoreCommit={(commitId) => void handleConfirmRestoreCommit(commitId)}
-        onDeleteCommit={handleDeleteProjectCommit}
+        onDeleteCommit={(commitId) => void handleDeleteProjectCommit(commitId)}
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />
@@ -7151,6 +7100,7 @@ export default function App() {
           currentSnapshot={currentProjectCommitSnapshot}
           initialLeft={versionCompareSession.left}
           initialRight={versionCompareSession.right}
+          initialScope={versionCompareSession.scope}
           onExitCompareMode={() => setVersionCompareSession(null)}
         />
 
@@ -7202,7 +7152,7 @@ export default function App() {
         onSaveErs={handleSaveErs}
         onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
         onImportSql={handleOpenSqlReverseWorkflow}
-        onOpenErrorsPanel={() => setErrorsPanelOpen(true)}
+        onOpenErrorsPanel={handleOpenErrorsPanel}
         onToggleDiagnostics={() => setShowDiagnostics((current) => !current)}
         onExportPng={handleExportPng}
         onExportJpeg={handleExportJpeg}
@@ -7601,7 +7551,7 @@ export default function App() {
           onFitLogical={handleLogicalFit}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onOpenExplorer={() => handleSelectActivityPanel("file")}
-          onOpenErrorsPanel={() => handleSelectActivityPanel("errors")}
+          onOpenErrorsPanel={handleOpenErrorsPanel}
           onOpenVersioningPanel={() => {
             setActiveActivityPanel("version");
             setWorkspaceActivityOpen(true);
@@ -7712,80 +7662,6 @@ export default function App() {
               </Button>
             </div>
           </form>
-        </Modal>
-      ) : null}
-
-      {errorsPanelOpen ? (
-        <Modal
-          open
-          onClose={() => setErrorsPanelOpen(false)}
-          size="md"
-          className="action-modal errors-modal"
-          hideClose
-          ariaLabelledBy="errors-dialog-title"
-        >
-            <div className="ui-modal__head errors-modal-head">
-              <div className="errors-modal-heading">
-                <span className="errors-modal-heading-icon" aria-hidden="true">
-                  <StudioIcon name={issues.some((issue) => issue.level === "error") ? "error" : "warning"} />
-                </span>
-                <div>
-                  <h2 id="errors-dialog-title">{t("errors.title")}</h2>
-                  <p>{t("errors.issueCount", { count: issues.filter(issueTargetExists).length })}</p>
-                </div>
-              </div>
-              <button type="button" className="ui-modal__close" onClick={() => setErrorsPanelOpen(false)} aria-label={t("errors.closeAria")}>
-                <StudioIcon name="close" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="action-modal-content errors-modal-list">
-              <div className="errors-modal-toolbar">
-                <button
-                  type="button"
-                  className={["errors-modal-diagnostics-toggle", showDiagnostics ? "active" : ""].filter(Boolean).join(" ")}
-                  onClick={handleToggleDiagnosticsVisibility}
-                  aria-pressed={showDiagnostics}
-                  aria-label={showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}
-                >
-                  <StudioIcon
-                    name={showDiagnostics ? "viewOn" : "viewOff"}
-                    className="errors-modal-diagnostics-icon"
-                    aria-hidden="true"
-                  />
-                  <span>{showDiagnostics ? t("errors.diagnostics.hide") : t("errors.diagnostics.show")}</span>
-                </button>
-              </div>
-              {!showDiagnostics && issues.filter(issueTargetExists).length > 0 ? (
-                <p className="errors-modal-note">
-                  {t("errors.diagnostics.hiddenNote")}
-                </p>
-              ) : null}
-              {issues.filter(issueTargetExists).length === 0 ? (
-                <p className="errors-modal-empty">{t("errors.empty")}</p>
-              ) : (
-                issues.filter(issueTargetExists).map((issue) => (
-                  <button
-                    type="button"
-                    key={issue.id}
-                    className={`errors-modal-item ${issue.level}`}
-                    onClick={() => {
-                      if (selectIssueTarget(issue)) {
-                        setErrorsPanelOpen(false);
-                      }
-                    }}
-                  >
-                    <span className="errors-modal-item-icon" aria-hidden="true">
-                      <StudioIcon name={issue.level === "error" ? "error" : "warning"} />
-                    </span>
-                    <span className="errors-modal-item-copy">
-                      <strong>{issue.level === "error" ? t("common.status.error") : t("common.status.warning")}</strong>
-                      <span>{getIssueElementLabel(issue)}</span>
-                      <p>{getLocalizedValidationIssueMessage(issue)}</p>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
         </Modal>
       ) : null}
 

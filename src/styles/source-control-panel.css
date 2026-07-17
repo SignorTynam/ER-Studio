@@ -1,0 +1,425 @@
+.source-control-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: clip;
+  background: var(--color-bg-sidebar);
+}
+
+.source-control-repository-summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+
+.source-control-panel .workspace-panel__header-actions .ui-tooltip {
+  right: 0;
+  left: auto;
+  max-width: min(180px, calc(100vw - (2 * var(--space-2))));
+  transform: none;
+}
+
+.source-control-repository-summary > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.source-control-repository-summary strong,
+.source-control-repository-summary small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-repository-summary strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.source-control-repository-summary small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-commit-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.source-control-commit-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  resize: vertical;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.source-control-commit-input:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.source-control-primary-button,
+.source-control-review-all,
+.source-control-back-button,
+.source-control-commit-actions button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.source-control-primary-button {
+  align-self: stretch;
+  padding: 0 var(--space-3);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.source-control-primary-button:disabled,
+.source-control-commit-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.source-control-section {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.source-control-changes {
+  flex: 1 1 auto;
+}
+
+.source-control-disclosure {
+  display: grid;
+  min-width: 0;
+  min-height: var(--size-control-sm);
+  flex: 0 0 auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border: 0;
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-align: left;
+}
+
+.source-control-disclosure:hover,
+.source-control-disclosure:focus-visible {
+  background: var(--color-bg-hover);
+}
+
+.source-control-disclosure small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-section__body,
+.source-control-history__body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.source-control-section__body {
+  flex: 1 1 auto;
+}
+
+.source-control-review-all,
+.source-control-back-button {
+  width: calc(100% - (2 * var(--space-3)));
+  justify-content: flex-start;
+  margin: var(--space-2) var(--space-3);
+  padding: var(--space-2);
+}
+
+.source-control-change-list,
+.source-control-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-control-change-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.source-control-change-main,
+.source-control-project-change {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.source-control-change-main:hover,
+.source-control-change-main:focus-visible {
+  background: var(--color-bg-hover);
+}
+
+.source-control-change-main > span,
+.source-control-project-change > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.source-control-change-main strong,
+.source-control-change-main small,
+.source-control-project-change strong,
+.source-control-project-change small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-change-main strong,
+.source-control-project-change strong {
+  font-size: var(--font-size-xs);
+}
+
+.source-control-change-main small,
+.source-control-project-change small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-change-main b,
+.source-control-project-change b {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-change-row > .panel-icon-button {
+  align-self: center;
+  margin-right: var(--space-1);
+}
+
+.source-control-history {
+  flex: 0 0 auto;
+  border-bottom: 0;
+}
+
+.source-control-history.is-expanded {
+  max-height: 45%;
+  flex: 0 1 45%;
+}
+
+.source-control-history__body {
+  flex: 1 1 auto;
+}
+
+.source-control-history-row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.source-control-history-row:hover,
+.source-control-history-row:focus-visible {
+  background: var(--color-bg-hover);
+}
+
+.source-control-history-row > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+.source-control-history-row strong,
+.source-control-history-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-history-row strong {
+  font-size: var(--font-size-xs);
+}
+
+.source-control-history-row small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-history-row em {
+  align-self: center;
+  color: var(--color-accent);
+  font-size: var(--font-size-2xs);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.source-control-timeline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.source-control-timeline i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border-strong);
+}
+
+.source-control-timeline b {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+  background: var(--color-bg-sidebar);
+}
+
+.source-control-commit-details {
+  padding-bottom: var(--space-3);
+}
+
+.source-control-commit-details h3,
+.source-control-commit-details > p,
+.source-control-commit-details dl,
+.source-control-stats,
+.source-control-tags,
+.source-control-commit-actions {
+  margin: var(--space-2) var(--space-3);
+}
+
+.source-control-commit-details h3 {
+  font-size: var(--font-size-sm);
+}
+
+.source-control-commit-details > p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.source-control-commit-details dl {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-commit-details dl div {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.45fr) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.source-control-commit-details dt {
+  color: var(--color-text-muted);
+}
+
+.source-control-commit-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.source-control-stats,
+.source-control-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.source-control-stats span,
+.source-control-tags span {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-commit-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.source-control-commit-actions button {
+  min-height: var(--size-control-sm);
+  padding: var(--space-1);
+}
+
+.source-control-commit-actions button:hover:not(:disabled),
+.source-control-commit-actions button:focus-visible:not(:disabled),
+.source-control-review-all:hover,
+.source-control-review-all:focus-visible,
+.source-control-back-button:hover,
+.source-control-back-button:focus-visible {
+  background: var(--color-bg-hover);
+}
+
+.source-control-commit-actions button.is-danger {
+  color: var(--color-danger);
+}
+
+.source-control-empty {
+  min-height: 82px;
+}
+
+@media (max-width: 640px) {
+  .source-control-commit-composer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-control-primary-button {
+    min-height: var(--size-control-sm);
+  }
+
+  .source-control-commit-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

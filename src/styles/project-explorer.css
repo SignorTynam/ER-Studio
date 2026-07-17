@@ -315,7 +315,6 @@
 .project-explorer-collapsed-button:focus-visible,
 .project-activity-button:focus-visible,
 .project-activity-action:focus-visible,
-.project-activity-issue:focus-visible,
 .project-explorer-icon-button:focus-visible,
 .project-explorer-header__actions button:focus-visible,
 .project-explorer-item__actions button:focus-visible,
@@ -443,60 +442,6 @@
   padding: 14px 12px;
   color: var(--editor-text-muted);
   font-size: 0.82rem;
-}
-
-.project-activity-issue-list {
-  overflow: auto;
-  padding: 8px;
-}
-
-.project-activity-issue {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 8px;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--editor-border);
-  background: var(--editor-panel);
-  color: var(--editor-text);
-  text-align: left;
-  cursor: pointer;
-}
-
-.project-activity-issue + .project-activity-issue {
-  margin-top: 6px;
-}
-
-.project-activity-issue:hover {
-  background: var(--editor-panel-muted);
-}
-
-.project-activity-issue.level-error svg {
-  color: var(--studio-danger);
-}
-
-.project-activity-issue.level-warning svg {
-  color: var(--studio-warning);
-}
-
-.project-activity-issue strong,
-.project-activity-issue small {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.project-activity-issue strong {
-  color: var(--editor-text-strong);
-  font-size: 0.78rem;
-}
-
-.project-activity-issue small {
-  margin-top: 2px;
-  color: var(--editor-text-muted);
-  font-size: 0.74rem;
-  line-height: 1.35;
 }
 
 .project-activity-content .designer-code-dock {
@@ -681,7 +626,6 @@
   padding-left: 8px;
 }
 
-.source-control-panel,
 .sql-reverse-panel {
   display: flex;
   flex-direction: column;
@@ -689,376 +633,6 @@
   min-height: 0;
   background: var(--editor-panel);
   color: var(--editor-text);
-}
-
-.source-control-icon-button {
-  display: inline-flex;
-  width: 26px;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--editor-text-muted);
-  cursor: pointer;
-}
-
-.source-control-icon-button:hover,
-.source-control-icon-button:focus-visible {
-  background: var(--editor-panel-muted);
-  color: var(--editor-text-strong);
-}
-
-.source-control-section {
-  border-bottom: 1px solid var(--editor-border);
-  padding: 6px 8px 10px;
-  min-height: 0;
-}
-
-.source-control-changes {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.source-control-history-splitter {
-  flex: 0 0 auto;
-  height: 1px;
-  margin: 0 8px;
-  border: 0;
-  background: var(--editor-border);
-  cursor: row-resize;
-}
-
-.source-control-history-splitter:hover {
-  background: var(--editor-accent-soft);
-}
-
-.source-control-section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-height: 24px;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.source-control-badge,
-.source-control-count {
-  margin-left: auto;
-  color: var(--editor-text-muted);
-  font-size: 0.72rem;
-}
-
-.source-control-repository,
-.source-control-change-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 28px;
-  padding: 2px 4px;
-  color: var(--editor-text);
-  font-size: 0.82rem;
-}
-
-.source-control-repository-name,
-.source-control-change-item span {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-control-commit-input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
-  color: var(--editor-text);
-  font: inherit;
-  resize: none;
-}
-
-.source-control-commit-input {
-  min-height: 58px;
-  margin: 6px 0;
-  padding: 8px;
-}
-
-.source-control-commit-button {
-  display: inline-flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 30px;
-  border: 1px solid var(--editor-border);
-  background: var(--editor-accent);
-  color: var(--editor-accent-contrast, var(--studio-surface));
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.source-control-commit-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.source-control-change-group {
-  margin: 10px 0 4px;
-  color: var(--editor-text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.source-control-change-item small {
-  margin-left: auto;
-  color: var(--color-modified);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-}
-
-.source-control-empty {
-  margin: 8px 4px;
-  color: var(--editor-text-muted);
-  font-size: 0.8rem;
-}
-
-.source-control-history {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  height: var(--source-control-history-height, min(240px, 35%));
-  min-height: 116px;
-  overflow: hidden;
-}
-
-.source-control-history-header {
-  flex: 0 0 auto;
-}
-
-.source-control-disclosure {
-  display: inline-flex;
-  width: 22px;
-  height: 22px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.source-control-history-scroll {
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.source-control-history-list {
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.source-control-history-list li {
-  min-height: 0;
-}
-
-.source-control-graph-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 34px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--editor-text);
-  cursor: pointer;
-  font-size: 0.78rem;
-  text-align: left;
-}
-
-.source-control-graph-row:hover,
-.source-control-graph-row:focus-visible {
-  background: var(--editor-panel-muted);
-  color: var(--editor-text-strong);
-}
-
-.source-control-graph-row.is-selected {
-  border-color: var(--editor-accent);
-  background: var(--editor-accent-soft);
-}
-
-.source-control-graph-row.is-head .source-control-graph-node {
-  border-color: var(--editor-accent);
-  background: var(--editor-accent);
-}
-
-.source-control-graph-rail {
-  position: relative;
-  display: inline-flex;
-  width: 18px;
-  align-self: stretch;
-  align-items: center;
-  justify-content: center;
-}
-
-.source-control-graph-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--editor-border-strong, var(--editor-border));
-}
-
-.source-control-graph-node {
-  position: relative;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  border: 1px solid var(--editor-text-muted);
-  background: var(--editor-panel);
-}
-
-.source-control-graph-main {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.source-control-graph-title {
-  overflow: hidden;
-  color: var(--editor-text);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-control-graph-meta {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 4px;
-  color: var(--editor-text-muted);
-  font-size: 0.7rem;
-}
-
-.source-control-branch-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 16px;
-  padding: 0 5px;
-  border: 1px solid var(--editor-accent);
-  color: var(--editor-accent);
-  font-size: 0.66rem;
-  font-weight: 700;
-}
-
-.source-control-commit-details {
-  flex: 0 0 auto;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--editor-border);
-  font-size: 0.76rem;
-}
-
-.source-control-commit-details__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.source-control-commit-details strong {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--editor-text-strong);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-control-commit-details__close {
-  flex: 0 0 auto;
-}
-
-.source-control-commit-details dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 10px;
-  margin: 6px 0;
-}
-
-.source-control-commit-details dl div {
-  min-width: 0;
-}
-
-.source-control-commit-details dt {
-  color: var(--editor-text-muted);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-}
-
-.source-control-commit-details dd {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-control-commit-actions,
-.source-control-inline-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.source-control-inline-confirm {
-  margin-top: var(--space-2);
-  padding: var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
-}
-
-.source-control-inline-confirm span {
-  flex: 1 0 100%;
-}
-
-.source-control-action-button {
-  min-height: 26px;
-  border: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
-  color: var(--editor-text);
-  cursor: pointer;
-  font: inherit;
-}
-
-.source-control-action-button:hover:not(:disabled),
-.source-control-action-button:focus-visible:not(:disabled) {
-  background: var(--editor-panel-muted);
-  color: var(--editor-text-strong);
-}
-
-.source-control-action-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-body.source-control-resizing,
-body.source-control-resizing * {
-  cursor: row-resize !important;
-  -webkit-user-select: none !important;
-  user-select: none !important;
-}
-
-.source-control-action-button.is-danger {
-  border-color: color-mix(in srgb, var(--color-danger) 44%, transparent);
-  color: var(--color-danger);
 }
 
 .project-explorer-header {
@@ -1735,8 +1309,6 @@ body.source-control-resizing * {
 .project-explorer-header__actions button,
 .project-explorer-item__actions button,
 .project-activity-header-close,
-.source-control-icon-button,
-.source-control-action-button,
 .code-activity-panel__mode-tab,
 .project-file-tab,
 .project-file-tab > button,
@@ -1745,9 +1317,7 @@ body.source-control-resizing * {
 .workspace-empty-editor__actions button,
 .project-explorer-context-menu__item,
 .project-explorer-empty button,
-.project-activity-action,
-.project-activity-issue,
-.source-control-commit-button {
+.project-activity-action {
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -1795,24 +1365,20 @@ body.source-control-resizing * {
   color: var(--color-text-primary);
 }
 
-.project-activity-action.primary,
-.source-control-commit-button {
+.project-activity-action.primary {
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: var(--color-text-on-accent);
   box-shadow: none;
 }
 
-.project-activity-action.primary:hover:not(:disabled),
-.source-control-commit-button:hover:not(:disabled) {
+.project-activity-action.primary:hover:not(:disabled) {
   border-color: var(--color-accent-hover);
   background: var(--color-accent-hover);
   color: var(--color-text-on-accent);
 }
 
-.project-activity-action:disabled,
-.source-control-commit-button:disabled,
-.source-control-action-button:disabled {
+.project-activity-action:disabled {
   border-color: var(--color-border-subtle);
   background: var(--color-bg-disabled);
   color: var(--color-text-disabled);
@@ -1830,19 +1396,6 @@ body.source-control-resizing * {
   border: 1px dashed var(--color-border-default);
   background: var(--color-bg-panel);
   line-height: var(--line-height-normal);
-}
-
-.project-activity-issue {
-  min-height: 44px;
-  padding: var(--space-2);
-  border-color: var(--color-border-subtle);
-  background: var(--color-bg-elevated);
-}
-
-.project-activity-issue:hover,
-.project-activity-issue:focus-visible {
-  border-color: var(--color-border-strong);
-  background: var(--color-bg-hover);
 }
 
 .code-activity-panel__toolbar {
@@ -1895,78 +1448,16 @@ body.source-control-resizing * {
     );
 }
 
-.source-control-panel,
 .sql-reverse-panel {
   background: var(--editor-panel);
 }
 
-.source-control-section {
-  padding: 8px 10px 11px;
-}
-
-.source-control-section-title {
-  letter-spacing: 0;
-}
-
-.source-control-badge,
-.source-control-count,
-.source-control-branch-pill,
 .sql-reverse-panel__meta span {
   border: 1px solid var(--color-border-subtle);
   background: var(--color-bg-elevated);
   padding: var(--space-0-5) var(--space-1-5);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-}
-
-.source-control-repository,
-.source-control-change-item {
-  min-height: 32px;
-  padding: 4px 6px;
-  border: 1px solid transparent;
-}
-
-.source-control-change-item:hover {
-  border-color: var(--editor-border);
-  background: var(--editor-panel-muted);
-}
-
-.source-control-commit-input {
-  border-color: var(--color-border-default);
-  background: var(--color-bg-elevated);
-}
-
-.source-control-commit-input:focus {
-  outline: 2px solid var(--studio-focus-ring);
-  outline-offset: -2px;
-}
-
-.source-control-history-splitter {
-  height: 5px;
-  margin: 0;
-  background: transparent;
-}
-
-.source-control-history-splitter::before {
-  content: "";
-  display: block;
-  height: 1px;
-  margin: 2px 10px;
-  background: var(--editor-border);
-}
-
-.source-control-history-splitter:hover::before {
-  background: var(--studio-accent);
-}
-
-.source-control-graph-row {
-  min-height: 38px;
-  padding: 4px 6px;
-}
-
-.source-control-graph-row:hover,
-.source-control-graph-row:focus-visible {
-  border-color: var(--editor-border);
 }
 
 .project-file-tabs {
@@ -2798,8 +2289,6 @@ body.source-control-resizing * {
   .project-explorer-header__actions button,
   .project-explorer-item__actions button,
   .project-activity-header-close,
-  .source-control-icon-button,
-  .source-control-action-button,
   .code-activity-panel__mode-tab,
   .project-file-tab,
   .project-file-tab > button,
@@ -2809,8 +2298,6 @@ body.source-control-resizing * {
   .project-explorer-context-menu__item,
   .project-explorer-empty button,
   .project-activity-action,
-  .project-activity-issue,
-  .source-control-commit-button,
   .workspace-welcome-action-card__arrow,
   .workspace-welcome-action-row__arrow {
     transition: none;
