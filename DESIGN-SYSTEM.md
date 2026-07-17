@@ -154,10 +154,11 @@ Gli alias verranno progressivamente deprecati.
 
 1. Nessun colore/px/rem hardcoded: solo token (o `color-mix` su token).
 2. Stati hover/selected/active/disabled distinti coi token di stato.
-3. Contrasto: testo normale ≥ 4.5:1, testo grande/UI ≥ 3:1 (attenzione a `--color-text-muted`).
+3. Contrasto: testo normale ≥ 4.5:1, testo grande/UI ≥ 3:1 (`--color-warning`/`--color-modified` non come testo su chiaro).
 4. Focus visibile e non rimosso; target interattivi ≥ 32px.
 5. Transizioni via `--motion-*` e rispettose di `prefers-reduced-motion`.
-6. Responsive: breakpoint esistenti (`860px`, `640px`) invariati.
+6. Responsive: verificato ai cinque breakpoint reali (1180/900/860/680/640) — non introdurne di nuovi.
+7. Ruoli ARIA: nuove liste/tab seguono i pattern validati (vedi sezione Accessibilità); axe pulito su `tests/e2e/accessibility.spec.ts`.
 
 ## Componenti condivisi (Fase B)
 

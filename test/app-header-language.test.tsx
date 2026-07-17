@@ -122,16 +122,18 @@ test("AppHeader language menu keeps the expected interactive wiring", () => {
 });
 
 test("AppHeader language menu uses a dark topbar surface", () => {
+  // Fase D4: il fondo scuro proprio del menu resta #1f1f1f (off-scale documentato);
+  // il testo bianco e' ora tokenizzato a parita' (#ffffff == --color-text-on-accent).
   assert.match(
     appCommandCssSource,
     /\.designer-language-menu__panel\.app-topbar-menu__panel\s*\{[\s\S]*background:\s*#1f1f1f/,
   );
   assert.match(
     appCommandCssSource,
-    /\.designer-language-menu__panel\.app-topbar-menu__panel\s*\{[\s\S]*color:\s*#ffffff/,
+    /\.designer-language-menu__panel\.app-topbar-menu__panel\s*\{[\s\S]*color:\s*var\(--color-text-on-accent\)/,
   );
   assert.match(
     appCommandCssSource,
-    /\.designer-language-menu__panel\.app-topbar-menu__panel \.designer-language-menu__item\s*\{[\s\S]*color:\s*#ffffff/,
+    /\.designer-language-menu__panel\.app-topbar-menu__panel \.designer-language-menu__item\s*\{[\s\S]*color:\s*var\(--color-text-on-accent\)/,
   );
 });
