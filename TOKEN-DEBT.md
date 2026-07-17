@@ -1739,3 +1739,20 @@ responsive.css usa 1180/900/680; i file legacy 860/640. Non unificati (cambiare
 i valori sposterebbe dove i layout si riadattano = cambio di comportamento,
 fuori dal vincolo "nessuna regressione"): tutti e cinque verificati senza
 overflow dai test e2e responsive. Da consolidare in una scala unica in futuro.
+
+### Fase E — collaudo finale (2026-07-17)
+Censimento ripetuto a chiusura: **219 `#hex` + 278 `rgb/rgba`** nei CSS. Ripartizione:
+`tokens.css` (39 hex / 23 rgb) = sorgente di verità legittima; `editor-refactor.css`
+(147 / 218) + `panels.css` (26 / 28) = debito old-palette già documentato sopra
+(non convertibile a parità = ridisegno, fuori scope); i restanti sono i residui
+off-scala già elencati. **Nessun nuovo hardcoded non documentato.** I nuovi file di
+superficie (`errors-panel.css`, `source-control-panel.css`) sono a **zero** hardcoded.
+
+Corretta una sola incoerenza evidente **a parità**: `panels-workspace.css`
+`.project-activity-action.primary { color: #ffffff }` -> `var(--color-text-on-accent)`
+(stesso pattern "testo su accent" già tokenizzato altrove; `#ffffff` == token, nessun
+cambio visivo). `panels-workspace.css` si aggiunge quindi ai file con bianchi a parità.
+
+Residuo aggiunto all'elenco: `responsive.css` `rgba(7,11,9,0.28)` — scrim del drawer
+mobile del pannello attività (off-scala: oscuramento di sfondo, non equivalente a un
+token esistente). Le ombre `rgba(0,0,0,0.28)` restano off-scala come da nota D4.

@@ -148,27 +148,29 @@ Questo è il "come", vale per ogni superficie della Fase C.
 
 ## 4. Checklist di avanzamento
 
+> ✅ **Redesign completo — Fasi A→E chiuse il 2026-07-17.** Dettagli in [`REDESIGN-REPORT.md`](REDESIGN-REPORT.md).
+
 **Fondamenta**
-- [ ] Audit design system completato (debito hardcoded mappato)
-- [ ] `tokens.css` esteso (tipografia, spaziatura, stati, ombre)
-- [ ] `DESIGN-SYSTEM.md` scritto
-- [ ] `CLAUDE.md` con le regole invarianti
+- [x] Audit design system completato (debito hardcoded mappato)
+- [x] `tokens.css` esteso (tipografia, spaziatura, stati, ombre)
+- [x] `DESIGN-SYSTEM.md` scritto
+- [x] `CLAUDE.md` con le regole invarianti
 
 **Componenti condivisi**
-- [ ] Button / IconButton · [ ] PanelHeader · [ ] Menu · [ ] Modal shell · [ ] Input/field · [ ] Empty state · [ ] Toast · [ ] Tooltip · [ ] Badge · [ ] Riga lista/tree
+- [x] Button / IconButton · [x] PanelHeader · [x] Menu · [x] Modal shell · [x] Input/field · [x] Empty state · [x] Toast · [x] Tooltip · [x] Badge · [x] Riga lista/tree
 
 **Superfici**
-- [ ] App header · [ ] Activity rail · [ ] Tab file · [ ] Status bar
-- [ ] Explorer · [ ] Source control · [ ] Reverse SQL · [ ] Code panel
-- [ ] Canvas: nodi · [ ] Canvas: archi/cardinalità · [ ] Toolbar · [ ] Inspector
-- [ ] Modali (tutti ricondotti alla shell condivisa)
-- [ ] Welcome / empty · [ ] Onboarding · [ ] Toast/annunci
+- [x] App header · [x] Activity rail · [x] Tab file · [x] Status bar
+- [x] Explorer · [x] Source control · [x] Reverse SQL · [x] Code panel
+- [x] Canvas: nodi · [x] Canvas: archi/cardinalità · [x] Toolbar · [x] Inspector
+- [x] Modali (tutti ricondotti alla shell condivisa)
+- [x] Welcome / empty · [x] Onboarding · [x] Toast/annunci
 
 **Trasversali**
-- [ ] Accessibilità AA · [ ] Responsive · [ ] Motion · [ ] Passata finale coerenza
+- [x] Accessibilità AA · [x] Responsive · [x] Motion · [x] Passata finale coerenza
 
 **Chiusura**
-- [ ] Regression visiva · [ ] Build + test verdi · [ ] i18n allineata · [ ] Checklist completa
+- [x] Regression visiva (42/42 e2e) · [x] Build + test verdi (692 unit) · [x] i18n allineata (en/it/sq) · [x] Checklist completa
 
 ---
 
