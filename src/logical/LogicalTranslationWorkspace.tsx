@@ -35,6 +35,7 @@ import {
 import { EntityKeyChoicePreview } from "./EntityKeyChoicePreview";
 import { LogicalTransformationCanvas, type LogicalTransformationCanvasMode } from "./LogicalTransformationCanvas";
 import { StudioIcon } from "../components/icons/StudioIcon";
+import { Modal } from "../components/ui";
 import { FloatingExportMenu } from "../components/FloatingExportMenu";
 
 type LogicalBulkStep = Extract<LogicalTranslationStep, "entities" | "weak-entities" | "relationships" | "multivalued-attributes">;
@@ -345,7 +346,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     selectedChoiceIdsByTargetKey: Record<string, string>;
     currentIndex: number;
   } | null>(null);
-  const entityKeyModalRef = useRef<HTMLElement | null>(null);
 
   const nextBulkStep = ORDERED_BULK_STEPS.find((step) => {
     const totals = completion[step] ?? { pending: 0, invalid: 0 };
@@ -410,11 +410,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setEntityKeySelectionModal(null);
-        return;
-      }
-
+      // Esc lo chiude la Modal shell (Fase C4b); qui resta la navigazione con le frecce.
       const target = event.target as HTMLElement | null;
       if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT") {
         return;
@@ -435,17 +431,6 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [entityKeyModalOpen]);
-
-  useEffect(() => {
-    if (!entityKeyModalOpen || typeof window === "undefined") {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      entityKeyModalRef.current?.focus();
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
   }, [entityKeyModalOpen]);
 
   function applySingleFix(): void {
@@ -790,23 +775,15 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
         ) : null}
 
         {!readOnly && entityKeySelectionModal ? (
-          <div
-            className="entity-key-modal-backdrop"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) {
-                setEntityKeySelectionModal(null);
-              }
-            }}
+          <Modal
+            open
+            onClose={() => setEntityKeySelectionModal(null)}
+            hideClose
+            backdropClassName="entity-key-modal-backdrop"
+            className="entity-key-modal"
+            ariaLabelledBy={entityKeyModalTitleId}
+            ariaDescribedBy={entityKeyModalDescriptionId}
           >
-            <section
-              ref={entityKeyModalRef}
-              className="entity-key-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={entityKeyModalTitleId}
-              aria-describedby={entityKeyModalDescriptionId}
-              tabIndex={-1}
-            >
               <header className="entity-key-modal-header">
                 <div>
                   <h2 id={entityKeyModalTitleId} className="entity-key-modal-title">
@@ -945,8 +922,7 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
                   >{t("logical.entityKeyModal.applyFixEntities")}</button>
                 </div>
               </footer>
-            </section>
-          </div>
+          </Modal>
         ) : null}
 
         <div className="designer-logical-workspace">

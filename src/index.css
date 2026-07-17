@@ -7507,17 +7507,18 @@ textarea.diagram-notes-editor::placeholder {
   backdrop-filter: blur(2px);
 }
 
-.entity-key-modal {
+/* Fase C4b: card sulla Modal shell; doppia classe per la griglia a 3 righe. */
+.ui-modal.entity-key-modal {
   width: min(760px, calc(100vw - 48px));
   max-height: min(82vh, 760px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid var(--editor-border, rgba(34, 44, 40, 0.18));
+  border: 1px solid var(--color-border-default);
   border-radius: 0;
-  background: var(--editor-panel, #fbfcfa);
-  color: var(--diagram-text, #101513);
-  box-shadow: 0 24px 70px rgba(17, 24, 20, 0.28);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  box-shadow: var(--elevation-dialog);
 }
 
 .entity-key-modal:focus {

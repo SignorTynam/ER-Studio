@@ -164,8 +164,11 @@ la Fase C sposterà il look sulle classi `ui-*` e ritirerà le skin.
 - Struttura: backdrop → card (`role="dialog"`, `aria-modal`) → header (titolo/sottotitolo/close) → children → footer opzionale.
 - Comportamento garantito: focus iniziale (rispetta `autoFocus`/`data-autofocus` del contenuto), focus trap su Tab/Shift+Tab, Esc, click sul backdrop, ripristino del focus alla chiusura, scroll-lock del body con conteggio; `busy` blocca tutte le vie di chiusura.
 - Header custom: `hideClose` + `ariaLabelledBy` puntato all'heading nei children.
-- `legacySkin`: `help` (default, famiglia `help-modal-*`) · `studio` (famiglia `studio-modal-*`) · `none`.
+- Look dai token (Fase C4a): scrim `color-mix(--color-bg-header 45%)`, card `--color-bg-elevated` a spigolo netto, `--elevation-dialog`, header su `--color-bg-panel`, footer `[secondary][primary]`, close quadrato 28px. Larghezze `sm/md/lg` in `:where()` (specificità 0) così le classi di dimensionamento per-modale vincono.
+- **Card con look proprio** (griglia, larghezze bespoke): la regola legacy va portata a **doppia classe** `.ui-modal.<nome-card>` per battere la base `.ui-modal` senza `!important` (ui.css è importato per ultimo). Es. `.ui-modal.designer-cardinality-modal`, `.ui-modal.notes-modal`, `.ui-modal.entity-key-modal`.
+- `legacySkin`: `help` (famiglia `help-modal-*`) · `studio` (famiglia `studio-modal-*`) · `none` (default). Opt-in transitorio per modali non ancora rifiniti.
 - I form con submit renderizzano il footer dentro il proprio `<form>` (classi `ui-modal__footer action-modal-actions`).
+- **Eccezioni intenzionali** (non usano la shell, motivate): `CommandMenuModal` (palette con navigazione a frecce e focus via aria-activedescendant) e `VersionAnnouncement` (modale celebrativo immersivo con backdrop non chiudibile); entrambi conservano Esc e gestione focus propri.
 
 ### Field (`ui/Field.tsx`)
 - `label` + controllo + `help` + `error`; con children-funzione fornisce `{ id, invalid, describedBy }` per `aria-invalid`/`aria-describedby`.
