@@ -2920,11 +2920,11 @@ body.source-control-resizing * {
 }
 
 .project-explorer-item__actions {
-  transition: opacity 140ms ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .project-explorer-item__chevron .studio-icon {
-  transition: transform 120ms ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 .project-explorer-item__chevron.is-expanded .studio-icon {
@@ -2932,7 +2932,7 @@ body.source-control-resizing * {
 }
 
 .project-explorer-item__icon .studio-icon {
-  transition: color 140ms ease;
+  transition: color var(--motion-fast) ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

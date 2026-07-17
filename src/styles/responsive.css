@@ -1,3 +1,12 @@
+/* The no-project welcome is the only direct child rendered without the
+   activity rail. It must occupy the whole workspace grid at every width. */
+.app-workspace-region > .no-project-welcome-page {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+}
+
 @media (max-width: 1180px) {
   .designer-topbar.app-command-topbar {
     grid-template-columns: minmax(230px, 1fr) minmax(260px, 440px) auto;

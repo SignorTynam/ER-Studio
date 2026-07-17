@@ -607,7 +607,7 @@ body {
   font-size: 0.76rem;
   font-weight: 750;
   letter-spacing: 0;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .designer-side-toggle-group .designer-side-toggle:last-child {
@@ -5314,7 +5314,7 @@ textarea:disabled {
   padding: 9px 10px;
   background: rgba(252, 253, 251, 0.86);
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 .entity-key-option:hover {
@@ -6643,7 +6643,7 @@ textarea:disabled {
     linear-gradient(135deg, rgba(13, 18, 15, 0.58), rgba(29, 35, 31, 0.46)),
     rgba(13, 16, 14, 0.42);
   backdrop-filter: blur(5px);
-  animation: version-announcement-fade 180ms ease-out;
+  animation: version-announcement-fade var(--motion-normal) ease-out;
 }
 
 .version-announcement {
@@ -6657,6 +6657,8 @@ textarea:disabled {
   background: var(--editor-panel-strong);
   color: var(--editor-text);
   box-shadow: 0 28px 80px rgba(8, 14, 11, 0.32);
+  /* 220ms fuori scala per scelta: entrata coreografata del modale celebrativo,
+     con easing custom. Disattivata dal reset globale reduced-motion. */
   animation: version-announcement-enter 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
@@ -6831,6 +6833,8 @@ textarea:disabled {
   border-radius: 0;
   background: color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
   box-shadow: 0 10px 24px rgba(18, 30, 24, 0.08);
+  /* 280ms/70ms/80ms fuori scala per scelta: entrata a cascata delle card del
+     changelog (lo stagger richiede valori propri). Disattivata da reduced-motion. */
   animation: version-highlight-enter 280ms ease-out both;
   animation-delay: calc(var(--highlight-index, 0) * 70ms + 80ms);
 }
