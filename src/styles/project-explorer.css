@@ -736,6 +736,7 @@
 }
 
 .project-explorer-tree {
+  --project-explorer-indent-size: 18px;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -779,12 +780,12 @@
   grid-template-columns: 18px 18px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 5px;
-  padding: 4px 6px 4px calc(7px + (var(--project-explorer-depth, 0) * 15px));
+  padding: 4px 6px 4px calc(7px + (var(--project-explorer-depth, 0) * var(--project-explorer-indent-size)));
 }
 
 .project-explorer-children {
-  border-left: 1px solid color-mix(in srgb, var(--editor-border) 75%, transparent);
-  margin-left: 10px;
+  margin-left: 0;
+  border-left: 0;
 }
 
 .project-explorer-item__chevron,
@@ -1586,10 +1587,6 @@
 
 .project-explorer-tree {
   padding: 9px 6px 14px;
-}
-
-.project-explorer-children {
-  border-left-color: color-mix(in srgb, var(--editor-border) 88%, var(--studio-accent) 12%);
 }
 
 .project-explorer-item {

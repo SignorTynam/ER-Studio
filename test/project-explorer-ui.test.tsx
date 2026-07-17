@@ -147,3 +147,20 @@ test("Explorer supporta navigazione completa, rename e create inline", () => {
   assert.match(explorerSource, /duplicate-name/);
   assert.match(explorerSource, /submitInlineCreate/);
 });
+
+test("Explorer usa una sola griglia di indentazione per file e cartelle", () => {
+  const treeSource = readFileSync(new URL("../src/components/project/ProjectExplorerTreeItem.tsx", import.meta.url), "utf8");
+  const explorerStyles = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
+  const workspaceStyles = readFileSync(new URL("../src/styles/panels-workspace.css", import.meta.url), "utf8");
+
+  assert.match(treeSource, /data-depth=\{props\.depth\}/);
+  assert.match(treeSource, /data-depth=\{depth\}/);
+  assert.match(explorerStyles, /--project-explorer-indent-size:\s*18px/);
+  assert.match(explorerStyles, /\.project-explorer-children\s*\{[^}]*margin-left:\s*0;[^}]*border-left:\s*0;/s);
+  assert.match(workspaceStyles, /padding-left:\s*calc\(var\(--space-1\) \+ var\(--project-explorer-depth, 0\) \* var\(--project-explorer-indent-size\)\)/);
+  assert.match(workspaceStyles, /\.project-explorer-item\[data-depth\]:not\(\[data-depth="0"\]\) \.project-explorer-item__main::before/);
+  assert.doesNotMatch(
+    workspaceStyles.match(/\.project-explorer-item--create\s*\{[^}]*\}/s)?.[0] ?? "",
+    /padding-left/,
+  );
+});

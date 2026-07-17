@@ -113,6 +113,7 @@ export function ProjectExplorerCreateRow({
       <div
         className="project-explorer-item project-explorer-item--create selected"
         style={{ "--project-explorer-depth": depth } as CSSProperties}
+        data-depth={depth}
         role="treeitem"
         aria-selected="true"
         data-kind={draft.kind}
@@ -309,6 +310,7 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
       <div
         className={rowClassName}
         style={{ "--project-explorer-depth": props.depth } as CSSProperties}
+        data-depth={props.depth}
         role="treeitem"
         tabIndex={isSelected || (!props.selectedNodeId && props.depth === 0) ? 0 : -1}
         data-project-node-id={props.node.id}

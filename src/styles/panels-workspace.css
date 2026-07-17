@@ -318,17 +318,33 @@
 }
 
 .project-explorer-item--create {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 8px);
+  display: grid;
 }
 
 .project-explorer-item__main {
+  position: relative;
   min-width: 0;
   height: var(--size-tree-row);
-  padding-left: calc(var(--space-1) + var(--project-explorer-depth) * 8px);
+  padding-left: calc(var(--space-1) + var(--project-explorer-depth, 0) * var(--project-explorer-indent-size));
   gap: var(--space-1);
+}
+
+.project-explorer-item[data-depth]:not([data-depth="0"]) .project-explorer-item__main::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: calc(var(--project-explorer-depth) * var(--project-explorer-indent-size));
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 13px,
+    color-mix(in srgb, var(--color-border-default) 72%, transparent) 13px,
+    color-mix(in srgb, var(--color-border-default) 72%, transparent) 14px,
+    transparent 14px,
+    transparent var(--project-explorer-indent-size)
+  );
 }
 
 .project-explorer-item__chevron {
