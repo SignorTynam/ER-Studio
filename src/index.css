@@ -3973,39 +3973,6 @@ summary:focus-visible {
 }
 
 /* UI/UX revamp */
-:root {
-  --studio-bg: #edf0ea;
-  --studio-bg-deep: #e4e8e0;
-  --studio-surface: rgba(249, 251, 247, 0.84);
-  --studio-surface-strong: rgba(252, 253, 250, 0.94);
-  --studio-line: rgba(51, 68, 63, 0.14);
-  --studio-line-strong: rgba(36, 52, 48, 0.34);
-  --studio-ink: #22302c;
-  --studio-muted: #64716c;
-  --studio-accent: #4f6b64;
-  --studio-accent-strong: #39514b;
-  --studio-accent-soft: rgba(79, 107, 100, 0.12);
-  --studio-warm: #b88a5b;
-  --studio-shadow: 0 18px 40px rgba(35, 44, 40, 0.08);
-  --diagram-node-fill: #fffdfa;
-  --diagram-stroke: #5f7f77;
-  --diagram-text: #22302c;
-  --diagram-canvas-fill: #f6f8f5;
-  --diagram-grid: rgba(79, 107, 100, 0.12);
-  --diagram-selection-stroke: #70847d;
-  --diagram-selection-fill: rgba(79, 107, 100, 0.09);
-  --diagram-focus: #7d9f96;
-  --diagram-drag: #5d7d75;
-  --diagram-drag-fill: rgba(93, 125, 117, 0.14);
-  --diagram-pending: #c08d5a;
-  --diagram-warning: #b67f43;
-  --diagram-warning-fill: rgba(182, 127, 67, 0.18);
-  --diagram-error: #b24d34;
-  --diagram-error-fill: rgba(178, 77, 52, 0.2);
-  color: var(--studio-ink);
-  background: #f7f8f4;
-  font-family: "Aptos", "IBM Plex Sans", "Segoe UI", sans-serif;
-}
 
 html {
   scroll-behavior: smooth;
@@ -10300,32 +10267,6 @@ textarea:focus-visible,
 }
 
 /* Workspace refinement: designER-inspired structure */
-:root {
-  --editor-space-1: 4px;
-  --editor-space-2: 8px;
-  --editor-space-3: 12px;
-  --editor-space-4: 16px;
-  --editor-space-5: 20px;
-  --editor-radius-sm: 0;
-  --editor-radius-md: 0;
-  --editor-radius-lg: 0;
-  --editor-border: rgba(27, 43, 65, 0.12);
-  --editor-border-strong: rgba(27, 43, 65, 0.2);
-  --editor-surface-app: #edf2f7;
-  --editor-surface-panel: rgba(255, 255, 255, 0.92);
-  --editor-surface-muted: rgba(246, 249, 252, 0.94);
-  --editor-surface-active: rgba(226, 236, 249, 0.98);
-  --editor-text-strong: #13253d;
-  --editor-text: rgba(19, 37, 61, 0.86);
-  --editor-text-muted: rgba(19, 37, 61, 0.62);
-  --editor-accent: #1d4f91;
-  --editor-accent-strong: #153d6f;
-  --editor-accent-soft: rgba(29, 79, 145, 0.12);
-  --editor-success-soft: rgba(39, 113, 88, 0.12);
-  --editor-warning-soft: rgba(181, 117, 36, 0.14);
-  --editor-error-soft: rgba(173, 60, 45, 0.14);
-  --editor-shadow-soft: 0 10px 26px rgba(17, 31, 49, 0.08);
-}
 
 body {
   background:
@@ -11796,90 +11737,6 @@ body {
 
 /* ER Studio UI redesign layer. Keep this block last: it refines the existing
    design system without removing legacy variables still used by older surfaces. */
-:root {
-  --studio-bg: #edf1ec;
-  --studio-bg-elevated: #f5f7f4;
-  --studio-surface: #ffffff;
-  --studio-surface-strong: #ffffff;
-  --studio-surface-muted: #f4f6f3;
-  --studio-border: #d5ddd4;
-  --studio-border-strong: #b9c6bc;
-  --studio-line: var(--studio-border);
-  --studio-line-strong: var(--studio-border-strong);
-  --studio-ink: #111a16;
-  --studio-muted: #5f6d65;
-  --studio-faint: #839088;
-  --studio-accent: #254f48;
-  --studio-accent-strong: #193a35;
-  --studio-accent-soft: rgba(37, 79, 72, 0.1);
-  --studio-danger: #b64236;
-  --studio-danger-soft: rgba(182, 66, 54, 0.1);
-  --studio-warning: #a96f16;
-  --studio-warning-soft: rgba(169, 111, 22, 0.12);
-  --studio-success: #2f7353;
-  --studio-success-soft: rgba(47, 115, 83, 0.1);
-  --studio-radius-sm: 0;
-  --studio-radius-md: 0;
-  --studio-radius-lg: 0;
-  --studio-radius-xl: 0;
-  --studio-radius-panel: 0;
-  --studio-control-height: 32px;
-  --studio-control-height-sm: 28px;
-  --studio-shadow-sm: 0 1px 2px rgba(17, 26, 22, 0.05);
-  --studio-shadow-panel: 0 1px 2px rgba(17, 26, 22, 0.04), 0 8px 24px rgba(17, 26, 22, 0.06);
-  --studio-shadow-floating: 0 12px 32px rgba(17, 26, 22, 0.14);
-  --studio-focus-ring: 0 0 0 3px rgba(37, 79, 72, 0.2);
-  --editor-shell-bg: var(--studio-bg);
-  --editor-shell-bg-muted: #e6ece5;
-  --editor-panel: var(--studio-surface);
-  --editor-panel-strong: var(--studio-surface-strong);
-  --editor-panel-muted: var(--studio-surface-muted);
-  --editor-border: var(--studio-border);
-  --editor-border-strong: var(--studio-border-strong);
-  --editor-text: var(--studio-ink);
-  --editor-text-strong: var(--studio-ink);
-  --editor-text-muted: var(--studio-muted);
-  --editor-text-faint: var(--studio-faint);
-  --editor-topbar: #ffffff;
-  --editor-topbar-text: var(--studio-ink);
-  --editor-topbar-muted: var(--studio-muted);
-  --editor-topbar-line: var(--studio-border);
-  --editor-accent: var(--studio-accent);
-  --editor-accent-soft: var(--studio-accent-soft);
-  --editor-warning: var(--studio-warning);
-  --editor-warning-soft: var(--studio-warning-soft);
-  --editor-error: var(--studio-danger);
-  --editor-error-soft: var(--studio-danger-soft);
-  --editor-success: var(--studio-success);
-  --editor-success-soft: var(--studio-success-soft);
-  --editor-radius-sm: 0;
-  --editor-radius-md: 0;
-  --editor-radius-lg: 0;
-  --panel-bg: var(--studio-surface);
-  --panel-surface: var(--studio-surface);
-  --panel-surface-active: #eef4f0;
-  --panel-border: var(--studio-border);
-  --panel-border-strong: var(--studio-accent);
-  --panel-text: var(--studio-ink);
-  --panel-muted: var(--studio-muted);
-  --panel-radius: 0;
-  --panel-padding: 12px;
-  --panel-gap: 10px;
-  --panel-shadow: var(--studio-shadow-sm);
-  --diagram-canvas-fill: #fafafa;
-  --diagram-grid: rgba(17, 26, 22, 0.045);
-  --diagram-stroke: #26322d;
-  --diagram-text: var(--studio-ink);
-  --diagram-selection-stroke: var(--studio-accent);
-  --diagram-selection-fill: rgba(37, 79, 72, 0.08);
-  --diagram-focus: var(--studio-accent);
-  --diagram-drag: var(--studio-accent);
-  --diagram-pending: var(--studio-warning);
-  --diagram-warning: var(--studio-warning);
-  --diagram-warning-fill: rgba(169, 111, 22, 0.14);
-  --diagram-error: var(--studio-danger);
-  --diagram-error-fill: rgba(182, 66, 54, 0.12);
-}
 
 html,
 body,

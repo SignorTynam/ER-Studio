@@ -1756,3 +1756,26 @@ cambio visivo). `panels-workspace.css` si aggiunge quindi ai file con bianchi a 
 Residuo aggiunto all'elenco: `responsive.css` `rgba(7,11,9,0.28)` — scrim del drawer
 mobile del pannello attività (off-scala: oscuramento di sfondo, non equivalente a un
 token esistente). Le ombre `rgba(0,0,0,0.28)` restano off-scala come da nota D4.
+
+### Pulizia index.css — blocchi :root morti rimossi (Fase E, verificato a runtime)
+Rimossi **3 blocchi di sole variabili `:root`** sedimentati da temi passati (143 righe,
+nessun selettore toccato):
+- `@3976` `--studio-*` (revamp verde) e `@11799` `--studio-*` (seconda ridefinizione) —
+  shadowati da tokens.css.
+- `@10303` `--editor-*` — alias colore shadowati da tokens.css; le var di spaziatura/
+  superficie proprie del blocco erano senza consumatori live.
+
+**Metodo di verifica** (dev server + computed-style before/after su 295 custom property):
+solo 15 var cambiano valore, tutte → prive di definizione e **senza consumatori live**
+(14 con 0 usi ovunque; `--editor-surface-panel` usata solo da 3 selettori di classi
+morte — `.header-control-group`, `.workspace-stage-card`, `.workspace-side-panel`, 0 rif.
+TSX). `elDiffs` vuoto sugli elementi sempre presenti. Gate: build + 693 unit + 42 e2e verdi.
+
+**Ancora da rimuovere** (passata dedicata, più rischiosa — richiede verifica per-regola):
+- Layer di **selettori morti**: tema unibo rosso (`.landing-*`, `.tool-button`, `.nav-*`,
+  `.preview-*`, `.mode-switch`, `.app-version-pill`), `.code-mode-*`. Attenzione: alcuni
+  sono in **gruppi misti** con selettori live (`.mode-button.active` in VersioningPanel)
+  o intercalati a **regole generiche live** (transizioni su `button,a,input`; `:focus-visible`).
+- Sistema **`--ui-*`** (`:root@9092` + 101 consumatori interni a index.css): rimovibile solo
+  se tutti i consumatori risultano selettori morti.
+- **NON rimuovere** `:root@5382` (`--workspace-*`/`--tool-rail-*`): 16 usi live esterni.
