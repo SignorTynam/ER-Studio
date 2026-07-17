@@ -7289,11 +7289,13 @@ export default function App() {
               <WorkspaceEmptyEditor
                 onOpenWelcome={handleShowWelcomeTab}
                 onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+                onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
               />
             ) : !hasOpenSchema ? (
               <WorkspaceEmptyEditor
                 onOpenWelcome={handleShowWelcomeTab}
                 onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+                onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
               />
             ) : (
               <div

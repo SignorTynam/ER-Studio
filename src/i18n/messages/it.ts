@@ -388,6 +388,7 @@ export const it = {
     description: "Crea uno schema ER per iniziare a modellare, oppure scegli un file dall'Explorer.",
     openWelcome: "Torna alla Welcome",
     newSchema: "Nuovo schema",
+    newSql: "Nuovo SQL",
   },
   projectTabs: {
     label: "Tab file progetto",

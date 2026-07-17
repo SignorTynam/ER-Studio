@@ -390,6 +390,7 @@ export const sq: DeepPartialMessages = {
     description: "Krijo nje skeme ER per te filluar modelimin, ose zgjidh nje file nga Explorer.",
     openWelcome: "Kthehu te Welcome",
     newSchema: "Skeme e re",
+    newSql: "SQL i ri",
   },
   projectTabs: {
     label: "Tab-et e file-ve te projektit",

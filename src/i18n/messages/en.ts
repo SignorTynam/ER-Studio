@@ -390,6 +390,7 @@ export const en: DeepPartialMessages = {
     description: "Create an ER schema to start modeling, or pick a file from the Explorer.",
     openWelcome: "Back to Welcome",
     newSchema: "New schema",
+    newSql: "New SQL",
   },
   projectTabs: {
     label: "Project file tabs",

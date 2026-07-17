@@ -540,6 +540,24 @@ svg.diagram-canvas {
   box-shadow: none;
 }
 
+.workspace-empty-editor__logo {
+  width: calc(var(--space-8) * 2);
+  height: calc(var(--space-8) * 2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+}
+
+.workspace-empty-editor__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.workspace-empty-editor__button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .workspace-empty-editor__action {
   min-height: 54px;
   border-radius: var(--radius-control);

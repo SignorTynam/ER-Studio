@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { NoProjectWelcomePage } from "../src/components/workspace/NoProjectWelcomePage.tsx";
+import { WorkspaceEmptyEditor } from "../src/components/workspace/WorkspaceEmptyEditor.tsx";
 import { WorkspaceWelcomePage } from "../src/components/workspace/WorkspaceWelcomePage.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { createEmptyProjectExplorerState } from "../src/utils/projectExplorer.ts";
@@ -54,6 +55,24 @@ test("NoProjectWelcomePage mostra solo azioni globali senza contesto progetto", 
   assert.doesNotMatch(markup, /Nuovo progetto/);
   assert.doesNotMatch(markup, /Nessun file nel progetto/);
   assert.doesNotMatch(markup, /file, .*cartelle/);
+});
+
+test("WorkspaceEmptyEditor mostra logo e tre azioni compatte", () => {
+  const markup = renderToStaticMarkup(
+    <I18nProvider>
+      <WorkspaceEmptyEditor
+        onNewSchema={() => undefined}
+        onNewSql={() => undefined}
+        onOpenWelcome={() => undefined}
+      />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /buildER(?:%20| )no(?:%20| )text(?:%20| )no(?:%20| )background\.png/);
+  assert.match(markup, /New schema|Nuovo schema/);
+  assert.match(markup, /New SQL|Nuovo SQL/);
+  assert.match(markup, /Back to Welcome|Torna alla Welcome/);
+  assert.equal((markup.match(/workspace-empty-editor__button/g) ?? []).length, 3);
 });
 
 test("New Project usa progetto vuoto senza erschema automatico", () => {
