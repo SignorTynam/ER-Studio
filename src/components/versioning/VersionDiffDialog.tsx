@@ -7,6 +7,7 @@ import type {
 } from "../../features/versioning/projectVersionDiff";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { Modal } from "../ui";
 
 interface VersionDiffDialogProps {
   open: boolean;
@@ -170,15 +171,14 @@ export function VersionDiffDialog({ open, diff, onClose }: VersionDiffDialogProp
   }
 
   return (
-    <div className="studio-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="studio-modal studio-modal--wide version-diff-dialog versioning-diff-shell"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="version-diff-title"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="version-diff-dialog"
-      >
+    <Modal
+      open
+      onClose={onClose}
+      hideClose
+      className="version-diff-dialog versioning-diff-shell"
+      ariaLabelledBy="version-diff-title"
+      testId="version-diff-dialog"
+    >
         <div className="studio-modal__header version-diff-header">
           <div>
             <h2 id="version-diff-title" className="studio-modal__title">{t("versioning.diff.title")}</h2>
@@ -244,7 +244,6 @@ export function VersionDiffDialog({ open, diff, onClose }: VersionDiffDialogProp
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

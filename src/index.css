@@ -13258,9 +13258,12 @@ summary:focus-visible,
   }
 }
 
-.versioning-panel-compact {
+/* Fase C4b: card sulla Modal shell; doppia classe per la griglia custom. */
+.ui-modal.versioning-panel-compact {
   width: min(720px, calc(100vw - 24px));
   max-height: min(760px, calc(100dvh - 24px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 

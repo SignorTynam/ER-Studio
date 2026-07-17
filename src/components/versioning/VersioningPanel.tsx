@@ -7,6 +7,7 @@ import type {
 import { PROJECT_RESTORE_BACKUP_TAG, PROJECT_RESTORE_TAG } from "../../features/versioning/projectVersionRestore";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { Modal } from "../ui";
 
 interface VersioningPanelProps {
   open: boolean;
@@ -303,16 +304,15 @@ export function VersioningPanel({
   }
 
   return (
-    <div className="studio-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="studio-modal versioning-panel versioning-panel-compact"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="versioning-panel-title"
-        aria-describedby="versioning-panel-description"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="versioning-panel"
-      >
+    <Modal
+      open
+      onClose={onClose}
+      hideClose
+      className="versioning-panel versioning-panel-compact"
+      ariaLabelledBy="versioning-panel-title"
+      ariaDescribedBy="versioning-panel-description"
+      testId="versioning-panel"
+    >
         <div className="studio-modal__header versioning-panel-compact-header">
           <div>
             <h2 id="versioning-panel-title" className="studio-modal__title">
@@ -371,7 +371,6 @@ export function VersioningPanel({
             )}
           </section>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
