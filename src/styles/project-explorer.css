@@ -2453,12 +2453,12 @@ body.source-control-resizing * {
 
 .workspace-welcome-page__eyebrow {
   width: fit-content;
-  margin-bottom: 10px;
-  border: 1px solid var(--workspace-card-border);
-  background: var(--editor-panel-strong);
-  padding: 3px 7px;
-  color: var(--studio-accent-strong);
-  font-size: 0.72rem;
+  margin-bottom: var(--space-2-5);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  padding: var(--space-0-5) var(--space-1-5);
+  color: var(--color-accent-hover);
+  font-size: var(--font-size-2xs);
   letter-spacing: 0;
 }
 
@@ -2490,13 +2490,16 @@ body.source-control-resizing * {
   box-shadow: var(--studio-shadow-sm);
 }
 
+/* Fase C5: intestazioni di sezione quiete, come i pannelli laterali (C2). */
 .workspace-welcome-page__start h2,
 .workspace-welcome-project h2,
 .workspace-welcome-tips h2,
 .workspace-welcome-workflow h2,
 .workspace-welcome-capabilities h2 {
-  font-size: 0.76rem;
-  letter-spacing: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
 }
 
 .workspace-welcome-action-grid {
@@ -2511,11 +2514,12 @@ body.source-control-resizing * {
 }
 
 .workspace-welcome-action-card,
+/* Fase C5: righe d'avvio piatte dai token; la primaria e' una CTA vera. */
 .workspace-welcome-action-row {
   position: relative;
   width: 100% !important;
-  border-color: var(--workspace-card-border) !important;
-  background: var(--editor-panel-strong) !important;
+  border-color: var(--color-border-default) !important;
+  background: var(--color-bg-elevated) !important;
 }
 
 .workspace-welcome-action-card {
@@ -2547,14 +2551,22 @@ body.source-control-resizing * {
 }
 
 .workspace-welcome-action-card--primary,
+/* CTA primaria: l'azione che porta al valore deve emergere a colpo d'occhio. */
 .workspace-welcome-action-row--primary {
-  border-color: var(--studio-accent) !important;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--studio-accent-soft) 64%, var(--editor-panel-strong) 36%), var(--editor-panel-strong)) !important;
+  border-color: var(--color-accent) !important;
+  background: var(--color-accent) !important;
+  color: var(--color-text-on-accent) !important;
 }
 
+.workspace-welcome-action-row--primary:hover,
+.workspace-welcome-action-row--primary:focus-visible {
+  border-color: var(--color-accent-hover) !important;
+  background: var(--color-accent-hover) !important;
+}
+
+
 .workspace-welcome-action-row--utility {
-  background: color-mix(in srgb, var(--editor-panel-strong) 86%, var(--studio-surface-muted) 14%) !important;
+  background: var(--color-bg-panel) !important;
 }
 
 .workspace-welcome-action-card__icon,
@@ -2591,6 +2603,19 @@ body.source-control-resizing * {
 .workspace-welcome-action-card__arrow,
 .workspace-welcome-action-row__arrow {
   color: var(--editor-text-muted);
+}
+
+/* Fase C5: contenuto della CTA primaria leggibile sul fondo accent.
+   Doppia classe: deve battere le regole di colore generiche qui sopra. */
+.workspace-welcome-action-row.workspace-welcome-action-row--primary strong,
+.workspace-welcome-action-row.workspace-welcome-action-row--primary .workspace-welcome-action-row__icon,
+.workspace-welcome-action-row.workspace-welcome-action-row--primary .workspace-welcome-action-row__arrow {
+  color: var(--color-text-on-accent);
+}
+
+/* 92%: sotto questa soglia la descrizione scende sotto 4.5:1 sull'accent (misurato). */
+.workspace-welcome-action-row.workspace-welcome-action-row--primary small {
+  color: color-mix(in srgb, var(--color-text-on-accent) 92%, transparent);
 }
 
 .workspace-welcome-action-card:hover .workspace-welcome-action-card__arrow,

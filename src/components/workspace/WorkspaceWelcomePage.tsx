@@ -26,7 +26,7 @@ export function WorkspaceWelcomePage({
   const { t } = useI18n();
   const startActions = [
     {
-      icon: "entity" as const,
+      icon: "schema" as const,
       title: t("workspaceWelcome.newSchema"),
       description: t("workspaceWelcome.newSchemaDescription"),
       onClick: onNewSchema,
@@ -131,15 +131,7 @@ export function WorkspaceWelcomePage({
                 <dt>{t("workspaceWelcome.folderCount")}</dt>
                 <dd>{folderCount}</dd>
               </div>
-              <div className="workspace-welcome-project__stat workspace-welcome-project__stat--wide">
-                <dt>{t("workspaceWelcome.projectFiles")}</dt>
-                <dd>{t("workspaceWelcome.fileFolderCount", { files: fileCount, folders: folderCount })}</dd>
-              </div>
             </dl>
-            <p className="workspace-welcome-project__status">
-              <StudioIcon name="success" aria-hidden="true" />
-              <span>{t("workspaceWelcome.readyStatus")}</span>
-            </p>
           </section>
 
           <section className="workspace-welcome-panel workspace-welcome-workflow" aria-label={t("workspaceWelcome.workflowSection")}>

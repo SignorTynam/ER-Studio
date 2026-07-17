@@ -7289,13 +7289,11 @@ export default function App() {
               <WorkspaceEmptyEditor
                 onOpenWelcome={handleShowWelcomeTab}
                 onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
-                onOpenProject={handleLoadProjectRequest}
               />
             ) : !hasOpenSchema ? (
               <WorkspaceEmptyEditor
                 onOpenWelcome={handleShowWelcomeTab}
                 onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
-                onOpenProject={handleLoadProjectRequest}
               />
             ) : (
               <div
