@@ -83,27 +83,30 @@
   min-width: 210px;
 }
 
+/* Fase D4: bianchi tokenizzati a parità (white == --color-text-on-accent).
+   Il fondo #1f1f1f e l'ombra restano fuori scala: sono lo stile scuro proprio
+   del menu lingua, distinto dagli altri dropdown chiari dell'header. */
 .designer-language-menu__panel.app-topbar-menu__panel {
   display: grid;
   min-width: 180px;
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: color-mix(in srgb, var(--color-text-on-accent) 12%, transparent);
   background: #1f1f1f;
-  color: #ffffff;
+  color: var(--color-text-on-accent);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 
 .designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item {
   justify-content: space-between;
-  color: #ffffff;
+  color: var(--color-text-on-accent);
 }
 
 .designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item:hover,
 .designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-text-on-accent) 10%, transparent);
 }
 
 .designer-language-menu__panel.app-topbar-menu__panel .designer-language-menu__item.active {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--color-text-on-accent) 16%, transparent);
 }
 
 .app-file-menu__panel button,

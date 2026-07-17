@@ -67,7 +67,7 @@
 }
 
 .app-project-context__name {
-  color: #ffffff;
+  color: var(--color-text-on-accent);
   font-weight: 650;
 }
 

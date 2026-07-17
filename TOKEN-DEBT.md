@@ -1695,3 +1695,47 @@ Raccomandazione per Fase B: scurire `--color-text-muted` (target ~#66716a) e ris
 ## Residui hardcoded: motivazione
 
 I 434 residui nei due file sostituiti (57 in panels.css, 377 in editor-refactor.css) sono valori della **vecchia palette ancora renderizzata** su superfici non ancora ridisegnate (viste designer e logical, topbar scura del designer, badge di stato, tinte alpha locali). Non esiste un token con valore identico: sostituirli significherebbe cambiare i pixel (vietato in Fase A) e crearne uno per ciascuno significherebbe canonizzare la palette vecchia (~300 token senza valore semantico). Andranno convertiti **insieme al ridisegno** delle rispettive superfici (Fasi B-D), decidendo di volta in volta il token canonico di destinazione. Esempi tipici: `#fbfcfa` (x13, a un bit dal token `--color-bg-editor` #fbfcfb), `#111111` testo su topbar scura, `#35564f` e `#315846` verdi della palette precedente, tinte rgba su basi non canoniche.
+
+## Fase D — esito della passata finale sul debito
+
+**Misura aggiornata** (audit rieseguito): index.css 1209 occorrenze colore,
+editor-refactor.css 373, panels.css 54, piccoli file vivi ~24.
+
+### editor-refactor.css: niente più tokenizzazione meccanica sicura
+L'analisi di mappatura dà **0 corrispondenze esatte** e 0 alpha-su-token sulle
+373 occorrenze rimaste: le corrispondenze 1:1 furono già tokenizzate in Fase A4
+(118) e con i ridisegni della Fase C. Ciò che resta è la **vecchia palette
+ancora renderizzata** su superfici non ridisegnate (viste designer/logical,
+badge, tinte locali): sostituirla cambierebbe i pixel, vietato dal vincolo di
+parità della Fase D. Va convertita **insieme al ridisegno** di quelle superfici.
+
+### index.css: blocchi tema legacy CONFERMATI MORTI a runtime
+Il blocco "Alma Mater / UniBO" (index.css ~3773) e il blocco "editor blu"
+(~10304, `--editor-accent-strong #153d6f`) ridefiniscono token e regole con una
+palette rossa/blu. Verifica runtime (Fase D): `.mode-button.active` renderizza
+`rgb(47,111,98)` — il **verde accent**, non il gradiente rosso UniBO — quindi le
+regole scoped di quei blocchi sono morte (sovrascritte dai file importati dopo),
+e le ridefinizioni `:root` perdono contro tokens.css. Sono **safe da rimuovere**
+in un commit dedicato (grande riduzione di debito, ~1200 occorrenze). Rinviato
+per non entrare in conflitto con la feature command-palette in sviluppo attivo
+nel working tree.
+
+### Bianchi puri tokenizzati a parità (Fase D4)
+Nei due file di chrome vivi (workspace-shell.css, app-command-bar.css) i bianchi
+puri sono stati portati ai token: `#ffffff` -> `--color-text-on-accent`,
+`rgba(255,255,255,X)` -> `color-mix(--color-text-on-accent X%, transparent)`
+(parità verificata a runtime: `color(srgb 1 1 1 / .12)` == `rgba(255,255,255,.12)`).
+Restano fuori scala e documentati: `#1f1f1f` (fondo scuro proprio del menu lingua,
+distinto dagli altri dropdown chiari), `#f1f5f2` e le sue varianti alpha (testo
+chiaro del chrome, off-white non equivalente a nessun token), `#080a09` (bordo
+quasi-nero), ombre `rgba(0,0,0,X)`.
+
+### Contrasto: --color-text-muted corretto (Fase D1)
+`#748078` -> `#636d66`: era sotto AA su ogni sfondo chiaro (3.45-4.12:1);
+il nuovo valore passa 4.5:1 ovunque (min 4.51 su bg-app). Confermato da axe.
+
+### Breakpoint: cinque valori invece di una scala
+responsive.css usa 1180/900/680; i file legacy 860/640. Non unificati (cambiare
+i valori sposterebbe dove i layout si riadattano = cambio di comportamento,
+fuori dal vincolo "nessuna regressione"): tutti e cinque verificati senza
+overflow dai test e2e responsive. Da consolidare in una scala unica in futuro.
