@@ -17,7 +17,12 @@
   --color-border-strong: #9caaa2;
   --color-text-primary: #17201c;
   --color-text-secondary: #4f5f57;
-  --color-text-muted: #748078;
+  /* Fase D1: era #748078, sotto AA su ogni sfondo chiaro (3.45-4.12:1) e
+     segnalato da axe come violazione su .project-explorer-meta. #636d66 e il
+     valore piu chiaro della stessa tinta che passa 4.5:1 su tutti gli sfondi
+     dell'app (elevated 5.37 - panel 5.12 - sidebar 4.95 - editor 5.22 -
+     app 4.51 - hover 4.57). */
+  --color-text-muted: #636d66;
   --color-text-disabled: #9ca69f;
   --color-accent: #2f6f62;
   --color-accent-hover: #24594f;

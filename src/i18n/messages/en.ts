@@ -345,7 +345,6 @@ export const en: DeepPartialMessages = {
     importSchema: "Import schema (.erschema)",
     noSchemaOpen: "No schema open",
     openSchemaHint: "Open or create a schema to show the ER canvas.",
-    logoAria: "buildER logo",
     projectSection: "Project",
     tipsSection: "Tips",
     projectName: "Project name",

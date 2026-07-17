@@ -26,10 +26,14 @@ test("ProjectFileTabs renders Welcome and file tabs with tab roles", () => {
     </I18nProvider>,
   );
 
-  assert.match(markup, /role="tablist"/);
+  // Fase D1: tab-documento in stile editor, non tab ARIA (nessun tabpanel
+  // esiste): pattern toolbar con roving tabindex + aria-current sull'attiva.
+  assert.match(markup, /role="toolbar"/);
+  assert.doesNotMatch(markup, /role="tab"/);
+  assert.doesNotMatch(markup, /aria-selected/);
   assert.match(markup, /Welcome/);
   assert.match(markup, /notes\.txt/);
-  assert.match(markup, /aria-selected="true"/);
+  assert.match(markup, /aria-current="page"/);
   assert.match(markup, /aria-label="Unsaved changes"|aria-label="Modifiche non salvate"/);
 });
 

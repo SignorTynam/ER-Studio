@@ -214,7 +214,7 @@
   color: inherit;
 }
 
-.project-file-tab > button[role="tab"] {
+.project-file-tab > button[data-tab-id] {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -2149,7 +2149,7 @@ body.source-control-resizing * {
   box-shadow: none;
 }
 
-.project-file-tab > button[role="tab"] {
+.project-file-tab > button[data-tab-id] {
   gap: 8px;
   padding-inline: 10px 8px;
 }
@@ -2550,14 +2550,16 @@ body.source-control-resizing * {
   transform: translateY(-1px);
 }
 
-.workspace-welcome-action-card--primary,
 /* CTA primaria: l'azione che porta al valore deve emergere a colpo d'occhio. */
+.workspace-welcome-action-card--primary,
 .workspace-welcome-action-row--primary {
   border-color: var(--color-accent) !important;
   background: var(--color-accent) !important;
   color: var(--color-text-on-accent) !important;
 }
 
+.workspace-welcome-action-card--primary:hover,
+.workspace-welcome-action-card--primary:focus-visible,
 .workspace-welcome-action-row--primary:hover,
 .workspace-welcome-action-row--primary:focus-visible {
   border-color: var(--color-accent-hover) !important;
@@ -2605,16 +2607,21 @@ body.source-control-resizing * {
   color: var(--editor-text-muted);
 }
 
-/* Fase C5: contenuto della CTA primaria leggibile sul fondo accent.
+/* Fase C5/D1: contenuto della CTA primaria leggibile sul fondo accent, sia
+   nella row (welcome di progetto) sia nella card (welcome senza progetto).
    Doppia classe: deve battere le regole di colore generiche qui sopra. */
 .workspace-welcome-action-row.workspace-welcome-action-row--primary strong,
 .workspace-welcome-action-row.workspace-welcome-action-row--primary .workspace-welcome-action-row__icon,
-.workspace-welcome-action-row.workspace-welcome-action-row--primary .workspace-welcome-action-row__arrow {
+.workspace-welcome-action-row.workspace-welcome-action-row--primary .workspace-welcome-action-row__arrow,
+.workspace-welcome-action-card.workspace-welcome-action-card--primary strong,
+.workspace-welcome-action-card.workspace-welcome-action-card--primary .workspace-welcome-action-card__icon,
+.workspace-welcome-action-card.workspace-welcome-action-card--primary .workspace-welcome-action-card__arrow {
   color: var(--color-text-on-accent);
 }
 
 /* 92%: sotto questa soglia la descrizione scende sotto 4.5:1 sull'accent (misurato). */
-.workspace-welcome-action-row.workspace-welcome-action-row--primary small {
+.workspace-welcome-action-row.workspace-welcome-action-row--primary small,
+.workspace-welcome-action-card.workspace-welcome-action-card--primary small {
   color: color-mix(in srgb, var(--color-text-on-accent) 92%, transparent);
 }
 

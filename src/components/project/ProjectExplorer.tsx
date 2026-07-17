@@ -283,15 +283,13 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
 
       <div
         className="project-explorer-tree"
-        role="tree"
-        aria-label={t("projectExplorer.treeAria")}
         onContextMenu={(event) => {
           event.preventDefault();
           setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, origin: "context-menu" });
         }}
       >
         {root && (rootChildren.length > 0 || createDraft?.parentId === props.project.rootId) ? (
-          <ul className="project-explorer-list">
+          <ul className="project-explorer-list" role="tree" aria-label={t("projectExplorer.treeAria")}>
             {createDraft?.parentId === props.project.rootId ? (
               <ProjectExplorerCreateRow
                 draft={createDraft}

@@ -109,7 +109,7 @@ export function ProjectExplorerCreateRow({
   }, [draft.kind]);
 
   return (
-    <li className="project-explorer-node project-explorer-node--create">
+    <li className="project-explorer-node project-explorer-node--create" role="none">
       <div
         className="project-explorer-item project-explorer-item--create selected"
         style={{ "--project-explorer-depth": depth } as CSSProperties}
@@ -220,7 +220,9 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   }
 
   function focusRelativeItem(position: "previous" | "next" | "first" | "last") {
-    const tree = document.querySelector<HTMLElement>('.project-explorer-tree[role="tree"]');
+    // Fase D1: il role=tree e' passato dal contenitore alla lista (l'empty-state
+    // con le sue CTA non deve risultare figlio dell'albero).
+    const tree = document.querySelector<HTMLElement>('.project-explorer-list[role="tree"]');
     const items = Array.from(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []);
     if (items.length === 0) return;
     const index = items.findIndex((item) => item.dataset.projectNodeId === props.node.id);
@@ -303,7 +305,7 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   }
 
   return (
-    <li className="project-explorer-node">
+    <li className="project-explorer-node" role="none">
       <div
         className={rowClassName}
         style={{ "--project-explorer-depth": props.depth } as CSSProperties}

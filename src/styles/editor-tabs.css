@@ -50,7 +50,7 @@
   background: var(--color-accent);
 }
 
-.project-file-tab > button[role="tab"] {
+.project-file-tab > button[data-tab-id] {
   min-width: 0;
   height: var(--size-tab);
   padding: 0 34px 0 var(--space-3);

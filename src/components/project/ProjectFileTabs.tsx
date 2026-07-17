@@ -191,16 +191,28 @@ export function ProjectFileTabs({
     const nextTab = tabs[nextIndex];
     if (!nextTab) return;
     onSelectTab(nextTab.id);
-    requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>(`[role="tab"][data-tab-id="${nextTab.id}"]`)?.focus());
+    requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>(`button[data-tab-id="${nextTab.id}"]`)?.focus());
   }
 
   const contextTab = contextMenu ? tabs.find((tab) => tab.id === contextMenu.tabId) : undefined;
   const contextIndex = contextTab ? tabs.findIndex((tab) => tab.id === contextTab.id) : -1;
 
+  // Fase D1: queste sono tab-documento in stile editor, non tab ARIA: non
+  // esiste alcun tabpanel né aria-controls, quindi role=tab/tablist era
+  // semanticamente scorretto (e faceva risultare i bottoni di chiusura figli
+  // non ammessi del tablist). Il pattern giusto è la toolbar con roving
+  // tabindex e frecce — già implementati — e aria-current per l'attiva.
   return (
-    <div ref={rootRef} className="project-file-tabs" role="tablist" aria-label={t("projectTabs.label")}>
+    <div ref={rootRef} className="project-file-tabs">
       <div className="project-file-tabs__viewport">
-        <div ref={scrollerRef} className="project-file-tabs__scroller" onScroll={updateScrollState}>
+        <div
+          ref={scrollerRef}
+          className="project-file-tabs__scroller"
+          role="toolbar"
+          aria-orientation="horizontal"
+          aria-label={t("projectTabs.label")}
+          onScroll={updateScrollState}
+        >
           {tabs.map((tab) => {
             const file = tab.kind === "file" && tab.fileId ? files[tab.fileId] : undefined;
             const title = getTabTitle(tab, files, t("projectTabs.welcome"));
@@ -229,10 +241,8 @@ export function ProjectFileTabs({
               >
                 <button
                   type="button"
-                  role="tab"
                   data-tab-id={tab.id}
                   tabIndex={active ? 0 : -1}
-                  aria-selected={active}
                   aria-current={active ? "page" : undefined}
                   aria-label={tab.dirty ? `${title}, ${t("projectTabs.unsaved")}` : title}
                   onClick={() => onSelectTab(tab.id)}

@@ -343,7 +343,6 @@ export const it = {
     importSchema: "Importa schema (.erschema)",
     noSchemaOpen: "Nessuno schema aperto",
     openSchemaHint: "Apri o crea uno schema per mostrare il canvas ER.",
-    logoAria: "Logo buildER",
     projectSection: "Project",
     tipsSection: "Tips",
     projectName: "Nome progetto",

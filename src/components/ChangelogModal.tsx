@@ -72,7 +72,10 @@ export function ChangelogModal({ appName, currentVersion, entries, onClose }: Ch
           </button>
         </header>
 
-        <div className="studio-modal__body changelog-modal-modern__body">
+        {/* tabIndex=0: la lista scorre ma non contiene controlli focalizzabili;
+            senza questo non e' raggiungibile da tastiera (axe:
+            scrollable-region-focusable, WCAG 2.1.1). */}
+        <div className="studio-modal__body changelog-modal-modern__body" tabIndex={0} role="group">
           {entries.map((entry) => {
             const isCurrentVersion = entry.version === currentVersion;
 

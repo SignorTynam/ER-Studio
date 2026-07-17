@@ -345,7 +345,6 @@ export const sq: DeepPartialMessages = {
     importSchema: "Importo skeme (.erschema)",
     noSchemaOpen: "Asnje skeme e hapur",
     openSchemaHint: "Hap ose krijo nje skeme per te shfaqur canvas ER.",
-    logoAria: "Logo buildER",
     projectSection: "Projekt",
     tipsSection: "Keshilla",
     projectName: "Emri i projektit",
