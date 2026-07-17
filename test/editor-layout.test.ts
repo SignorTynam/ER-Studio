@@ -27,6 +27,16 @@ function cssBlock(selector: string): string {
   return cssBlockFrom(editorCssSource, selector);
 }
 
+test("app shell aligns every workspace view directly below the header", () => {
+  assert.match(workspaceShellCssSource, /\.app-shell\.app-shell-view-er,/);
+  assert.match(workspaceShellCssSource, /\.app-shell\.app-shell-view-translation,/);
+  assert.match(workspaceShellCssSource, /\.app-shell\.app-shell-view-logical\s*\{/);
+  assert.match(
+    workspaceShellCssSource,
+    /grid-template-rows:\s*var\(--size-header\)\s+minmax\(0,\s*1fr\)\s+auto\s*!important/,
+  );
+});
+
 test("ER code panel renders inside the unified workspace activity panel", () => {
   assert.doesNotMatch(appSource, /designer-workspace code-open/);
   assert.match(appSource, /<div className="designer-workspace">/);

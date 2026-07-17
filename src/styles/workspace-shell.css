@@ -4,6 +4,13 @@
   background: var(--color-bg-app);
 }
 
+/* Keep legacy view-specific !important rows aligned with the real header. */
+.app-shell.app-shell-view-er,
+.app-shell.app-shell-view-translation,
+.app-shell.app-shell-view-logical {
+  grid-template-rows: var(--size-header) minmax(0, 1fr) auto !important;
+}
+
 .designer-topbar.app-command-topbar {
   min-height: var(--size-header);
   height: var(--size-header);

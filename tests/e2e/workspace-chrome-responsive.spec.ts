@@ -37,6 +37,29 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
   await expect(page.locator(".workspace-empty-editor")).toBeVisible();
 
   for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1180, height: 800 },
+    { width: 1179, height: 800 },
+    { width: 1024, height: 800 },
+    { width: 901, height: 800 },
+    { width: 900, height: 800 },
+    { width: 703, height: 861 },
+    { width: 640, height: 861 },
+    { width: 582, height: 861 },
+    { width: 480, height: 800 },
+    { width: 320, height: 568 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const headerWorkspaceGap = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>(".designer-topbar");
+      const workspace = document.querySelector<HTMLElement>(".app-workspace-region");
+      if (!header || !workspace) return Number.NaN;
+      return workspace.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+    });
+    expect(Math.abs(headerWorkspaceGap)).toBeLessThanOrEqual(0.5);
+  }
+
+  for (const viewport of [
     { width: 703, height: 861 },
     { width: 582, height: 861 },
     { width: 390, height: 844 },
