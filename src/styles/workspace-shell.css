@@ -526,6 +526,7 @@ svg.diagram-canvas {
 }
 
 .workspace-empty-editor {
+  grid-template-columns: minmax(0, 1fr);
   align-items: flex-start;
   justify-content: center;
   padding-top: clamp(52px, 12vh, 120px);
@@ -553,7 +554,19 @@ svg.diagram-canvas {
   object-fit: contain;
 }
 
+.workspace-empty-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  width: auto;
+  max-width: 100%;
+}
+
 .workspace-empty-editor__button {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
   min-width: 0;
   white-space: nowrap;
 }

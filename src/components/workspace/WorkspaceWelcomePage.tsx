@@ -61,20 +61,6 @@ export function WorkspaceWelcomePage({
       tone: "utility",
     },
   ];
-  const workflowSteps = [
-    {
-      title: t("workspaceWelcome.workflowModel"),
-      description: t("workspaceWelcome.workflowModelDescription"),
-    },
-    {
-      title: t("workspaceWelcome.workflowLogical"),
-      description: t("workspaceWelcome.workflowLogicalDescription"),
-    },
-    {
-      title: t("workspaceWelcome.workflowExport"),
-      description: t("workspaceWelcome.workflowExportDescription"),
-    },
-  ];
   const tips = [t("workspaceWelcome.tipExplorer"), t("workspaceWelcome.tipReverse"), t("workspaceWelcome.tipVersioning")];
 
   return (
@@ -132,21 +118,6 @@ export function WorkspaceWelcomePage({
                 <dd>{folderCount}</dd>
               </div>
             </dl>
-          </section>
-
-          <section className="workspace-welcome-panel workspace-welcome-workflow" aria-label={t("workspaceWelcome.workflowSection")}>
-            <h2>{t("workspaceWelcome.workflowSection")}</h2>
-            <ol>
-              {workflowSteps.map((step, index) => (
-                <li key={step.title}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{step.title}</strong>
-                    <p>{step.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
           </section>
 
           <section className="workspace-welcome-panel workspace-welcome-tips">

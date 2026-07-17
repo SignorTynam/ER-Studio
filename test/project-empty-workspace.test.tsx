@@ -31,6 +31,8 @@ test("WorkspaceWelcomePage renderizza start actions senza canvas", () => {
   assert.doesNotMatch(markup, />ER<\/span>/);
   assert.match(markup, /New schema|Nuovo schema/);
   assert.match(markup, /New note|Nuova nota/);
+  assert.match(markup, /workspace-welcome-tips/);
+  assert.doesNotMatch(markup, /workspace-welcome-workflow/);
   assert.doesNotMatch(markup, /diagram-canvas/);
 });
 

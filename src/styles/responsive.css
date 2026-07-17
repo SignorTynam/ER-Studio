@@ -46,6 +46,20 @@
     display: none;
   }
 
+  .designer-topbar-actions {
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .designer-topbar-actions .designer-icon-button,
+  .designer-topbar-actions .app-topbar-menu__icon-trigger {
+    width: var(--size-input);
+    min-width: var(--size-input);
+    height: var(--size-input);
+    min-height: var(--size-input);
+    padding: 0;
+  }
+
   .app-workspace-region {
     grid-template-columns: var(--size-activity-rail) minmax(0, 1fr) !important;
   }
