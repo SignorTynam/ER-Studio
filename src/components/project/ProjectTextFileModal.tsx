@@ -1,6 +1,6 @@
 import { useI18n } from "../../i18n/useI18n";
-import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { StudioIcon } from "../icons/StudioIcon";
+import { Button, Modal } from "../ui";
 
 interface ProjectTextFileModalProps {
   open: boolean;
@@ -21,24 +21,23 @@ export function ProjectTextFileModal({
   onClose,
 }: ProjectTextFileModalProps) {
   const { t } = useI18n();
-  useEscapeKey(open, onClose);
 
   if (!open) {
     return null;
   }
 
   return (
-    <div className="help-modal-backdrop project-text-file-modal-backdrop" role="presentation" onClick={onClose}>
-      <section
-        className="help-modal project-text-file-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="project-text-file-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="help-modal-head project-text-file-modal__header">
+    <Modal
+      open
+      onClose={onClose}
+      hideClose
+      backdropClassName="project-text-file-modal-backdrop"
+      className="project-text-file-modal"
+      ariaLabelledBy="project-text-file-modal-title"
+    >
+        <header className="ui-modal__head project-text-file-modal__header">
           <h2 id="project-text-file-modal-title">{t("textFileModal.title", { name: fileName })}</h2>
-          <button type="button" className="designer-icon-button" onClick={onClose} aria-label={t("textFileModal.close")}>
+          <button type="button" className="ui-modal__close" onClick={onClose} aria-label={t("textFileModal.close")}>
             <StudioIcon name="close" aria-hidden="true" />
           </button>
         </header>
@@ -52,11 +51,10 @@ export function ProjectTextFileModal({
         />
         {content.trim().length === 0 ? <p className="project-text-file-modal__empty">{t("textFileModal.empty")}</p> : null}
         <footer className="project-text-file-modal__footer">
-          <button type="button" className="header-button" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             {t("textFileModal.close")}
-          </button>
+          </Button>
         </footer>
-      </section>
-    </div>
+    </Modal>
   );
 }

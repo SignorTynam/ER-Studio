@@ -12437,13 +12437,16 @@ summary:focus-visible,
   background: var(--studio-surface);
 }
 
-.sql-reverse-modal {
+/* Fase C4b: card sulla Modal shell; doppia classe per la griglia e le metriche custom. */
+.ui-modal.sql-reverse-modal {
   width: min(860px, calc(100vw - 32px));
   max-height: min(88dvh, 820px);
-  border: 1px solid var(--studio-border);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid var(--color-border-default);
   border-radius: 0;
-  background: color-mix(in srgb, var(--studio-surface-strong) 96%, white);
-  box-shadow: var(--studio-shadow-floating);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-dialog);
   overflow: hidden;
 }
 

@@ -1706,9 +1706,11 @@ body.source-control-resizing * {
   z-index: 11000;
 }
 
-.project-text-file-modal {
+/* Fase C4b: card sulla Modal shell; doppia classe per la griglia e l'altezza fissa custom. */
+.ui-modal.project-text-file-modal {
   width: min(720px, calc(100vw - 48px));
   height: min(620px, calc(100vh - 72px));
+  max-height: min(620px, calc(100vh - 72px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
 }

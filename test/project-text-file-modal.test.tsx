@@ -28,7 +28,9 @@ test("ProjectTextFileModal renderizza editor note per file txt", () => {
   assert.match(markup, /textarea/);
   assert.match(markup, /Project note/);
   assert.match(markup, /project-text-file-modal/);
-  assert.match(source, /useEscapeKey\(open, onClose\)/);
+  // Fase C4b: Esc/backdrop/focus li gestisce la Modal shell condivisa.
+  assert.match(source, /<Modal[\s\S]*onClose=\{onClose\}/);
+  assert.match(markup, /role="dialog"/);
 });
 
 test("App apre txt e SQL nel WorkspaceTextEditor principale", () => {

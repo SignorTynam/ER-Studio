@@ -3,6 +3,7 @@ import { useI18n } from "../i18n/useI18n";
 import type { LogicalIssue } from "../types/logical";
 import type { SqlReverseIssue } from "../types/sqlReverse";
 import { StudioIcon } from "./icons/StudioIcon";
+import { Button, Modal } from "./ui";
 
 interface SqlReverseInputModalProps {
   sql: string;
@@ -73,14 +74,13 @@ export function SqlReverseInputModal({
   }
 
   return (
-    <div className="studio-modal-backdrop sql-reverse-modal-backdrop" role="presentation" onClick={onCancel}>
-      <div
-        className="studio-modal sql-reverse-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sql-reverse-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal
+      open
+      onClose={onCancel}
+      hideClose
+      className="sql-reverse-modal"
+      ariaLabelledBy="sql-reverse-modal-title"
+    >
         <div className="studio-modal__header sql-reverse-modal__header">
           <div>
             <div className="sql-reverse-modal__title-row">
@@ -172,16 +172,14 @@ export function SqlReverseInputModal({
             </button>
           </div>
           <div className="sql-reverse-modal__action-group sql-reverse-modal__action-group-primary">
-            <button type="button" className="header-button" onClick={onCancel}>
+            <Button variant="secondary" onClick={onCancel}>
               {t("sqlReverse.input.cancel")}
-            </button>
-            <button type="button" className="mode-button active" onClick={onAnalyze}>
-              <StudioIcon name="databaseReverse" aria-hidden="true" />
+            </Button>
+            <Button variant="primary" iconLeft="databaseReverse" onClick={onAnalyze}>
               {t("sqlReverse.input.analyze")}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
