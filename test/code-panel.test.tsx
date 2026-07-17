@@ -26,7 +26,10 @@ test("CodePanel embedded non mostra caption CODE ne bottone close", () => {
 
   assert.match(markup, /diagram-code-panel embedded/);
   assert.match(markup, /--line-number-digits:1/);
-  assert.match(markup, /textarea/);
+  assert.match(markup, /designer-code-line-numbers/);
+  assert.match(markup, /designer-code-highlight/);
+  assert.match(markup, /designer-code-input/);
+  assert.match(markup, /<textarea[^>]*wrap="off"/);
   assert.doesNotMatch(markup, />CODE</);
   assert.doesNotMatch(markup, /designer-panel-close/);
 });
@@ -90,21 +93,33 @@ test("CodePanel mostra schema relazionale read-only", () => {
 });
 
 test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {
-  const css = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
+  const embeddedCss = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
+  const editorCss = readFileSync(new URL("../src/styles/editor-refactor.css", import.meta.url), "utf8");
 
-  assert.match(css, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*100%/);
-  assert.doesNotMatch(css, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*auto/);
-  assert.match(css, /\.diagram-code-panel\.embedded\s*\{[\s\S]*padding:\s*0/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*height:\s*100%/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*flex:\s*1 1 0/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*padding:\s*0/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*--embedded-code-gutter-width:\s*clamp/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*grid-template-columns:\s*var\(--embedded-code-gutter-width\) minmax\(0,\s*1fr\)/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*background:[\s\S]*rgba\(238,\s*242,\s*237,\s*0\.86\)/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[\s\S]*height:\s*100%/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*max-width:\s*40px/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*height:\s*100%/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*background:\s*transparent/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-line-numbers::after\s*\{[\s\S]*flex:\s*1 1 auto/);
-  assert.match(css, /--line-number-digits/);
+  assert.match(embeddedCss, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*100%/);
+  assert.doesNotMatch(embeddedCss, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*auto/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded\s*\{[\s\S]*padding:\s*0/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*height:\s*100%/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*flex:\s*1 1 0/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*padding:\s*0/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*--embedded-code-gutter-width:\s*clamp/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*grid-template-columns:\s*var\(--embedded-code-gutter-width\) minmax\(0,\s*1fr\)/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*background:[\s\S]*rgba\(238,\s*242,\s*237,\s*0\.86\)/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[^}]*position:\s*relative/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[^}]*width:\s*100%/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[^}]*height:\s*100%/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-scroll-layer\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*?\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*position:\s*absolute/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*?\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*inset:\s*0/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*?\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*width:\s*100%/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*?\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*height:\s*100%/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*?\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*font:\s*inherit/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-highlight\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*overflow:\s*auto/);
+  assert.match(editorCss, /\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*resize:\s*none/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*max-width:\s*40px/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*height:\s*100%/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-line-numbers\s*\{[\s\S]*background:\s*transparent/);
+  assert.match(embeddedCss, /\.diagram-code-panel\.embedded \.designer-code-line-numbers::after\s*\{[\s\S]*flex:\s*1 1 auto/);
+  assert.match(embeddedCss, /--line-number-digits/);
 });

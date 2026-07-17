@@ -726,10 +726,12 @@ body {
   overflow: hidden;
 }
 
-.designer-code-highlight,
-.designer-code-input {
+.designer-code-scroll-layer > .designer-code-highlight,
+.designer-code-scroll-layer > .designer-code-input {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   margin: 0;
   padding: var(--code-editor-padding-y) var(--code-editor-padding-x) 24px;
@@ -740,14 +742,14 @@ body {
   tab-size: 2;
 }
 
-.designer-code-highlight {
+.designer-code-scroll-layer > .designer-code-highlight {
   overflow: hidden;
   pointer-events: none;
   color: #111111;
   background: transparent;
 }
 
-.designer-code-input {
+.designer-code-scroll-layer > .designer-code-input {
   overflow: auto;
   resize: none;
   background: transparent;
