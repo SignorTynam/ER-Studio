@@ -23,6 +23,7 @@ import {
 
 interface ParseContext {
   options: Required<SqlReverseOptions>;
+  sourceSql: string;
   issues: SqlReverseIssue[];
   nextIssueIndex: number;
 }
@@ -101,6 +102,7 @@ export function parseSqlSchema(
   };
   const context: ParseContext = {
     options: resolvedOptions,
+    sourceSql,
     issues: [],
     nextIssueIndex: 1,
   };
@@ -127,12 +129,17 @@ export function parseSqlSchema(
       message: unsupported.reason,
       statementIndex: statement.index,
       rawFragment: statement.raw,
+      sourceSpan: createSqlSourceSpan(sourceSql, statement.start, statement.end),
     });
   });
 
   validateDuplicateTables(tables, context);
   validateReferences(tables, context);
 
+  const resolvedIssues = context.issues.map((issue) => ({
+    ...issue,
+    sourceSpan: resolveIssueSourceSpan(issue, sourceSql, statements, tables),
+  }));
   const model: SqlSchemaModel = {
     id: "sql-schema-1",
     dialect: resolvedOptions.dialect,
@@ -140,7 +147,7 @@ export function parseSqlSchema(
     sourceSql,
     tables,
     unsupportedStatements,
-    issues: context.issues,
+    issues: resolvedIssues,
     meta: {
       generatedAt: new Date().toISOString(),
       tableCount: tables.length,
@@ -152,8 +159,49 @@ export function parseSqlSchema(
 
   return {
     model,
-    issues: context.issues,
+    issues: resolvedIssues,
   };
+}
+
+export function getSqlSourcePosition(sourceSql: string, offset: number): { line: number; column: number } {
+  const boundedOffset = Math.max(0, Math.min(offset, sourceSql.length));
+  const before = sourceSql.slice(0, boundedOffset);
+  const lines = before.split(/\r?\n/);
+  return {
+    line: lines.length,
+    column: (lines[lines.length - 1]?.length ?? 0) + 1,
+  };
+}
+
+export function createSqlSourceSpan(sourceSql: string, start: number, end: number): SqlSourceSpan {
+  const position = getSqlSourcePosition(sourceSql, start);
+  return {
+    start: Math.max(0, start),
+    end: Math.max(start, end),
+    line: position.line,
+    column: position.column,
+  };
+}
+
+function resolveIssueSourceSpan(
+  issue: SqlReverseIssue,
+  sourceSql: string,
+  statements: ParsedStatement[],
+  tables: SqlTableDefinition[],
+): SqlSourceSpan | undefined {
+  let span = issue.sourceSpan;
+  const table = issue.tableId ? tables.find((candidate) => candidate.id === issue.tableId) : undefined;
+  const column = issue.columnId ? table?.columns.find((candidate) => candidate.id === issue.columnId) : undefined;
+  const constraint = issue.constraintId && table
+    ? [table.primaryKey, ...table.foreignKeys, ...table.uniqueConstraints, ...table.checkConstraints, ...table.unsupportedConstraints]
+        .find((candidate) => candidate?.id === issue.constraintId)
+    : undefined;
+  span ??= column?.sourceSpan ?? constraint?.sourceSpan ?? table?.sourceSpan;
+  if (!span && typeof issue.statementIndex === "number") {
+    const statement = statements.find((candidate) => candidate.index === issue.statementIndex);
+    if (statement) span = { start: statement.start, end: statement.end };
+  }
+  return span ? createSqlSourceSpan(sourceSql, span.start, span.end) : undefined;
 }
 
 function splitSqlStatements(sourceSql: string): ParsedStatement[] {
@@ -491,8 +539,15 @@ function parseCreateTableBodyItem(input: {
     return;
   }
 
+  const leadingWhitespace = input.item.text.search(/\S/);
+  const trailingWhitespace = input.item.text.length - input.item.text.trimEnd().length;
+  const itemSourceSpan: SqlSourceSpan = {
+    start: input.statement.start + input.bodyOffset + input.item.start + Math.max(0, leadingWhitespace),
+    end: input.statement.start + input.bodyOffset + input.item.end - trailingWhitespace,
+  };
+
   if (/^CONSTRAINT\b/i.test(trimmed) || TABLE_CONSTRAINT_START.test(trimmed)) {
-    parseTableConstraint(input.table, trimmed, input.itemIndex, input.context, input.statement.index);
+    parseTableConstraint(input.table, trimmed, input.itemIndex, input.context, input.statement.index, itemSourceSpan);
     return;
   }
 
@@ -500,10 +555,7 @@ function parseCreateTableBodyItem(input: {
     rawDefinition: trimmed,
     table: input.table,
     columnIndex: input.table.columns.length,
-    sourceSpan: {
-      start: input.statement.start + input.bodyOffset + input.item.start,
-      end: input.statement.start + input.bodyOffset + input.item.end,
-    },
+    sourceSpan: itemSourceSpan,
     statementIndex: input.statement.index,
     context: input.context,
   });
@@ -529,6 +581,7 @@ function parseColumnDefinition(input: {
       statementIndex: input.statementIndex,
       tableId: input.table.id,
       rawFragment: input.rawDefinition,
+      sourceSpan: input.sourceSpan,
     });
     return null;
   }
@@ -559,6 +612,7 @@ function parseColumnDefinition(input: {
       tableId: input.table.id,
       columnId,
       rawFragment: input.rawDefinition,
+      sourceSpan: input.sourceSpan,
     });
   }
 
@@ -593,6 +647,7 @@ function parseColumnDefinition(input: {
         columnId,
         constraintId: constraint.id,
         rawFragment: constraint.raw,
+        sourceSpan: input.sourceSpan,
       });
     });
 
@@ -621,6 +676,7 @@ function parseTableConstraint(
   itemIndex: number,
   context: ParseContext,
   statementIndex: number,
+  sourceSpan: SqlSourceSpan,
 ): void {
   const prefixed = parseConstraintPrefix(raw);
   const definition = prefixed.definition.trim();
@@ -637,6 +693,7 @@ function parseTableConstraint(
         tableId: table.id,
         constraintId,
         rawFragment: raw,
+        sourceSpan,
       });
       return;
     }
@@ -646,6 +703,7 @@ function parseTableConstraint(
       tableId: table.id,
       columnNames,
       raw,
+      sourceSpan,
     };
     return;
   }
@@ -662,6 +720,7 @@ function parseTableConstraint(
         tableId: table.id,
         constraintId,
         rawFragment: raw,
+        sourceSpan,
       });
       return;
     }
@@ -676,6 +735,7 @@ function parseTableConstraint(
       onDelete: referenceTarget.onDelete,
       onUpdate: referenceTarget.onUpdate,
       raw,
+      sourceSpan,
     });
     return;
   }
@@ -691,6 +751,7 @@ function parseTableConstraint(
         tableId: table.id,
         constraintId,
         rawFragment: raw,
+        sourceSpan,
       });
       return;
     }
@@ -700,6 +761,7 @@ function parseTableConstraint(
       tableId: table.id,
       columnNames,
       raw,
+      sourceSpan,
     });
     return;
   }
@@ -711,6 +773,7 @@ function parseTableConstraint(
       tableId: table.id,
       expression: parseParenthesizedExpression(definition) ?? definition,
       raw,
+      sourceSpan,
     });
     return;
   }
@@ -722,6 +785,7 @@ function parseTableConstraint(
     name: prefixed.name,
     raw,
     reason: "Unsupported table constraint.",
+    sourceSpan,
   });
   addIssue(context, {
     level: "warning",
@@ -731,6 +795,7 @@ function parseTableConstraint(
     tableId: table.id,
     constraintId,
     rawFragment: raw,
+    sourceSpan,
   });
 }
 

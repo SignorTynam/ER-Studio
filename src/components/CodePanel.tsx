@@ -1,15 +1,19 @@
-import { useEffect, useRef } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties } from "react";
 import { useI18n } from "../i18n/useI18n";
-import { StudioIcon } from "./icons/StudioIcon";
-import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../utils/codeEditor";
+import type { EditorDiagnostic, EditorLanguage } from "../types/editor";
+import { buildLineNumbers } from "../utils/codeEditor";
+import { CodeEditorSurface } from "./editor/CodeEditorSurface";
+import { WorkspacePanelHeader } from "./workspace/WorkspacePanel";
 
 interface CodePanelProps {
   code: string;
-  language?: "ers" | "sql" | "relational";
+  language?: EditorLanguage;
   placeholder?: string;
   editable?: boolean;
+  readOnly?: boolean;
   parseError?: string;
+  diagnostics?: EditorDiagnostic[];
+  editorAriaLabel?: string;
   onCodeChange?: (value: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -19,179 +23,18 @@ interface CodePanelProps {
   showCloseButton?: boolean;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function highlightLine(line: string): string {
-  if (/^\s*(\/\*|\*|\/\/|#)/.test(line)) {
-    return `<span class="ers-token-comment">${escapeHtml(line)}</span>`;
-  }
-
-  const keywordPattern = /^(diagram|entity|relation|relationship|connector|attribute-link|attribute|identifier|multivalued|generalization|inheritance|external|connect|notes)$/i;
-  const modifierPattern = /^(id|fromIdentifier|local|card|one|zero|many|partial|total|disjoint|overlap)$/i;
-  const cardinalityPattern = /^\(?[0-9N]+,[0-9N]+\)?$/i;
-  const namePattern = /^[A-Z][A-Za-z0-9_]*$/;
-
-  return line
-    .split(/(\s+|"(?:\\.|[^"\\])*"|\([0-9N]+,[0-9N]+\)|[{}()[\],])/g)
-    .map((token) => {
-      if (!token) {
-        return "";
-      }
-      if (/^\s+$/.test(token)) {
-        return token;
-      }
-      const escaped = escapeHtml(token);
-      if (/^"/.test(token)) {
-        const body = token.slice(1, -1);
-        return cardinalityPattern.test(body)
-          ? `<span class="ers-token-card">${escaped}</span>`
-          : `<span class="ers-token-string">${escaped}</span>`;
-      }
-      if (cardinalityPattern.test(token)) {
-        return `<span class="ers-token-card">${escaped}</span>`;
-      }
-      if (keywordPattern.test(token)) {
-        return `<span class="ers-token-keyword">${escaped}</span>`;
-      }
-      if (modifierPattern.test(token)) {
-        return `<span class="ers-token-modifier">${escaped}</span>`;
-      }
-      if (namePattern.test(token)) {
-        return `<span class="ers-token-name">${escaped}</span>`;
-      }
-      return escaped;
-    })
-    .join("");
-}
-
-function highlightCode(code: string): string {
-  return code.split(/\r?\n/).map(highlightLine).join("\n");
-}
-
-function highlightSqlCode(code: string): string {
-  const tokenPattern =
-    /(--.*$|\/\*[\s\S]*?\*\/|\b(?:CREATE|TABLE|PRIMARY|KEY|FOREIGN|REFERENCES|DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)\b|\b(?:INT|INTEGER|VARCHAR|TEXT|DATE|BOOLEAN|NUMERIC|REAL|NVARCHAR|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BIT|NUMBER|VARBINARY)\b)/gim;
-  let highlighted = "";
-  let lastIndex = 0;
-
-  for (const match of code.matchAll(tokenPattern)) {
-    const token = match[0];
-    const index = match.index ?? 0;
-    highlighted += escapeHtml(code.slice(lastIndex, index));
-
-    const escaped = escapeHtml(token);
-    if (token.startsWith("--") || token.startsWith("/*")) {
-      highlighted += `<span class="sql-token-comment">${escaped}</span>`;
-    } else if (/^(INT|INTEGER|VARCHAR|TEXT|DATE|BOOLEAN|NUMERIC|REAL|NVARCHAR|DATETIME|TIMESTAMP|BLOB|CLOB|JSON|BIT|NUMBER|VARBINARY)$/i.test(token)) {
-      highlighted += `<span class="sql-token-type">${escaped}</span>`;
-    } else if (/^(DEFAULT|NOT|NULL|UNIQUE|CONSTRAINT|ON|DELETE|UPDATE|NO|ACTION)$/i.test(token)) {
-      highlighted += `<span class="sql-token-modifier">${escaped}</span>`;
-    } else {
-      highlighted += `<span class="sql-token-keyword">${escaped}</span>`;
-    }
-
-    lastIndex = index + token.length;
-  }
-
-  highlighted += escapeHtml(code.slice(lastIndex));
-  return highlighted;
-}
-
-function highlightRelationalSchemaCode(code: string): string {
-  return code
-    .split(/\r?\n/)
-    .map((line) => {
-      const tableMatch = line.match(/^([^(]+)(\()/);
-      if (tableMatch && tableMatch.index === 0) {
-        return `<span class="designer-relational-schema-table">${escapeHtml(tableMatch[1].trim())}</span><span class="designer-relational-schema-punctuation">(</span>${escapeHtml(line.slice(tableMatch[0].length))}`;
-      }
-      return escapeHtml(line);
-    })
-    .join("\n");
-}
-
 export function CodePanel(props: CodePanelProps) {
   const { t } = useI18n();
-  const editorRef = useRef<HTMLTextAreaElement | null>(null);
-  const highlightRef = useRef<HTMLPreElement | null>(null);
-  const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const language = props.language ?? "ers";
-  const isReadOnly = language !== "ers" || !props.editable || !props.onCodeChange;
-  const lineNumbers = buildLineNumbers(props.code);
-  const lineNumberDigits = String(lineNumbers.length).length;
-  const placeholder = props.placeholder ?? t("codePanel.placeholder");
+  const readOnly = props.readOnly ?? (!props.editable || !props.onCodeChange);
+  const lineNumberDigits = String(buildLineNumbers(props.code).length).length;
   const showHeader = props.showHeader ?? !props.embedded;
   const showCloseButton = props.showCloseButton ?? (!props.embedded && Boolean(props.onClose));
-  const highlightedCode =
-    language === "sql"
-      ? highlightSqlCode(props.code)
-      : language === "relational"
-        ? highlightRelationalSchemaCode(props.code)
-        : highlightCode(props.code);
-
-  function syncScroll() {
-    if (!editorRef.current || !highlightRef.current) {
-      return;
-    }
-
-    highlightRef.current.scrollTop = editorRef.current.scrollTop;
-    highlightRef.current.scrollLeft = editorRef.current.scrollLeft;
-    if (lineNumberRef.current) {
-      lineNumberRef.current.scrollTop = editorRef.current.scrollTop;
-    }
-  }
-
-  function moveCursor(selectionStart: number, selectionEnd = selectionStart) {
-    window.requestAnimationFrame(() => {
-      if (!editorRef.current) {
-        return;
-      }
-      editorRef.current.selectionStart = selectionStart;
-      editorRef.current.selectionEnd = selectionEnd;
-      syncScroll();
-    });
-  }
-
-  function applyEditorEdit(nextValue: string, selectionStart: number, selectionEnd = selectionStart) {
-    if (isReadOnly || !props.onCodeChange) {
-      return;
-    }
-    props.onCodeChange(nextValue);
-    moveCursor(selectionStart, selectionEnd);
-  }
-
-  function handleEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (isReadOnly || !props.onCodeChange || event.defaultPrevented || event.nativeEvent.isComposing) {
-      return;
-    }
-    if (event.ctrlKey || event.metaKey || event.altKey) {
-      return;
-    }
-
-    const editor = event.currentTarget;
-    const { selectionStart, selectionEnd, value } = editor;
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const edit = applyTabEdit(value, selectionStart, selectionEnd);
-      applyEditorEdit(edit.value, edit.selectionStart, edit.selectionEnd);
-      return;
-    }
-
-    const pairEdit = applyAutoPairEdit(value, selectionStart, selectionEnd, event.key);
-    if (pairEdit) {
-      event.preventDefault();
-      applyEditorEdit(pairEdit.value, pairEdit.selectionStart, pairEdit.selectionEnd);
-    }
-  }
-
-  useEffect(() => {
-    syncScroll();
-  }, [props.code]);
+  const diagnostics = props.diagnostics ?? (props.parseError ? [{
+    id: "code-panel-parse-error",
+    level: "error" as const,
+    message: props.parseError,
+  }] : []);
 
   return (
     <aside
@@ -200,50 +43,25 @@ export function CodePanel(props: CodePanelProps) {
       aria-label={t("codePanel.shellAria")}
     >
       {showHeader ? (
-        <div className="designer-panel-caption">
-          <span>{t("codePanel.title")}</span>
-          {showCloseButton ? (
-          <button type="button" className="designer-panel-close" onClick={props.onClose} aria-label={t("codePanel.closeAria")}>
-            <StudioIcon name="close" aria-hidden="true" />
-          </button>
-          ) : null}
-        </div>
+        <WorkspacePanelHeader
+          title={t("codePanel.title")}
+          badge={diagnostics.length || undefined}
+          badgeLabel={diagnostics.length ? t("codeEditor.diagnostic.count", { count: diagnostics.length }) : undefined}
+          onClose={showCloseButton ? props.onClose : undefined}
+          closeLabel={t("codePanel.closeAria")}
+        />
       ) : null}
-      <div className="designer-code-editor">
-        <div ref={lineNumberRef} className="designer-code-line-numbers" aria-hidden="true">
-          {lineNumbers.map((lineNumber) => (
-            <span key={lineNumber}>{lineNumber}</span>
-          ))}
-        </div>
-        <div className="designer-code-scroll-layer">
-          <pre
-            ref={highlightRef}
-            className="designer-code-highlight"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: highlightedCode }}
-          />
-          {props.code.length === 0 ? (
-            <div className="designer-code-placeholder" aria-hidden="true">
-              {placeholder}
-            </div>
-          ) : null}
-          <textarea
-            ref={editorRef}
-            className="designer-code-input"
-            value={props.code}
-            onChange={(event) => props.onCodeChange?.(event.target.value)}
-            onFocus={props.onFocus}
-            onBlur={props.onBlur}
-            onKeyDown={handleEditorKeyDown}
-            onScroll={syncScroll}
-            spellCheck={false}
-            wrap="off"
-            readOnly={isReadOnly}
-            aria-label={t("codePanel.editorAria")}
-          />
-        </div>
-      </div>
-      {props.parseError ? <div className="designer-code-error">{props.parseError}</div> : null}
+      <CodeEditorSurface
+        value={props.code}
+        language={language}
+        readOnly={readOnly}
+        onChange={props.onCodeChange}
+        onFocus={props.onFocus}
+        onBlur={props.onBlur}
+        placeholder={props.placeholder ?? t("codePanel.placeholder")}
+        ariaLabel={props.editorAriaLabel ?? t("codePanel.editorAria")}
+        diagnostics={diagnostics}
+      />
     </aside>
   );
 }

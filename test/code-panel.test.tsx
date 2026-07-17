@@ -59,6 +59,7 @@ test("CodePanel mostra SQL read-only con evidenziazione SQL", () => {
         embedded
         showHeader={false}
         language="sql"
+        readOnly
         code={"-- generated\nCREATE TABLE Course (\n  id INTEGER NOT NULL,\n  PRIMARY KEY (id)\n);"}
         editable
         onCodeChange={() => undefined}
@@ -70,6 +71,7 @@ test("CodePanel mostra SQL read-only con evidenziazione SQL", () => {
   assert.match(markup, /sql-token-keyword/);
   assert.match(markup, /sql-token-type/);
   assert.match(markup, /sql-token-modifier/);
+  assert.match(markup, /sql-token-punctuation/);
   assert.match(markup, /readOnly=""/i);
 });
 
@@ -80,7 +82,8 @@ test("CodePanel mostra schema relazionale read-only", () => {
         embedded
         showHeader={false}
         language="relational"
-        code={"COURSE( i\u0332d\u0332, code )"}
+        code={"COURSE(\n  i\u0332d\u0332,\n  department_id:DEPARTMENT\n)"}
+        readOnly
         editable
         onCodeChange={() => undefined}
       />
@@ -89,7 +92,31 @@ test("CodePanel mostra schema relazionale read-only", () => {
 
   assert.match(markup, /designer-relational-schema-table/);
   assert.match(markup, /designer-relational-schema-punctuation/);
+  assert.match(markup, /designer-relational-schema-primary-key/);
+  assert.match(markup, /designer-relational-schema-foreign-key/);
+  assert.match(markup, /designer-relational-schema-reference-separator/);
+  assert.match(markup, /designer-relational-schema-reference/);
   assert.match(markup, /readOnly=""/i);
+});
+
+test("CodePanel usa diagnostica inline senza blocco errore inferiore", () => {
+  const markup = renderToStaticMarkup(
+    <I18nProvider>
+      <CodePanel
+        embedded
+        code={"entity A {\n  broken\n}"}
+        editable
+        onCodeChange={() => undefined}
+        diagnostics={[{ id: "ers:2", level: "error", line: 2, message: "Sintassi non valida" }]}
+      />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /code-editor-line--error/);
+  assert.match(markup, /code-editor-gutter-line--error/);
+  assert.match(markup, /code-editor-diagnostic-popover/);
+  assert.match(markup, /Sintassi non valida/);
+  assert.doesNotMatch(markup, /designer-code-error/);
 });
 
 test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {

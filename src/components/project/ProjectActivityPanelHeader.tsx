@@ -7,6 +7,8 @@ interface ProjectActivityPanelHeaderProps {
   subtitle?: string;
   closeLabel: string;
   onClose: () => void;
+  badge?: number;
+  badgeLabel?: string;
   children?: ReactNode;
 }
 
@@ -14,12 +16,16 @@ export function ProjectActivityPanelHeader({
   title,
   closeLabel,
   onClose,
+  badge,
+  badgeLabel,
   children,
 }: ProjectActivityPanelHeaderProps) {
   return (
     <WorkspacePanelHeader
       className="project-activity-section__header"
       title={title}
+      badge={badge}
+      badgeLabel={badgeLabel}
       closeLabel={closeLabel}
       onClose={onClose}
     >

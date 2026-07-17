@@ -1,23 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  SQL_REVERSE_BETA_UNSUPPORTED_MESSAGE,
-  validateSqlReverseBetaSource,
-} from "../src/utils/sqlReverseBetaValidation.ts";
+import { validateSqlReverseBetaSource } from "../src/utils/sqlReverseBetaValidation.ts";
 
 test("sql reverse beta validation: empty SQL is rejected", () => {
   const result = validateSqlReverseBetaSource("   ");
 
   assert.equal(result.ok, false);
-  assert.equal(result.errorMessage, "Incolla uno schema SQL prima di analizzarlo.");
+  assert.equal(result.errorCode, "empty-source");
 });
 
 test("sql reverse beta validation: SQL without CREATE TABLE is rejected", () => {
   const result = validateSqlReverseBetaSource("SELECT 1;");
 
   assert.equal(result.ok, false);
-  assert.equal(result.errorMessage, "Incolla almeno una istruzione CREATE TABLE prima di analizzare lo schema.");
+  assert.equal(result.errorCode, "missing-create-table");
 });
 
 test("sql reverse beta validation: valid CREATE TABLE is accepted", () => {
@@ -29,7 +26,7 @@ test("sql reverse beta validation: valid CREATE TABLE is accepted", () => {
   `);
 
   assert.equal(result.ok, true);
-  assert.equal(result.errorMessage, "");
+  assert.equal(result.errorCode, null);
 });
 
 test("sql reverse beta validation: CREATE TABLE with unsupported statements is blocked", () => {
@@ -43,7 +40,7 @@ test("sql reverse beta validation: CREATE TABLE with unsupported statements is b
     const result = validateSqlReverseBetaSource(sql);
 
     assert.equal(result.ok, false);
-    assert.equal(result.errorMessage, SQL_REVERSE_BETA_UNSUPPORTED_MESSAGE);
+    assert.equal(result.errorCode, "unsupported-statement");
     assert.equal(result.unsupportedStatementCount > 0, true);
   });
 });

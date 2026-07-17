@@ -144,4 +144,38 @@
   .bottom-status-file {
     display: none;
   }
+
+  .workspace-panel__header {
+    padding-right: var(--space-1);
+  }
+
+  .code-activity-panel__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .code-activity-panel__mode-tabs {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .code-activity-panel__dialect,
+  .code-activity-panel__dialect select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sql-reverse-panel__footer {
+    gap: var(--space-1);
+  }
+
+  .sql-reverse-panel__footer .project-activity-action {
+    min-width: 0;
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .code-editor-diagnostic-popover {
+    right: var(--space-1);
+    left: var(--space-1);
+  }
 }

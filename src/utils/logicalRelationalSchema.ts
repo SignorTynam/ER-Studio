@@ -49,7 +49,10 @@ export function generateLogicalRelationalSchema(model: LogicalModel): string {
         const columnName = attribute.isPrimaryKey ? underlineRelationalIdentifier(attribute.columnName) : attribute.columnName;
         return attribute.targetTableName ? `${columnName}:${attribute.targetTableName}` : columnName;
       });
-      return `${table.tableName}( ${attributes.join(", ")} )`;
+      if (attributes.length === 0) {
+        return `${table.tableName}(\n)`;
+      }
+      return `${table.tableName}(\n${attributes.map((attribute, index) => `  ${attribute}${index < attributes.length - 1 ? "," : ""}`).join("\n")}\n)`;
     })
     .join("\n\n");
 }

@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import type { LogicalIssue } from "../../types/logical";
+import type { EditorDiagnostic } from "../../types/editor";
 import type { SqlReverseIssue } from "../../types/sqlReverse";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
-import { WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
+import { CodeEditorSurface } from "../editor/CodeEditorSurface";
+import { PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 
 interface SqlReversePanelProps {
   sql: string;
@@ -13,6 +15,7 @@ interface SqlReversePanelProps {
   tableCount: number;
   unsupportedStatementCount: number;
   isPreviewReady: boolean;
+  sourceFileName?: string;
   onSqlChange: (value: string) => void;
   onAnalyze: () => void;
   onLoadFile: (file: File) => void;
@@ -21,8 +24,31 @@ interface SqlReversePanelProps {
   closeLabel?: string;
 }
 
-function formatIssue(issue: SqlReverseIssue | LogicalIssue): string {
-  return issue.message;
+function buildDiagnostics(
+  errorMessage: string,
+  issues: SqlReverseIssue[],
+  logicalIssues: LogicalIssue[],
+): EditorDiagnostic[] {
+  const diagnostics: EditorDiagnostic[] = [
+    ...issues.map((issue) => ({
+      id: issue.id,
+      level: issue.level,
+      message: issue.message,
+      line: issue.sourceSpan?.line,
+      column: issue.sourceSpan?.column,
+      startOffset: issue.sourceSpan?.start,
+      endOffset: issue.sourceSpan?.end,
+    })),
+    ...logicalIssues.map((issue) => ({
+      id: `logical:${issue.id}`,
+      level: issue.level,
+      message: issue.message,
+    })),
+  ];
+  if (errorMessage && !diagnostics.some((diagnostic) => diagnostic.level === "error" && diagnostic.message === errorMessage)) {
+    diagnostics.unshift({ id: "sql-reverse-error", level: "error", message: errorMessage });
+  }
+  return diagnostics;
 }
 
 export function SqlReversePanel({
@@ -33,6 +59,7 @@ export function SqlReversePanel({
   tableCount,
   unsupportedStatementCount,
   isPreviewReady,
+  sourceFileName,
   onSqlChange,
   onAnalyze,
   onLoadFile,
@@ -42,91 +69,56 @@ export function SqlReversePanel({
 }: SqlReversePanelProps) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const visibleIssues = [...issues, ...logicalIssues];
-  const hasBlockingIssue = Boolean(errorMessage || visibleIssues.some((issue) => issue.level === "error"));
-  const progressState = isPreviewReady ? 3 : tableCount > 0 && !hasBlockingIssue ? 2 : sql.trim() ? 1 : 0;
-  const progressSteps = [
-    t("sqlReversePanel.steps.input"),
-    t("sqlReversePanel.steps.validation"),
-    t("sqlReversePanel.steps.preview"),
-    t("sqlReversePanel.steps.apply"),
-  ];
+  const diagnostics = buildDiagnostics(errorMessage, issues, logicalIssues);
+  const lineCount = Math.max(1, sql.split(/\r?\n/).length);
 
   return (
     <WorkspacePanel className="sql-reverse-panel" label={t("sqlReversePanel.title")}>
       <WorkspacePanelHeader
-        className="sql-reverse-panel__header"
         title={t("sqlReversePanel.title")}
-        badge={visibleIssues.length || undefined}
+        badge={diagnostics.length || undefined}
+        badgeLabel={diagnostics.length ? t("codeEditor.diagnostic.count", { count: diagnostics.length }) : undefined}
         onClose={onClose}
         closeLabel={closeLabel ?? t("workspaceActivity.closePanel")}
       >
-          <button
-            type="button"
-            className="project-activity-action compact"
-            onClick={() => fileInputRef.current?.click()}
-            aria-label={t("sqlReversePanel.importFile")}
-            title={t("sqlReversePanel.importFile")}
-          >
-            <StudioIcon name="upload" aria-hidden="true" />
-            <span>{t("sqlReversePanel.importFile")}</span>
-          </button>
+        <PanelIconButton
+          icon="upload"
+          label={t("sqlReversePanel.importFile")}
+          onClick={() => fileInputRef.current?.click()}
+        />
         <input
           ref={fileInputRef}
           className="hidden-input"
           type="file"
           accept=".sql,text/sql,text/plain"
+          aria-label={t("sqlReversePanel.importFile")}
           onChange={(event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
-            if (file) {
-              onLoadFile(file);
-            }
+            if (file) onLoadFile(file);
           }}
         />
       </WorkspacePanelHeader>
 
-      <ol className="sql-reverse-progress" aria-label={t("sqlReversePanel.progressAria")}>
-        {progressSteps.map((label, index) => (
-          <li
-            key={label}
-            className={index < progressState ? "complete" : index === progressState ? "active" : "pending"}
-            aria-current={index === progressState ? "step" : undefined}
-            title={label}
-          >
-            <span aria-hidden="true">{index + 1}</span>
-            <small>{label}</small>
-          </li>
-        ))}
-      </ol>
-
-      <textarea
-        className="sql-reverse-panel__editor"
-        value={sql}
-        onChange={(event) => onSqlChange(event.target.value)}
-        placeholder={t("sqlReversePanel.placeholder")}
-        spellCheck={false}
-      />
-
-      <div className="sql-reverse-panel__meta">
-        <span>{t("sqlReversePanel.tables", { count: tableCount })}</span>
-        {unsupportedStatementCount > 0 ? (
-          <span>{t("sqlReversePanel.unsupported", { count: unsupportedStatementCount })}</span>
-        ) : null}
-        {isPreviewReady ? <span>{t("sqlReversePanel.previewReady")}</span> : null}
+      <div className="sql-reverse-panel__editor-surface">
+        <CodeEditorSurface
+          value={sql}
+          language="sql"
+          readOnly={false}
+          onChange={onSqlChange}
+          placeholder={t("sqlReversePanel.placeholder")}
+          ariaLabel={t("codeEditor.sqlReverseAria")}
+          diagnostics={diagnostics}
+        />
       </div>
 
-      {errorMessage ? <p className="sql-reverse-panel__error">{errorMessage}</p> : null}
-      {visibleIssues.length > 0 ? (
-        <div className="sql-reverse-panel__issues">
-          {visibleIssues.map((issue) => (
-            <p key={issue.id} className={`sql-reverse-panel__issue level-${issue.level}`}>
-              <StudioIcon name={issue.level === "error" ? "error" : "warning"} aria-hidden="true" />
-              <span>{formatIssue(issue)}</span>
-            </p>
-          ))}
-        </div>
-      ) : null}
+      <div className="sql-reverse-panel__meta" aria-label={t("codeEditor.status")}>
+        <span>{t("workspaceChrome.lineCount", { count: lineCount })}</span>
+        <span>{sourceFileName ?? t("codeEditor.draftUnbound")}</span>
+        {isPreviewReady ? <span>{t("sqlReversePanel.tables", { count: tableCount })}</span> : null}
+        {unsupportedStatementCount > 0 ? <span>{t("sqlReversePanel.unsupported", { count: unsupportedStatementCount })}</span> : null}
+        {diagnostics.length > 0 ? <span>{t("codeEditor.diagnostic.count", { count: diagnostics.length })}</span> : null}
+      </div>
 
       <footer className="sql-reverse-panel__footer">
         <button type="button" className="project-activity-action" onClick={onClear}>

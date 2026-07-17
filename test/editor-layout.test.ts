@@ -134,7 +134,7 @@ test("ER code panel body fills available height even when SQL toolbar is absent"
 
   assert.match(
     projectExplorerCssSource,
-    /\.project-activity-section\.code-activity-panel > \.project-activity-section__header,\s*\.project-activity-section\.code-activity-panel > \.code-activity-panel__toolbar\s*\{[\s\S]*flex:\s*0 0 auto/,
+    /\.project-activity-section\.code-activity-panel > \.workspace-panel__header,\s*\.project-activity-section\.code-activity-panel > \.code-activity-panel__toolbar\s*\{[\s\S]*flex:\s*0 0 auto/,
   );
 
   const codeActivityBodyBlock = cssBlockFrom(projectExplorerCssSource, ".code-activity-panel__body");

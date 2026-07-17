@@ -356,7 +356,7 @@
   height: 100%;
 }
 
-.project-activity-section.code-activity-panel > .project-activity-section__header,
+.project-activity-section.code-activity-panel > .workspace-panel__header,
 .project-activity-section.code-activity-panel > .code-activity-panel__toolbar {
   flex: 0 0 auto;
 }
@@ -368,36 +368,6 @@
   min-height: 0;
   height: auto;
   overflow: hidden;
-}
-
-.project-activity-section__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 12px 10px;
-  border-bottom: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
-}
-
-.project-activity-section__header--with-close,
-.source-control-header,
-.sql-reverse-panel__header {
-  justify-content: space-between;
-}
-
-.project-activity-section__header > div:first-child {
-  min-width: 0;
-  flex: 1;
-}
-
-.project-activity-section__header-actions {
-  flex: 0 0 auto;
-}
-
-.project-activity-section__header-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .project-activity-header-close {
@@ -417,20 +387,6 @@
   border-color: var(--editor-border);
   background: var(--editor-panel-muted);
   color: var(--editor-text-strong);
-}
-
-.project-activity-section__header h2 {
-  margin: 0;
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  color: var(--editor-text-strong);
-}
-
-.project-activity-section__header p {
-  margin: 4px 0 0;
-  color: var(--editor-text-muted);
-  font-size: 0.78rem;
-  line-height: 1.4;
 }
 
 .project-activity-actions,
@@ -725,10 +681,6 @@
   padding-left: 8px;
 }
 
-.project-activity-content .diagram-code-panel.embedded .designer-code-error {
-  margin: 8px 10px;
-}
-
 .source-control-panel,
 .sql-reverse-panel {
   display: flex;
@@ -737,29 +689,6 @@
   min-height: 0;
   background: var(--editor-panel);
   color: var(--editor-text);
-}
-
-.source-control-header,
-.sql-reverse-panel__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--editor-border);
-  background: var(--editor-panel-strong);
-}
-
-.source-control-header h2,
-.sql-reverse-panel__header h2 {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--editor-text-strong);
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .source-control-icon-button {
@@ -844,8 +773,7 @@
   white-space: nowrap;
 }
 
-.source-control-commit-input,
-.sql-reverse-panel__editor {
+.source-control-commit-input {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--editor-border);
@@ -1131,61 +1059,6 @@ body.source-control-resizing * {
 .source-control-action-button.is-danger {
   border-color: color-mix(in srgb, var(--color-danger) 44%, transparent);
   color: var(--color-danger);
-}
-
-.sql-reverse-panel__header {
-  justify-content: space-between;
-}
-
-.sql-reverse-panel__editor {
-  flex: 1;
-  min-height: 0;
-  padding: 10px;
-  border-width: 0 0 1px;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.82rem;
-  line-height: 1.55;
-}
-
-.sql-reverse-panel__meta,
-.sql-reverse-panel__footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--editor-border);
-}
-
-.sql-reverse-panel__meta {
-  flex-wrap: wrap;
-  color: var(--editor-text-muted);
-  font-size: 0.74rem;
-}
-
-.sql-reverse-panel__footer {
-  justify-content: space-between;
-}
-
-.sql-reverse-panel__error,
-.sql-reverse-panel__issue {
-  margin: 0;
-  padding: 8px 10px;
-  color: var(--editor-text-muted);
-  font-size: 0.78rem;
-}
-
-.sql-reverse-panel__error,
-.sql-reverse-panel__issue.level-error {
-  color: var(--studio-danger);
-}
-
-.sql-reverse-panel__issue.level-warning {
-  color: var(--studio-warning);
-}
-
-.sql-reverse-panel__issue {
-  display: flex;
-  gap: 6px;
 }
 
 .project-explorer-header {
@@ -1888,42 +1761,8 @@ body.source-control-resizing * {
   background: var(--color-bg-sidebar);
 }
 
-/* Fase C2: header di pannello unificati (una riga, 36px, azioni a destra). */
-.project-activity-section__header,
-.source-control-header,
-.sql-reverse-panel__header {
-  min-height: var(--size-panel-header);
-  align-items: center;
-  padding: 0 var(--space-2) 0 var(--space-3);
-  background: var(--color-bg-panel);
-}
-
-.project-activity-section__header > div:first-child {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .project-activity-section__marker {
   display: none;
-}
-
-.project-activity-section__header h2 {
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-activity-section__header p {
-  display: none;
-}
-
-.project-activity-section__header-actions {
-  align-items: center;
 }
 
 .project-activity-header-close {
@@ -2092,14 +1931,12 @@ body.source-control-resizing * {
   background: var(--editor-panel-muted);
 }
 
-.source-control-commit-input,
-.sql-reverse-panel__editor {
+.source-control-commit-input {
   border-color: var(--color-border-default);
   background: var(--color-bg-elevated);
 }
 
-.source-control-commit-input:focus,
-.sql-reverse-panel__editor:focus {
+.source-control-commit-input:focus {
   outline: 2px solid var(--studio-focus-ring);
   outline-offset: -2px;
 }
@@ -2130,21 +1967,6 @@ body.source-control-resizing * {
 .source-control-graph-row:hover,
 .source-control-graph-row:focus-visible {
   border-color: var(--editor-border);
-}
-
-.sql-reverse-panel__editor {
-  padding: 12px;
-}
-
-.sql-reverse-panel__meta,
-.sql-reverse-panel__footer {
-  background: color-mix(in srgb, var(--editor-panel) 88%, var(--studio-surface-muted) 12%);
-}
-
-.sql-reverse-panel__issue {
-  margin: 6px 10px;
-  border: 1px solid var(--editor-border);
-  background: var(--workspace-card-bg);
 }
 
 .project-file-tabs {

@@ -156,7 +156,7 @@ interface StructuredConnectionSpec {
   line: number;
 }
 
-class ErsParseError extends Error {
+export class ErsParseError extends Error {
   readonly line: number;
   readonly detail: string;
 

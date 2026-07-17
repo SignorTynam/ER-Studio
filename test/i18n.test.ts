@@ -597,7 +597,7 @@ test("workspace redesign strings exist in English, Italian, and Albanian", () =>
     "projectTabs.closeModifiedTitle",
     "sourceControl.expandHistory",
     "sourceControl.details.statsValue",
-    "sqlReversePanel.steps.validation",
+    "codeEditor.diagnostic.errorAtLine",
     "bottomStatus.projectLabel",
     "bottomStatus.zoomLabel",
   ];

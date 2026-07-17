@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseSqlSchema } from "../src/utils/sqlReverseParser.ts";
+import { getSqlSourcePosition, parseSqlSchema } from "../src/utils/sqlReverseParser.ts";
 
 test("sql reverse parser: parses create table columns and inline constraints", () => {
   const result = parseSqlSchema(`
@@ -238,4 +238,43 @@ test("sql reverse parser: parses named table-level unique constraints", () => {
   assert.equal(account?.uniqueConstraints.length, 1);
   assert.equal(account?.uniqueConstraints[0]?.name, "uq_user_tenant_email");
   assert.deepEqual(account?.uniqueConstraints[0]?.columnNames, ["tenant_id", "email"]);
+});
+
+test("sql reverse parser: converts zero-based offsets to one-based line and column with CRLF", () => {
+  assert.deepEqual(getSqlSourcePosition("first\r\nsecond\r\nthird", 7), { line: 2, column: 1 });
+  assert.deepEqual(getSqlSourcePosition("first\r\nsecond", 10), { line: 2, column: 4 });
+});
+
+test("sql reverse parser: attaches source spans to parser and validation issues", () => {
+  const samples = [
+    "-- header\r\nSELECT 1;",
+    "CREATE TABLE Broken;",
+    "CREATE TABLE Broken (\n  id INTEGER",
+    "CREATE TABLE (id INTEGER);",
+    "CREATE TABLE Broken (\n  id\n);",
+    "CREATE TABLE Broken (\n  id INTEGER COLLATE nocase\n);",
+    "CREATE TABLE Broken (\n  FOREIGN KEY () REFERENCES Other(id)\n);",
+    "CREATE TABLE Broken (\n  other_id INTEGER REFERENCES Missing(id)\n);",
+    "CREATE TABLE Broken (\n  id INTEGER,\n  id TEXT\n);",
+  ];
+
+  samples.forEach((sql) => {
+    const result = parseSqlSchema(sql);
+    assert.equal(result.issues.length > 0, true, sql);
+    result.issues.forEach((issue) => {
+      assert.ok(issue.sourceSpan, `${issue.code} has no source span`);
+      assert.equal((issue.sourceSpan?.line ?? 0) >= 1, true);
+      assert.equal((issue.sourceSpan?.column ?? 0) >= 1, true);
+      assert.equal((issue.sourceSpan?.end ?? 0) >= (issue.sourceSpan?.start ?? 0), true);
+    });
+  });
+});
+
+test("sql reverse parser: keeps quoted identifiers and comments aligned to real source lines", () => {
+  const sql = "/* preface */\r\nCREATE TABLE \"Quoted Table\" (\r\n  \"id value\"\r\n);";
+  const result = parseSqlSchema(sql);
+  const missingType = result.issues.find((issue) => issue.code === "MISSING_COLUMN_TYPE");
+  assert.ok(missingType?.sourceSpan);
+  assert.equal(missingType.sourceSpan.line, 3);
+  assert.equal(missingType.sourceSpan.column, 3);
 });

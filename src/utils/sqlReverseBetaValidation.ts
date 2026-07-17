@@ -4,13 +4,10 @@ import { parseSqlSchema } from "./sqlReverseParser";
 export interface SqlReverseBetaValidationResult {
   ok: boolean;
   normalizedSql: string;
-  errorMessage: string;
+  errorCode: "empty-source" | "missing-create-table" | "unsupported-statement" | null;
   issues: SqlReverseIssue[];
   unsupportedStatementCount: number;
 }
-
-export const SQL_REVERSE_BETA_UNSUPPORTED_MESSAGE =
-  "La beta accetta solo CREATE TABLE. Rimuovi gli statement non supportati e riprova.";
 
 export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaValidationResult {
   const normalizedSql = sourceSql.trim();
@@ -19,7 +16,7 @@ export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaV
     return {
       ok: false,
       normalizedSql,
-      errorMessage: "Incolla uno schema SQL prima di analizzarlo.",
+      errorCode: "empty-source",
       issues: [],
       unsupportedStatementCount: 0,
     };
@@ -29,7 +26,7 @@ export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaV
     return {
       ok: false,
       normalizedSql,
-      errorMessage: "Incolla almeno una istruzione CREATE TABLE prima di analizzare lo schema.",
+      errorCode: "missing-create-table",
       issues: [],
       unsupportedStatementCount: 0,
     };
@@ -40,7 +37,7 @@ export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaV
     return {
       ok: false,
       normalizedSql,
-      errorMessage: SQL_REVERSE_BETA_UNSUPPORTED_MESSAGE,
+      errorCode: "unsupported-statement",
       issues: parsed.issues,
       unsupportedStatementCount: parsed.model.unsupportedStatements.length,
     };
@@ -49,7 +46,7 @@ export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaV
   return {
     ok: true,
     normalizedSql,
-    errorMessage: "",
+    errorCode: null,
     issues: parsed.issues,
     unsupportedStatementCount: 0,
   };

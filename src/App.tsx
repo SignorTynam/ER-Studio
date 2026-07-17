@@ -19,7 +19,7 @@ import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceEditorHeader } from "./components/workspace/WorkspaceEditorHeader";
-import { PanelEmptyState, WorkspacePanel, WorkspacePanelHeader } from "./components/workspace/WorkspacePanel";
+import { PanelEmptyState, PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "./components/workspace/WorkspacePanel";
 import { WorkspaceTextEditor } from "./components/workspace/WorkspaceTextEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { SourceControlPanel } from "./components/versioning/SourceControlPanel";
@@ -84,6 +84,7 @@ import type {
   WorkspaceView,
 } from "./types/translation";
 import type { ProjectWorkspaceFile } from "./types/projectExplorer";
+import type { EditorDiagnostic } from "./types/editor";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -133,7 +134,7 @@ import {
   withMinimumNodeSizeForLabel,
   withPreferredNodeSizeForLabel,
 } from "./utils/diagram";
-import { parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
+import { ErsParseError, parseErsDiagram, serializeDiagramToErs } from "./utils/ers";
 import { shouldSyncCodeDraftFromDiagram } from "./utils/codeEditor";
 import {
   createDiagramClipboardPayload,
@@ -188,6 +189,7 @@ import {
 import { generateLogicalRelationalSchema } from "./utils/logicalRelationalSchema";
 import { reverseSqlToDiagram, type SqlReverseDiagramResult } from "./utils/sqlReverseDiagram";
 import { validateSqlReverseBetaSource } from "./utils/sqlReverseBetaValidation";
+import { importSqlReverseSourceFile, updateSqlReverseSourceFile } from "./utils/sqlReverseWorkspace";
 import {
   createEmptyProjectVersioningState,
   createProjectCommitSnapshot,
@@ -309,10 +311,16 @@ function createFallbackChangelogEntry(
   };
 }
 
-function createInitialSqlReverseWorkflowState(sourceSql = ""): SqlReverseWorkflowState {
+function createInitialSqlReverseWorkflowState(
+  sourceSql = "",
+  sourceFileId: string | null = null,
+  sourceFileName?: string,
+): SqlReverseWorkflowState {
   return {
     step: "idle",
     sourceSql,
+    sourceFileId,
+    sourceFileName,
     result: null,
     issues: [],
     logicalIssues: [],
@@ -388,6 +396,8 @@ type SqlReverseWorkflowStep = "idle" | "input" | "logical-preview" | "er-preview
 interface SqlReverseWorkflowState {
   step: SqlReverseWorkflowStep;
   sourceSql: string;
+  sourceFileId: string | null;
+  sourceFileName?: string;
   result: SqlReverseDiagramResult | null;
   issues: SqlReverseIssue[];
   logicalIssues: LogicalIssue[];
@@ -974,7 +984,7 @@ export default function App() {
   const [errorsPanelOpen, setErrorsPanelOpen] = useState(false);
   const [codeDraft, setCodeDraft] = useState(() => initialSerializedCode);
   const [codeDirty, setCodeDirty] = useState(sessionBootstrap.codeDirty);
-  const [codeError, setCodeError] = useState("");
+  const [codeDiagnostics, setCodeDiagnostics] = useState<EditorDiagnostic[]>([]);
   const {
     technicalPanelOpen,
     setTechnicalPanelOpen,
@@ -1046,6 +1056,7 @@ export default function App() {
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
   const codeEditorFocusedRef = useRef(false);
+  const lastCodeDiagnosticNoticeRef = useRef("");
   const codeLayoutMemoryRef = useRef<DiagramDocument | null>(null);
   const suppressNextCodeSyncRef = useRef(false);
   const latestDiagramRef = useRef(history.present);
@@ -1171,7 +1182,7 @@ export default function App() {
   const codePanelContent =
     codePanelMode === "sql" ? logicalSqlCode : codePanelMode === "relational" ? logicalRelationalSchemaCode : codeDraft;
   const codePanelEditable = codePanelMode === "ers" && mode === "edit";
-  const codePanelParseError = codePanelMode === "ers" ? codeError : "";
+  const codePanelDiagnostics = codePanelMode === "ers" ? codeDiagnostics : [];
   const selectionItemCount = selection.nodeIds.length + selection.edgeIds.length;
   const hasSelection = selectionItemCount > 0;
   const activeCanUndo =
@@ -2118,8 +2129,8 @@ export default function App() {
       isPreviewReady: false,
     }));
     setProjectExplorer((current) => {
-      const activeSqlFileId = getActiveSqlFileId(current);
-      return activeSqlFileId ? updateSqlFileContent(activeSqlFileId, value, current) : current;
+      const sourceFileId = sqlReverseWorkflow.sourceFileId;
+      return updateSqlReverseSourceFile(current, sourceFileId, value);
     });
     hasUnsavedChangesRef.current = true;
   }
@@ -2140,22 +2151,33 @@ export default function App() {
     setActiveActivityPanel("reverse");
     setWorkspaceActivityOpen(true);
     setSqlReverseWorkflow((current) => ({
-      ...createInitialSqlReverseWorkflowState(current.sourceSql),
+      ...createInitialSqlReverseWorkflowState(current.sourceSql, current.sourceFileId, current.sourceFileName),
       step: "idle",
     }));
   }
 
   function handleCancelSqlReverseWorkflow() {
-    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(
+      current.sourceSql,
+      current.sourceFileId,
+      current.sourceFileName,
+    ));
     setStatusWarning(t("sqlReverse.app.importCancelled"));
   }
 
   function handleAnalyzeSqlReverseWorkflow() {
     const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+    const validationMessage = validation.errorCode === "empty-source"
+      ? t("sqlReverse.app.emptyFile")
+      : validation.errorCode === "missing-create-table"
+        ? t("sqlReverse.app.fileNotCreateTable")
+        : validation.errorCode === "unsupported-statement"
+          ? t("sqlReverse.app.betaCreateTableOnly")
+          : "";
     if (validation.normalizedSql && validation.normalizedSql !== sqlReverseWorkflow.sourceSql) {
       setProjectExplorer((current) => {
-        const activeSqlFileId = getActiveSqlFileId(current);
-        return activeSqlFileId ? updateSqlFileContent(activeSqlFileId, validation.normalizedSql, current) : current;
+        const sourceFileId = sqlReverseWorkflow.sourceFileId;
+        return updateSqlReverseSourceFile(current, sourceFileId, validation.normalizedSql);
       });
     }
     if (!validation.ok) {
@@ -2167,10 +2189,10 @@ export default function App() {
         logicalIssues: [],
         tableCount: 0,
         unsupportedStatementCount: validation.unsupportedStatementCount,
-        errorMessage: validation.errorMessage,
+        errorMessage: validationMessage,
         isPreviewReady: false,
       }));
-      setStatusWarning(validation.errorMessage);
+      setStatusWarning(validationMessage);
       return;
     }
 
@@ -2302,13 +2324,12 @@ export default function App() {
       preview.logicalModel,
     );
     const synced = syncActiveSchemaToProject();
-    const activeSqlFileId = getActiveSqlFileId(synced);
-    const activeSqlFile = activeSqlFileId ? synced.files[activeSqlFileId] : undefined;
+    const sourceSqlFile = sqlReverseWorkflow.sourceFileId ? synced.files[sqlReverseWorkflow.sourceFileId] : undefined;
     const generatedName = getUniqueProjectNodeName(
       synced.project,
       synced.project.rootId,
       ensureProjectFileExtension(
-        activeSqlFile?.name ? stripKnownProjectExtension(activeSqlFile.name) : t("sqlReverse.generatedSchemaName"),
+        sourceSqlFile?.name ? stripKnownProjectExtension(sourceSqlFile.name) : t("sqlReverse.generatedSchemaName"),
         "schema",
       ),
     );
@@ -2339,7 +2360,11 @@ export default function App() {
       return;
     }
 
-    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(current.sourceSql));
+    setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(
+      current.sourceSql,
+      current.sourceFileId,
+      current.sourceFileName,
+    ));
     openSchemaWorkspaceFile(schemaFile.id, markProjectTabDirty(ensureFileTabOpen(result.state, schemaFile.id), schemaFile.id, true), { center: true });
     setStatus(
       warningCount > 0
@@ -2354,36 +2379,19 @@ export default function App() {
     try {
       const text = await file.text();
       const synced = syncActiveSchemaToProject();
-      const activeSqlFileId = getActiveSqlFileId(synced);
-      let nextProjectExplorer = synced;
-      let openedSqlFileId = activeSqlFileId;
-      if (activeSqlFileId) {
-        nextProjectExplorer = updateSqlFileContent(activeSqlFileId, text, synced);
-      } else {
-        const uniqueName = getUniqueProjectNodeName(
-          synced.project,
-          synced.project.rootId,
-          ensureProjectFileExtension(fileName, "sql"),
-        );
-        const sqlFile = createTextWorkspaceFile(uniqueName, "sql", text);
-        const result = addProjectFile(synced, synced.project.rootId, sqlFile);
-        if (!result.ok) {
-          setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
-          return;
-        }
-        openedSqlFileId = sqlFile.id;
-        nextProjectExplorer = markProjectTabDirty(ensureFileTabOpen(result.state, sqlFile.id), sqlFile.id, true);
+      const result = importSqlReverseSourceFile(synced, fileName, text);
+      if (!result.ok) {
+        setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+        return;
       }
-      if (openedSqlFileId) {
-        nextProjectExplorer = markProjectTabDirty(ensureFileTabOpen(nextProjectExplorer, openedSqlFileId), openedSqlFileId, true);
-      }
-      applyProjectExplorerState(nextProjectExplorer);
+      applyProjectExplorerState(result.state);
       setActiveActivityPanel("reverse");
       setWorkspaceActivityOpen(true);
       setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(text),
+        ...createInitialSqlReverseWorkflowState(text, result.binding.sourceFileId, result.binding.sourceFileName),
         step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
       }));
+      hasUnsavedChangesRef.current = true;
 
       if (!text.trim()) {
         setStatusWarning(t("sqlReverse.app.emptyFile"));
@@ -2395,26 +2403,14 @@ export default function App() {
         return;
       }
 
-      setStatusSuccess(
-        activeSqlFileId
-          ? t("sqlReverse.sqlImportUpdatedFile", { name: nextProjectExplorer.files[activeSqlFileId]?.name ?? fileName })
-          : t("sqlReverse.sqlImportCreatedFile", { name: openedSqlFileId ? nextProjectExplorer.files[openedSqlFileId]?.name ?? fileName : fileName }),
-      );
+      setStatusSuccess(t("sqlReverse.sqlImportCreatedFile", { name: result.binding.sourceFileName }));
     } catch (error) {
       setStatusError(error instanceof Error ? error.message : t("sqlReverse.app.fileReadError"));
     }
   }
 
   function handleClearSqlReverse() {
-    const activeSqlFileId = getActiveSqlFileId();
-    if (activeSqlFileId) {
-      setProjectExplorer((current) => updateSqlFileContent(activeSqlFileId, "", current));
-      hasUnsavedChangesRef.current = true;
-    }
-    setSqlReverseWorkflow((current) => ({
-      ...createInitialSqlReverseWorkflowState(""),
-      step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-    }));
+    setSqlReverseWorkflow(createInitialSqlReverseWorkflowState());
     setStatus(t("sqlReverse.app.cleared"));
   }
 
@@ -2500,7 +2496,7 @@ export default function App() {
 
   function syncCodeDraftWithDiagram(diagram: DiagramDocument) {
     replaceCodeDraft(serializeDiagramToErs(diagram));
-    setCodeError("");
+    setCodeDiagnostics([]);
   }
 
   function restoreCodeDraftFromWorkspace(workspace: ProjectFileWorkspaceState, diagram: DiagramDocument) {
@@ -2512,7 +2508,7 @@ export default function App() {
     lastSerializedCodeRef.current = serializedDiagram;
     setCodeDraft(nextCode);
     setCodeDirty(workspace.codeDirty);
-    setCodeError("");
+    setCodeDiagnostics([]);
   }
 
   function createWorkspaceStateFromProjectCommitSnapshot(snapshot: ProjectCommitSnapshot): ProjectFileWorkspaceState {
@@ -2712,31 +2708,6 @@ export default function App() {
     setProjectExplorer(openWelcomeTab(syncActiveSchemaToProject()));
   }
 
-  function getActiveSqlFileId(state: ProjectExplorerState = projectExplorer): string | null {
-    const activeFileId = state.project.activeFileId ?? state.view.activeFileId;
-    return activeFileId && state.files[activeFileId]?.kind === "sql" ? activeFileId : null;
-  }
-
-  function updateSqlFileContent(fileId: string, content: string, state: ProjectExplorerState): ProjectExplorerState {
-    const currentFile = state.files[fileId];
-    if (!currentFile || currentFile.kind !== "sql") {
-      return state;
-    }
-
-    const updatedAt = new Date().toISOString();
-    return markProjectTabDirty({
-      ...state,
-      files: {
-        ...state.files,
-        [fileId]: {
-          ...currentFile,
-          content,
-          updatedAt,
-        },
-      },
-    }, fileId, true);
-  }
-
   function openSchemaWorkspaceFile(fileId: string, state: ProjectExplorerState, options: { center?: boolean } = {}) {
     const file = state.files[fileId];
     if (!file || file.kind !== "schema") {
@@ -2792,12 +2763,8 @@ export default function App() {
     setProjectExplorer(nextState);
     setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
     if (file.kind === "sql") {
-      setActiveActivityPanel("reverse");
+      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
-      setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(file.content),
-        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-      }));
       return;
     }
     setActiveActivityPanel("file");
@@ -2821,12 +2788,8 @@ export default function App() {
 
     setProjectExplorer(nextState);
     if (file.kind === "sql") {
-      setActiveActivityPanel("reverse");
+      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
-      setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(file.content),
-        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-      }));
       setStatus(t("projectExplorer.status.textFileOpened", { name: file.name }));
       return;
     }
@@ -2859,12 +2822,8 @@ export default function App() {
     }
     setProjectExplorer(nextState);
     if (file.kind === "sql") {
-      setActiveActivityPanel("reverse");
+      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
-      setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(file.content),
-        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-      }));
     }
   }
 
@@ -2881,12 +2840,8 @@ export default function App() {
     }
     setProjectExplorer(nextState);
     if (file.kind === "sql") {
-      setActiveActivityPanel("reverse");
+      setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
-      setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(file.content),
-        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-      }));
     } else {
       setActiveActivityPanel("file");
       setWorkspaceActivityOpen(true);
@@ -2971,9 +2926,6 @@ export default function App() {
         },
       }, activeFileId, true);
     });
-    if (activeFile.kind === "sql") {
-      setSqlReverseWorkflow((current) => ({ ...current, sourceSql: content }));
-    }
     hasUnsavedChangesRef.current = true;
   }
 
@@ -3024,17 +2976,8 @@ export default function App() {
 
     const nextState = markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true);
     applyProjectExplorerState(nextState);
-    if (file.kind === "sql") {
-      setActiveActivityPanel("reverse");
-      setWorkspaceActivityOpen(true);
-      setSqlReverseWorkflow((current) => ({
-        ...createInitialSqlReverseWorkflowState(file.content),
-        step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-      }));
-    } else {
-      setActiveActivityPanel("file");
-      setWorkspaceActivityOpen(true);
-    }
+    setActiveActivityPanel("file");
+    setWorkspaceActivityOpen(true);
     setStatus(t("projectExplorer.status.fileCreated", { name: uniqueName }));
   }
 
@@ -3062,12 +3005,8 @@ export default function App() {
     }
 
     applyProjectExplorerState(markProjectTabDirty(ensureFileTabOpen(result.state, file.id), file.id, true));
-    setActiveActivityPanel("reverse");
+    setActiveActivityPanel("file");
     setWorkspaceActivityOpen(true);
-    setSqlReverseWorkflow((current) => ({
-      ...createInitialSqlReverseWorkflowState(file.content),
-      step: current.step === "logical-preview" || current.step === "er-preview" ? current.step : "idle",
-    }));
     setStatus(t("sqlReverse.sqlFileCreated", { name: uniqueName }));
   }
 
@@ -3247,9 +3186,6 @@ export default function App() {
     codeDirtyRef.current = nextDirty;
     setCodeDraft(nextCode);
     setCodeDirty(nextDirty);
-    if (codeError) {
-      setCodeError("");
-    }
   }
 
   function handleCodeEditorFocus() {
@@ -3383,9 +3319,8 @@ export default function App() {
         }
         rememberCodeLayout(normalizedParsed);
 
-        if (codeError) {
-          setCodeError("");
-        }
+        setCodeDiagnostics([]);
+        lastCodeDiagnosticNoticeRef.current = "";
         lastSerializedCodeRef.current = parsedSerialized;
         const nextDirty = codeDraftRef.current !== parsedSerialized;
         codeDirtyRef.current = nextDirty;
@@ -3394,10 +3329,25 @@ export default function App() {
           codeLayoutMemoryRef.current = null;
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Codice ERS non valido.";
+        const message = error instanceof ErsParseError
+          ? t("workspace.invalidErsCode")
+          : error instanceof Error
+            ? error.message
+            : t("workspace.invalidErsCode");
         const formattedMessage = formatErsErrorMessage(message);
-        setCodeError(formattedMessage);
-        showErrorNotice(formattedMessage, { title: "Errore nel codice ERS" });
+        const line = error instanceof ErsParseError ? error.line : undefined;
+        const diagnostic: EditorDiagnostic = {
+          id: `ers:${line ?? "unknown"}:${formattedMessage}`,
+          level: "error",
+          message: formattedMessage,
+          line,
+        };
+        setCodeDiagnostics([diagnostic]);
+        const signature = `${diagnostic.level}:${diagnostic.line ?? ""}:${diagnostic.message}`;
+        if (activeActivityPanel !== "code" && signature !== lastCodeDiagnosticNoticeRef.current) {
+          lastCodeDiagnosticNoticeRef.current = signature;
+          showErrorNotice(formattedMessage, { title: t("codePanel.error") });
+        }
       }
     }, 850);
 
@@ -3427,7 +3377,7 @@ export default function App() {
       codeLayoutMemoryRef.current = null;
       setCodeDraft(nextSerializedCode);
       setCodeDirty(false);
-      setCodeError("");
+      setCodeDiagnostics([]);
     }
   }, [history.present]);
 
@@ -4250,7 +4200,7 @@ export default function App() {
     setLogicalSelection({ ...EMPTY_LOGICAL_SELECTION });
     setIdentifierSelection(null);
     setTool("select");
-    setCodeError("");
+    setCodeDiagnostics([]);
     setCommandMenuOpen(false);
     setKeyboardShortcutsOpen(false);
     setAboutOpen(false);
@@ -6201,7 +6151,7 @@ export default function App() {
     const source = codeDirtyRef.current ? codeDraftRef.current : serializeDiagramToErs(history.present);
     downloadTextFile(source, `${sanitizeFileNameBase(history.present.meta.name)}.ers`);
     markCodeSaved(source);
-    if (!codeDirtyRef.current && !codeError) {
+    if (!codeDirtyRef.current && codeDiagnostics.length === 0) {
       markDiagramSaved(history.present);
     }
     setStatus(codeDirtyRef.current ? t("workspace.ersDraftDownloaded") : t("workspace.ersDownloaded"));
@@ -6662,9 +6612,18 @@ export default function App() {
       setStatus(t("workspace.ersLoaded"));
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : t("workspace.invalidErsCode");
+      const message = error instanceof ErsParseError
+        ? t("workspace.invalidErsCode")
+        : error instanceof Error
+          ? error.message
+          : t("workspace.invalidErsCode");
       const formattedMessage = formatErsErrorMessage(message);
-      setCodeError(formattedMessage);
+      setCodeDiagnostics([{
+        id: `ers-import:${error instanceof ErsParseError ? error.line : "unknown"}:${formattedMessage}`,
+        level: "error",
+        message: formattedMessage,
+        line: error instanceof ErsParseError ? error.line : undefined,
+      }]);
       setStatusError(formattedMessage);
     } finally {
       event.target.value = "";
@@ -6753,7 +6712,7 @@ export default function App() {
 
   function handleUndoAction() {
     if (diagramView === "er") {
-      if (codeDirtyRef.current || codeError) {
+      if (codeDirtyRef.current || codeDiagnostics.length > 0) {
         syncCodeDraftWithDiagram(history.present);
       }
       history.undo();
@@ -6770,7 +6729,7 @@ export default function App() {
 
   function handleRedoAction() {
     if (diagramView === "er") {
-      if (codeDirtyRef.current || codeError) {
+      if (codeDirtyRef.current || codeDiagnostics.length > 0) {
         syncCodeDraftWithDiagram(history.present);
       }
       history.redo();
@@ -6974,7 +6933,13 @@ export default function App() {
         </section>
       ) : hasOpenSchema || codePanelMode !== "ers" ? (
         <section className="project-activity-section code-activity-panel" aria-label={t("appHeader.menus.code")}>
-          <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
+          <ProjectActivityPanelHeader
+            title={t("codePanel.title")}
+            badge={codePanelDiagnostics.length || undefined}
+            badgeLabel={codePanelDiagnostics.length ? t("codeEditor.diagnostic.count", { count: codePanelDiagnostics.length }) : undefined}
+            closeLabel={t("workspaceActivity.closePanel")}
+            onClose={handleToggleActivityPanelOpen}
+          />
           {codePanelMode !== "ers" ? (
             <div className="code-activity-panel__toolbar" aria-label={t("codePanel.modeSql")}>
               <div className="code-activity-panel__mode-tabs" role="tablist" aria-label={t("codePanel.logicalPreviewMode")}>
@@ -7011,14 +6976,16 @@ export default function App() {
                   </select>
                 </label>
               ) : null}
-              <button type="button" className="project-activity-action" onClick={() => void handleCopyLogicalCode()}>
-                <StudioIcon name="copy" aria-hidden="true" />
-                <span>{logicalCodePreviewMode === "sql" ? t("codePanel.copySql") : t("codePanel.copyRelationalSchema")}</span>
-              </button>
-              <button type="button" className="project-activity-action" onClick={handleDownloadDisplayedLogicalCode}>
-                <StudioIcon name="download" aria-hidden="true" />
-                <span>{logicalCodePreviewMode === "sql" ? t("codePanel.downloadSql") : t("codePanel.downloadRelationalSchema")}</span>
-              </button>
+              <PanelIconButton
+                icon="copy"
+                label={logicalCodePreviewMode === "sql" ? t("codePanel.copySql") : t("codePanel.copyRelationalSchema")}
+                onClick={() => void handleCopyLogicalCode()}
+              />
+              <PanelIconButton
+                icon="download"
+                label={logicalCodePreviewMode === "sql" ? t("codePanel.downloadSql") : t("codePanel.downloadRelationalSchema")}
+                onClick={handleDownloadDisplayedLogicalCode}
+              />
             </div>
           ) : null}
           <div className="code-activity-panel__body">
@@ -7029,7 +6996,15 @@ export default function App() {
               language={codePanelMode}
               code={codePanelContent}
               editable={codePanelEditable}
-              parseError={codePanelParseError}
+              readOnly={!codePanelEditable}
+              diagnostics={codePanelDiagnostics}
+              editorAriaLabel={
+                codePanelMode === "sql"
+                  ? t("codePanel.editorAriaSql")
+                  : codePanelMode === "relational"
+                    ? t("codePanel.editorAriaRelational")
+                    : t("codePanel.editorAria")
+              }
               onCodeChange={codePanelMode === "ers" ? updateCodeDraft : undefined}
               onFocus={codePanelMode === "ers" ? handleCodeEditorFocus : undefined}
               onBlur={codePanelMode === "ers" ? handleCodeEditorBlur : undefined}
@@ -7052,6 +7027,7 @@ export default function App() {
         tableCount={sqlReverseWorkflow.tableCount}
         unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
         isPreviewReady={sqlReverseWorkflow.isPreviewReady}
+        sourceFileName={sqlReverseWorkflow.sourceFileName}
         onSqlChange={handleSqlReverseSourceChange}
         onAnalyze={handleAnalyzeSqlReverseWorkflow}
         onLoadFile={handleLoadSqlReverseFile}

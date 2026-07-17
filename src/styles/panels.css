@@ -3561,12 +3561,6 @@ textarea {
     height: calc(100% - 86px);
   }
 
-  .designer-code-error {
-    margin: 6px 12px 0 calc(var(--code-gutter-width, 42px) + 10px);
-    max-height: 38px;
-    overflow: auto;
-  }
-
   .designer-side-toggle-group.designer-side-toggle-left,
   .designer-quick-actions-bar {
     top: auto;

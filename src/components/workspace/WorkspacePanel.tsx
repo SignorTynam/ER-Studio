@@ -28,6 +28,7 @@ interface WorkspacePanelHeaderProps {
   title: string;
   subtitle?: string;
   badge?: number;
+  badgeLabel?: string;
   icon?: StudioIconName;
   onClose?: () => void;
   closeLabel?: string;
@@ -39,6 +40,7 @@ export function WorkspacePanelHeader({
   title,
   subtitle,
   badge,
+  badgeLabel,
   icon,
   onClose,
   closeLabel = "Close panel",
@@ -50,7 +52,7 @@ export function WorkspacePanelHeader({
       <div className="workspace-panel__header-copy">
         {icon ? <StudioIcon name={icon} aria-hidden="true" /> : null}
         <h2>{title}</h2>
-        {typeof badge === "number" ? <span className="workspace-panel__badge">{badge}</span> : null}
+        {typeof badge === "number" ? <span className="workspace-panel__badge" aria-label={badgeLabel}>{badge}</span> : null}
         {subtitle ? <span>{subtitle}</span> : null}
       </div>
       <WorkspacePanelHeaderActions>

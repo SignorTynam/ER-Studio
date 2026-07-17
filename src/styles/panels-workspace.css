@@ -8,11 +8,14 @@
   color: var(--color-text-primary);
 }
 
-.workspace-panel__header,
-.source-control-header,
-.sql-reverse-panel__header,
-.project-activity-section__header {
+.workspace-panel__header {
+  display: flex;
+  height: var(--size-panel-header);
   min-height: var(--size-panel-header);
+  flex: 0 0 var(--size-panel-header);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-bg-panel);
@@ -26,15 +29,48 @@
   gap: var(--space-2);
 }
 
-.workspace-panel__header-copy h2,
-.source-control-header h2,
-.sql-reverse-panel__header h2,
-.project-activity-section__header h2 {
+.workspace-panel__header-copy {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.workspace-panel__header-actions {
+  flex: 0 0 auto;
+}
+
+.workspace-panel__header-copy h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
   color: var(--color-text-primary);
   font-size: 0.72rem;
   font-weight: 720;
   letter-spacing: 0.08em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.panel-icon-button {
+  display: inline-flex;
+  width: var(--size-icon-button);
+  height: var(--size-icon-button);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.panel-icon-button:hover,
+.panel-icon-button:focus-visible,
+.panel-icon-button.active {
+  border-color: var(--color-border-subtle);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .workspace-panel__body {
@@ -89,76 +125,52 @@
 }
 
 /* Fase C2: gli step del reverse sono una sequenza — striscia orizzontale singola. */
-.sql-reverse-progress {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  margin: 0;
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: transparent;
-  list-style: none;
-}
-
-.sql-reverse-panel__header .project-activity-action.compact {
-  width: var(--size-icon-button);
-  min-width: var(--size-icon-button);
-  padding: 0;
-}
-
-.sql-reverse-panel__header .project-activity-action.compact span {
-  display: none;
-}
-
-.sql-reverse-progress li {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-bg-panel);
-  color: var(--color-text-muted);
-}
-
-.sql-reverse-progress li > span {
-  display: grid;
-  width: var(--space-4-5);
-  height: var(--space-4-5);
-  flex: 0 0 var(--space-4-5);
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: var(--radius-control) !important;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-}
-
-.sql-reverse-progress li small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sql-reverse-progress li.complete {
-  color: var(--color-success);
-}
-
-.sql-reverse-progress li.active {
-  background: var(--color-accent-muted);
-  color: var(--color-accent);
-  font-weight: 700;
-}
-
 .source-control-panel,
 .sql-reverse-panel,
 .project-activity-section {
   background: var(--color-bg-sidebar);
 }
 
-.source-control-commit-input,
-.sql-reverse-panel__editor {
+.source-control-commit-input {
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-editor);
   color: var(--color-text-primary);
+}
+
+.sql-reverse-panel__editor-surface {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+
+.sql-reverse-panel__editor-surface .designer-code-editor {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  grid-template-columns: clamp(32px, calc(var(--line-number-digits, 2) * 8px + 18px), 40px) minmax(0, 1fr);
+}
+
+.sql-reverse-panel__meta,
+.sql-reverse-panel__footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2-5);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.sql-reverse-panel__meta {
+  flex-wrap: wrap;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.sql-reverse-panel__footer {
+  justify-content: space-between;
 }
 
 .source-control-commit-button,

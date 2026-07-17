@@ -70,7 +70,10 @@ test("generates simple relational schema", () => {
     ],
   });
 
-  assert.equal(generateLogicalRelationalSchema(model), "COURSE( i\u0332d\u0332, code, title, credits )");
+  assert.equal(
+    generateLogicalRelationalSchema(model),
+    "COURSE(\n  i\u0332d\u0332,\n  code,\n  title,\n  credits\n)",
+  );
 });
 
 test("renders foreign keys with column colon table syntax", () => {
@@ -136,7 +139,7 @@ test("renders foreign keys with column colon table syntax", () => {
 
   assert.match(
     schema,
-    /ENROLLMENT\( i\u0332d\u0332_\u0332c\u0332o\u0332u\u0332r\u0332s\u0332e\u0332:COURSE, i\u0332d\u0332_\u0332s\u0332t\u0332u\u0332d\u0332e\u0332n\u0332t\u0332:STUDENT, enrolled_on, grade \)/,
+    /ENROLLMENT\(\n  i\u0332d\u0332_\u0332c\u0332o\u0332u\u0332r\u0332s\u0332e\u0332:COURSE,\n  i\u0332d\u0332_\u0332s\u0332t\u0332u\u0332d\u0332e\u0332n\u0332t\u0332:STUDENT,\n  enrolled_on,\n  grade\n\)/,
   );
   assert.doesNotMatch(schema, /->|REFERENCES|FOREIGN KEY/);
 });
@@ -199,7 +202,7 @@ test("handles missing foreign key mapping safely", () => {
 
   const schema = generateLogicalRelationalSchema(model);
 
-  assert.equal(schema, "ENROLLMENT( id_course )");
+  assert.equal(schema, "ENROLLMENT(\n  id_course\n)");
   assert.doesNotMatch(schema, /undefined/);
 });
 

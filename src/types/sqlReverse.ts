@@ -37,12 +37,18 @@ export interface SqlReverseIssue {
   columnId?: string;
   constraintId?: string;
   rawFragment?: string;
+  /** Zero-based offsets; line and column are one-based when present. */
+  sourceSpan?: SqlSourceSpan;
 }
 
 export interface SqlSourceSpan {
+  /** Inclusive zero-based source offset. */
   start: number;
+  /** Exclusive zero-based source offset. */
   end: number;
+  /** One-based source line. */
   line?: number;
+  /** One-based source column. */
   column?: number;
 }
 

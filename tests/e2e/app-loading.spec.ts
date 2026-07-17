@@ -36,12 +36,12 @@ test("shows the buildER loading screen and opens the studio without the ERS guid
   await expect(page.locator(".workspace-welcome-page")).toBeVisible();
   await expect(page.locator(".designer-canvas-region")).toHaveCount(0);
 
-  await page.getByTestId("app-header-menu").click();
-  await expect(page.getByRole("dialog", { name: "Menu comandi" })).toBeVisible();
+  await page.keyboard.press("Control+KeyK");
+  await expect(page.getByTestId("command-menu")).toBeVisible();
   await expect(page.getByText(removedGuideLabel)).toHaveCount(0);
 
-  await page.getByRole("searchbox", { name: "Cerca comando" }).fill(removedGuideLabel);
-  await expect(page.getByText("Nessun comando trovato")).toBeVisible();
+  await page.getByTestId("command-menu-search").fill(removedGuideLabel);
+  await expect(page.getByRole("option", { name: removedGuideLabel, exact: true })).toHaveCount(0);
 
   expect(consoleErrors).toEqual([]);
   expect(failedLocalResponses).toEqual([]);
