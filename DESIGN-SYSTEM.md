@@ -7,6 +7,9 @@ sui token; se manca un token, si aggiunge a `tokens.css` (documentato) e poi si 
 
 Stato del debito pregresso e piano di convergenza: vedi `TOKEN-DEBT.md`.
 
+> ✅ Redesign UI/UX **completo (Fasi A–E, 2026-07-17)**. Report di chiusura, metriche ed
+> esito QA in [`REDESIGN-REPORT.md`](REDESIGN-REPORT.md).
+
 ## Tavolozza (uso semantico)
 
 ### Superfici
