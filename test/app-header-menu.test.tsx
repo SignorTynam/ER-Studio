@@ -78,6 +78,16 @@ test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topba
   assert.doesNotMatch(markup, />Version</);
   assert.doesNotMatch(markup, /data-project-name-input/);
   assert.doesNotMatch(markup, /designer-project-name/);
+  assert.match(markup, /class="app-command-search"/);
+  assert.match(markup, /Ctrl K/);
+});
+
+test("tutti gli accessi header alla palette delegano a onOpenCommandMenu", () => {
+  const source = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /className="app-command-search"[\s\S]*?onClick=\{props\.onOpenCommandMenu\}/);
+  assert.match(source, /data-menu-block="info"[\s\S]*?runTopbarMenuAction\(props\.onOpenCommandMenu\)/);
+  assert.match(source, /data-testid="app-header-menu"/);
 });
 
 test("File menu non contiene Import, Export o Versioning", () => {

@@ -30,7 +30,7 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
   await page.getByRole("main", { name: "buildER" }).getByRole("button", { name: "Nuovo schema" }).click();
   await expect(page.locator(".action-modal")).toBeVisible();
-  await page.locator(".action-modal-actions .mode-button.active").click();
+  await page.getByRole("dialog", { name: "Nuovo schema" }).getByRole("button", { name: "Salva" }).click();
   await expect(page.locator(".designer-canvas-region")).toBeVisible();
 
   await expect(page.locator(".designer-er-toolbar")).toContainText("Selezione");
@@ -39,8 +39,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
 
   await page.getByTestId("app-header-menu").click();
   await expect(page.getByTestId("command-menu")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Menu comandi" })).toBeVisible();
-  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Cerca comando...");
+  await expect(page.getByRole("dialog", { name: "Palette comandi" })).toBeVisible();
+  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Cerca file e comandi...");
 
   await page.getByTestId("language-command-en").click();
   await page.getByTestId("app-header-file-menu").click();
@@ -53,8 +53,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.locator(".designer-er-toolbar")).not.toContainText("Selezione");
 
   await page.getByTestId("app-header-menu").click();
-  await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
-  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Search command...");
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Search files and commands...");
   await expect(page.getByText("Menu comandi")).toHaveCount(0);
 
   await page.getByTestId("language-command-sq").click();
@@ -69,8 +69,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.locator(".designer-er-toolbar")).not.toContainText("Selezione");
 
   await page.getByTestId("app-header-menu").click();
-  await expect(page.getByRole("dialog", { name: "Menuja e komandave" })).toBeVisible();
-  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Kërko komandë...");
+  await expect(page.getByRole("dialog", { name: "Paleta e komandave" })).toBeVisible();
+  await expect(page.getByTestId("command-menu-search")).toHaveAttribute("placeholder", "Kërko skedarë dhe komanda...");
   await expect(page.getByText("Command menu")).toHaveCount(0);
   await expect(page.getByText("Menu comandi")).toHaveCount(0);
 
@@ -81,7 +81,7 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await page.keyboard.press("Escape");
 
   await page.getByTestId("app-header-menu").click();
-  await expect(page.getByRole("dialog", { name: "Menuja e komandave" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Paleta e komandave" })).toBeVisible();
 
   expect(consoleErrors).toEqual([]);
 });

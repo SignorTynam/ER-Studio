@@ -92,9 +92,11 @@ test("CodePanel mostra schema relazionale read-only", () => {
 test("CodePanel embedded CSS rimuove padding e occupa altezza completa", () => {
   const css = readFileSync(new URL("../src/styles/project-explorer.css", import.meta.url), "utf8");
 
-  assert.match(css, /\.diagram-code-panel\.embedded\s*\{[\s\S]*height:\s*100%/);
+  assert.match(css, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*100%/);
+  assert.doesNotMatch(css, /\.project-activity-content \.diagram-code-panel\.embedded\s*\{[^}]*height:\s*auto/);
   assert.match(css, /\.diagram-code-panel\.embedded\s*\{[\s\S]*padding:\s*0/);
-  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*height:\s*100%/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*height:\s*100%/);
+  assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[^}]*flex:\s*1 1 0/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*padding:\s*0/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*--embedded-code-gutter-width:\s*clamp/);
   assert.match(css, /\.diagram-code-panel\.embedded \.designer-code-editor\s*\{[\s\S]*grid-template-columns:\s*var\(--embedded-code-gutter-width\) minmax\(0,\s*1fr\)/);

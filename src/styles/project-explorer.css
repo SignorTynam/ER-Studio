@@ -555,7 +555,9 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  height: auto;
+  align-self: stretch;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   min-width: 0;
   padding: 0;
@@ -636,7 +638,7 @@
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-editor {
   --embedded-code-gutter-width: clamp(32px, calc(var(--line-number-digits, 2) * 8px + 18px), 40px);
-  flex: 1;
+  flex: 1 1 0;
   grid-template-columns: var(--embedded-code-gutter-width) minmax(0, 1fr);
   height: 100%;
   min-height: 0;
@@ -657,6 +659,19 @@
       rgba(238, 242, 237, 0.86) var(--embedded-code-gutter-width),
       transparent var(--embedded-code-gutter-width)
     );
+}
+
+@media (max-width: 899px) {
+  .project-activity-content .diagram-code-panel.embedded {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    width: 100%;
+    max-width: none;
+    padding-bottom: 0;
+    border-top: 0;
+    box-shadow: none;
+  }
 }
 
 .project-activity-content .diagram-code-panel.embedded .designer-code-scroll-layer {

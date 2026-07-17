@@ -1,32 +1,53 @@
-import { useMemo, useState } from "react";
-import type { WorkspaceView } from "../types/translation";
-import { SUPPORTED_LOCALES, type Locale } from "../i18n";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { SUPPORTED_LOCALES } from "../i18n";
 import { useI18n } from "../i18n/useI18n";
+import type { ProjectOpenTab, ProjectWorkspaceFile } from "../types/projectExplorer";
+import type { WorkspaceView } from "../types/translation";
+import {
+  rankCommandPaletteEntries,
+  type CommandPaletteSearchEntry,
+} from "../utils/commandPalette";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
 
 interface CommandMenuModalProps {
-  appTitle: string;
-  appVersion: string;
-  diagramName: string;
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
+  errorsPanelOpen: boolean;
+  explorerOpen: boolean;
+  versioningOpen: boolean;
+  reverseOpen: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  canExportLogicalSql: boolean;
   logicalOutOfDate: boolean;
   focusMode: boolean;
+  showDiagnostics: boolean;
   hasUncommittedChanges: boolean;
   toolRailCollapsed: boolean;
   selectionItemCount: number;
-  onClose: () => void;
+  editMode: boolean;
+  hasProject: boolean;
+  hasActiveSchema: boolean;
+  projectFiles: ProjectWorkspaceFile[];
+  projectFilePaths: Record<string, string>;
+  openTabs: ProjectOpenTab[];
+  activeFileId: string | null;
+  onClose: (restoreFocus?: boolean) => void;
+  onOpenProjectFile: (fileId: string) => void;
   onOpenShortcuts: () => void;
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
   onOpenLogicalWorkflow: () => void;
   onNewProject: () => void;
+  onCloseProject: () => void;
+  onShowWelcome: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onCopySelection: () => void;
+  onPasteSelection: () => void;
   onDuplicateSelection: () => void;
   onDeleteSelection: () => void;
   onRenameSelection: () => void;
@@ -35,14 +56,22 @@ interface CommandMenuModalProps {
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
   onOpenSqlReverseWorkflow: () => void;
+  onOpenExplorer: () => void;
+  onOpenErrorsPanel: () => void;
   onOpenVersioningPanel: () => void;
+  onToggleDiagnostics: () => void;
   onToggleCodePanel: () => void;
   onToggleNotesPanel: () => void;
   onSaveProject: () => void;
   onNewSchema: () => void;
+  onNewNote: () => void;
+  onNewSql: () => void;
+  onNewFolder: () => void;
   onImportSchema: () => void;
+  onImportSql: () => void;
   onExportCurrentSchema: () => void;
   onSaveErs: () => void;
+  onExportSql: () => void;
   onLoadProject: () => void;
   onLoadErs: () => void;
   onExportPng: () => void;
@@ -51,84 +80,107 @@ interface CommandMenuModalProps {
   onResetErs: () => void;
   onAbout: () => void;
   onWhatsNew: () => void;
+  onVersionAnnouncement: () => void;
   onToggleFocusMode: () => void;
   onToggleToolRail: () => void;
 }
 
 type CommandCategory = "workflow" | "workspace" | "edit" | "file" | "help" | "language";
 
-type CommandMenuItem = {
-  id: string;
-  category: CommandCategory;
-  label: string;
-  detail?: string;
-  shortcut?: string;
+export interface CommandPaletteEntry extends CommandPaletteSearchEntry {
   icon: StudioIconName;
-  disabled?: boolean;
-  active?: boolean;
+  categoryId: CommandCategory | "openFiles" | "files" | "commands";
+  status?: string;
   testId?: string;
   action: () => void;
-};
-
-function normalizeCommandSearch(value: string, locale: Locale) {
-  return value
-    .trim()
-    .toLocaleLowerCase(locale)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
 }
 
-function commandMatches(item: CommandMenuItem, query: string, categoryLabel: string, locale: Locale) {
-  if (!query) {
-    return true;
-  }
-
-  return normalizeCommandSearch(
-    `${item.label} ${item.detail ?? ""} ${item.shortcut ?? ""} ${categoryLabel}`,
-    locale,
-  ).includes(query);
+interface CommandPaletteGroup {
+  id: string;
+  label: string;
+  entries: CommandPaletteEntry[];
 }
 
-function CommandPaletteItem({ item, onRun }: { item: CommandMenuItem; onRun: (item: CommandMenuItem) => void }) {
+function getFileIcon(file: ProjectWorkspaceFile): StudioIconName {
+  if (file.kind === "schema") return "schema";
+  if (file.kind === "sql") return "code";
+  return "fileText";
+}
+
+function getFileExtension(name: string): string {
+  const match = name.match(/\.[^.]+$/);
+  return match?.[0] ?? "";
+}
+
+function getOptionId(entryId: string): string {
+  return `command-palette-option-${entryId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function CommandPaletteOption({
+  entry,
+  selected,
+  onSelect,
+  onRun,
+}: {
+  entry: CommandPaletteEntry;
+  selected: boolean;
+  onSelect: (entry: CommandPaletteEntry) => void;
+  onRun: (entry: CommandPaletteEntry) => void;
+}) {
   const className = [
     "command-palette-item",
-    item.active ? "active" : "",
-    item.disabled ? "disabled" : "",
+    selected ? "selected" : "",
+    entry.active ? "active" : "",
+    entry.disabled ? "disabled" : "",
   ].filter(Boolean).join(" ");
 
   return (
-    <button
-      type="button"
+    <div
+      id={getOptionId(entry.id)}
       className={className}
-      onClick={() => onRun(item)}
-      disabled={item.disabled}
-      aria-pressed={item.active ? true : undefined}
-      data-testid={item.testId}
+      role="option"
+      aria-selected={selected}
+      aria-disabled={entry.disabled ? true : undefined}
+      data-entry-kind={entry.kind}
+      data-testid={entry.testId}
+      onMouseEnter={() => {
+        if (!entry.disabled) onSelect(entry);
+      }}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => {
+        if (!entry.disabled) onRun(entry);
+      }}
     >
       <span className="command-palette-item-icon" aria-hidden="true">
-        <StudioIcon name={item.icon} />
+        <StudioIcon name={entry.icon} />
       </span>
       <span className="command-palette-item-copy">
-        <span className="command-palette-item-title">{item.label}</span>
-        {item.detail ? <span className="command-palette-item-detail">{item.detail}</span> : null}
+        <span className="command-palette-item-title">{entry.label}</span>
+        {entry.detail ? <span className="command-palette-item-detail">{entry.detail}</span> : null}
       </span>
-      {item.shortcut ? <kbd className="command-palette-kbd">{item.shortcut}</kbd> : null}
-      {item.active ? (
+      <span className="command-palette-item-meta">
+        {entry.status ? <span className="command-palette-item-status">{entry.status}</span> : null}
+        {entry.shortcut ? <kbd className="command-palette-kbd">{entry.shortcut}</kbd> : null}
+      </span>
+      {entry.active ? (
         <span className="command-palette-active-mark" aria-hidden="true">
           <StudioIcon name="done" />
         </span>
       ) : null}
-    </button>
+    </div>
   );
 }
 
 export function CommandMenuModal(props: CommandMenuModalProps) {
   const { locale, setLocale, getLanguageMenuLabel, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<"all" | CommandCategory>("all");
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const isErView = props.diagramView === "er";
   const isTranslationView = props.diagramView === "translation";
   const isLogicalView = props.diagramView === "logical";
+  const canEditErSelection = props.hasActiveSchema && isErView && props.editMode;
 
   const categoryLabels: Record<CommandCategory, string> = useMemo(
     () => ({
@@ -142,450 +194,498 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
     [t],
   );
 
-  const categoryFilters: Array<{ id: "all" | CommandCategory; label: string }> = useMemo(
-    () => [
-      { id: "all", label: t("commandMenu.categories.all") },
-      { id: "workflow", label: categoryLabels.workflow },
-      { id: "workspace", label: categoryLabels.workspace },
-      { id: "edit", label: categoryLabels.edit },
-      { id: "file", label: categoryLabels.file },
-      { id: "help", label: categoryLabels.help },
-      { id: "language", label: categoryLabels.language },
-    ],
-    [categoryLabels, t],
-  );
+  const commands = useMemo<CommandPaletteEntry[]>(() => [
+    {
+      id: "command-workflow-er", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowEr.label"), detail: t("commandMenu.commands.workflowEr.detail"),
+      icon: "entity", disabled: !props.hasActiveSchema, active: props.diagramView === "er", order: 0,
+      action: () => props.onDiagramViewChange("er"),
+    },
+    {
+      id: "command-workflow-translation", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowTranslation.label"), detail: t("commandMenu.commands.workflowTranslation.detail"),
+      icon: "translate", disabled: !props.hasActiveSchema, active: props.diagramView === "translation", order: 1,
+      action: () => props.onDiagramViewChange("translation"),
+    },
+    {
+      id: "command-workflow-logical", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowLogical.label"), detail: t("commandMenu.commands.workflowLogical.detail"),
+      icon: "database", disabled: !props.hasActiveSchema, active: isLogicalView && !props.logicalSqlOpen, order: 2,
+      action: props.onOpenLogicalWorkflow,
+    },
+    {
+      id: "command-workflow-sql", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowSql.label"), detail: t("commandMenu.commands.workflowSql.detail"),
+      icon: "code", disabled: !props.hasActiveSchema, active: isLogicalView && props.logicalSqlOpen, order: 3,
+      action: props.onOpenSql,
+    },
+    {
+      id: "command-workflow-reset-translation", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowResetTranslation.label"), detail: t("commandMenu.commands.workflowResetTranslation.detail"),
+      icon: "reset", disabled: !isTranslationView, order: 4, action: props.onResetTranslation,
+    },
+    {
+      id: "command-workflow-generate-schema", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: props.logicalOutOfDate ? t("commandMenu.commands.workflowRealignSchema.label") : t("commandMenu.commands.workflowGenerateSchema.label"),
+      detail: t("commandMenu.commands.workflowGenerateSchema.detail"), icon: "refresh", disabled: !isLogicalView,
+      order: 5, action: props.onGenerateLogicalModel,
+    },
+    {
+      id: "command-workflow-auto-layout", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowAutoLayout.label"), detail: t("commandMenu.commands.workflowAutoLayout.detail"),
+      icon: "fix", disabled: !isLogicalView, order: 6, action: props.onAutoLayoutLogical,
+    },
+    {
+      id: "command-workflow-fit-logical", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowFitLogical.label"), detail: t("commandMenu.commands.workflowFitLogical.detail"),
+      icon: "fit", disabled: !isLogicalView, order: 7, action: props.onFitLogical,
+    },
+    {
+      id: "command-workspace-explorer", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: t("commandMenu.commands.workspaceExplorer.label"), detail: t("commandMenu.commands.workspaceExplorer.detail"),
+      icon: "panelLeft", disabled: !props.hasProject, active: props.explorerOpen, order: 100, action: props.onOpenExplorer,
+    },
+    {
+      id: "command-workspace-sql-reverse", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: t("commandMenu.commands.workspaceSqlReverse.label"), detail: t("commandMenu.commands.workspaceSqlReverse.detail"),
+      icon: "databaseReverse", disabled: !props.hasProject, active: props.reverseOpen, order: 101,
+      action: props.onOpenSqlReverseWorkflow,
+    },
+    {
+      id: "command-workspace-versioning", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: t("commandMenu.commands.workspaceVersioning.label"),
+      detail: props.hasUncommittedChanges ? t("versioning.uncommittedChanges") : t("commandMenu.commands.workspaceVersioning.detail"),
+      icon: "history", disabled: !props.hasProject, active: props.versioningOpen, order: 102,
+      action: props.onOpenVersioningPanel,
+    },
+    {
+      id: "command-workspace-code", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: props.codePanelOpen ? t("commandMenu.commands.workspaceCodeHide.label") : t("commandMenu.commands.workspaceCodeShow.label"),
+      detail: t("commandMenu.commands.workspaceCodeShow.detail"), icon: "code", disabled: !props.hasActiveSchema,
+      active: props.codePanelOpen, order: 103, action: props.onToggleCodePanel,
+    },
+    {
+      id: "command-workspace-notes", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: props.notesPanelOpen ? t("commandMenu.commands.workspaceNotesHide.label") : t("commandMenu.commands.workspaceNotesShow.label"),
+      detail: t("commandMenu.commands.workspaceNotesShow.detail"), icon: "notes", disabled: !props.hasActiveSchema,
+      active: props.notesPanelOpen, order: 104, action: props.onToggleNotesPanel,
+    },
+    {
+      id: "command-workspace-errors", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: t("commandMenu.commands.workspaceErrors.label"), detail: t("commandMenu.commands.workspaceErrors.detail"),
+      icon: "errors", disabled: !props.hasActiveSchema, active: props.errorsPanelOpen, order: 105,
+      action: props.onOpenErrorsPanel,
+    },
+    {
+      id: "command-workspace-diagnostics", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: props.showDiagnostics ? t("commandMenu.commands.workspaceDiagnosticsDisable.label") : t("commandMenu.commands.workspaceDiagnosticsEnable.label"),
+      detail: t("commandMenu.commands.workspaceDiagnosticsEnable.detail"), icon: "warning", disabled: !props.hasActiveSchema,
+      active: props.showDiagnostics, order: 106, action: props.onToggleDiagnostics,
+    },
+    {
+      id: "command-workspace-focus", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: props.focusMode ? t("commandMenu.commands.workspaceFocusDisable.label") : t("commandMenu.commands.workspaceFocusEnable.label"),
+      detail: t("commandMenu.commands.workspaceFocusEnable.detail"), shortcut: "Ctrl/Cmd .", icon: "focus",
+      disabled: !props.hasProject, active: props.focusMode, order: 107, action: props.onToggleFocusMode,
+    },
+    {
+      id: "command-workspace-tool-rail", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: props.toolRailCollapsed ? t("commandMenu.commands.workspaceToolRailExpand.label") : t("commandMenu.commands.workspaceToolRailCollapse.label"),
+      detail: t("commandMenu.commands.workspaceToolRailExpand.detail"), icon: "panelLeft", disabled: !props.hasActiveSchema,
+      active: props.toolRailCollapsed, order: 108, action: props.onToggleToolRail,
+    },
+    {
+      id: "command-edit-undo", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editUndo.label"), shortcut: "Ctrl/Cmd Z", icon: "undo",
+      disabled: !props.canUndo, order: 200, action: props.onUndo,
+    },
+    {
+      id: "command-edit-redo", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editRedo.label"), shortcut: "Ctrl/Cmd Y", icon: "redo",
+      disabled: !props.canRedo, order: 201, action: props.onRedo,
+    },
+    {
+      id: "command-edit-copy", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editCopy.label"), shortcut: "Ctrl/Cmd C", icon: "copy",
+      disabled: !canEditErSelection || props.selectionItemCount === 0, order: 202, action: props.onCopySelection,
+    },
+    {
+      id: "command-edit-paste", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editPaste.label"), shortcut: "Ctrl/Cmd V", icon: "paste",
+      disabled: !canEditErSelection, order: 203, action: props.onPasteSelection,
+    },
+    {
+      id: "command-edit-duplicate", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editDuplicate.label"), shortcut: "Ctrl/Cmd D", icon: "duplicate",
+      disabled: !canEditErSelection || props.selectionItemCount === 0, order: 204, action: props.onDuplicateSelection,
+    },
+    {
+      id: "command-edit-rename", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editRename.label"), shortcut: "Enter", icon: "rename",
+      disabled: !canEditErSelection || props.selectionItemCount !== 1, order: 205, action: props.onRenameSelection,
+    },
+    {
+      id: "command-edit-delete", kind: "command", categoryId: "edit", category: categoryLabels.edit,
+      label: t("commandMenu.commands.editDelete.label"), shortcut: "Del", icon: "delete",
+      disabled: !canEditErSelection || props.selectionItemCount === 0, order: 206, action: props.onDeleteSelection,
+    },
+    {
+      id: "command-file-new-project", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileNewProject.label"), icon: "newProject", order: 300, action: props.onNewProject,
+    },
+    {
+      id: "command-file-open-project", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileOpenProject.label"), icon: "openProject", order: 301, action: props.onLoadProject,
+    },
+    {
+      id: "command-file-save-project", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileSaveProject.label"), shortcut: "Ctrl/Cmd S", icon: "save",
+      disabled: !props.hasProject, order: 302, action: props.onSaveProject,
+    },
+    {
+      id: "command-file-close-project", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileCloseProject.label"), icon: "close", disabled: !props.hasProject,
+      order: 303, action: props.onCloseProject,
+    },
+    {
+      id: "command-file-show-welcome", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileShowWelcome.label"), icon: "info", disabled: !props.hasProject,
+      order: 304, action: props.onShowWelcome,
+    },
+    {
+      id: "command-file-new-schema", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileNewSchema.label"), icon: "schema", disabled: !props.hasProject,
+      order: 305, action: props.onNewSchema,
+    },
+    {
+      id: "command-file-new-note", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileNewNote.label"), icon: "fileText", disabled: !props.hasProject,
+      order: 306, action: props.onNewNote,
+    },
+    {
+      id: "command-file-new-sql", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileNewSql.label"), icon: "code", disabled: !props.hasProject,
+      order: 307, action: props.onNewSql,
+    },
+    {
+      id: "command-file-new-folder", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileNewFolder.label"), icon: "folderPlus", disabled: !props.hasProject,
+      order: 308, action: props.onNewFolder,
+    },
+    {
+      id: "command-file-import-schema", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileImportSchema.label"), icon: "upload", order: 309, action: props.onImportSchema,
+    },
+    {
+      id: "command-file-open-ers", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileOpenErs.label"), icon: "upload", order: 310, action: props.onLoadErs,
+    },
+    {
+      id: "command-file-import-sql", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileImportSql.label"), icon: "databaseReverse", disabled: !props.hasProject,
+      order: 311, action: props.onImportSql,
+    },
+    {
+      id: "command-file-export-project", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportProject.label"), icon: "download", disabled: !props.hasProject,
+      order: 312, action: props.onSaveProject,
+    },
+    {
+      id: "command-file-export-schema", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportSchema.label"), icon: "download", disabled: !props.hasActiveSchema,
+      order: 313, action: props.onExportCurrentSchema,
+    },
+    {
+      id: "command-file-download-ers", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileDownloadErs.label"), icon: "download", disabled: !props.hasActiveSchema,
+      order: 314, action: props.onSaveErs,
+    },
+    {
+      id: "command-file-export-sql", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportSql.label"), icon: "database", disabled: !props.canExportLogicalSql,
+      order: 315, action: props.onExportSql,
+    },
+    {
+      id: "command-file-export-png", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportPng.label"), icon: "image", disabled: !props.hasActiveSchema,
+      order: 316, action: props.onExportPng,
+    },
+    {
+      id: "command-file-export-jpeg", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportJpeg.label"), icon: "image", disabled: !props.hasActiveSchema,
+      order: 317, action: props.onExportJpeg,
+    },
+    {
+      id: "command-file-export-svg", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileExportSvg.label"), icon: "fileImage", disabled: !props.hasActiveSchema,
+      order: 318, action: props.onExportSvg,
+    },
+    {
+      id: "command-file-reset-ers", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("commandMenu.commands.fileResetErs.label"), icon: "refresh", disabled: !props.hasActiveSchema,
+      order: 319, action: props.onResetErs,
+    },
+    {
+      id: "command-help-shortcuts", kind: "command", categoryId: "help", category: categoryLabels.help,
+      label: t("commandMenu.commands.helpShortcuts.label"), detail: t("commandMenu.commands.helpShortcuts.detail"),
+      icon: "keyboard", order: 400, action: props.onOpenShortcuts,
+    },
+    {
+      id: "command-help-whats-new", kind: "command", categoryId: "help", category: categoryLabels.help,
+      label: t("commandMenu.commands.helpWhatsNew.label"), icon: "history", order: 401, action: props.onWhatsNew,
+    },
+    {
+      id: "command-help-about", kind: "command", categoryId: "help", category: categoryLabels.help,
+      label: t("commandMenu.commands.helpAbout.label"), icon: "info", order: 402, action: props.onAbout,
+    },
+    {
+      id: "command-help-version", kind: "command", categoryId: "help", category: categoryLabels.help,
+      label: t("commandMenu.commands.helpVersionAnnouncement.label"), icon: "history", order: 403,
+      action: props.onVersionAnnouncement,
+    },
+    ...SUPPORTED_LOCALES.map((language, index): CommandPaletteEntry => ({
+      id: `command-language-${language}`,
+      kind: "command",
+      categoryId: "language",
+      category: categoryLabels.language,
+      label: getLanguageMenuLabel(language),
+      detail: language === locale ? t("commandMenu.language.active") : t("commandMenu.language.change"),
+      icon: language === locale ? "done" : "globe",
+      active: locale === language,
+      order: 500 + index,
+      testId: `language-command-${language}`,
+      action: () => setLocale(language),
+    })),
+  ], [
+    canEditErSelection,
+    categoryLabels,
+    getLanguageMenuLabel,
+    isLogicalView,
+    isTranslationView,
+    locale,
+    props,
+    setLocale,
+    t,
+  ]);
 
-  function runCommand(action: () => void) {
-    action();
-    props.onClose();
+  const fileEntries = useMemo<CommandPaletteEntry[]>(() => {
+    const openFileIds = new Set(
+      props.openTabs.flatMap((tab) => tab.kind === "file" && tab.fileId ? [tab.fileId] : []),
+    );
+    return props.projectFiles.map((file, index) => {
+      const path = props.projectFilePaths[file.id] ?? file.name;
+      const active = file.id === props.activeFileId;
+      const open = openFileIds.has(file.id);
+      const fileType = t(`workspaceChrome.fileTypes.${file.kind === "schema" || file.kind === "sql" || file.kind === "text" ? file.kind : "file"}`);
+      return {
+        id: `file-${file.id}`,
+        kind: "file",
+        categoryId: "files",
+        category: t("commandMenu.sections.files"),
+        label: file.name,
+        detail: path,
+        path,
+        fileType,
+        extension: getFileExtension(file.name),
+        icon: getFileIcon(file),
+        active,
+        open,
+        status: active
+          ? t("commandMenu.fileStates.active")
+          : open
+            ? t("commandMenu.fileStates.open")
+            : undefined,
+        order: index,
+        action: () => props.onOpenProjectFile(file.id),
+      };
+    });
+  }, [props.activeFileId, props.onOpenProjectFile, props.openTabs, props.projectFilePaths, props.projectFiles, t]);
+
+  const openFileEntries = useMemo(() => {
+    const byFileId = new Map(fileEntries.map((entry) => [entry.id.slice("file-".length), entry]));
+    const orderedIds = [
+      props.activeFileId,
+      ...props.openTabs.flatMap((tab) => tab.kind === "file" && tab.fileId ? [tab.fileId] : []),
+    ].filter((fileId): fileId is string => Boolean(fileId));
+    const seen = new Set<string>();
+    return orderedIds.flatMap((fileId, index) => {
+      if (seen.has(fileId)) return [];
+      seen.add(fileId);
+      const entry = byFileId.get(fileId);
+      return entry ? [{ ...entry, order: index, categoryId: "openFiles" as const }] : [];
+    });
+  }, [fileEntries, props.activeFileId, props.openTabs]);
+
+  const groups = useMemo<CommandPaletteGroup[]>(() => {
+    if (!searchQuery.trim()) {
+      const commandGroups = (Object.keys(categoryLabels) as CommandCategory[]).flatMap((categoryId) => {
+        const entries = commands.filter((entry) => entry.categoryId === categoryId);
+        return entries.length > 0 ? [{ id: categoryId, label: categoryLabels[categoryId], entries }] : [];
+      });
+      return [
+        ...(openFileEntries.length > 0
+          ? [{ id: "openFiles", label: t("commandMenu.sections.openFiles"), entries: openFileEntries }]
+          : []),
+        ...commandGroups,
+      ];
+    }
+
+    const ranked = rankCommandPaletteEntries([...fileEntries, ...commands], searchQuery, locale);
+    const files = ranked.filter((entry) => entry.kind === "file");
+    const commandResults = ranked.filter((entry) => entry.kind === "command");
+    const rankedGroups: Record<"file" | "command", CommandPaletteGroup> = {
+      file: { id: "files", label: t("commandMenu.sections.files"), entries: files },
+      command: { id: "commands", label: t("commandMenu.sections.commands"), entries: commandResults },
+    };
+    const firstKind = ranked[0]?.kind;
+    const order: Array<"file" | "command"> = firstKind === "command" ? ["command", "file"] : ["file", "command"];
+    return order.map((kind) => rankedGroups[kind]).filter((group) => group.entries.length > 0);
+  }, [categoryLabels, commands, fileEntries, locale, openFileEntries, searchQuery, t]);
+
+  const visibleEntries = useMemo(() => groups.flatMap((group) => group.entries), [groups]);
+  const executableEntries = useMemo(() => visibleEntries.filter((entry) => !entry.disabled), [visibleEntries]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    setSelectedEntryId((current) =>
+      current && executableEntries.some((entry) => entry.id === current)
+        ? current
+        : executableEntries[0]?.id ?? null,
+    );
+  }, [executableEntries]);
+
+  useEffect(() => {
+    if (!selectedEntryId) return;
+    listRef.current
+      ?.querySelector<HTMLElement>(`#${getOptionId(selectedEntryId)}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedEntryId]);
+
+  function runEntry(entry: CommandPaletteEntry) {
+    if (entry.disabled) return;
+    props.onClose(false);
+    entry.action();
   }
 
-  const commands: CommandMenuItem[] = useMemo(
-    () => [
-      {
-        id: "workflow-er",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowEr.label"),
-        detail: t("commandMenu.commands.workflowEr.detail"),
-        icon: "entity",
-        active: props.diagramView === "er",
-        action: () => props.onDiagramViewChange("er"),
-      },
-      {
-        id: "workflow-translation",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowTranslation.label"),
-        detail: t("commandMenu.commands.workflowTranslation.detail"),
-        icon: "translate",
-        active: props.diagramView === "translation",
-        action: () => props.onDiagramViewChange("translation"),
-      },
-      {
-        id: "workflow-logical",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowLogical.label"),
-        detail: t("commandMenu.commands.workflowLogical.detail"),
-        icon: "database",
-        active: props.diagramView === "logical" && !props.logicalSqlOpen,
-        action: props.onOpenLogicalWorkflow,
-      },
-      {
-        id: "workflow-sql",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowSql.label"),
-        detail: t("commandMenu.commands.workflowSql.detail"),
-        icon: "code",
-        active: props.diagramView === "logical" && props.logicalSqlOpen,
-        action: props.onOpenSql,
-      },
-      {
-        id: "workflow-reset-translation",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowResetTranslation.label"),
-        detail: t("commandMenu.commands.workflowResetTranslation.detail"),
-        icon: "reset",
-        disabled: !isTranslationView,
-        action: props.onResetTranslation,
-      },
-      {
-        id: "workflow-generate-schema",
-        category: "workflow",
-        label: props.logicalOutOfDate
-          ? t("commandMenu.commands.workflowRealignSchema.label")
-          : t("commandMenu.commands.workflowGenerateSchema.label"),
-        detail: t("commandMenu.commands.workflowGenerateSchema.detail"),
-        icon: "refresh",
-        disabled: !isLogicalView,
-        action: props.onGenerateLogicalModel,
-      },
-      {
-        id: "workflow-auto-layout",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowAutoLayout.label"),
-        detail: t("commandMenu.commands.workflowAutoLayout.detail"),
-        icon: "fix",
-        disabled: !isLogicalView,
-        action: props.onAutoLayoutLogical,
-      },
-      {
-        id: "workflow-fit-logical",
-        category: "workflow",
-        label: t("commandMenu.commands.workflowFitLogical.label"),
-        detail: t("commandMenu.commands.workflowFitLogical.detail"),
-        icon: "fit",
-        disabled: !isLogicalView,
-        action: props.onFitLogical,
-      },
-      {
-        id: "workspace-sql-reverse",
-        category: "workspace",
-        label: t("commandMenu.commands.workspaceSqlReverse.label"),
-        detail: t("commandMenu.commands.workspaceSqlReverse.detail"),
-        icon: "databaseReverse",
-        disabled: !isErView,
-        action: props.onOpenSqlReverseWorkflow,
-      },
-      {
-        id: "workspace-versioning",
-        category: "workspace",
-        label: t("commandMenu.commands.workspaceVersioning.label"),
-        detail: props.hasUncommittedChanges
-          ? t("versioning.uncommittedChanges")
-          : t("commandMenu.commands.workspaceVersioning.detail"),
-        icon: "history",
-        active: props.hasUncommittedChanges,
-        action: props.onOpenVersioningPanel,
-      },
-      {
-        id: "workspace-code",
-        category: "workspace",
-        label: props.codePanelOpen
-          ? t("commandMenu.commands.workspaceCodeHide.label")
-          : t("commandMenu.commands.workspaceCodeShow.label"),
-        detail: t("commandMenu.commands.workspaceCodeShow.detail"),
-        icon: "code",
-        active: props.codePanelOpen,
-        action: props.onToggleCodePanel,
-      },
-      {
-        id: "workspace-notes",
-        category: "workspace",
-        label: props.notesPanelOpen
-          ? t("commandMenu.commands.workspaceNotesHide.label")
-          : t("commandMenu.commands.workspaceNotesShow.label"),
-        detail: t("commandMenu.commands.workspaceNotesShow.detail"),
-        icon: "notes",
-        active: props.notesPanelOpen,
-        action: props.onToggleNotesPanel,
-      },
-      {
-        id: "workspace-focus",
-        category: "workspace",
-        label: props.focusMode
-          ? t("commandMenu.commands.workspaceFocusDisable.label")
-          : t("commandMenu.commands.workspaceFocusEnable.label"),
-        detail: t("commandMenu.commands.workspaceFocusEnable.detail"),
-        shortcut: "Ctrl/Cmd .",
-        icon: "focus",
-        active: props.focusMode,
-        action: props.onToggleFocusMode,
-      },
-      {
-        id: "workspace-tool-rail",
-        category: "workspace",
-        label: props.toolRailCollapsed
-          ? t("commandMenu.commands.workspaceToolRailExpand.label")
-          : t("commandMenu.commands.workspaceToolRailCollapse.label"),
-        detail: t("commandMenu.commands.workspaceToolRailExpand.detail"),
-        icon: "panelLeft",
-        active: props.toolRailCollapsed,
-        action: props.onToggleToolRail,
-      },
-      {
-        id: "edit-undo",
-        category: "edit",
-        label: t("commandMenu.commands.editUndo.label"),
-        shortcut: "Ctrl/Cmd Z",
-        icon: "undo",
-        disabled: !props.canUndo,
-        action: props.onUndo,
-      },
-      {
-        id: "edit-redo",
-        category: "edit",
-        label: t("commandMenu.commands.editRedo.label"),
-        shortcut: "Ctrl/Cmd Y",
-        icon: "redo",
-        disabled: !props.canRedo,
-        action: props.onRedo,
-      },
-      {
-        id: "edit-duplicate",
-        category: "edit",
-        label: t("commandMenu.commands.editDuplicate.label"),
-        shortcut: "Ctrl/Cmd D",
-        icon: "duplicate",
-        disabled: !isErView || props.selectionItemCount === 0,
-        action: props.onDuplicateSelection,
-      },
-      {
-        id: "edit-rename",
-        category: "edit",
-        label: t("commandMenu.commands.editRename.label"),
-        shortcut: "Enter",
-        icon: "rename",
-        disabled: !isErView || props.selectionItemCount !== 1,
-        action: props.onRenameSelection,
-      },
-      {
-        id: "edit-delete",
-        category: "edit",
-        label: t("commandMenu.commands.editDelete.label"),
-        shortcut: "Del",
-        icon: "delete",
-        disabled: !isErView || props.selectionItemCount === 0,
-        action: props.onDeleteSelection,
-      },
-      {
-        id: "file-new-project",
-        category: "file",
-        label: t("commandMenu.commands.fileNewProject.label"),
-        icon: "newProject",
-        action: props.onNewProject,
-      },
-      {
-        id: "file-open-project",
-        category: "file",
-        label: t("commandMenu.commands.fileOpenProject.label"),
-        icon: "openProject",
-        action: props.onLoadProject,
-      },
-      {
-        id: "file-open-ers",
-        category: "file",
-        label: t("commandMenu.commands.fileOpenErs.label"),
-        icon: "upload",
-        action: props.onLoadErs,
-      },
-      {
-        id: "file-save-project",
-        category: "file",
-        label: t("commandMenu.commands.fileSaveProject.label"),
-        shortcut: "Ctrl/Cmd S",
-        icon: "save",
-        action: props.onSaveProject,
-      },
-      {
-        id: "file-new-schema",
-        category: "file",
-        label: t("commandMenu.commands.fileNewSchema.label"),
-        icon: "newProject",
-        action: props.onNewSchema,
-      },
-      {
-        id: "file-import-schema",
-        category: "file",
-        label: t("commandMenu.commands.fileImportSchema.label"),
-        icon: "upload",
-        action: props.onImportSchema,
-      },
-      {
-        id: "file-export-schema",
-        category: "file",
-        label: t("commandMenu.commands.fileExportSchema.label"),
-        icon: "download",
-        action: props.onExportCurrentSchema,
-      },
-      {
-        id: "file-download-ers",
-        category: "file",
-        label: t("commandMenu.commands.fileDownloadErs.label"),
-        icon: "download",
-        action: props.onSaveErs,
-      },
-      {
-        id: "file-export-png",
-        category: "file",
-        label: t("commandMenu.commands.fileExportPng.label"),
-        icon: "image",
-        action: props.onExportPng,
-      },
-      {
-        id: "file-export-jpeg",
-        category: "file",
-        label: t("commandMenu.commands.fileExportJpeg.label"),
-        icon: "image",
-        action: props.onExportJpeg,
-      },
-      {
-        id: "file-export-svg",
-        category: "file",
-        label: t("commandMenu.commands.fileExportSvg.label"),
-        icon: "fileImage",
-        action: props.onExportSvg,
-      },
-      {
-        id: "file-reset-ers",
-        category: "file",
-        label: t("commandMenu.commands.fileResetErs.label"),
-        icon: "refresh",
-        action: props.onResetErs,
-      },
-      {
-        id: "help-shortcuts",
-        category: "help",
-        label: t("commandMenu.commands.helpShortcuts.label"),
-        detail: t("commandMenu.commands.helpShortcuts.detail"),
-        icon: "keyboard",
-        action: props.onOpenShortcuts,
-      },
-      {
-        id: "help-whats-new",
-        category: "help",
-        label: t("commandMenu.commands.helpWhatsNew.label"),
-        icon: "history",
-        action: props.onWhatsNew,
-      },
-      {
-        id: "help-about",
-        category: "help",
-        label: t("commandMenu.commands.helpAbout.label"),
-        icon: "info",
-        action: props.onAbout,
-      },
-      ...SUPPORTED_LOCALES.map((language): CommandMenuItem => ({
-        id: `language-${language}`,
-        category: "language",
-        label: getLanguageMenuLabel(language),
-        detail:
-          language === locale
-            ? t("commandMenu.language.active")
-            : t("commandMenu.language.change"),
-        icon: language === locale ? "done" : "globe",
-        active: locale === language,
-        testId: `language-command-${language}`,
-        action: () => {
-          setLocale(language);
-        },
-      })),
-    ],
-    [
-      getLanguageMenuLabel,
-      isErView,
-      isLogicalView,
-      isTranslationView,
-      locale,
-      props,
-      setLocale,
-      t,
-    ],
-  );
-  const normalizedQuery = normalizeCommandSearch(searchQuery, locale);
-  const visibleCommands = commands.filter(
-    (item) =>
-      (activeCategory === "all" || item.category === activeCategory) &&
-      commandMatches(item, normalizedQuery, categoryLabels[item.category], locale),
-  );
-  const groupedCommands = categoryFilters.filter((filter) => filter.id !== "all")
-    .map((filter) => ({
-      id: filter.id as CommandCategory,
-      label: filter.label,
-      commands: visibleCommands.filter((item) => item.category === filter.id),
-    }))
-    .filter((group) => group.commands.length > 0);
+  function moveSelection(direction: 1 | -1) {
+    if (executableEntries.length === 0) return;
+    const currentIndex = executableEntries.findIndex((entry) => entry.id === selectedEntryId);
+    const fallbackIndex = direction === 1 ? -1 : 0;
+    const nextIndex = (currentIndex === -1 ? fallbackIndex : currentIndex) + direction;
+    const wrappedIndex = (nextIndex + executableEntries.length) % executableEntries.length;
+    setSelectedEntryId(executableEntries[wrappedIndex]?.id ?? null);
+  }
+
+  function handleInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      moveSelection(event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const selected = executableEntries.find((entry) => entry.id === selectedEntryId);
+      if (selected) runEntry(selected);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onClose(true);
+    }
+  }
+
+  const resultCount = visibleEntries.length;
+  const activeDescendant = selectedEntryId ? getOptionId(selectedEntryId) : undefined;
 
   return (
-    <div className="studio-modal-backdrop" role="presentation" onClick={props.onClose}>
+    <div
+      className="command-palette-catcher"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) props.onClose(true);
+      }}
+    >
       <div
-        className="studio-modal studio-modal--wide command-modal"
+        className="command-modal command-palette"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="command-menu-title"
-        onClick={(event) => event.stopPropagation()}
+        aria-label={t("commandMenu.paletteAria")}
         data-testid="command-menu"
       >
-        <div className="command-palette">
-          <div className="command-palette-header">
-            <div className="command-palette-title-row">
-              <span className="command-palette-title-icon" aria-hidden="true">
-                <StudioIcon name="menu" />
-              </span>
-              <div>
-                <h2 id="command-menu-title" className="command-palette-title">{t("commandMenu.title")}</h2>
-                <p className="command-palette-subtitle">
-                  {t("commandMenu.subtitle", {
-                    appTitle: props.appTitle,
-                    appVersion: props.appVersion,
-                    diagramName: props.diagramName,
-                  })}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="studio-modal__close command-palette-close"
-              onClick={props.onClose}
-              aria-label={t("commandMenu.closeAria")}
-            >
-              <StudioIcon name="close" aria-hidden="true" />
-            </button>
-          </div>
+        <label className="command-palette-search" htmlFor="command-palette-input">
+          <StudioIcon name="search" aria-hidden="true" />
+          <input
+            ref={inputRef}
+            id="command-palette-input"
+            type="search"
+            role="combobox"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={handleInputKeyDown}
+            placeholder={t("commandMenu.searchPlaceholder")}
+            aria-label={t("commandMenu.searchAria")}
+            aria-expanded="true"
+            aria-controls="command-palette-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant={activeDescendant}
+            autoComplete="off"
+            data-testid="command-menu-search"
+          />
+          <kbd className="command-palette-search-shortcut">Ctrl K</kbd>
+        </label>
 
-          <div className="command-palette-controls">
-            <label className="command-palette-search">
+        <div
+          ref={listRef}
+          id="command-palette-listbox"
+          className="command-palette-list"
+          role="listbox"
+          aria-label={t("commandMenu.resultsAria")}
+        >
+          {groups.length > 0 ? (
+            groups.map((group) => (
+              <section
+                key={group.id}
+                className="command-palette-section"
+                role="group"
+                aria-labelledby={`command-palette-section-${group.id}`}
+              >
+                <div className="command-palette-section-label" id={`command-palette-section-${group.id}`}>
+                  {group.label}
+                </div>
+                <div className="command-palette-section-list">
+                  {group.entries.map((entry) => (
+                    <CommandPaletteOption
+                      key={entry.id}
+                      entry={entry}
+                      selected={entry.id === selectedEntryId}
+                      onSelect={(nextEntry) => setSelectedEntryId(nextEntry.id)}
+                      onRun={runEntry}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          ) : (
+            <div className="command-palette-empty" role="status">
               <StudioIcon name="search" aria-hidden="true" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("commandMenu.searchPlaceholder")}
-                aria-label={t("commandMenu.searchAria")}
-                data-testid="command-menu-search"
-                autoFocus
-              />
-            </label>
-            <div className="command-palette-tabs" aria-label={t("commandMenu.filterAria")}>
-              {categoryFilters.map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={filter.id === activeCategory ? "command-palette-tab active" : "command-palette-tab"}
-                  onClick={() => setActiveCategory(filter.id)}
-                  aria-pressed={filter.id === activeCategory}
-                >
-                  {filter.label}
-                </button>
-              ))}
+              <strong>{t("commandMenu.emptyTitle")}</strong>
+              <span>{t("commandMenu.emptyDescription")}</span>
             </div>
-          </div>
-
-          <div className="command-palette-list" aria-live="polite">
-            {groupedCommands.length > 0 ? (
-              groupedCommands.map((group) => (
-                <section key={group.id} className="command-palette-section" aria-labelledby={`command-palette-section-${group.id}`}>
-                  <div className="command-palette-section-label" id={`command-palette-section-${group.id}`}>
-                    {group.label}
-                  </div>
-                  <div className="command-palette-section-list">
-                    {group.commands.map((item) => (
-                      <CommandPaletteItem key={item.id} item={item} onRun={(command) => runCommand(command.action)} />
-                    ))}
-                  </div>
-                </section>
-              ))
-            ) : (
-              <div className="command-palette-empty" role="status">
-                <StudioIcon name="search" aria-hidden="true" />
-                <strong>{t("commandMenu.emptyTitle")}</strong>
-                <span>{t("commandMenu.emptyDescription")}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="command-palette-footer">
-            {t("commandMenu.visibleCount", { count: visibleCommands.length })}
-          </div>
+          )}
         </div>
+
+        <div className="command-palette-live" aria-live="polite">
+          {t("commandMenu.visibleCount", { count: resultCount })}
+        </div>
+        <footer className="command-palette-footer">
+          <span><kbd>↑</kbd><kbd>↓</kbd>{t("commandMenu.hints.navigate")}</span>
+          <span><kbd>Enter</kbd>{t("commandMenu.hints.run")}</span>
+          <span><kbd>Esc</kbd>{t("commandMenu.hints.close")}</span>
+        </footer>
       </div>
     </div>
   );

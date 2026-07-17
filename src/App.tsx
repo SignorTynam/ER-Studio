@@ -1038,6 +1038,7 @@ export default function App() {
   });
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const commandMenuReturnFocusRef = useRef<HTMLElement | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const schemaFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1100,6 +1101,14 @@ export default function App() {
     });
     return result;
   }, [projectExplorer.project.fileTree, projectExplorer.project.rootId]);
+  const commandPaletteProjectFiles = useMemo(
+    () => projectExplorer.project.fileTree.flatMap((node) => {
+      if (!node.fileId) return [];
+      const file = projectExplorer.files[node.fileId];
+      return file ? [file] : [];
+    }),
+    [projectExplorer.files, projectExplorer.project.fileTree],
+  );
   const issues = hasProject && hasOpenSchema ? validateDiagram(history.present) : [];
   const canvasIssues = showDiagnostics ? issues : [];
   const selectedNode =
@@ -1800,11 +1809,27 @@ export default function App() {
   }
 
   function openCommandMenu() {
+    const activeElement = typeof document === "undefined" ? null : document.activeElement;
+    if (activeElement instanceof HTMLElement && !activeElement.closest('[data-testid="command-menu"]')) {
+      commandMenuReturnFocusRef.current = activeElement;
+    }
     setAboutOpen(false);
     setWhatsNewOpen(false);
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
+    setVersionAnnouncement(null);
+    setErrorsPanelOpen(false);
+    setNotesPanelOpen(false);
     setCommandMenuOpen(true);
+  }
+
+  function closeCommandMenu(restoreFocus = true) {
+    setCommandMenuOpen(false);
+    if (!restoreFocus) return;
+    const returnTarget = commandMenuReturnFocusRef.current;
+    window.requestAnimationFrame(() => {
+      if (returnTarget?.isConnected) returnTarget.focus();
+    });
   }
 
   function openKeyboardShortcuts() {
@@ -3409,6 +3434,23 @@ export default function App() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (!commandMenuOpen) {
+          openCommandMenu();
+          return;
+        }
+
+        const paletteInput = document.querySelector<HTMLInputElement>('[data-testid="command-menu-search"]');
+        if (paletteInput && document.activeElement !== paletteInput) {
+          paletteInput.focus();
+        } else {
+          closeCommandMenu(true);
+        }
+        return;
+      }
+
       const isEditingField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -3561,7 +3603,7 @@ export default function App() {
         }
 
         if (commandMenuOpen) {
-          setCommandMenuOpen(false);
+          closeCommandMenu(true);
           return;
         }
 
@@ -7537,28 +7579,43 @@ export default function App() {
 
       {commandMenuOpen ? (
         <CommandMenuModal
-          appTitle={APP_TITLE}
-          appVersion={APP_VERSION}
-          diagramName={history.present.meta.name}
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
+          errorsPanelOpen={activeActivityPanel === "errors" && projectExplorer.view.explorerOpen}
+          explorerOpen={activeActivityPanel === "file" && projectExplorer.view.explorerOpen}
+          versioningOpen={activeActivityPanel === "version" && projectExplorer.view.explorerOpen}
+          reverseOpen={activeActivityPanel === "reverse" && projectExplorer.view.explorerOpen}
           canUndo={activeCanUndo}
           canRedo={activeCanRedo}
+          canExportLogicalSql={diagramView === "logical" && logicalHistory.present.model.tables.length > 0}
           logicalOutOfDate={logicalOutOfDate}
           focusMode={focusMode}
+          showDiagnostics={showDiagnostics}
           hasUncommittedChanges={hasVersioningUncommittedChanges}
           toolRailCollapsed={effectiveToolbarCollapsed}
           selectionItemCount={selectionItemCount}
-          onClose={() => setCommandMenuOpen(false)}
+          editMode={mode === "edit"}
+          hasProject={hasProject}
+          hasActiveSchema={hasOpenSchema}
+          projectFiles={commandPaletteProjectFiles}
+          projectFilePaths={projectFilePaths}
+          openTabs={projectExplorer.view.openTabs}
+          activeFileId={activeProjectFileId}
+          onClose={closeCommandMenu}
+          onOpenProjectFile={handleProjectExplorerOpenFile}
           onOpenShortcuts={openKeyboardShortcuts}
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenLogicalWorkflow={handleOpenLogicalStage}
           onNewProject={handleNewProject}
+          onCloseProject={handleCloseProject}
+          onShowWelcome={handleShowWelcomeTab}
           onUndo={handleUndoAction}
           onRedo={handleRedoAction}
+          onCopySelection={handleCopySelection}
+          onPasteSelection={() => void handlePasteSelection()}
           onDuplicateSelection={handleDuplicateSelection}
           onDeleteSelection={handleDeleteSelection}
           onRenameSelection={handleRenameSelectionQuick}
@@ -7567,17 +7624,25 @@ export default function App() {
           onAutoLayoutLogical={handleLogicalAutoLayout}
           onFitLogical={handleLogicalFit}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
+          onOpenExplorer={() => handleSelectActivityPanel("file")}
+          onOpenErrorsPanel={() => handleSelectActivityPanel("errors")}
           onOpenVersioningPanel={() => {
             setActiveActivityPanel("version");
             setWorkspaceActivityOpen(true);
           }}
+          onToggleDiagnostics={() => setShowDiagnostics((current) => !current)}
           onToggleCodePanel={handleToggleCodePanel}
           onToggleNotesPanel={handleToggleNotesPanel}
           onSaveProject={handleSaveProject}
           onNewSchema={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+          onNewNote={() => handleProjectExplorerCreateTextFile(projectExplorer.project.rootId)}
+          onNewSql={() => handleProjectExplorerCreateSqlFile(projectExplorer.project.rootId)}
+          onNewFolder={() => handleProjectExplorerCreateFolder(projectExplorer.project.rootId)}
           onImportSchema={handleImportSchemaRequest}
+          onImportSql={handleOpenSqlReverseWorkflow}
           onExportCurrentSchema={handleSaveCurrentSchema}
           onSaveErs={handleSaveErs}
+          onExportSql={handleSaveLogicalSql}
           onLoadProject={handleLoadProjectRequest}
           onLoadErs={handleLoadErsRequest}
           onExportPng={handleExportPng}
@@ -7592,6 +7657,7 @@ export default function App() {
             setAboutOpen(false);
             setWhatsNewOpen(true);
           }}
+          onVersionAnnouncement={openVersionAnnouncementManually}
           onToggleFocusMode={handleToggleFocusMode}
           onToggleToolRail={handleToggleToolRail}
         />
