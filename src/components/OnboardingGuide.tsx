@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n/useI18n";
+import { Button } from "./ui";
 
 interface OnboardingGuideStep<StepId extends string> {
   id: StepId;
@@ -55,12 +56,12 @@ export function OnboardingGuide<StepId extends string>(props: OnboardingGuidePro
       </ol>
 
       <div className="onboarding-guide-actions">
-        <button type="button" className="mode-button active" onClick={() => props.onStepAction(activeStep.id)}>
+        <Button variant="primary" onClick={() => props.onStepAction(activeStep.id)}>
           {activeStep.actionLabel}
-        </button>
-        <button type="button" className="header-button" onClick={props.onSkip}>
+        </Button>
+        <Button variant="ghost" onClick={props.onSkip}>
           {t("onboarding.skip")}
-        </button>
+        </Button>
       </div>
     </aside>
   );
