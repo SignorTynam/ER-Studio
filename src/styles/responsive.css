@@ -174,8 +174,10 @@
     justify-content: center;
   }
 
-  .code-editor-diagnostic-popover {
-    right: var(--space-1);
-    left: var(--space-1);
+  body > .code-editor-diagnostic-popover {
+    top: 76px;
+    right: 10px;
+    left: 10px;
+    width: auto;
   }
 }

@@ -61,7 +61,8 @@ test("SQL workspace files stay decoupled while Reverse upload binds a file witho
   await reverseEditor.fill("CREATE TABLE Broken (\n  id INTEGER");
   await reversePanel.getByRole("button", { name: "Analizza codice" }).click();
   await expect(reversePanel.locator(".code-editor-line--error")).toBeVisible();
-  await expect(reversePanel.locator(".code-editor-diagnostic-popover")).toBeVisible();
+  await expect(reversePanel.locator(".code-editor-diagnostic-popover")).toHaveCount(0);
+  await expect(page.locator(".workspace-toast-stack > .code-editor-diagnostic-popover")).toBeVisible();
   await expect(reversePanel.locator(".sql-reverse-panel__issues, .sql-reverse-panel__error")).toHaveCount(0);
 
   await reversePanel.getByRole("button", { name: "Cancella" }).click();
@@ -80,8 +81,28 @@ test("ERS diagnostics stay inline and Code/Reverse headers share height on mobil
   const codeEditor = codePanel.getByRole("textbox", { name: "Editor codice del programma" });
   await codeEditor.fill("entity A {\n  ???\n}");
   await expect(codePanel.locator('.code-editor-line--error[data-line="2"]')).toBeVisible({ timeout: 4000 });
-  await expect(codePanel.locator(".code-editor-diagnostic-popover")).toBeVisible();
+  await expect(codePanel.locator(".code-editor-diagnostic-popover")).toHaveCount(0);
+  await expect(page.locator(".workspace-toast-stack > .code-editor-diagnostic-popover")).toBeVisible();
   await expect(codePanel.locator(".designer-code-error")).toHaveCount(0);
+  const diagnosticGeometry = await codePanel.evaluate((panel) => {
+    const gutterLine = panel.querySelector<HTMLElement>('.code-editor-gutter-line--error');
+    const marker = panel.querySelector<HTMLElement>('.code-editor-gutter-marker');
+    const highlightedLine = panel.querySelector<HTMLElement>('.code-editor-line--error');
+    if (!gutterLine || !marker || !highlightedLine) return null;
+    const gutterBox = gutterLine.getBoundingClientRect();
+    const markerBox = marker.getBoundingClientRect();
+    return {
+      gutterTop: gutterBox.top,
+      gutterBottom: gutterBox.bottom,
+      markerTop: markerBox.top,
+      markerBottom: markerBox.bottom,
+      lineBoxShadow: getComputedStyle(highlightedLine).boxShadow,
+    };
+  });
+  expect(diagnosticGeometry).not.toBeNull();
+  expect(diagnosticGeometry!.markerTop).toBeGreaterThanOrEqual(diagnosticGeometry!.gutterTop);
+  expect(diagnosticGeometry!.markerBottom).toBeLessThanOrEqual(diagnosticGeometry!.gutterBottom + 0.5);
+  expect(diagnosticGeometry!.lineBoxShadow).toBe("none");
   const codeHeaderHeight = await codePanel.locator(".workspace-panel__header").evaluate((element) => element.getBoundingClientRect().height);
 
   await page.locator(".project-activity-rail").getByRole("button", { name: "Reverse", exact: true }).click();

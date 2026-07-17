@@ -49,10 +49,17 @@ test("shared code editor renders warning line, gutter marker and accessible popu
 
 test("shared code editor CSS keeps input and highlight perfectly overlaid", () => {
   const css = readFileSync(new URL("../src/styles/editor-refactor.css", import.meta.url), "utf8");
+  const componentSource = readFileSync(new URL("../src/components/editor/CodeEditorSurface.tsx", import.meta.url), "utf8");
   assert.match(css, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*position:\s*absolute/);
   assert.match(css, /\.designer-code-scroll-layer > \.designer-code-highlight,[\s\S]*\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*inset:\s*0/);
   assert.match(css, /\.designer-code-scroll-layer > \.designer-code-highlight\s*\{[^}]*overflow:\s*hidden/);
   assert.match(css, /\.designer-code-scroll-layer > \.designer-code-input\s*\{[^}]*overflow:\s*auto/);
-  assert.match(css, /\.code-editor-diagnostic-popover\s*\{[^}]*position:\s*absolute/);
+  assert.match(componentSource, /document\.querySelector<HTMLElement>\("\.workspace-toast-stack"\)/);
+  assert.match(componentSource, /createPortal\(diagnosticPopover, diagnosticPortalTarget\)/);
+  assert.match(css, /\.code-editor-diagnostic-popover\s*\{[^}]*position:\s*relative/);
+  assert.match(css, /body > \.code-editor-diagnostic-popover\s*\{[^}]*position:\s*fixed/);
+  assert.match(css, /\.designer-code-line-numbers \.code-editor-gutter-marker\s*\{[^}]*top:\s*0/);
+  assert.match(css, /\.designer-code-line-numbers \.code-editor-gutter-marker\s*\{[^}]*height:\s*var\(--code-line-height\)/);
+  assert.doesNotMatch(css, /\.code-editor-line--error\s*\{[^}]*box-shadow/);
   assert.doesNotMatch(css, /\.designer-code-error\s*\{/);
 });

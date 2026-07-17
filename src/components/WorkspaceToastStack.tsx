@@ -58,10 +58,6 @@ export function WorkspaceToastStack({ notices, onDismissNotice }: WorkspaceToast
   const { t } = useI18n();
   const visibleNotices = getVisibleWorkspaceToasts(notices);
 
-  if (visibleNotices.length === 0) {
-    return null;
-  }
-
   return (
     <section className="workspace-toast-viewport" aria-live="polite" aria-label={t("workspaceToasts.stackAria")}>
       <div className="workspace-toast-stack">

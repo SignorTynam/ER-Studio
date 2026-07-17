@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "../../i18n/useI18n";
 import type { EditorDiagnostic, EditorLanguage } from "../../types/editor";
 import { applyAutoPairEdit, applyTabEdit, buildLineNumbers } from "../../utils/codeEditor";
@@ -276,79 +277,88 @@ export function CodeEditorSurface({
     }
   }, [orderedDiagnostics]);
 
+  const diagnosticPopover = activeDiagnostic ? (
+    <section
+      className={`code-editor-diagnostic-popover level-${activeDiagnostic.level}`}
+      role={activeDiagnostic.level === "error" ? "alert" : "status"}
+      aria-label={t("codeEditor.diagnostic.popupLabel")}
+    >
+      <div className="code-editor-diagnostic-popover__heading">
+        <strong>
+          {activeDiagnostic.line
+            ? t(`codeEditor.diagnostic.${activeDiagnostic.level}AtLine`, { line: activeDiagnostic.line })
+            : t(`codeEditor.diagnostic.${activeDiagnostic.level}`)}
+        </strong>
+        <button type="button" onClick={() => setActiveDiagnosticIndex(null)} aria-label={t("codeEditor.diagnostic.close")}>
+          <StudioIcon name="close" aria-hidden="true" />
+        </button>
+      </div>
+      <p>{activeDiagnostic.message}</p>
+      {orderedDiagnostics.length > 1 ? (
+        <footer>
+          <button type="button" onClick={() => setActiveDiagnosticIndex((current) => current === null ? 0 : (current - 1 + orderedDiagnostics.length) % orderedDiagnostics.length)} aria-label={t("codeEditor.diagnostic.previous")}>
+            <StudioIcon name="arrowLeft" aria-hidden="true" />
+          </button>
+          <span>{t("codeEditor.diagnostic.position", { current: (activeDiagnosticIndex ?? 0) + 1, count: orderedDiagnostics.length })}</span>
+          <button type="button" onClick={() => setActiveDiagnosticIndex((current) => current === null ? 0 : (current + 1) % orderedDiagnostics.length)} aria-label={t("codeEditor.diagnostic.next")}>
+            <StudioIcon name="arrowRight" aria-hidden="true" />
+          </button>
+        </footer>
+      ) : null}
+    </section>
+  ) : null;
+  const diagnosticPortalTarget = typeof document === "undefined"
+    ? null
+    : document.querySelector<HTMLElement>(".workspace-toast-stack") ?? document.body;
+
   return (
-    <div className="designer-code-editor">
-      <div ref={lineNumberRef} className="designer-code-line-numbers">
-        {lineNumbers.map((lineNumber, index) => {
-          const diagnostic = diagnosticByLine.get(index + 1);
-          return diagnostic ? (
-            <button
-              key={lineNumber}
-              type="button"
-              className={`code-editor-gutter-line code-editor-gutter-line--${diagnostic.level}`}
-              onClick={() => openDiagnostic(diagnostic)}
-              aria-label={t(`codeEditor.diagnostic.${diagnostic.level}AtLine`, { line: index + 1 })}
-            >
-              {lineNumber}<span className="code-editor-gutter-marker" aria-hidden="true">!</span>
-            </button>
-          ) : <span key={lineNumber} aria-hidden="true">{lineNumber}</span>;
-        })}
-      </div>
-      <div className="designer-code-scroll-layer">
-        <pre
-          ref={highlightRef}
-          className="designer-code-highlight"
-          aria-hidden="true"
-          dangerouslySetInnerHTML={{ __html: highlightedCode }}
-        />
-        {value.length === 0 ? <div className="designer-code-placeholder" aria-hidden="true">{placeholder}</div> : null}
-        <textarea
-          ref={editorRef}
-          className="designer-code-input"
-          value={value}
-          onChange={(event) => onChange?.(event.target.value)}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          onKeyDown={handleEditorKeyDown}
-          onClick={handleEditorClick}
-          onScroll={syncScroll}
-          spellCheck={false}
-          wrap="off"
-          readOnly={readOnly}
-          aria-label={ariaLabel}
-          aria-invalid={orderedDiagnostics.some((diagnostic) => diagnostic.level === "error") || undefined}
-        />
-        {activeDiagnostic ? (
-          <section
-            className={`code-editor-diagnostic-popover level-${activeDiagnostic.level}`}
-            role={activeDiagnostic.level === "error" ? "alert" : "status"}
-            aria-label={t("codeEditor.diagnostic.popupLabel")}
-          >
-            <div className="code-editor-diagnostic-popover__heading">
-              <strong>
-                {activeDiagnostic.line
-                  ? t(`codeEditor.diagnostic.${activeDiagnostic.level}AtLine`, { line: activeDiagnostic.line })
-                  : t(`codeEditor.diagnostic.${activeDiagnostic.level}`)}
-              </strong>
-              <button type="button" onClick={() => setActiveDiagnosticIndex(null)} aria-label={t("codeEditor.diagnostic.close")}>
-                <StudioIcon name="close" aria-hidden="true" />
+    <>
+      <div className="designer-code-editor">
+        <div ref={lineNumberRef} className="designer-code-line-numbers">
+          {lineNumbers.map((lineNumber, index) => {
+            const diagnostic = diagnosticByLine.get(index + 1);
+            return diagnostic ? (
+              <button
+                key={lineNumber}
+                type="button"
+                className={`code-editor-gutter-line code-editor-gutter-line--${diagnostic.level}`}
+                onClick={() => openDiagnostic(diagnostic)}
+                aria-label={t(`codeEditor.diagnostic.${diagnostic.level}AtLine`, { line: index + 1 })}
+              >
+                {lineNumber}<span className="code-editor-gutter-marker" aria-hidden="true">!</span>
               </button>
-            </div>
-            <p>{activeDiagnostic.message}</p>
-            {orderedDiagnostics.length > 1 ? (
-              <footer>
-                <button type="button" onClick={() => setActiveDiagnosticIndex((current) => current === null ? 0 : (current - 1 + orderedDiagnostics.length) % orderedDiagnostics.length)} aria-label={t("codeEditor.diagnostic.previous")}>
-                  <StudioIcon name="arrowLeft" aria-hidden="true" />
-                </button>
-                <span>{t("codeEditor.diagnostic.position", { current: (activeDiagnosticIndex ?? 0) + 1, count: orderedDiagnostics.length })}</span>
-                <button type="button" onClick={() => setActiveDiagnosticIndex((current) => current === null ? 0 : (current + 1) % orderedDiagnostics.length)} aria-label={t("codeEditor.diagnostic.next")}>
-                  <StudioIcon name="arrowRight" aria-hidden="true" />
-                </button>
-              </footer>
-            ) : null}
-          </section>
-        ) : null}
+            ) : <span key={lineNumber} aria-hidden="true">{lineNumber}</span>;
+          })}
+        </div>
+        <div className="designer-code-scroll-layer">
+          <pre
+            ref={highlightRef}
+            className="designer-code-highlight"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: highlightedCode }}
+          />
+          {value.length === 0 ? <div className="designer-code-placeholder" aria-hidden="true">{placeholder}</div> : null}
+          <textarea
+            ref={editorRef}
+            className="designer-code-input"
+            value={value}
+            onChange={(event) => onChange?.(event.target.value)}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            onKeyDown={handleEditorKeyDown}
+            onClick={handleEditorClick}
+            onScroll={syncScroll}
+            spellCheck={false}
+            wrap="off"
+            readOnly={readOnly}
+            aria-label={ariaLabel}
+            aria-invalid={orderedDiagnostics.some((diagnostic) => diagnostic.level === "error") || undefined}
+          />
+        </div>
       </div>
-    </div>
+      {diagnosticPopover && diagnosticPortalTarget
+        ? createPortal(diagnosticPopover, diagnosticPortalTarget)
+        : diagnosticPopover}
+    </>
   );
 }

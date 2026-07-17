@@ -34,6 +34,14 @@ function renderToastStack(notices: WorkspaceNotice[]): string {
   );
 }
 
+test("workspace toast viewport remains mounted as a portal target when empty", () => {
+  const markup = renderToastStack([]);
+
+  assert.match(markup, /workspace-toast-viewport/);
+  assert.match(markup, /workspace-toast-stack/);
+  assert.doesNotMatch(markup, /workspace-toast tone-/);
+});
+
 test("workspace toast stack renders all visible notices, not only the first", () => {
   const markup = renderToastStack([
     notice({ id: 1, message: "Primo messaggio", createdAt: 1_000 }),

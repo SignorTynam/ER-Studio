@@ -799,12 +799,10 @@ body {
 
 .code-editor-line--error {
   background: color-mix(in srgb, var(--color-danger) 14%, transparent);
-  box-shadow: inset 3px 0 0 var(--color-danger);
 }
 
 .code-editor-line--warning {
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
-  box-shadow: inset 3px 0 0 var(--color-warning);
 }
 
 .code-editor-gutter-line--error,
@@ -822,33 +820,59 @@ body {
   background: color-mix(in srgb, var(--color-warning) 14%, transparent) !important;
 }
 
-.code-editor-gutter-marker {
+.code-editor-gutter-line {
+  box-sizing: border-box;
+  padding-right: 12px !important;
+}
+
+.designer-code-line-numbers .code-editor-gutter-marker {
   position: absolute;
-  right: -7px;
+  top: 0;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  height: var(--code-line-height);
+  min-height: var(--code-line-height);
   font-size: 0.62rem;
   font-weight: var(--font-weight-bold);
+  line-height: var(--code-line-height);
+  text-align: center;
 }
 
 .code-editor-diagnostic-popover {
-  position: absolute;
-  z-index: 8;
-  top: var(--space-2);
-  right: var(--space-2);
-  left: var(--space-2);
-  max-height: min(180px, calc(100% - var(--space-4)));
-  padding: var(--space-2);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: min(240px, calc(100vh - 120px));
+  padding: 0;
   border: 1px solid var(--color-border-default);
-  border-left: 3px solid var(--color-warning);
+  border-left: 4px solid var(--color-warning);
   border-radius: var(--radius-control);
   background: var(--color-bg-elevated);
   color: var(--color-text-primary);
   box-shadow: var(--elevation-popover);
   overflow: auto;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .code-editor-diagnostic-popover.level-error {
   border-left-color: var(--color-danger);
+}
+
+.workspace-toast-viewport > .workspace-toast-stack {
+  pointer-events: none;
+}
+
+body > .code-editor-diagnostic-popover {
+  position: fixed;
+  z-index: 73;
+  top: 86px;
+  right: 18px;
+  width: min(380px, calc(100vw - 36px));
 }
 
 .code-editor-diagnostic-popover__heading,
@@ -857,6 +881,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+.code-editor-diagnostic-popover__heading {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-bg-subtle);
 }
 
 .code-editor-diagnostic-popover__heading button,
@@ -870,6 +900,7 @@ body {
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
+  pointer-events: auto;
 }
 
 .code-editor-diagnostic-popover__heading button:hover,
@@ -882,7 +913,8 @@ body {
 }
 
 .code-editor-diagnostic-popover p {
-  margin: var(--space-1-5) 0;
+  margin: 0;
+  padding: 10px 12px 12px;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-normal);
   white-space: normal;
@@ -890,6 +922,7 @@ body {
 
 .code-editor-diagnostic-popover footer {
   justify-content: center;
+  padding: 0 10px 10px;
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
 }
