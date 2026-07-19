@@ -9,93 +9,135 @@
   color: var(--color-text-primary);
 }
 
-.sql-playground-header {
+.project-main-content > .sql-playground-workspace {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.project-main-content--sql-playground {
+  grid-row: 2 / 4;
+}
+
+.sql-playground-command-bar {
   display: flex;
+  min-width: 0;
+  min-height: calc(var(--size-button) + var(--space-3));
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2-5) var(--space-4);
-  border-bottom: 1px solid var(--color-border-default);
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-default);
   background: var(--color-bg-panel);
+  white-space: nowrap;
 }
 
-.sql-playground-header__identity,
-.sql-playground-header__title-row,
-.sql-playground-header__session-note {
+.sql-playground-command-bar__primary,
+.sql-playground-command-bar__metadata {
   display: flex;
+  min-width: 0;
   align-items: center;
 }
 
-.sql-playground-header__identity {
-  min-width: 0;
-  gap: var(--space-2-5);
-}
-
-.sql-playground-header__icon {
-  display: grid;
-  width: var(--size-button);
-  height: var(--size-button);
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-control);
-  background: var(--color-bg-elevated);
-  color: var(--color-accent);
-}
-
-.sql-playground-header__title-row {
-  flex-wrap: wrap;
+.sql-playground-command-bar__primary {
   gap: var(--space-2);
 }
 
-.sql-playground-header h1,
-.sql-playground-section-heading h2,
+.sql-playground-command-bar__icon {
+  display: grid;
+  width: var(--size-button-sm);
+  height: var(--size-button-sm);
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--color-accent);
+}
+
+.sql-playground-command-bar h1,
+.sql-playground-editor__tab h2,
+.sql-playground-results__header h2,
 .sql-playground-result h3,
 .sql-playground-empty h1 {
   margin: 0;
 }
 
-.sql-playground-header h1 {
-  font-size: var(--font-size-xl);
+.sql-playground-command-bar h1 {
+  flex: 0 0 auto;
+  font-size: var(--font-size-lg);
   line-height: var(--line-height-tight);
 }
 
-.sql-playground-header p,
-.sql-playground-section-heading p {
-  margin: var(--space-0-5) 0 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+.sql-playground-command-bar__status {
+  display: inline-flex;
+  flex: 0 1 auto;
+  overflow: hidden;
 }
 
-.sql-playground-header__session-note {
-  flex: 0 0 auto;
-  gap: var(--space-1-5);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.sql-playground-toolbar {
-  display: flex;
-  align-items: center;
+.sql-playground-command-bar__metadata {
+  flex: 1 1 auto;
+  justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-elevated);
-}
-
-.sql-playground-toolbar__version {
-  margin-left: auto;
+  overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
+}
+
+.sql-playground-command-bar__metadata strong,
+.sql-playground-command-bar__metadata span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sql-playground-command-bar__metadata span::before {
+  margin-right: var(--space-2);
+  content: "·";
+}
+
+.sql-playground-command-bar__metadata .sql-playground-command-bar__info::before {
+  content: none;
+}
+
+.sql-playground-command-bar__info,
+.sql-playground-results__collapse,
+.sql-explorer-refresh {
+  display: inline-grid;
+  width: var(--size-button-sm);
+  height: var(--size-button-sm);
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.sql-playground-command-bar__info {
+  cursor: help;
+}
+
+.sql-playground-command-bar__info:hover,
+.sql-playground-results__collapse:hover,
+.sql-explorer-refresh:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.sql-playground-command-bar__info:focus-visible,
+.sql-playground-results__collapse:focus-visible,
+.sql-explorer-refresh:focus-visible,
+.sql-playground-table-scroll:focus-visible,
+.sql-explorer-tree__row:focus-visible,
+.sql-playground-splitter:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .sql-playground-stale,
 .sql-playground-error {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
   font-size: var(--font-size-sm);
 }
 
@@ -104,7 +146,9 @@
   color: var(--color-warning);
 }
 
-.sql-playground-stale span {
+.sql-playground-stale span,
+.sql-playground-error p,
+.sql-playground-error small {
   color: var(--color-text-secondary);
 }
 
@@ -115,18 +159,14 @@
 
 .sql-playground-error p {
   margin: var(--space-0-5) 0;
-  color: var(--color-text-primary);
-}
-
-.sql-playground-error small {
-  color: var(--color-text-secondary);
 }
 
 .sql-playground-body {
-  display: grid;
+  display: flex;
   min-height: 0;
   flex: 1;
-  grid-template-rows: minmax(calc(var(--size-input) * 5), 2fr) minmax(calc(var(--size-input) * 4), 3fr);
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sql-playground-editor,
@@ -138,95 +178,141 @@
 }
 
 .sql-playground-editor {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-default);
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: var(--color-bg-elevated);
 }
 
-.sql-playground-section-heading {
+.sql-playground-editor__tab,
+.sql-playground-results__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  min-height: var(--size-panel-header);
+  flex: 0 0 auto;
+  align-items: center;
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
 }
 
-.sql-playground-section-heading h2,
+.sql-playground-editor__tab {
+  padding: 0 var(--space-3);
+}
+
+.sql-playground-editor__tab h2,
+.sql-playground-results__header h2,
 .sql-playground-result h3 {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
 
-.sql-playground-editor__field {
+.sql-playground-editor__surface,
+.sql-playground-editor__surface .designer-code-editor {
   min-height: 0;
+  height: 100%;
   flex: 1;
 }
 
-.sql-playground-editor__field .ui-field__label {
+.sql-playground-editor__surface .designer-code-editor {
+  border: 0;
+  border-radius: 0;
+}
+
+.sql-playground-splitter {
+  position: relative;
+  z-index: 2;
+  height: var(--space-2);
+  flex: 0 0 var(--space-2);
+  border: 0;
+  background: var(--color-bg-panel);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.sql-playground-splitter::after {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  top: calc(50% - (var(--border-width-default) / 2));
+  right: 0;
+  left: 0;
+  height: var(--border-width-default);
+  background: var(--color-border-default);
+  content: "";
+  transition: background var(--motion-fast);
+}
+
+.sql-playground-splitter:hover::after,
+.sql-playground-splitter.is-active::after,
+.sql-playground-splitter:focus-visible::after {
+  background: var(--color-accent);
+}
+
+.sql-playground-results {
+  height: var(--sql-playground-results-height);
+  flex: 0 0 var(--sql-playground-results-height);
   overflow: hidden;
-  clip-path: inset(50%);
+  border-top: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+}
+
+.sql-playground-results.is-collapsed {
+  height: var(--size-panel-header);
+  flex-basis: var(--size-panel-header);
+  border-top: 0;
+}
+
+.sql-playground-results__header {
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) 0 var(--space-3);
+}
+
+.sql-playground-results__header > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.sql-playground-results__header span {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sql-playground-editor__input {
-  width: 100%;
-  height: 100%;
-  min-height: calc(var(--size-input) * 3);
-  resize: none;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-control);
-  padding: var(--space-3);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-normal);
-  tab-size: 2;
-}
-
-.sql-playground-editor__input:focus-visible,
-.sql-playground-table-scroll:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+.sql-playground-results__collapse,
+.sql-explorer-refresh {
+  cursor: pointer;
 }
 
 .sql-playground-results__content {
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 0 var(--space-4) var(--space-4);
-}
-
-.sql-playground-results > .sql-playground-section-heading {
-  padding: var(--space-3) var(--space-4) 0;
 }
 
 .sql-playground-results__empty-state {
   display: grid;
   min-height: calc(var(--size-input) * 3);
   place-items: center;
-  border: 1px dashed var(--color-border-default);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
 .sql-playground-result {
-  border: 1px solid var(--color-border-default);
   background: var(--color-bg-elevated);
 }
 
 .sql-playground-result + .sql-playground-result {
-  margin-top: var(--space-3);
+  border-top: var(--border-width-default) solid var(--color-border-default);
 }
 
 .sql-playground-result > header {
   display: flex;
+  min-height: var(--size-input);
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
   background: var(--color-bg-panel);
 }
 
@@ -247,7 +333,8 @@
 
 .sql-playground-table-scroll table {
   min-width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--font-size-sm);
 }
 
@@ -255,19 +342,39 @@
 .sql-playground-table-scroll td {
   max-width: calc(var(--size-sidebar-default) * 2);
   padding: var(--space-1-5) var(--space-2-5);
-  border-right: 1px solid var(--color-border-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-right: var(--border-width-default) solid var(--color-border-subtle);
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
   text-align: left;
   white-space: nowrap;
 }
 
-.sql-playground-table-scroll th {
+.sql-playground-table-scroll thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   background: var(--color-bg-panel);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
+}
+
+.sql-playground-table-scroll tbody tr:hover {
+  background: var(--color-bg-hover);
+}
+
+.sql-playground-table-scroll .sql-playground-row-number {
+  position: sticky;
+  left: 0;
+  width: var(--size-input);
+  max-width: var(--size-input);
+  z-index: 1;
+  background: var(--color-bg-panel);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sql-playground-table-scroll thead .sql-playground-row-number {
+  z-index: 3;
 }
 
 .sql-playground-cell span {
@@ -357,42 +464,195 @@
   font-size: var(--font-size-sm);
 }
 
-@media (max-width: 860px) {
-  .sql-playground-header {
-    align-items: flex-start;
-    flex-direction: column;
+.sql-explorer-panel,
+.sql-explorer-panel__body {
+  min-height: 0;
+}
+
+.sql-explorer-panel {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sql-explorer-refresh:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.sql-explorer-schema-name {
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sql-explorer-panel__body {
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.sql-explorer-empty,
+.sql-explorer-error,
+.sql-explorer-loading {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.sql-explorer-empty p,
+.sql-explorer-error p {
+  margin: 0;
+}
+
+.sql-explorer-loading {
+  align-items: center;
+  flex-direction: row;
+}
+
+.sql-explorer-error strong {
+  color: var(--color-danger);
+}
+
+.sql-explorer-tree {
+  min-width: max-content;
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+}
+
+.sql-explorer-tree__row {
+  display: flex;
+  min-width: 100%;
+  height: var(--size-tree-row);
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: var(--space-2);
+  color: var(--color-text-primary);
+  cursor: default;
+  user-select: none;
+}
+
+.sql-explorer-tree__row:hover {
+  background: var(--color-bg-hover);
+}
+
+.sql-explorer-tree__row.is-selected {
+  background: var(--color-bg-selected);
+}
+
+.sql-explorer-tree__indent {
+  width: calc((var(--sql-explorer-level) - 1) * var(--space-3));
+  flex: 0 0 auto;
+}
+
+.sql-explorer-tree__chevron {
+  display: grid;
+  width: var(--space-4);
+  flex: 0 0 var(--space-4);
+  place-items: center;
+  color: var(--color-text-muted);
+}
+
+.sql-explorer-tree__chevron svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.sql-explorer-tree__icon {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.sql-explorer-tree__label {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-medium);
+}
+
+.sql-explorer-tree__detail {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .sql-playground-command-bar__metadata strong {
+    max-width: var(--size-sidebar-min);
   }
 
-  .sql-playground-header__session-note {
-    padding-left: calc(var(--size-button) + var(--space-2-5));
-  }
-
-  .sql-playground-toolbar {
-    flex-wrap: wrap;
-  }
-
-  .sql-playground-toolbar__version {
-    width: 100%;
-    margin-left: 0;
+  .sql-playground-command-bar__metadata span:not(.sql-playground-command-bar__info) {
+    display: none;
   }
 }
 
-@media (max-width: 640px) {
-  .sql-playground-header,
-  .sql-playground-toolbar,
-  .sql-playground-editor,
-  .sql-playground-results__content,
-  .sql-playground-results > .sql-playground-section-heading {
-    padding-right: var(--space-3);
-    padding-left: var(--space-3);
+@media (max-width: 900px) {
+  .sql-playground-command-bar__metadata {
+    flex: 0 0 auto;
   }
 
-  .sql-playground-body {
-    grid-template-rows: minmax(calc(var(--size-input) * 6), 1fr) minmax(calc(var(--size-input) * 5), 1fr);
+  .sql-playground-command-bar__metadata strong {
+    display: none;
   }
 
-  .sql-playground-section-heading {
-    align-items: stretch;
-    flex-direction: column;
+  .sql-playground-command-bar__status {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .sql-playground-command-bar__download-label {
+    position: absolute;
+    width: var(--border-width-default);
+    height: var(--border-width-default);
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sql-playground-command-bar__download {
+    width: var(--size-button-sm);
+    padding: 0;
+  }
+}
+
+@media (max-width: 582px) {
+  .sql-playground-command-bar {
+    gap: var(--space-1);
+    padding-right: var(--space-2);
+    padding-left: var(--space-2);
+  }
+
+  .sql-playground-command-bar__primary {
+    gap: var(--space-1);
+  }
+
+  .sql-playground-command-bar__icon,
+  .sql-playground-command-bar__metadata {
+    display: none;
+  }
+
+  .sql-playground-command-bar h1 {
+    font-size: var(--font-size-md);
+  }
+
+  .sql-playground-results__header > div {
+    gap: var(--space-1);
   }
 }

@@ -5,6 +5,17 @@ import type {
 } from "./sqlPlaygroundProtocol";
 import { isSqlPlaygroundResponse } from "./sqlPlaygroundProtocol";
 import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
+import type { SqlExplorerMetadata } from "./sqlExplorerTypes";
+
+export type SqlPlaygroundManagerEvent =
+  | { type: "session-created"; sessionId: string }
+  | { type: "schema-ready"; sessionId: string }
+  | { type: "execution-complete"; sessionId: string; schemaChanged: boolean }
+  | { type: "schema-changed"; sessionId: string }
+  | { type: "session-closed"; sessionId: string }
+  | { type: "disposed" };
+
+export type SqlPlaygroundManagerListener = (event: SqlPlaygroundManagerEvent) => void;
 
 export class SqlPlaygroundClientError extends Error {
   readonly payload;
@@ -24,6 +35,7 @@ export class SqlPlaygroundManager {
     { resolve: (response: SqlPlaygroundResponse) => void; reject: (error: Error) => void }
   >();
   private readonly sessionStates = new Map<string, SqlPlaygroundSessionState>();
+  private readonly listeners = new Set<SqlPlaygroundManagerListener>();
   private initialization: Promise<string> | null = null;
 
   getSessionState(sessionId: string): SqlPlaygroundSessionState | undefined {
@@ -31,7 +43,22 @@ export class SqlPlaygroundManager {
   }
 
   setSessionState(state: SqlPlaygroundSessionState): void {
+    const created = !this.sessionStates.has(state.sessionId);
     this.sessionStates.set(state.sessionId, state);
+    if (created) this.emit({ type: "session-created", sessionId: state.sessionId });
+  }
+
+  getSessionStates(): SqlPlaygroundSessionState[] {
+    return [...this.sessionStates.values()];
+  }
+
+  subscribe(listener: SqlPlaygroundManagerListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private emit(event: SqlPlaygroundManagerEvent): void {
+    this.listeners.forEach((listener) => listener(event));
   }
 
   private getWorker(): Worker {
@@ -84,12 +111,21 @@ export class SqlPlaygroundManager {
       schemaChecksum,
     });
     if (response.type !== "schema-ready") throw new Error("Unexpected SQLite schema response.");
+    this.emit({ type: "schema-ready", sessionId });
   }
 
   async execute(sessionId: string, sql: string, maxRows: number) {
     const response = await this.send({ type: "execute", sessionId, sql, maxRows });
     if (response.type !== "execution-complete") throw new Error("Unexpected SQLite execution response.");
+    this.emit({ type: "execution-complete", sessionId, schemaChanged: response.schemaChanged });
+    if (response.schemaChanged) this.emit({ type: "schema-changed", sessionId });
     return response;
+  }
+
+  async inspectSchema(sessionId: string): Promise<SqlExplorerMetadata> {
+    const response = await this.send({ type: "inspect-schema", sessionId });
+    if (response.type !== "schema-inspected") throw new Error("Unexpected SQLite schema inspection response.");
+    return response.metadata;
   }
 
   async exportDatabase(sessionId: string): Promise<ArrayBuffer> {
@@ -100,15 +136,23 @@ export class SqlPlaygroundManager {
 
   async closeSession(sessionId: string): Promise<void> {
     this.sessionStates.delete(sessionId);
-    if (!this.worker) return;
+    if (!this.worker) {
+      this.emit({ type: "session-closed", sessionId });
+      return;
+    }
     const response = await this.send({ type: "close-session", sessionId });
     if (response.type !== "session-closed") throw new Error("Unexpected SQLite close response.");
+    this.emit({ type: "session-closed", sessionId });
   }
 
   async dispose(): Promise<void> {
     this.sessionStates.clear();
     const worker = this.worker;
-    if (!worker) return;
+    if (!worker) {
+      this.emit({ type: "disposed" });
+      this.listeners.clear();
+      return;
+    }
     try {
       await this.send({ type: "dispose" });
     } finally {
@@ -118,6 +162,8 @@ export class SqlPlaygroundManager {
       const error = new Error("SQLite worker disposed.");
       this.pending.forEach(({ reject }) => reject(error));
       this.pending.clear();
+      this.emit({ type: "disposed" });
+      this.listeners.clear();
     }
   }
 }

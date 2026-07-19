@@ -2,7 +2,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 import { Tooltip } from "../ui";
 
-export type ProjectActivityId = "file" | "code" | "reverse" | "errors" | "version" | "export";
+export type ProjectActivityId = "file" | "code" | "reverse" | "errors" | "version" | "sql-explorer" | "export";
 
 export interface ProjectActivityItem {
   id: ProjectActivityId;

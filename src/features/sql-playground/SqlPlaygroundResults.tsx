@@ -1,4 +1,6 @@
 import { useI18n } from "../../i18n/useI18n";
+import { StudioIcon } from "../../components/icons/StudioIcon";
+import { Tooltip } from "../../components/ui";
 import { formatSqlResultValue } from "../../utils/sqlPlayground";
 import type { SqlStatementResult } from "./sqlPlaygroundProtocol";
 
@@ -10,6 +12,7 @@ function ResultTable({ result }: { result: SqlStatementResult }) {
         <table>
           <thead>
             <tr>
+              <th className="sql-playground-row-number" scope="col" aria-label={t("sqlPlayground.results.rowNumber")}>#</th>
               {result.columns.map((column, index) => (
                 <th key={`${column}-${index}`} scope="col">{column}</th>
               ))}
@@ -18,6 +21,7 @@ function ResultTable({ result }: { result: SqlStatementResult }) {
           <tbody>
             {result.rows.map((row, rowIndex) => (
               <tr key={rowIndex}>
+                <th className="sql-playground-row-number" scope="row">{rowIndex + 1}</th>
                 {row.map((value, columnIndex) => {
                   const formatted = formatSqlResultValue(value);
                   return (
@@ -49,17 +53,37 @@ function StatementSummary({ result }: { result: SqlStatementResult }) {
   );
 }
 
-export function SqlPlaygroundResults({ results }: { results: SqlStatementResult[] }) {
+interface SqlPlaygroundResultsProps {
+  results: SqlStatementResult[];
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}
+
+export function SqlPlaygroundResults({ results, collapsed, onCollapsedChange }: SqlPlaygroundResultsProps) {
   const { t } = useI18n();
   return (
-    <section className="sql-playground-results" aria-labelledby="sql-playground-results-title">
-      <div className="sql-playground-section-heading">
+    <section className={collapsed ? "sql-playground-results is-collapsed" : "sql-playground-results"} aria-labelledby="sql-playground-results-title">
+      <div className="sql-playground-results__header">
         <div>
           <h2 id="sql-playground-results-title">{t("sqlPlayground.results.title")}</h2>
-          <p>{results.length > 0 ? t("sqlPlayground.results.statementCount", { count: results.length }) : t("sqlPlayground.results.empty")}</p>
+          <span>{results.length > 0 ? t("sqlPlayground.results.statementCount", { count: results.length }) : t("sqlPlayground.results.empty")}</span>
         </div>
+        <Tooltip label={collapsed ? t("sqlPlayground.results.show") : t("sqlPlayground.results.hide")} position="top">
+          {(aria) => (
+            <button
+              type="button"
+              className="sql-playground-results__collapse"
+              onClick={() => onCollapsedChange(!collapsed)}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? t("sqlPlayground.results.show") : t("sqlPlayground.results.hide")}
+              {...aria}
+            >
+              <StudioIcon name={collapsed ? "arrowUp" : "arrowDown"} aria-hidden="true" />
+            </button>
+          )}
+        </Tooltip>
       </div>
-      <div className="sql-playground-results__content">
+      {!collapsed ? <div className="sql-playground-results__content">
         {results.length === 0 ? (
           <div className="sql-playground-results__empty-state">{t("sqlPlayground.results.emptyDescription")}</div>
         ) : results.map((result) => (
@@ -71,7 +95,7 @@ export function SqlPlaygroundResults({ results }: { results: SqlStatementResult[
             {result.kind === "rows" ? <ResultTable result={result} /> : <StatementSummary result={result} />}
           </article>
         ))}
-      </div>
+      </div> : null}
     </section>
   );
 }

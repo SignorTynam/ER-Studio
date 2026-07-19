@@ -189,12 +189,106 @@ JOIN "COURSE" c ON c.id = e.course_id;`);
   await expect(page.getByText("Database pronto", { exact: true })).toBeVisible();
 });
 
+test("command bar, shared editor, resizable results and SQL Explorer stay integrated", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await bootProject(page);
+  await openPlaygroundFromPalette(page);
+
+  const commandBar = page.locator(".sql-playground-command-bar");
+  await expect(commandBar).toHaveCount(1);
+  await expect(page.locator(".sql-playground-toolbar")).toHaveCount(0);
+  const alignedControls = await commandBar.locator("h1, button").evaluateAll((elements) => elements.map((element) => {
+    const box = element.getBoundingClientRect();
+    return box.top + box.height / 2;
+  }));
+  expect(Math.max(...alignedControls) - Math.min(...alignedControls)).toBeLessThan(8);
+  await expect(page.locator(".designer-code-line-numbers")).toBeVisible();
+  await expect(page.locator(".sql-token-keyword").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Crea database", exact: true }).click();
+  await expect(page.getByText("Database pronto", { exact: true })).toBeVisible({ timeout: 20_000 });
+  const editor = page.getByRole("textbox", { name: "Editor query SQL" });
+  await editor.fill(`INSERT INTO "STUDENT" ("id", "name") VALUES (1, 'Ada');
+INSERT INTO "STUDENT" ("id", "name") VALUES (2, 'Luca');
+INSERT INTO "STUDENT" ("id", "name") VALUES (3, 'Mira');`);
+  await page.getByRole("button", { name: "Esegui", exact: true }).click();
+  await editor.fill(`SELECT id, name FROM "STUDENT" ORDER BY id;`);
+  await editor.press("Control+Enter");
+  await expect(page.getByRole("rowheader")).toHaveText(["1", "2", "3"]);
+
+  const splitter = page.getByRole("separator", { name: "Ridimensiona pannello risultati" });
+  const editorRegion = page.locator(".sql-playground-editor");
+  const resultsPanel = page.locator(".sql-playground-results");
+  const splitterBox = await splitter.boundingBox();
+  const editorBefore = await editorRegion.boundingBox();
+  const resultsBefore = await resultsPanel.boundingBox();
+  expect(splitterBox && editorBefore && resultsBefore).toBeTruthy();
+  await page.mouse.move(splitterBox!.x + splitterBox!.width / 2, splitterBox!.y + splitterBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(splitterBox!.x + splitterBox!.width / 2, splitterBox!.y - 72);
+  await page.mouse.up();
+  const editorAfterDrag = await editorRegion.boundingBox();
+  const resultsAfterDrag = await resultsPanel.boundingBox();
+  expect(resultsAfterDrag!.height).toBeGreaterThan(resultsBefore!.height + 40);
+  expect(editorAfterDrag!.height).toBeLessThan(editorBefore!.height - 40);
+  await splitter.focus();
+  const beforeKeyboard = (await resultsPanel.boundingBox())!.height;
+  await splitter.press("ArrowDown");
+  expect((await resultsPanel.boundingBox())!.height).toBeLessThan(beforeKeyboard);
+
+  const expandedHeight = (await editorRegion.boundingBox())!.height;
+  await page.getByRole("button", { name: "Nascondi risultati" }).click();
+  await expect(resultsPanel).toHaveClass(/is-collapsed/);
+  expect((await editorRegion.boundingBox())!.height).toBeGreaterThan(expandedHeight);
+  await page.getByRole("button", { name: "Mostra risultati" }).click();
+  await expect(resultsPanel).not.toHaveClass(/is-collapsed/);
+
+  const railButtons = page.locator(".project-activity-rail > .ui-tooltip-anchor > .project-activity-button");
+  const labels = await railButtons.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  expect(labels.indexOf("SQL Explorer")).toBe(labels.indexOf("Export") - 1);
+  await page.getByRole("button", { name: "SQL Explorer", exact: true }).click();
+  const explorer = page.locator(".sql-explorer-panel");
+  await expect(explorer).toBeVisible();
+  await expect(explorer.getByRole("treeitem", { name: /^main/ })).toBeVisible();
+  await explorer.getByRole("treeitem", { name: /^Tabelle \(3\)/ }).click();
+  await expect(explorer.getByRole("treeitem", { name: /^STUDENT/ })).toBeVisible();
+  await explorer.getByRole("treeitem", { name: /^STUDENT/ }).click();
+  await explorer.getByRole("treeitem", { name: /^Colonne \(2\)/ }).click();
+  await expect(explorer.getByRole("treeitem", { name: /^id INTEGER.*Chiave primaria/ })).toBeVisible();
+  await explorer.getByRole("treeitem", { name: /^ENROLLMENT/ }).click();
+  await explorer.getByRole("treeitem", { name: /^Chiavi esterne \(2\)/ }).click();
+  await expect(explorer.getByRole("treeitem", { name: /→ STUDENT\.id/ })).toBeVisible();
+
+  await editor.fill("CREATE TABLE TEST_TABLE (id INTEGER PRIMARY KEY, value TEXT NOT NULL);");
+  await editor.press("Control+Enter");
+  await expect(explorer.getByRole("treeitem", { name: /^Tabelle \(4\)/ })).toBeVisible();
+  await expect(explorer.getByRole("treeitem", { name: /^TEST_TABLE/ })).toBeVisible();
+  await editor.fill("DROP TABLE TEST_TABLE;");
+  await editor.press("Control+Enter");
+  await expect(explorer.getByRole("treeitem", { name: /^Tabelle \(3\)/ })).toBeVisible();
+  await expect(explorer.getByRole("treeitem", { name: /^TEST_TABLE/ })).toHaveCount(0);
+  await explorer.locator(".workspace-panel__close").click();
+  await expect(page.locator(".sql-playground-workspace")).toBeVisible();
+
+  const axe = await new AxeBuilder({ page })
+    .include(".sql-playground-workspace")
+    .include(".project-activity-panel")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(axe.violations).toEqual([]);
+});
+
 test("remains contained across supported viewports and passes the existing WCAG A/AA scan", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await bootProject(page);
   await openPlaygroundFromPalette(page);
+  await page.getByRole("button", { name: "Crea database", exact: true }).click();
+  await expect(page.getByText("Database pronto", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "SQL Explorer", exact: true }).click();
   const workspace = page.locator(".sql-playground-workspace");
+  const explorer = page.locator(".sql-explorer-panel");
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 1180, height: 760 },
@@ -204,10 +298,14 @@ test("remains contained across supported viewports and passes the existing WCAG 
   ]) {
     await page.setViewportSize(viewport);
     await expect(workspace).toBeVisible();
+    await expect(explorer).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await workspace.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await explorer.locator(".sql-explorer-panel__body").evaluate((element) => getComputedStyle(element).overflowX)).toBe("auto");
   }
   const results = await new AxeBuilder({ page })
     .include(".sql-playground-workspace")
+    .include(".sql-explorer-panel")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(results.violations).toEqual([]);

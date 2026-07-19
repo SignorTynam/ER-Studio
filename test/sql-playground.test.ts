@@ -5,6 +5,7 @@ import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
 import type { LogicalColumn, LogicalModel, LogicalTable } from "../src/types/logical.ts";
 import { SqlPlaygroundManager } from "../src/features/sql-playground/SqlPlaygroundManager.ts";
 import type { SqlPlaygroundRequest, SqlPlaygroundResponse } from "../src/features/sql-playground/sqlPlaygroundProtocol.ts";
+import { isSqlPlaygroundResponse } from "../src/features/sql-playground/sqlPlaygroundProtocol.ts";
 import { generateLogicalSql } from "../src/utils/logicalSql.ts";
 import {
   buildSqlPlaygroundSessionId,
@@ -169,6 +170,13 @@ test("worker protocol keeps SQLite off the React thread and finalizes statements
   assert.doesNotMatch(manager, /@sqlite\.org\/sqlite-wasm/);
 });
 
+test("worker protocol rejects unexpected and incomplete responses", () => {
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "schema-inspected", metadata: { databases: [] }, sessionId: "p:s" }), true);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "schema-inspected", metadata: null, sessionId: "p:s" }), false);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "execution-complete", results: [] }), false);
+  assert.equal(isSqlPlaygroundResponse({ requestId: "1", type: "unknown" }), false);
+});
+
 test("manager isolates temporary session state and closes the worker cleanly", async () => {
   const originalWorker = Object.getOwnPropertyDescriptor(globalThis, "Worker");
   const requests: SqlPlaygroundRequest[] = [];
@@ -190,7 +198,10 @@ test("manager isolates temporary session state and closes the worker cleanly", a
           response = { requestId: request.requestId, type: "schema-ready", sessionId: request.sessionId, schemaChecksum: request.schemaChecksum };
           break;
         case "execute":
-          response = { requestId: request.requestId, type: "execution-complete", sessionId: request.sessionId, results: [], databaseChanged: true, durationMs: 1 };
+          response = { requestId: request.requestId, type: "execution-complete", sessionId: request.sessionId, results: [], databaseChanged: true, schemaChanged: true, durationMs: 1 };
+          break;
+        case "inspect-schema":
+          response = { requestId: request.requestId, type: "schema-inspected", sessionId: request.sessionId, metadata: { databases: [] } };
           break;
         case "export":
           response = { requestId: request.requestId, type: "export-complete", sessionId: request.sessionId, bytes: new ArrayBuffer(8) };
@@ -224,7 +235,14 @@ test("manager isolates temporary session state and closes the worker cleanly", a
     assert.equal(await manager.initialize(), "3.test");
     assert.equal(requests.filter((request) => request.type === "initialize").length, 1);
     await manager.createSchema("project:first", "CREATE TABLE t(id);", "a", false);
+    const events: string[] = [];
+    const unsubscribe = manager.subscribe((event) => events.push(event.type));
     assert.equal((await manager.execute("project:first", "INSERT INTO t VALUES (1);", 500)).databaseChanged, true);
+    assert.deepEqual(await manager.inspectSchema("project:first"), { databases: [] });
+    assert.deepEqual(events, ["execution-complete", "schema-changed"]);
+    unsubscribe();
+    await manager.execute("project:first", "SELECT 1;", 500);
+    assert.deepEqual(events, ["execution-complete", "schema-changed"]);
     assert.equal((await manager.exportDatabase("project:first")).byteLength, 8);
     await manager.closeSession("project:first");
     assert.equal(manager.getSessionState("project:first"), undefined);

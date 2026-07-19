@@ -23,5 +23,7 @@ export interface SqlPlaygroundSessionState {
   hasUserDataChanges: boolean;
   sqliteVersion: string | null;
   results: SqlStatementResult[];
+  resultsPanelHeight: number;
+  resultsPanelCollapsed: boolean;
   error: SqlPlaygroundErrorPayload | null;
 }

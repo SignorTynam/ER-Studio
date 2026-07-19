@@ -15,6 +15,7 @@ import type {
   SqlResultValue,
   SqlStatementResult,
 } from "./sqlPlaygroundProtocol";
+import { inspectSqliteSchema, readSqliteSchemaSignature } from "./sqlExplorerIntrospection";
 
 interface WorkerSession {
   database: Database;
@@ -228,14 +229,27 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
         const sqliteApi = await initializeSqlite();
         const session = requireSession(request.sessionId);
         const startedAt = performance.now();
+        const schemaSignatureBefore = readSqliteSchemaSignature(session.database);
         const execution = executeStatements(sqliteApi, session.database, request.sql, request.maxRows);
+        const schemaSignatureAfter = readSqliteSchemaSignature(session.database);
         postResponse({
           requestId: request.requestId,
           type: "execution-complete",
           sessionId: request.sessionId,
           results: execution.results,
           databaseChanged: execution.databaseChanged,
+          schemaChanged: schemaSignatureBefore !== schemaSignatureAfter,
           durationMs: Math.max(0, performance.now() - startedAt),
+        });
+        return;
+      }
+      case "inspect-schema": {
+        const session = requireSession(request.sessionId);
+        postResponse({
+          requestId: request.requestId,
+          type: "schema-inspected",
+          sessionId: request.sessionId,
+          metadata: inspectSqliteSchema(session.database),
         });
         return;
       }

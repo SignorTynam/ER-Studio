@@ -10,6 +10,7 @@ import type {
 } from "../features/sql-playground/sqlPlaygroundState";
 
 export const SQL_PLAYGROUND_MAX_ROWS = 500;
+export const SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT = 264;
 export const SQL_PLAYGROUND_DEFAULT_QUERY = `SELECT name
 FROM sqlite_master
 WHERE type = 'table'
@@ -55,6 +56,8 @@ export function createSqlPlaygroundSessionState(input: {
     hasUserDataChanges: false,
     sqliteVersion: null,
     results: [],
+    resultsPanelHeight: SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT,
+    resultsPanelCollapsed: false,
     error: null,
   };
 }

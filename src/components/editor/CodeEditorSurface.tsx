@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "../../i18n/useI18n";
@@ -16,6 +16,15 @@ interface CodeEditorSurfaceProps {
   placeholder?: string;
   ariaLabel: string;
   diagnostics?: EditorDiagnostic[];
+  onExecute?: () => void;
+}
+
+export interface CodeEditorSurfaceHandle {
+  getSelectionStart: () => number;
+  getSelectionEnd: () => number;
+  getSelectedText: () => string;
+  getValue: () => string;
+  focus: () => void;
 }
 
 function escapeHtml(value: string): string {
@@ -56,10 +65,13 @@ function highlightErsLine(line: string): string {
 }
 
 const SQL_KEYWORDS = new Set([
-  "ACTION", "ALTER", "AS", "CASCADE", "CHECK", "CONSTRAINT", "CREATE", "DEFAULT", "DELETE",
-  "DROP", "FOREIGN", "FROM", "IF", "INDEX", "INSERT", "INTO", "KEY", "NO", "NOT", "NULL",
-  "ON", "PRIMARY", "REFERENCES", "SELECT", "SET", "TABLE", "TEMP", "TEMPORARY", "UNIQUE",
-  "UPDATE", "VALUES", "VIEW", "WHERE",
+  "ACTION", "ALL", "ALTER", "AND", "AS", "ATTACH", "BEGIN", "BETWEEN", "BY", "CASCADE", "CASE",
+  "CHECK", "COMMIT", "CONSTRAINT", "CREATE", "CROSS", "DEFAULT", "DELETE", "DETACH", "DISTINCT",
+  "DROP", "ELSE", "END", "EXISTS", "FOREIGN", "FROM", "GROUP", "HAVING", "IF", "IN", "INDEX",
+  "INNER", "INSERT", "INTO", "IS", "JOIN", "KEY", "LEFT", "LIKE", "LIMIT", "NO", "NOT", "NULL",
+  "OFFSET", "ON", "OR", "ORDER", "PRAGMA", "PRIMARY", "RECURSIVE", "REFERENCES", "RESTRICT",
+  "RETURNING", "RIGHT", "ROLLBACK", "SELECT", "SET", "TABLE", "TEMP", "TEMPORARY", "THEN",
+  "TRIGGER", "UNION", "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHEN", "WHERE", "WITH",
 ]);
 const SQL_TYPES = new Set([
   "BIGINT", "BIT", "BLOB", "BOOLEAN", "CHAR", "CLOB", "DATE", "DATETIME", "DECIMAL", "DOUBLE",
@@ -154,7 +166,7 @@ function diagnosticClass(diagnostic: EditorDiagnostic | undefined): string {
   return diagnostic ? ` code-editor-line--${diagnostic.level}` : "";
 }
 
-export function CodeEditorSurface({
+export const CodeEditorSurface = forwardRef<CodeEditorSurfaceHandle, CodeEditorSurfaceProps>(function CodeEditorSurface({
   value,
   language,
   readOnly,
@@ -164,13 +176,24 @@ export function CodeEditorSurface({
   placeholder,
   ariaLabel,
   diagnostics = [],
-}: CodeEditorSurfaceProps) {
+  onExecute,
+}, forwardedRef) {
   const { t } = useI18n();
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const announcedDiagnosticRef = useRef("");
   const [activeDiagnosticIndex, setActiveDiagnosticIndex] = useState<number | null>(diagnostics.length ? 0 : null);
+  useImperativeHandle(forwardedRef, () => ({
+    getSelectionStart: () => editorRef.current?.selectionStart ?? 0,
+    getSelectionEnd: () => editorRef.current?.selectionEnd ?? 0,
+    getSelectedText: () => {
+      const editor = editorRef.current;
+      return editor ? value.slice(editor.selectionStart, editor.selectionEnd) : "";
+    },
+    getValue: () => value,
+    focus: () => editorRef.current?.focus(),
+  }), [value]);
   const lineNumbers = buildLineNumbers(value);
   const diagnosticByLine = useMemo(() => {
     const result = new Map<number, EditorDiagnostic>();
@@ -221,6 +244,11 @@ export function CodeEditorSurface({
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && onExecute) {
+      event.preventDefault();
+      onExecute();
+      return;
+    }
     if (event.key === "Escape" && activeDiagnosticIndex !== null) {
       event.preventDefault();
       event.stopPropagation();
@@ -361,4 +389,4 @@ export function CodeEditorSurface({
         : diagnosticPopover}
     </>
   );
-}
+});

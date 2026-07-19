@@ -50,7 +50,9 @@ Workspace dedicati alla trasformazione dal modello ER al modello logico e alla v
 
 ### `src/features/sql-playground`
 
-Feature verticale del Playground SQLite. I componenti React delegano stato e ciclo di vita a un manager per sessione; un Web Worker dedicato possiede il modulo WASM e tutte le istanze database. Il protocollo discriminato main thread/worker, la creazione atomica dello schema e l'export restano separati dalla UI. SQLite viene caricato soltanto alla prima apertura del Playground e non entra nel bundle iniziale dell'editor.
+Feature verticale del Playground SQLite. I componenti React delegano stato e ciclo di vita a un manager osservabile per sessione; un Web Worker dedicato possiede il modulo WASM e tutte le istanze database. Il protocollo discriminato main thread/worker, la creazione atomica dello schema, l'introspezione e l'export restano separati dalla UI. SQLite viene caricato soltanto alla prima apertura del Playground e non entra nel bundle iniziale dell'editor.
+
+`CodeEditorSurface` fornisce gutter, highlighting e selezione tramite un handle tipizzato riusabile. Altezza e stato collapsed dei risultati vivono esclusivamente nello stato temporaneo della sessione. SQL Explorer interroga `database_list`, `sqlite_schema` e le table-valued PRAGMA nel worker; confronta le versioni schema prima e dopo ogni script e aggiorna il tree soltanto quando la struttura cambia. I metadata, l'espansione del tree e il layout del pannello non entrano nella serializzazione `.ersp` e non influenzano Source Control.
 
 ### `src/i18n`
 

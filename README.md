@@ -32,7 +32,8 @@ buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update 
 - Export PNG/SVG/JPEG con crop stretto del contenuto e sfondi coerenti per raster e vettoriale.
 - Sorgente ERS con sincronizzazione live.
 - Reverse engineering SQL con preview logica e preview ER.
-- SQL Playground locale con SQLite WebAssembly in un Web Worker, query reali e download `.sqlite`.
+- SQL Playground locale con command bar compatta, editor SQL condiviso con gutter/highlighting, risultati ridimensionabili e download `.sqlite`.
+- SQL Explorer accessibile nell'activity rail, alimentato dall'introspezione del database SQLite WebAssembly reale nel Web Worker e aggiornato automaticamente dopo modifiche DDL.
 - UI responsive per desktop, tablet e telefono.
 - Localizzazione in italiano, inglese e albanese.
 

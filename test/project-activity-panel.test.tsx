@@ -93,4 +93,6 @@ test("Activity panel toggles the active item, persists the last panel, and suppo
   assert.match(panelSource, /aria-valuemin=\{220\}/);
   assert.match(panelSource, /aria-valuemax=\{420\}/);
   assert.match(panelSource, /event\.shiftKey \? 24 : 8/);
+  assert.match(appSource, /id: "sql-explorer"[\s\S]*id: "export"/);
+  assert.match(appSource, /"version", "sql-explorer", "export"/);
 });
