@@ -41,6 +41,7 @@ import {
   Keyboard,
   Lightbulb,
   List,
+  Map,
   Menu,
   MoreHorizontal,
   Merge,
@@ -121,6 +122,7 @@ export type StudioIconName =
   | "lightbulb"
   | "list"
   | "menu"
+  | "minimap"
   | "more"
   | "merge"
   | "mixedId"
@@ -208,6 +210,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   lightbulb: Lightbulb,
   list: List,
   menu: Menu,
+  minimap: Map,
   more: MoreHorizontal,
   merge: Merge,
   move: ArrowUpDown,

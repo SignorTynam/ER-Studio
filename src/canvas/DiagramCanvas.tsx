@@ -9,6 +9,7 @@ import type {
 } from "react";
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
+import { CanvasMinimap } from "./CanvasMinimap";
 import {
   DIAGRAM_IDENTIFIER_STROKE_WIDTH,
   DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS,
@@ -191,7 +192,8 @@ interface DiagramCanvasProps {
   translationHighlights?: DiagramHighlights;
   versionHighlights?: VersionDiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
-  viewportCommand?: { action: "fitAll" | "fitSelection" | "resetZoom"; token: number } | null;
+  viewportCommand?: { action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap"; token: number } | null;
+  showMinimap?: boolean;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
   onIdentifierSelectionChange?: (selection: IdentifierSelection | null) => void;
@@ -312,6 +314,28 @@ function shouldPersistCanvasMessage(message: string): boolean {
 }
 
 const VIEWPORT_PADDING = 140;
+const CANVAS_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible";
+const CANVAS_MINIMAP_COMPACT_QUERY = "(max-width: 860px)";
+
+function readInitialMinimapVisibility(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const stored = window.localStorage.getItem(CANVAS_MINIMAP_VISIBILITY_KEY);
+    if (stored !== null) return stored === "true";
+  } catch {
+    // Storage can be unavailable; responsive fallback keeps the control usable.
+  }
+  return typeof window.matchMedia === "function" ? !window.matchMedia(CANVAS_MINIMAP_COMPACT_QUERY).matches : true;
+}
+
+function writeMinimapVisibility(visible: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CANVAS_MINIMAP_VISIBILITY_KEY, String(visible));
+  } catch {
+    // Persistence is optional; the in-memory toggle remains functional.
+  }
+}
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
@@ -1867,6 +1891,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const pinchStateRef = useRef<PinchState | null>(null);
   const viewportAnimationRef = useRef<number | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
+  const [minimapVisible, setMinimapVisible] = useState(readInitialMinimapVisibility);
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
   const [focusedTarget, setFocusedTarget] = useState<FocusTarget>(null);
@@ -2710,6 +2735,16 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     props.onStatusMessageChange(t("canvas.status.zoomReset"));
   }
 
+  function setMinimapVisibility(visible: boolean) {
+    setMinimapVisible(visible);
+    writeMinimapVisibility(visible);
+    props.onStatusMessageChange(t(visible ? "canvas.status.minimapShown" : "canvas.status.minimapHidden"));
+  }
+
+  function toggleMinimap() {
+    setMinimapVisibility(!minimapVisible);
+  }
+
   function centerDiagram() {
     dismissPanHint();
     const bounds = getViewportTargetBounds();
@@ -2754,6 +2789,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       fitSelection();
     } else if (command.action === "resetZoom") {
       resetZoom();
+    } else if (command.action === "toggleMinimap" && props.showMinimap) {
+      toggleMinimap();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.viewportCommand?.token]);
@@ -3031,6 +3068,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       event.preventDefault();
       event.stopPropagation();
       resetZoom();
+      return;
+    }
+
+    if (props.showMinimap && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.code === "KeyM") {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMinimap();
       return;
     }
 
@@ -4931,6 +4975,20 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
           />
         </div>
       </div>
+
+      {props.showMinimap ? (
+        <CanvasMinimap
+          canvasRef={containerRef}
+          nodes={props.diagram.nodes}
+          viewport={props.viewport}
+          visible={minimapVisible}
+          onViewportChange={(viewport) => {
+            cancelViewportAnimation();
+            props.onViewportChange(viewport);
+          }}
+          onVisibleChange={setMinimapVisibility}
+        />
+      ) : null}
 
       {showPanHint ? (
         <div className="canvas-pan-hint" aria-hidden="true">

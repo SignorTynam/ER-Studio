@@ -15,6 +15,7 @@
   --color-border-subtle: #e2e7e4;
   --color-border-default: #cbd4cf;
   --color-border-strong: #9caaa2;
+  --border-width-default: 1px;
   --color-text-primary: #17201c;
   --color-text-secondary: #4f5f57;
   /* Fase D1: era #748078, sotto AA su ogni sfondo chiaro (3.45-4.12:1) e
@@ -62,6 +63,11 @@
   --size-button: 32px;
   --size-button-sm: 28px;
   --size-icon-button: 30px;
+  --size-canvas-minimap-width: 220px;
+  --size-canvas-minimap-height: 160px;
+  --size-canvas-minimap-width-compact: 168px;
+  --size-canvas-minimap-height-compact: 128px;
+  --stroke-canvas-minimap-viewport: 2px;
   --size-sidebar-min: 220px;
   --size-sidebar-default: 288px;
   --size-sidebar-max: 420px;
@@ -99,6 +105,7 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --font-weight-heavy: 800;
+  --letter-spacing-label: 0.04em;
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;

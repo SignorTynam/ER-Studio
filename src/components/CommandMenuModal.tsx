@@ -58,6 +58,7 @@ interface CommandMenuModalProps {
   onFitAll: () => void;
   onFitSelection: () => void;
   onResetZoom: () => void;
+  onToggleMinimap: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onOpenExplorer: () => void;
   onOpenErrorsPanel: () => void;
@@ -257,6 +258,11 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       id: "command-view-reset", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewReset.label"), detail: t("commandMenu.commands.viewReset.detail"),
       icon: "reset", disabled: !isErView || !props.hasActiveSchema, order: 10, action: props.onResetZoom,
+    },
+    {
+      id: "command-view-toggle-minimap", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.viewToggleMinimap.label"), detail: t("commandMenu.commands.viewToggleMinimap.detail"),
+      icon: "minimap", disabled: !isErView || !props.hasActiveSchema, order: 11, action: props.onToggleMinimap,
     },
     {
       id: "command-workspace-explorer", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,

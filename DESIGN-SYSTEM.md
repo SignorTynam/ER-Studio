@@ -291,3 +291,16 @@ da `--motion-normal`. Applica il target **istantaneamente** (nessun tween) quand
 `prefers-reduced-motion: reduce` **o** `document.hidden` (rAF è in pausa a pagina nascosta:
 senza questo guard il fit non raggiungerebbe mai il target). Ogni pan/zoom/wheel/pinch annulla
 un tween in corso; cleanup su smontaggio.
+
+## Minimap — canvas ER (Fase F2)
+
+`CanvasMinimap` usa un SVG schematico: un rettangolo per nodo e un rettangolo accentato per la
+viewport, con `viewBox` derivato dall'unione dei bounds dei nodi e della vista corrente. Click e
+drag ricentrano il canvas; le frecce spostano la viewport quando la mappa ha focus. Il layer esterno
+non intercetta eventi (`pointer-events: none`), mentre pannello e toggle riabilitano solo le aree utili.
+
+La superficie riusa `PanelIconButton`, `--color-*`, `--space-*`, `--radius-panel` ed
+`--elevation-popover`; dimensioni dedicate sono definite nei token `--size-canvas-minimap-*`.
+Il toggle mostra/nasconde è disponibile nel pannello, nel command menu e con `M`, e persiste in
+`localStorage`. Senza preferenza salvata la minimap parte aperta su desktop e chiusa sotto `860px`;
+il toggle da 32px resta sempre accessibile anche nello stato chiuso.

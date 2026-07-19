@@ -1,0 +1,116 @@
+.canvas-minimap-layer {
+  position: absolute;
+  right: var(--space-6);
+  bottom: calc(var(--space-6) + var(--size-button) + var(--space-6));
+  z-index: 19;
+  pointer-events: none;
+}
+
+.canvas-minimap,
+.canvas-minimap-toggle {
+  pointer-events: auto;
+}
+
+.canvas-minimap-toggle {
+  width: var(--size-button);
+  height: var(--size-button);
+}
+
+.canvas-minimap {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: var(--size-canvas-minimap-width);
+  height: var(--size-canvas-minimap-height);
+  overflow: hidden;
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-popover);
+}
+
+.canvas-minimap__header {
+  display: flex;
+  min-height: var(--size-button);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  border-bottom: var(--border-width-default) solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.canvas-minimap__map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg-diagram-canvas);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.canvas-minimap__map:focus-visible,
+.canvas-minimap-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--studio-focus-ring);
+}
+
+.canvas-minimap__node {
+  fill: color-mix(in srgb, var(--color-text-secondary) 48%, transparent);
+  stroke: var(--color-border-strong);
+  vector-effect: non-scaling-stroke;
+}
+
+.canvas-minimap__node--entity {
+  fill: color-mix(in srgb, var(--color-accent) 52%, var(--color-bg-elevated));
+}
+
+.canvas-minimap__node--relationship {
+  fill: color-mix(in srgb, var(--color-warning) 50%, var(--color-bg-elevated));
+}
+
+.canvas-minimap__node--attribute {
+  fill: color-mix(in srgb, var(--color-text-secondary) 38%, var(--color-bg-elevated));
+}
+
+.canvas-minimap__viewport {
+  fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  stroke: var(--color-accent);
+  stroke-width: var(--stroke-canvas-minimap-viewport);
+  vector-effect: non-scaling-stroke;
+}
+
+.canvas-minimap__empty {
+  position: absolute;
+  inset: var(--size-button) 0 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: center;
+  pointer-events: none;
+}
+
+.canvas-minimap-layer--collapsed .canvas-minimap-toggle {
+  border: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-popover);
+}
+
+@media (max-width: 860px) {
+  .canvas-minimap-layer {
+    right: var(--space-2);
+    bottom: calc(var(--space-2) + var(--size-button) + var(--space-2));
+  }
+
+  .canvas-minimap {
+    width: var(--size-canvas-minimap-width-compact);
+    height: var(--size-canvas-minimap-height-compact);
+  }
+}

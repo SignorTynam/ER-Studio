@@ -942,8 +942,8 @@ export default function App() {
   const [logicalSqlDialect, setLogicalSqlDialect] = useState<LogicalSqlDialect>("generic");
   const [logicalCodePreviewMode, setLogicalCodePreviewMode] = useState<"sql" | "relational">("sql");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
-  const [erViewportCommand, setErViewportCommand] = useState<{ action: "fitAll" | "fitSelection" | "resetZoom"; token: number } | null>(null);
-  const requestErViewportCommand = (action: "fitAll" | "fitSelection" | "resetZoom") =>
+  const [erViewportCommand, setErViewportCommand] = useState<{ action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap"; token: number } | null>(null);
+  const requestErViewportCommand = (action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap") =>
     setErViewportCommand((current) => ({ action, token: (current?.token ?? 0) + 1 }));
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const {
@@ -7348,6 +7348,7 @@ export default function App() {
                   svgRef={svgRef}
                   onViewportChange={setViewport}
                   viewportCommand={erViewportCommand}
+                  showMinimap
                   onSelectionChange={handleErSelectionChange}
                   selectedIdentifier={identifierSelection}
                   onIdentifierSelectionChange={setIdentifierSelection}
@@ -7556,6 +7557,7 @@ export default function App() {
           onFitAll={() => requestErViewportCommand("fitAll")}
           onFitSelection={() => requestErViewportCommand("fitSelection")}
           onResetZoom={() => requestErViewportCommand("resetZoom")}
+          onToggleMinimap={() => requestErViewportCommand("toggleMinimap")}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onOpenExplorer={() => handleSelectActivityPanel("file")}
           onOpenErrorsPanel={handleOpenErrorsPanel}

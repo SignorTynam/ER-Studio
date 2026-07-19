@@ -112,6 +112,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
           { keys: "Home", action: t("keyboardShortcuts.actions.centerDiagram") },
           { keys: "Shift + 0", action: t("keyboardShortcuts.actions.resetView") },
           { keys: "0", action: t("keyboardShortcuts.actions.resetViewport") },
+          { keys: "M", action: t("keyboardShortcuts.actions.toggleMinimap") },
           { keys: t("keyboardShortcuts.keys.wheel"), action: t("keyboardShortcuts.actions.wheelZoom") },
           { keys: t("keyboardShortcuts.keys.middleButtonDrag"), action: t("keyboardShortcuts.actions.middleButtonPan") },
         ],
