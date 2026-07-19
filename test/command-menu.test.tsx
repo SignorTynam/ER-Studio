@@ -67,6 +67,9 @@ function renderPalette() {
         onResetTranslation={noop}
         onAutoLayoutLogical={noop}
         onFitLogical={noop}
+        onFitAll={noop}
+        onFitSelection={noop}
+        onResetZoom={noop}
         onOpenSqlReverseWorkflow={noop}
         onOpenExplorer={noop}
         onOpenErrorsPanel={noop}
@@ -118,4 +121,12 @@ test("command palette mostra percorso, stato attivo e comandi disabilitati", () 
   assert.match(markup, /aria-disabled="true"/);
   assert.doesNotMatch(markup, /command-palette-tabs/);
   assert.doesNotMatch(markup, /command-palette-tab/);
+});
+
+test("command palette espone i comandi viewport del canvas ER", () => {
+  const markup = renderPalette();
+
+  assert.match(markup, /Fit all/);
+  assert.match(markup, /Fit selection/);
+  assert.match(markup, /Reset zoom/);
 });

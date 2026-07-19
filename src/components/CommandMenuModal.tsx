@@ -55,6 +55,9 @@ interface CommandMenuModalProps {
   onResetTranslation: () => void;
   onAutoLayoutLogical: () => void;
   onFitLogical: () => void;
+  onFitAll: () => void;
+  onFitSelection: () => void;
+  onResetZoom: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onOpenExplorer: () => void;
   onOpenErrorsPanel: () => void;
@@ -239,6 +242,21 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       id: "command-workflow-fit-logical", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.workflowFitLogical.label"), detail: t("commandMenu.commands.workflowFitLogical.detail"),
       icon: "fit", disabled: !isLogicalView, order: 7, action: props.onFitLogical,
+    },
+    {
+      id: "command-view-fit-all", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.viewFitAll.label"), detail: t("commandMenu.commands.viewFitAll.detail"),
+      icon: "fit", disabled: !isErView || !props.hasActiveSchema, order: 8, action: props.onFitAll,
+    },
+    {
+      id: "command-view-fit-selection", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.viewFitSelection.label"), detail: t("commandMenu.commands.viewFitSelection.detail"),
+      icon: "focus", disabled: !isErView || !props.hasActiveSchema, order: 9, action: props.onFitSelection,
+    },
+    {
+      id: "command-view-reset", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.viewReset.label"), detail: t("commandMenu.commands.viewReset.detail"),
+      icon: "reset", disabled: !isErView || !props.hasActiveSchema, order: 10, action: props.onResetZoom,
     },
     {
       id: "command-workspace-explorer", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,

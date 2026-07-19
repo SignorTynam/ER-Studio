@@ -268,3 +268,26 @@ Reset globale `prefers-reduced-motion: reduce` in `foundations.css` (`*` con `!i
 mai scavalcato). Durate su `--motion-fast` (120ms) / `--motion-normal` (180ms); le
 animazioni coreografiche del changelog (stagger 280/70/80ms) restano fuori scala e
 sono disattivate dal reset.
+
+## Navigazione viewport — canvas ER (Fase F1)
+
+Cluster di controlli flottante `canvas-viewport-hud` in basso sul canvas (introdotto in C3):
+zoom −, percentuale (clic = zoom 100%), zoom +, **Inquadra tutto**, **Inquadra selezione**.
+I pulsanti icona riusano `PanelIconButton`, la percentuale `Button` e tutti espongono il
+tooltip condiviso; target minimo 32px e `aria-label` su ogni controllo.
+
+**Comandi** (command menu, categoria workflow, solo in vista ER): *Inquadra tutto* (sempre
+tutti i nodi), *Inquadra selezione* (fallback a tutto senza selezione), *Reimposta zoom*. Riusano
+i primitivi geometrici (`getBoundsForViewport`, `expandBounds`, `viewportForBounds`, `clampZoom`)
+via il pattern request-token (`viewportCommand={action,token}` → effetto nel canvas), coerente
+con `fitRequestToken` dei preview.
+
+**Scorciatoie** (canvas a fuoco): `Shift+1` inquadra tutto · `Shift+2` inquadra selezione ·
+`Shift+0` zoom 100% · `Home` centra · `0` reimposta viewport · `9` inquadra contenuto ·
+`+/-` zoom. Documentate in KeyboardShortcutsModal.
+
+**Transizione viewport** (`animateViewportTo`): tween rAF con easing `easeOutCubic`, durata letta
+da `--motion-normal`. Applica il target **istantaneamente** (nessun tween) quando
+`prefers-reduced-motion: reduce` **o** `document.hidden` (rAF è in pausa a pagina nascosta:
+senza questo guard il fit non raggiungerebbe mai il target). Ogni pan/zoom/wheel/pinch annulla
+un tween in corso; cleanup su smontaggio.

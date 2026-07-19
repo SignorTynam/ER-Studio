@@ -17,6 +17,7 @@ import {
 } from "./diagramVisualConstants";
 import { getVersionHighlightStroke } from "./versionHighlightColors";
 import { StudioIcon } from "../components/icons/StudioIcon";
+import { Button, PanelIconButton, Tooltip } from "../components/ui";
 import { useI18n } from "../i18n/useI18n";
 import { getToolDefinitions } from "../utils/toolConfig";
 import {
@@ -190,6 +191,7 @@ interface DiagramCanvasProps {
   translationHighlights?: DiagramHighlights;
   versionHighlights?: VersionDiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
+  viewportCommand?: { action: "fitAll" | "fitSelection" | "resetZoom"; token: number } | null;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
   onIdentifierSelectionChange?: (selection: IdentifierSelection | null) => void;
@@ -1863,6 +1865,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activePointersRef = useRef<Map<number, ActivePointer>>(new Map());
   const pinchStateRef = useRef<PinchState | null>(null);
+  const viewportAnimationRef = useRef<number | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
@@ -2524,6 +2527,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function beginPanInteraction(pointerId: number, clientX: number, clientY: number) {
     dismissPanHint();
+    cancelViewportAnimation();
     setInteraction({
       kind: "pan",
       pointerId,
@@ -2572,31 +2576,85 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     return getBoundsForViewport(props.diagram.nodes);
   }
 
+  function cancelViewportAnimation() {
+    if (viewportAnimationRef.current !== null) {
+      cancelAnimationFrame(viewportAnimationRef.current);
+      viewportAnimationRef.current = null;
+    }
+  }
+
+  function readViewportMotionDurationMs(): number {
+    if (typeof window === "undefined") {
+      return 0;
+    }
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--motion-normal").trim();
+    const parsed = Number.parseFloat(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return raw.endsWith("ms") ? parsed : parsed * 1000;
+  }
+
+  // Smooth programmatic viewport moves (fit / center / reset). Instant when the user
+  // prefers reduced motion; any pan / zoom / wheel / pinch cancels an in-flight tween.
+  function animateViewportTo(target: Viewport) {
+    cancelViewportAnimation();
+    const start = props.viewport;
+    // Skip the tween (apply the target instantly) when the user prefers reduced motion
+    // or when the document is hidden — requestAnimationFrame is paused while hidden, so an
+    // animated move would never reach its target.
+    const skipAnimation =
+      (typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches) ||
+      (typeof document !== "undefined" && document.hidden);
+
+    if (
+      skipAnimation ||
+      (Math.abs(start.x - target.x) < 0.5 &&
+        Math.abs(start.y - target.y) < 0.5 &&
+        Math.abs(start.zoom - target.zoom) < 0.001)
+    ) {
+      props.onViewportChange(target);
+      return;
+    }
+
+    const duration = readViewportMotionDurationMs();
+    if (duration <= 0) {
+      props.onViewportChange(target);
+      return;
+    }
+    const startTime = performance.now();
+    const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = easeOutCubic(progress);
+      props.onViewportChange({
+        x: start.x + (target.x - start.x) * eased,
+        y: start.y + (target.y - start.y) * eased,
+        zoom: start.zoom + (target.zoom - start.zoom) * eased,
+      });
+      viewportAnimationRef.current = progress < 1 ? requestAnimationFrame(step) : null;
+    };
+
+    viewportAnimationRef.current = requestAnimationFrame(step);
+  }
+
   function setViewportFromBounds(bounds: Bounds, zoom: number) {
     const rect = getViewportRect();
     if (!rect) {
       return;
     }
 
-    props.onViewportChange(viewportForBounds(bounds, rect, zoom));
+    animateViewportTo(viewportForBounds(bounds, rect, zoom));
   }
 
-  function fitToContent() {
+  function fitToBounds(bounds: Bounds | null, fittedStatus: string) {
     dismissPanHint();
     const rect = getViewportRect();
-    const bounds = getViewportTargetBounds();
 
-    if (!rect) {
-      return;
-    }
-
-    if (!bounds) {
-      props.onViewportChange({
-        x: rect.width / 2,
-        y: rect.height / 2,
-        zoom: 1,
-      });
-      props.onStatusMessageChange(t("canvas.status.viewportCentered"));
+    if (!rect || !bounds) {
       return;
     }
 
@@ -2605,10 +2663,51 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     const heightZoom = rect.height / Math.max(paddedBounds.height, 200);
     const nextZoom = clampZoom(Math.min(widthZoom, heightZoom));
 
-    props.onViewportChange(viewportForBounds(bounds, rect, nextZoom));
-    props.onStatusMessageChange(
+    animateViewportTo(viewportForBounds(paddedBounds, rect, nextZoom));
+    props.onStatusMessageChange(fittedStatus);
+  }
+
+  function fitToContent() {
+    fitToBounds(
+      getViewportTargetBounds(),
       props.selection.nodeIds.length > 0 ? t("canvas.status.selectionFitted") : t("canvas.status.diagramFitted"),
     );
+  }
+
+  function fitAll() {
+    fitToBounds(getBoundsForViewport(props.diagram.nodes), t("canvas.status.diagramFitted"));
+  }
+
+  function fitSelection() {
+    const selectedNodes = props.diagram.nodes.filter((node) => props.selection.nodeIds.includes(node.id));
+    const bounds = getSelectionBounds(selectedNodes);
+
+    if (!bounds) {
+      fitAll();
+      return;
+    }
+
+    fitToBounds(bounds, t("canvas.status.selectionFitted"));
+  }
+
+  function resetZoom() {
+    dismissPanHint();
+    cancelViewportAnimation();
+    const rect = getViewportRect();
+    if (!rect || props.viewport.zoom === 1) {
+      return;
+    }
+
+    const center = {
+      x: (rect.width / 2 - props.viewport.x) / props.viewport.zoom,
+      y: (rect.height / 2 - props.viewport.y) / props.viewport.zoom,
+    };
+    animateViewportTo({
+      x: rect.width / 2 - center.x,
+      y: rect.height / 2 - center.y,
+      zoom: 1,
+    });
+    props.onStatusMessageChange(t("canvas.status.zoomReset"));
   }
 
   function centerDiagram() {
@@ -2635,21 +2734,35 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
     }
 
     if (!bounds) {
-      props.onViewportChange({
-        x: rect.width / 2,
-        y: rect.height / 2,
-        zoom: 1,
-      });
+      animateViewportTo({ x: rect.width / 2, y: rect.height / 2, zoom: 1 });
       props.onStatusMessageChange(t("canvas.status.viewportReset"));
       return;
     }
 
-    props.onViewportChange(viewportForBounds(bounds, rect, 1));
+    animateViewportTo(viewportForBounds(bounds, rect, 1));
     props.onStatusMessageChange(t("canvas.status.viewportReset"));
   }
 
+  useEffect(() => {
+    const command = props.viewportCommand;
+    if (!command || command.token === 0) {
+      return;
+    }
+    if (command.action === "fitAll") {
+      fitAll();
+    } else if (command.action === "fitSelection") {
+      fitSelection();
+    } else if (command.action === "resetZoom") {
+      resetZoom();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.viewportCommand?.token]);
+
+  useEffect(() => () => cancelViewportAnimation(), []);
+
   function zoomAroundCanvasCenter(multiplier: number) {
     dismissPanHint();
+    cancelViewportAnimation();
     const rect = getViewportRect();
     if (!rect) {
       return;
@@ -2681,6 +2794,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function startPinchInteraction() {
+    cancelViewportAnimation();
     const touchPointers = Array.from(activePointersRef.current.values()).filter(
       (pointer) => pointer.pointerType === "touch",
     );
@@ -2896,6 +3010,27 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       event.preventDefault();
       event.stopPropagation();
       centerDiagram();
+      return;
+    }
+
+    if (event.shiftKey && event.code === "Digit1") {
+      event.preventDefault();
+      event.stopPropagation();
+      fitAll();
+      return;
+    }
+
+    if (event.shiftKey && event.code === "Digit2") {
+      event.preventDefault();
+      event.stopPropagation();
+      fitSelection();
+      return;
+    }
+
+    if (event.shiftKey && event.code === "Digit0") {
+      event.preventDefault();
+      event.stopPropagation();
+      resetZoom();
       return;
     }
 
@@ -3737,6 +3872,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
     event.preventDefault();
     dismissPanHint();
+    cancelViewportAnimation();
 
     if (!containerRef.current) {
       return;
@@ -4749,29 +4885,50 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         </g>
       </svg>
 
-      <div className="canvas-viewport-hud" aria-label={t("canvas.viewportControls")}>
+      <div className="canvas-viewport-hud" role="group" aria-label={t("canvas.viewportControls")}>
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1 / 1.14)} aria-label={t("canvas.aria.zoomOut")}>
-            <StudioIcon name="zoomOut" aria-hidden="true" />
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label={t("canvas.aria.resetZoom")}>
-            {Math.round(props.viewport.zoom * 100)}%
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCanvasCenter(1.14)} aria-label={t("canvas.aria.zoomIn")}>
-            <StudioIcon name="zoomIn" aria-hidden="true" />
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label={t("canvas.aria.fitContent")}>
-            <StudioIcon name="fit" aria-hidden="true" />
-            {props.selection.nodeIds.length > 0 ? t("canvas.fitSelection") : t("canvas.fit")}
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerDiagram} aria-label={t("canvas.aria.centerDiagram")}>
-            <StudioIcon name="center" aria-hidden="true" />
-            {t("canvas.center")}
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label={t("canvas.aria.resetViewport")}>
-            <StudioIcon name="reset" aria-hidden="true" />
-            {t("canvas.reset")}
-          </button>
+          <PanelIconButton
+            className="canvas-hud-button canvas-hud-button-zoom-control"
+            icon="zoomOut"
+            label={t("canvas.aria.zoomOut")}
+            tooltipPosition="top"
+            onClick={() => zoomAroundCanvasCenter(1 / 1.14)}
+          />
+          <Tooltip position="top" label={t("canvas.aria.resetZoom")}>
+            {(aria) => (
+              <Button
+                {...aria}
+                className="canvas-hud-button canvas-hud-zoom"
+                variant="ghost"
+                size="sm"
+                onClick={resetZoom}
+                aria-label={t("canvas.aria.resetZoom")}
+              >
+                {Math.round(props.viewport.zoom * 100)}%
+              </Button>
+            )}
+          </Tooltip>
+          <PanelIconButton
+            className="canvas-hud-button canvas-hud-button-zoom-control"
+            icon="zoomIn"
+            label={t("canvas.aria.zoomIn")}
+            tooltipPosition="top"
+            onClick={() => zoomAroundCanvasCenter(1.14)}
+          />
+          <PanelIconButton
+            className="canvas-hud-button"
+            icon="fit"
+            label={t("canvas.aria.fitAll")}
+            tooltipPosition="top"
+            onClick={fitAll}
+          />
+          <PanelIconButton
+            className="canvas-hud-button"
+            icon="focus"
+            label={t("canvas.aria.fitSelection")}
+            tooltipPosition="top"
+            onClick={fitSelection}
+          />
         </div>
       </div>
 
