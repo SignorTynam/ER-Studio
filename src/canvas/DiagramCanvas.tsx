@@ -9,7 +9,12 @@ import type {
 } from "react";
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
-import { CanvasMinimap } from "./CanvasMinimap";
+import {
+  CanvasMinimap,
+  DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY,
+  readCanvasMinimapVisibility,
+  writeCanvasMinimapVisibility,
+} from "./CanvasMinimap";
 import {
   DIAGRAM_IDENTIFIER_STROKE_WIDTH,
   DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS,
@@ -59,6 +64,7 @@ import {
 } from "../utils/inheritanceLayout";
 import type {
   Bounds,
+  CanvasViewportCommand,
   DiagramDocument,
   DiagramHighlightKind,
   DiagramHighlights,
@@ -192,8 +198,9 @@ interface DiagramCanvasProps {
   translationHighlights?: DiagramHighlights;
   versionHighlights?: VersionDiagramHighlights;
   onViewportChange: (viewport: Viewport) => void;
-  viewportCommand?: { action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap"; token: number } | null;
+  viewportCommand?: CanvasViewportCommand | null;
   showMinimap?: boolean;
+  minimapStorageKey?: string;
   onAutoLayout?: () => void;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
@@ -315,28 +322,6 @@ function shouldPersistCanvasMessage(message: string): boolean {
 }
 
 const VIEWPORT_PADDING = 140;
-const CANVAS_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible";
-const CANVAS_MINIMAP_COMPACT_QUERY = "(max-width: 860px)";
-
-function readInitialMinimapVisibility(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const stored = window.localStorage.getItem(CANVAS_MINIMAP_VISIBILITY_KEY);
-    if (stored !== null) return stored === "true";
-  } catch {
-    // Storage can be unavailable; responsive fallback keeps the control usable.
-  }
-  return typeof window.matchMedia === "function" ? !window.matchMedia(CANVAS_MINIMAP_COMPACT_QUERY).matches : true;
-}
-
-function writeMinimapVisibility(visible: boolean) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(CANVAS_MINIMAP_VISIBILITY_KEY, String(visible));
-  } catch {
-    // Persistence is optional; the in-memory toggle remains functional.
-  }
-}
 const EXTERNAL_IDENTIFIER_FRAME_PADDING = 18;
 const EXTERNAL_IDENTIFIER_MIN_SEGMENT_LENGTH = 9;
 const EXTERNAL_IDENTIFIER_COMPOSITE_MARKER_DISTANCE = 15;
@@ -1887,12 +1872,13 @@ function buildExternalIdentifierSortKey(identifier: ExternalIdentifier): string 
 
 export function DiagramCanvas(props: DiagramCanvasProps) {
   const { t } = useI18n();
+  const minimapStorageKey = props.minimapStorageKey ?? DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const activePointersRef = useRef<Map<number, ActivePointer>>(new Map());
   const pinchStateRef = useRef<PinchState | null>(null);
   const viewportAnimationRef = useRef<number | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
-  const [minimapVisible, setMinimapVisible] = useState(readInitialMinimapVisibility);
+  const [minimapVisible, setMinimapVisible] = useState(() => readCanvasMinimapVisibility(minimapStorageKey));
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
   const [focusedTarget, setFocusedTarget] = useState<FocusTarget>(null);
@@ -2738,7 +2724,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
 
   function setMinimapVisibility(visible: boolean) {
     setMinimapVisible(visible);
-    writeMinimapVisibility(visible);
+    writeCanvasMinimapVisibility(minimapStorageKey, visible);
     props.onStatusMessageChange(t(visible ? "canvas.status.minimapShown" : "canvas.status.minimapHidden"));
   }
 

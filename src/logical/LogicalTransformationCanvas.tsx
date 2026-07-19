@@ -1,16 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   FocusEvent as ReactFocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent,
   PointerEvent as ReactPointerEvent,
   RefObject,
   WheelEvent as ReactWheelEvent,
 } from "react";
+import {
+  CanvasMinimap,
+  readCanvasMinimapVisibility,
+  writeCanvasMinimapVisibility,
+} from "../canvas/CanvasMinimap";
 import { DiagramIdentifierOverlay } from "../canvas/DiagramCanvas";
 import { DiagramEdgeView } from "../canvas/DiagramEdge";
 import { DiagramNodeView } from "../canvas/DiagramNode";
-import { StudioIcon } from "../components/icons/StudioIcon";
-import type { Bounds, DiagramDocument, DiagramEdge, DiagramNode, Point, Viewport } from "../types/diagram";
+import { Button, PanelIconButton, Tooltip } from "../components/ui";
+import { useI18n } from "../i18n/useI18n";
+import type {
+  Bounds,
+  CanvasViewportCommand,
+  DiagramDocument,
+  DiagramEdge,
+  DiagramNode,
+  Point,
+  Viewport,
+} from "../types/diagram";
 import type {
   LogicalColumn,
   LogicalSelection,
@@ -47,6 +62,9 @@ interface LogicalTransformationCanvasProps {
   showForeignKeyLabels: boolean;
   typeMode: boolean;
   fitRequestToken: number;
+  viewportCommand?: CanvasViewportCommand | null;
+  showMinimap?: boolean;
+  onAutoLayout?: () => void;
   autoFitOnMount?: boolean;
   activeTargetKeys: string[];
   focusedTargetKey: string | null;
@@ -157,6 +175,7 @@ const LOGICAL_MIN_ZOOM = 0.18;
 const LOGICAL_FIT_LEFT_INSET = 150;
 const LOGICAL_FIT_RIGHT_INSET = 72;
 const LOGICAL_FIT_VERTICAL_INSET = 72;
+const LOGICAL_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible:logical";
 const EDGE_BOUNDS_PADDING = 24;
 const DESIGNER_TABLE_MIN_WIDTH = 180;
 const DESIGNER_TABLE_MAX_WIDTH = 860;
@@ -816,6 +835,18 @@ export function toSyntheticDiagramNode(node: LogicalTransformationNode, sourceNo
     };
   }
 
+  if (node.kind === "logical-table") {
+    return {
+      id: node.id,
+      type: "entity",
+      label: node.label,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+    };
+  }
+
   const center = {
     x: node.x + node.width / 2,
     y: node.y + node.height / 2,
@@ -918,13 +949,18 @@ function intersectingTargetKey(
 }
 
 export function LogicalTransformationCanvas(props: LogicalTransformationCanvasProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewportAnimationRef = useRef<number | null>(null);
   const fitRetryFrameRef = useRef<number | null>(null);
   const fitRetryAttemptsRef = useRef(0);
   const fitEffectMountedRef = useRef(false);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
   const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [minimapVisible, setMinimapVisible] = useState(() =>
+    readCanvasMinimapVisibility(LOGICAL_MINIMAP_VISIBILITY_KEY),
+  );
   const [hoverTableId, setHoverTableId] = useState<string | null>(null);
   const readOnly = props.readOnly === true;
 
@@ -959,6 +995,13 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   const syntheticNodeById = useMemo(
     () => new Map(renderedNodes.map((node) => [node.id, toSyntheticDiagramNode(node, sourceNodeById.get(node.sourceNodeId ?? node.id))])),
     [renderedNodes, sourceNodeById],
+  );
+  const visibleMinimapNodes = useMemo(
+    () =>
+      visibleRenderedNodes
+        .map((node) => syntheticNodeById.get(node.id))
+        .filter((node): node is DiagramNode => node !== undefined),
+    [syntheticNodeById, visibleRenderedNodes],
   );
   const visibleErDiagram = useMemo(() => {
     const visibleSourceNodeIds = new Set(
@@ -1119,31 +1162,99 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     return rect.width >= 48 && rect.height >= 48;
   }
 
-  function fitToContent(): boolean {
+  function cancelViewportAnimation() {
+    if (viewportAnimationRef.current != null) {
+      window.cancelAnimationFrame(viewportAnimationRef.current);
+      viewportAnimationRef.current = null;
+    }
+  }
+
+  function readViewportMotionDurationMs(): number {
+    if (typeof window === "undefined") return 0;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--motion-normal").trim();
+    const parsed = Number.parseFloat(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return raw.endsWith("ms") ? parsed : parsed * 1000;
+  }
+
+  function animateViewportTo(target: Viewport) {
+    cancelViewportAnimation();
+    const start = props.viewport;
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const unchanged =
+      Math.abs(start.x - target.x) < 0.5 &&
+      Math.abs(start.y - target.y) < 0.5 &&
+      Math.abs(start.zoom - target.zoom) < 0.001;
+    const duration = readViewportMotionDurationMs();
+    if (reducedMotion || document.hidden || unchanged || duration <= 0) {
+      props.onViewportChange(target);
+      return;
+    }
+
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      props.onViewportChange({
+        x: start.x + (target.x - start.x) * eased,
+        y: start.y + (target.y - start.y) * eased,
+        zoom: start.zoom + (target.zoom - start.zoom) * eased,
+      });
+      viewportAnimationRef.current = progress < 1 ? window.requestAnimationFrame(step) : null;
+    };
+    viewportAnimationRef.current = window.requestAnimationFrame(step);
+  }
+
+  function fitBounds(bounds: Bounds, padding: number): boolean {
     const rect = getViewportRect();
-    if (!rect || !hasUsableViewportRect(rect)) {
-      return false;
-    }
-
-    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
-    if (!bounds) {
-      return false;
-    }
-
+    if (!rect || !hasUsableViewportRect(rect)) return false;
     const frame = getLogicalTransformationFitFrame(rect);
-    const paddedWidth = Math.max(1, bounds.width + VIEWPORT_PADDING * 2);
-    const paddedHeight = Math.max(1, bounds.height + VIEWPORT_PADDING * 2);
+    const paddedWidth = Math.max(1, bounds.width + padding * 2);
+    const paddedHeight = Math.max(1, bounds.height + padding * 2);
     const nextZoom = clampLogicalTransformationZoom(Math.min(frame.width / paddedWidth, frame.height / paddedHeight));
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
-
-    props.onViewportChange({
+    animateViewportTo({
       zoom: nextZoom,
       x: frame.x + frame.width / 2 - centerX * nextZoom,
       y: frame.y + frame.height / 2 - centerY * nextZoom,
     });
-
     return true;
+  }
+
+  function fitToContent(): boolean {
+    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
+    return bounds ? fitBounds(bounds, VIEWPORT_PADDING) : false;
+  }
+
+  function getSelectionNodes(): LogicalTransformationNode[] {
+    const selectedIds = new Set<string>();
+    if (props.selection.nodeId) selectedIds.add(props.selection.nodeId);
+    if (props.selection.columnId) {
+      const table = props.workspace.model.tables.find((candidate) =>
+        candidate.columns.some((column) => column.id === props.selection.columnId),
+      );
+      const tableNode = table
+        ? visibleRenderedNodes.find((node) => node.tableId === table.id || node.id === table.id)
+        : undefined;
+      if (tableNode) selectedIds.add(tableNode.id);
+    }
+    if (props.selection.edgeId) {
+      const edge = [...erEdges, ...fkEdges].find((candidate) => candidate.id === props.selection.edgeId);
+      if (edge) {
+        selectedIds.add(edge.sourceId);
+        selectedIds.add(edge.targetId);
+      }
+    }
+    return visibleRenderedNodes.filter((node) => selectedIds.has(node.id));
+  }
+
+  function fitSelection(): boolean {
+    const bounds = getBoundsForNodes(getSelectionNodes());
+    return bounds ? fitBounds(bounds, EDGE_BOUNDS_PADDING * 2) : fitToContent();
   }
 
   function cancelFitRetry() {
@@ -1188,6 +1299,26 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.fitRequestToken]);
 
+  function setMinimapVisibility(visible: boolean) {
+    setMinimapVisible(visible);
+    writeCanvasMinimapVisibility(LOGICAL_MINIMAP_VISIBILITY_KEY, visible);
+  }
+
+  function toggleMinimap() {
+    setMinimapVisibility(!minimapVisible);
+  }
+
+  useEffect(() => {
+    const command = props.viewportCommand;
+    if (!command || command.token === 0) return;
+    if (command.action === "fitAll") fitToContent();
+    else if (command.action === "fitSelection") fitSelection();
+    else if (command.action === "resetZoom") resetViewport();
+    else if (command.action === "toggleMinimap" && props.showMinimap) toggleMinimap();
+    // Trigger only when a new command token arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.viewportCommand?.token]);
+
   useEffect(() => {
     if (!containerRef.current || typeof ResizeObserver === "undefined") {
       return;
@@ -1211,28 +1342,10 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.viewport.zoom]);
 
-  useEffect(() => () => cancelFitRetry(), []);
-
-  function centerContent() {
-    const rect = getViewportRect();
-    if (!rect || !hasUsableViewportRect(rect)) {
-      return;
-    }
-
-    const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
-    if (!bounds) {
-      return;
-    }
-
-    const frame = getLogicalTransformationFitFrame(rect);
-    const centerX = bounds.x + bounds.width / 2;
-    const centerY = bounds.y + bounds.height / 2;
-    props.onViewportChange({
-      ...props.viewport,
-      x: frame.x + frame.width / 2 - centerX * props.viewport.zoom,
-      y: frame.y + frame.height / 2 - centerY * props.viewport.zoom,
-    });
-  }
+  useEffect(() => () => {
+    cancelFitRetry();
+    cancelViewportAnimation();
+  }, []);
 
   function resetViewport() {
     const rect = getViewportRect();
@@ -1242,7 +1355,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
 
     const bounds = getBoundsForVisibleContent(visibleRenderedNodes, [...routeByEdgeId.values()], visibleFkLabelBounds);
     if (!bounds) {
-      props.onViewportChange({
+      animateViewportTo({
         x: getLogicalTransformationFitFrame(rect).x + getLogicalTransformationFitFrame(rect).width / 2,
         y: getLogicalTransformationFitFrame(rect).y + getLogicalTransformationFitFrame(rect).height / 2,
         zoom: 1,
@@ -1253,7 +1366,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     const frame = getLogicalTransformationFitFrame(rect);
     const centerX = bounds.x + bounds.width / 2;
     const centerY = bounds.y + bounds.height / 2;
-    props.onViewportChange({
+    animateViewportTo({
       zoom: 1,
       x: frame.x + frame.width / 2 - centerX,
       y: frame.y + frame.height / 2 - centerY,
@@ -1261,6 +1374,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }
 
   function zoomAroundCenter(factor: number) {
+    cancelViewportAnimation();
     if (!containerRef.current) {
       return;
     }
@@ -1282,8 +1396,37 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     });
   }
 
+  function handleCanvasKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement;
+    if (target.matches("input, textarea, select") || target.isContentEditable) return;
+
+    if (event.shiftKey && event.code === "Digit1") {
+      event.preventDefault();
+      fitToContent();
+    } else if (event.shiftKey && event.code === "Digit2") {
+      event.preventDefault();
+      fitSelection();
+    } else if (event.shiftKey && event.code === "Digit0") {
+      event.preventDefault();
+      resetViewport();
+    } else if (!readOnly && props.onAutoLayout && event.shiftKey && event.code === "KeyL") {
+      event.preventDefault();
+      props.onAutoLayout();
+    } else if (props.showMinimap && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.code === "KeyM") {
+      event.preventDefault();
+      toggleMinimap();
+    } else if (event.key === "=" || event.key === "+") {
+      event.preventDefault();
+      zoomAroundCenter(1.14);
+    } else if (event.key === "-") {
+      event.preventDefault();
+      zoomAroundCenter(1 / 1.14);
+    }
+  }
+
   function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
     event.preventDefault();
+    cancelViewportAnimation();
     if (!containerRef.current) {
       return;
     }
@@ -1308,6 +1451,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }
 
   function handleBackgroundPointerDown(event: ReactPointerEvent<SVGRectElement>) {
+    cancelViewportAnimation();
     if (event.button !== 0 && event.button !== 1) {
       return;
     }
@@ -1328,6 +1472,7 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
   }
 
   function handleTableHeaderPointerDown(event: ReactPointerEvent<SVGGElement>, tableNode: LogicalTransformationNode) {
+    cancelViewportAnimation();
     if (event.button !== 0) {
       return;
     }
@@ -1548,6 +1693,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
     <div
       ref={containerRef}
       className="logical-canvas-panel transformation-canvas-panel"
+      tabIndex={0}
+      onKeyDown={handleCanvasKeyDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
@@ -1556,8 +1703,8 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
       <svg
         ref={props.svgRef}
         className="logical-canvas"
-        role="img"
-        aria-label="Canvas Logico con trasformazione in-place"
+        role="group"
+        aria-label={t("canvas.logicalAria")}
         data-readonly={readOnly ? "true" : undefined}
       >
         <defs>
@@ -2021,31 +2168,66 @@ export function LogicalTransformationCanvas(props: LogicalTransformationCanvasPr
         </g>
       </svg>
 
-      <div className="canvas-viewport-hud" aria-label="Controlli viewport Logico">
+      <div className="canvas-viewport-hud" role="group" aria-label={t("canvas.viewportControls")}>
         <div className="canvas-hud-cluster canvas-hud-cluster-viewport">
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCenter(1 / 1.14)} aria-label="Riduci zoom">
-            <StudioIcon name="zoomOut" aria-hidden="true" />
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-zoom" onClick={resetViewport} aria-label="Reset zoom">
-            {Math.round(props.viewport.zoom * 100)}%
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-zoom-control" onClick={() => zoomAroundCenter(1.14)} aria-label="Aumenta zoom">
-            <StudioIcon name="zoomIn" aria-hidden="true" />
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={fitToContent} aria-label="Adatta contenuto al viewport">
-            <StudioIcon name="fit" aria-hidden="true" />
-            Adatta
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={centerContent} aria-label="Centra contenuto">
-            <StudioIcon name="center" aria-hidden="true" />
-            Centra
-          </button>
-          <button type="button" className="canvas-hud-button canvas-hud-button-text" onClick={resetViewport} aria-label="Reset viewport">
-            <StudioIcon name="reset" aria-hidden="true" />
-            Reset
-          </button>
+          <PanelIconButton
+            className="canvas-hud-button canvas-hud-button-zoom-control"
+            icon="zoomOut"
+            label={t("canvas.aria.zoomOut")}
+            tooltipPosition="top"
+            onClick={() => zoomAroundCenter(1 / 1.14)}
+          />
+          <Tooltip position="top" label={t("canvas.aria.resetZoom")}>
+            {(aria) => (
+              <Button
+                {...aria}
+                className="canvas-hud-button canvas-hud-zoom"
+                variant="ghost"
+                size="sm"
+                onClick={resetViewport}
+                aria-label={t("canvas.aria.resetZoom")}
+              >
+                {Math.round(props.viewport.zoom * 100)}%
+              </Button>
+            )}
+          </Tooltip>
+          <PanelIconButton
+            className="canvas-hud-button canvas-hud-button-zoom-control"
+            icon="zoomIn"
+            label={t("canvas.aria.zoomIn")}
+            tooltipPosition="top"
+            onClick={() => zoomAroundCenter(1.14)}
+          />
+          <PanelIconButton
+            className="canvas-hud-button"
+            icon="fit"
+            label={t("canvas.aria.fitAll")}
+            tooltipPosition="top"
+            onClick={fitToContent}
+          />
+          <PanelIconButton
+            className="canvas-hud-button"
+            icon="focus"
+            label={t("canvas.aria.fitSelection")}
+            tooltipPosition="top"
+            onClick={fitSelection}
+          />
         </div>
       </div>
+
+      {props.showMinimap ? (
+        <CanvasMinimap
+          canvasRef={containerRef}
+          nodes={visibleMinimapNodes}
+          viewport={props.viewport}
+          visible={minimapVisible}
+          onViewportChange={(viewport) => {
+            cancelViewportAnimation();
+            props.onViewportChange(viewport);
+          }}
+          onVisibleChange={setMinimapVisibility}
+        />
+      ) : null}
 
       {inlineEdit && inlineEditorStyle ? (
         <form

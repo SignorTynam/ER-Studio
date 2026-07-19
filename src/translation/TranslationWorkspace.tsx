@@ -1,7 +1,15 @@
 import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
 import { DiagramCanvas } from "../canvas/DiagramCanvas";
 import { FloatingExportMenu } from "../components/FloatingExportMenu";
-import type { DiagramDocument, DiagramEdge, DiagramHighlights, SelectionState, VersionDiagramHighlights, Viewport } from "../types/diagram";
+import type {
+  CanvasViewportCommand,
+  DiagramDocument,
+  DiagramEdge,
+  DiagramHighlights,
+  SelectionState,
+  VersionDiagramHighlights,
+  Viewport,
+} from "../types/diagram";
 import type { ErTranslationChoice, ErTranslationItem, ErTranslationWorkspaceDocument } from "../types/translation";
 import {
   buildErTranslationOverview,
@@ -21,7 +29,9 @@ interface TranslationWorkspaceProps {
   onUndo: () => void;
   onRedo: () => void;
   onViewportChange: (viewport: Viewport) => void;
+  viewportCommand?: CanvasViewportCommand | null;
   onSelectionChange: (selection: SelectionState) => void;
+  onAutoLayout?: () => void;
   onApplyChoice: (item: ErTranslationItem, choice: ErTranslationChoice) => void;
   onResetTranslation: () => void;
   onOpenDesign: () => void;
@@ -209,6 +219,13 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
           <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
           <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
+          <ToolbarButton
+            label={t("toolbar.commands.autoLayout.label")}
+            icon={<StudioIcon name="fix" />}
+            disabled={readOnly || props.workspace.translatedDiagram.nodes.length === 0 || !props.onAutoLayout}
+            title={t("commandMenu.commands.viewAutoLayout.detail")}
+            onClick={() => props.onAutoLayout?.()}
+          />
           <span className="designer-toolbar-separator" aria-hidden="true" />
           {selectedItem ? (
             <ToolbarButton
@@ -310,6 +327,10 @@ export function TranslationWorkspace(props: TranslationWorkspaceProps) {
           translationHighlights={highlights}
           versionHighlights={props.versionHighlights}
           onViewportChange={props.onViewportChange}
+          viewportCommand={props.viewportCommand}
+          showMinimap={!compareMode}
+          minimapStorageKey="builder:canvas:minimap-visible:translation"
+          onAutoLayout={!readOnly ? props.onAutoLayout : undefined}
           onSelectionChange={(selection) => {
             setFixOpen(false);
             props.onSelectionChange(selection);

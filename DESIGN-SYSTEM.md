@@ -319,3 +319,21 @@ semplici, composti e annidati usando i primitivi di `attributeLayout`. Modifica 
 `x`/`y`: archi, cardinalità, identificatori, gruppi, dimensioni e ogni altra proprietà restano
 immutati. Le coordinate usano la griglia geometrica esistente; nessun nuovo stile o valore UI è
 introdotto dalla feature.
+
+## Navigazione uniforme — ER, Translate e Logic
+
+Le tre viste di modellazione espongono lo stesso contratto di navigazione: cluster da cinque
+controlli, `Shift+1`/`Shift+2`/`Shift+0`, minimappa con `M` e azioni equivalenti nel command menu.
+Translate riusa direttamente `DiagramCanvas`; Logic adatta tabelle, colonne e archi ai bounds
+condivisi, riconducendo una colonna alla propria tabella e un arco ai suoi estremi per
+**Inquadra selezione**. Le transizioni programmatiche del canvas logico usano la stessa durata
+`--motion-normal` e rispettano `prefers-reduced-motion`.
+
+La preferenza di visibilità della minimappa è persistita separatamente per ER, Translate e Logic;
+resta chiusa di default sotto `860px`. Nella minimappa logica le tabelle mantengono le dimensioni
+reali, mentre gli elementi ER della trasformazione usano i rettangoli schematici condivisi.
+
+**Organizza** usa `autoLayoutConceptualDiagram` in ER e Translate e `autoLayoutLogicalModel` in
+Logic. In ogni vista richiede conferma quando sostituisce una disposizione, produce un solo step
+di undo e termina con **Inquadra tutto**. Toolbar, command menu e `Shift+L` invocano lo stesso
+handler della vista attiva.

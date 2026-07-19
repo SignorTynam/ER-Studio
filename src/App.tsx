@@ -52,6 +52,8 @@ import { TranslationWorkspace } from "./translation/TranslationWorkspace";
 import { Toolbar } from "./toolbar/Toolbar";
 import type {
   AttributeNode,
+  CanvasViewportAction,
+  CanvasViewportCommand,
   DiagramDocument,
   DiagramEdge,
   DiagramNode,
@@ -945,9 +947,20 @@ export default function App() {
   const [logicalSqlDialect, setLogicalSqlDialect] = useState<LogicalSqlDialect>("generic");
   const [logicalCodePreviewMode, setLogicalCodePreviewMode] = useState<"sql" | "relational">("sql");
   const [logicalFitRequestToken, setLogicalFitRequestToken] = useState(0);
-  const [erViewportCommand, setErViewportCommand] = useState<{ action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap"; token: number } | null>(null);
-  const requestErViewportCommand = (action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap") =>
+  const [erViewportCommand, setErViewportCommand] = useState<CanvasViewportCommand | null>(null);
+  const [translationViewportCommand, setTranslationViewportCommand] = useState<CanvasViewportCommand | null>(null);
+  const [logicalViewportCommand, setLogicalViewportCommand] = useState<CanvasViewportCommand | null>(null);
+  const requestErViewportCommand = (action: CanvasViewportAction) =>
     setErViewportCommand((current) => ({ action, token: (current?.token ?? 0) + 1 }));
+  const requestTranslationViewportCommand = (action: CanvasViewportAction) =>
+    setTranslationViewportCommand((current) => ({ action, token: (current?.token ?? 0) + 1 }));
+  const requestLogicalViewportCommand = (action: CanvasViewportAction) =>
+    setLogicalViewportCommand((current) => ({ action, token: (current?.token ?? 0) + 1 }));
+  const requestActiveViewportCommand = (action: CanvasViewportAction) => {
+    if (diagramView === "translation") requestTranslationViewportCommand(action);
+    else if (diagramView === "logical") requestLogicalViewportCommand(action);
+    else requestErViewportCommand(action);
+  };
   const [logicalGenerated, setLogicalGenerated] = useState(sessionBootstrap.logicalGenerated);
   const {
     notices,
@@ -3943,16 +3956,30 @@ export default function App() {
     resetTranslationWorkspace({ switchToTranslation: true, preserveHistory: true });
   }
 
-  function handleLogicalAutoLayout() {
+  async function handleLogicalAutoLayout() {
     if (!logicalGenerated) {
       regenerateLogicalWorkspace({ switchToLogical: true, preservePositions: false });
+      setLogicalFitRequestToken((current) => current + 1);
       return;
     }
 
     const previousModel = logicalHistory.present.model;
+    if (previousModel.tables.length === 0) {
+      setStatus(t("canvas.status.autoLayoutLogicalEmpty"));
+      return;
+    }
+
+    const confirmed = await requestConfirmDialog({
+      title: t("canvas.autoLayout.logicalConfirmTitle"),
+      message: t("canvas.autoLayout.logicalConfirmMessage"),
+      confirmLabel: t("canvas.autoLayout.confirmAction"),
+    });
+    if (!confirmed) return;
+
     const nextModel = autoLayoutLogicalModel(previousModel);
     commitLogicalModel(nextModel, previousModel);
     setStatus(t("workspace.logicalLayoutUpdated"));
+    requestLogicalViewportCommand("fitAll");
   }
 
   async function handleConceptualAutoLayout() {
@@ -3975,8 +4002,28 @@ export default function App() {
     requestErViewportCommand("fitAll");
   }
 
-  function handleLogicalFit() {
-    setLogicalFitRequestToken((current) => current + 1);
+  async function handleTranslationAutoLayout() {
+    const previousWorkspace = translationHistory.present;
+    const previousDiagram = previousWorkspace.translatedDiagram;
+    if (previousDiagram.nodes.length === 0) {
+      setStatus(t("canvas.status.autoLayoutEmpty"));
+      return;
+    }
+
+    const confirmed = await requestConfirmDialog({
+      title: t("canvas.autoLayout.translationConfirmTitle"),
+      message: t("canvas.autoLayout.confirmMessage"),
+      confirmLabel: t("canvas.autoLayout.confirmAction"),
+    });
+    if (!confirmed) return;
+
+    const nextDiagram = autoLayoutConceptualDiagram(previousDiagram);
+    translationHistory.commit(
+      { ...previousWorkspace, translatedDiagram: nextDiagram },
+      { ...previousWorkspace, translatedDiagram: previousDiagram },
+    );
+    setStatus(t("canvas.status.autoLayoutTranslationComplete"));
+    requestTranslationViewportCommand("fitAll");
   }
 
   function handleLogicalTableRename(tableId: string, nextName: string) {
@@ -7533,7 +7580,9 @@ export default function App() {
               onUndo={handleUndoAction}
               onRedo={handleRedoAction}
               onViewportChange={setTranslationViewport}
+              viewportCommand={translationViewportCommand}
               onSelectionChange={setTranslationSelection}
+              onAutoLayout={() => void handleTranslationAutoLayout()}
               onApplyChoice={handleApplyErTranslationChoice}
               onResetTranslation={handleResetTranslation}
               onOpenDesign={() => handleDiagramViewChange("er")}
@@ -7570,11 +7619,13 @@ export default function App() {
               typeMode={logicalTypeMode}
               panelMode={logicalPanelMode}
               fitRequestToken={logicalFitRequestToken}
+              viewportCommand={logicalViewportCommand}
               notesPanelOpen={notesPanelOpen}
               canUndo={logicalHistory.canUndo}
               canRedo={logicalHistory.canRedo}
               onUndo={handleUndoAction}
               onRedo={handleRedoAction}
+              onAutoLayout={() => void handleLogicalAutoLayout()}
               onViewportChange={setLogicalViewport}
               onSelectionChange={setLogicalSelection}
               onTypeModeChange={handleLogicalTypeModeChange}
@@ -7705,14 +7756,23 @@ export default function App() {
           onRenameSelection={handleRenameSelectionQuick}
           onGenerateLogicalModel={handleGenerateLogicalModel}
           onResetTranslation={handleResetTranslation}
-          onAutoLayoutLogical={handleLogicalAutoLayout}
-          onFitLogical={handleLogicalFit}
-          onFitAll={() => requestErViewportCommand("fitAll")}
-          onFitSelection={() => requestErViewportCommand("fitSelection")}
-          onResetZoom={() => requestErViewportCommand("resetZoom")}
-          onToggleMinimap={() => requestErViewportCommand("toggleMinimap")}
-          canAutoLayoutEr={mode === "edit" && history.present.nodes.length > 0}
-          onAutoLayoutEr={() => void handleConceptualAutoLayout()}
+          onFitAll={() => requestActiveViewportCommand("fitAll")}
+          onFitSelection={() => requestActiveViewportCommand("fitSelection")}
+          onResetZoom={() => requestActiveViewportCommand("resetZoom")}
+          onToggleMinimap={() => requestActiveViewportCommand("toggleMinimap")}
+          canAutoLayoutCurrent={
+            mode === "edit" &&
+            (diagramView === "logical"
+              ? logicalHistory.present.model.tables.length > 0
+              : diagramView === "translation"
+                ? translationHistory.present.translatedDiagram.nodes.length > 0
+                : history.present.nodes.length > 0)
+          }
+          onAutoLayoutCurrent={() => {
+            if (diagramView === "logical") void handleLogicalAutoLayout();
+            else if (diagramView === "translation") void handleTranslationAutoLayout();
+            else void handleConceptualAutoLayout();
+          }}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onOpenExplorer={() => handleSelectActivityPanel("file")}
           onOpenErrorsPanel={handleOpenErrorsPanel}

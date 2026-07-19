@@ -38,3 +38,17 @@ Le skill `design:design-critique`, `design:accessibility-review`, `design:ux-cop
 `design:design-system` indicate nel brief non erano disponibili nell'ambiente; le relative
 verifiche sono state svolte direttamente. Figma non è stato usato perché non era presente un
 riferimento progettuale specifico da estrarre.
+
+## Estensione a Translate e Logic
+
+- Translate riusa HUD, minimappa e layout Chen del canvas ER, con preferenza minimappa separata,
+  conferma specifica e commit singolo nella history della traduzione.
+- Logic usa lo stesso cluster a cinque controlli e una minimappa derivata dai bounds reali delle
+  tabelle. Il fit-selezione comprende tabelle, colonne e archi; le animazioni rispettano reduced
+  motion.
+- L'auto-layout logico continua a usare `autoLayoutLogicalModel`, ora con Modal di conferma,
+  singolo undo e fit automatico.
+- Command menu e scorciatoie (`Shift+1`, `Shift+2`, `Shift+0`, `M`, `Shift+L`) sono instradati
+  alla vista attiva, senza comandi duplicati.
+- Playwright verifica entrambe le viste con un progetto completo, inclusi axe, fit-selezione,
+  conferma, scorciatoia e ripristino esatto con un solo undo.

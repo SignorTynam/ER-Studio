@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import type { DiagramDocument, Viewport } from "../types/diagram";
+import type { CanvasViewportCommand, DiagramDocument, Viewport } from "../types/diagram";
 import type {
   LogicalColumn,
   LogicalSelection,
@@ -55,11 +55,13 @@ interface LogicalTranslationWorkspaceProps {
   typeMode: boolean;
   panelMode: "review" | "sql";
   fitRequestToken: number;
+  viewportCommand?: CanvasViewportCommand | null;
   notesPanelOpen?: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onAutoLayout?: () => void;
   onViewportChange: (viewport: Viewport) => void;
   onSelectionChange: (selection: LogicalSelection) => void;
   onTypeModeChange: (nextValue: boolean) => void;
@@ -512,6 +514,13 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
       <>
         <ToolbarButton label={t("translation.restructuring.undo")} icon={<StudioIcon name="undo" />} disabled={!props.canUndo} onClick={props.onUndo} />
         <ToolbarButton label={t("translation.restructuring.redo")} icon={<StudioIcon name="redo" />} disabled={!props.canRedo} onClick={props.onRedo} />
+        <ToolbarButton
+          label={t("toolbar.commands.autoLayout.label")}
+          icon={<StudioIcon name="fix" />}
+          disabled={props.workspace.model.tables.length === 0 || !props.onAutoLayout}
+          title={t("commandMenu.commands.viewAutoLayout.detail")}
+          onClick={() => props.onAutoLayout?.()}
+        />
         {includeReset ? (
           <ToolbarButton label={t("translation.restructuring.reset")} icon={<StudioIcon name="reset" />} onClick={props.onResetTranslation} />
         ) : null}
@@ -936,6 +945,9 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               showForeignKeyLabels={showForeignKeyLabels}
               typeMode={props.logicalStage === "schema" ? props.typeMode : false}
               fitRequestToken={props.fitRequestToken}
+              viewportCommand={props.viewportCommand}
+              showMinimap={!compareMode}
+              onAutoLayout={!readOnly ? props.onAutoLayout : undefined}
               autoFitOnMount={props.logicalStage === "schema"}
               activeTargetKeys={highlightedTargetKeys}
               focusedTargetKey={selectedTargetKey}

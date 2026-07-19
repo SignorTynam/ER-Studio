@@ -22,6 +22,29 @@ interface CanvasSize {
 const MINIMAP_WORLD_PADDING_RATIO = 0.08;
 const MINIMAP_WORLD_PADDING_MIN = 80;
 const MINIMAP_KEYBOARD_PAN_RATIO = 0.12;
+const CANVAS_MINIMAP_COMPACT_QUERY = "(max-width: 860px)";
+
+export const DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible";
+
+export function readCanvasMinimapVisibility(storageKey: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored !== null) return stored === "true";
+  } catch {
+    // Storage can be unavailable; responsive fallback keeps the control usable.
+  }
+  return typeof window.matchMedia === "function" ? !window.matchMedia(CANVAS_MINIMAP_COMPACT_QUERY).matches : true;
+}
+
+export function writeCanvasMinimapVisibility(storageKey: string, visible: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, String(visible));
+  } catch {
+    // Persistence is optional; the in-memory toggle remains functional.
+  }
+}
 
 function unionBounds(first: Bounds, second: Bounds): Bounds {
   const left = Math.min(first.x, second.x);

@@ -67,14 +67,12 @@ function renderPalette() {
         onRenameSelection={noop}
         onGenerateLogicalModel={noop}
         onResetTranslation={noop}
-        onAutoLayoutLogical={noop}
-        onFitLogical={noop}
         onFitAll={noop}
         onFitSelection={noop}
         onResetZoom={noop}
         onToggleMinimap={noop}
-        canAutoLayoutEr
-        onAutoLayoutEr={noop}
+        canAutoLayoutCurrent
+        onAutoLayoutCurrent={noop}
         onOpenSqlReverseWorkflow={noop}
         onOpenExplorer={noop}
         onOpenErrorsPanel={noop}
@@ -128,7 +126,7 @@ test("command palette mostra percorso, stato attivo e comandi disabilitati", () 
   assert.doesNotMatch(markup, /command-palette-tab/);
 });
 
-test("command palette espone i comandi viewport del canvas ER", () => {
+test("command palette espone i comandi viewport della vista corrente", () => {
   const markup = renderPalette();
 
   assert.match(markup, /Fit all/);

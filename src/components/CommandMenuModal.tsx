@@ -55,14 +55,12 @@ interface CommandMenuModalProps {
   onRenameSelection: () => void;
   onGenerateLogicalModel: () => void;
   onResetTranslation: () => void;
-  onAutoLayoutLogical: () => void;
-  onFitLogical: () => void;
   onFitAll: () => void;
   onFitSelection: () => void;
   onResetZoom: () => void;
   onToggleMinimap: () => void;
-  canAutoLayoutEr: boolean;
-  onAutoLayoutEr: () => void;
+  canAutoLayoutCurrent: boolean;
+  onAutoLayoutCurrent: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onOpenExplorer: () => void;
   onOpenErrorsPanel: () => void;
@@ -245,40 +243,30 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       order: 5, action: props.onGenerateLogicalModel,
     },
     {
-      id: "command-workflow-auto-layout", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
-      label: t("commandMenu.commands.workflowAutoLayout.label"), detail: t("commandMenu.commands.workflowAutoLayout.detail"),
-      icon: "fix", disabled: !isLogicalView, order: 6, action: props.onAutoLayoutLogical,
-    },
-    {
-      id: "command-workflow-fit-logical", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
-      label: t("commandMenu.commands.workflowFitLogical.label"), detail: t("commandMenu.commands.workflowFitLogical.detail"),
-      icon: "fit", disabled: !isLogicalView, order: 7, action: props.onFitLogical,
-    },
-    {
       id: "command-view-fit-all", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewFitAll.label"), detail: t("commandMenu.commands.viewFitAll.detail"),
-      icon: "fit", disabled: !isErView || !props.hasActiveSchema, order: 8, action: props.onFitAll,
+      icon: "fit", disabled: !props.hasActiveSchema, order: 8, action: props.onFitAll,
     },
     {
       id: "command-view-fit-selection", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewFitSelection.label"), detail: t("commandMenu.commands.viewFitSelection.detail"),
-      icon: "focus", disabled: !isErView || !props.hasActiveSchema, order: 9, action: props.onFitSelection,
+      icon: "focus", disabled: !props.hasActiveSchema, order: 9, action: props.onFitSelection,
     },
     {
       id: "command-view-reset", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewReset.label"), detail: t("commandMenu.commands.viewReset.detail"),
-      icon: "reset", disabled: !isErView || !props.hasActiveSchema, order: 10, action: props.onResetZoom,
+      icon: "reset", disabled: !props.hasActiveSchema, order: 10, action: props.onResetZoom,
     },
     {
       id: "command-view-toggle-minimap", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewToggleMinimap.label"), detail: t("commandMenu.commands.viewToggleMinimap.detail"),
-      icon: "minimap", disabled: !isErView || !props.hasActiveSchema, order: 11, action: props.onToggleMinimap,
+      icon: "minimap", disabled: !props.hasActiveSchema, order: 11, action: props.onToggleMinimap,
     },
     {
       id: "command-view-auto-layout", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
       label: t("commandMenu.commands.viewAutoLayout.label"), detail: t("commandMenu.commands.viewAutoLayout.detail"),
-      icon: "fix", disabled: !isErView || !props.hasActiveSchema || !props.canAutoLayoutEr, order: 12,
-      action: props.onAutoLayoutEr,
+      icon: "fix", disabled: !props.hasActiveSchema || !props.canAutoLayoutCurrent, order: 12,
+      action: props.onAutoLayoutCurrent,
     },
     {
       id: "command-workspace-explorer", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,

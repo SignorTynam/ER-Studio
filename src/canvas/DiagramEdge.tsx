@@ -274,6 +274,7 @@ export function DiagramEdgeView(props: DiagramEdgeProps) {
   return (
     <g
       className={groupClassName}
+      role={isGhost ? undefined : "button"}
       tabIndex={groupTabIndex}
       focusable={groupFocusable}
       aria-label={

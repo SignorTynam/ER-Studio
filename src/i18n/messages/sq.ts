@@ -599,7 +599,7 @@ export const sq: DeepPartialMessages = {
       viewFitSelection: { label: "Përshtat përzgjedhjen", detail: "Kuadro përzgjedhjen aktuale" },
       viewReset: { label: "Rivendos zoom-in", detail: "Kthehu në 100% rreth qendrës së canvas-it" },
       viewToggleMinimap: { label: "Shfaq ose fshih minimapën", detail: "Aktivizo pamjen e përgjithshme të diagramit" },
-      viewAutoLayout: { label: "Organizo automatikisht", detail: "Rivendos diagramin konceptual" },
+      viewAutoLayout: { label: "Organizo automatikisht", detail: "Rivendos diagramin aktual" },
       workspaceSqlReverse: { label: "Reverse Engineering SQL", detail: "Importo CREATE TABLE me rrjedhë të udhëzuar" },
       workspaceExplorer: { label: "Hap Explorer", detail: "Shfaq skedarët dhe dosjet e projektit" },
       workspaceErrors: { label: "Hap Errors", detail: "Shfaq problemet dhe validimin" },
@@ -714,6 +714,7 @@ export const sq: DeepPartialMessages = {
       resetViewport: "Rivendos dhe qendërzo viewport-in",
       toggleMinimap: "Shfaq ose fshih minimapën",
       autoLayoutConceptual: "Organizo diagramin konceptual",
+      autoLayout: "Organizo diagramin aktual",
       wheelZoom: "Zoom i viewport-it",
       middleButtonPan: "Pan i canvas-it",
       insertTab: "Fut tab në kodin ERS",
@@ -1919,6 +1920,7 @@ export const sq: DeepPartialMessages = {
     },
   },
   canvas: {
+    logicalAria: "Canvas ndërveprues i diagramit logjik",
     regionAria:
       "Canvas i diagramit ER. Perdorni Tab per te fokusuar nyjet dhe lidhjet, shigjetat per te levizur perzgjedhjen, Enter per te riemertuar dhe Delete per te fshire.",
     viewportControls: "Kontrollet e viewport",
@@ -1937,7 +1939,10 @@ export const sq: DeepPartialMessages = {
     },
     autoLayout: {
       confirmTitle: "Të organizohet diagrami konceptual?",
+      translationConfirmTitle: "Të organizohet diagrami i përkthyer?",
+      logicalConfirmTitle: "Të organizohet diagrami logjik?",
       confirmMessage: "Vendosja aktuale manuale do të zëvendësohet. Mund ta zhbësh në një hap.",
+      logicalConfirmMessage: "Vendosja aktuale e tabelave do të zëvendësohet. Mund ta zhbësh në një hap.",
       confirmAction: "Organizo",
     },
     aria: {
@@ -1969,6 +1974,8 @@ export const sq: DeepPartialMessages = {
       minimapHidden: "Minimapa u fsheh.",
       autoLayoutEmpty: "Shto nyje para se të organizosh diagramin.",
       autoLayoutComplete: "Diagrami konceptual u organizua.",
+      autoLayoutTranslationComplete: "Diagrami i përkthyer u organizua.",
+      autoLayoutLogicalEmpty: "Shto tabela para se të organizosh diagramin logjik.",
       zoom: "Zoom {{zoom}}%.",
       selectionMovedWithKeyboard: "Perzgjedhja u leviz me tastiere.",
       connectorRoutingAutomatic: "Routing-u i connector-it eshte automatik: leviz entitetin ose marredhenien.",

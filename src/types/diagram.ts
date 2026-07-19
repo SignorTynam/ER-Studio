@@ -170,6 +170,13 @@ export interface Viewport {
   zoom: number;
 }
 
+export type CanvasViewportAction = "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap";
+
+export interface CanvasViewportCommand {
+  action: CanvasViewportAction;
+  token: number;
+}
+
 export interface SelectionState {
   nodeIds: string[];
   edgeIds: string[];

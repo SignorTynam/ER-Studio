@@ -599,7 +599,7 @@ export const en: DeepPartialMessages = {
       viewFitSelection: { label: "Fit selection", detail: "Frame the current selection" },
       viewReset: { label: "Reset zoom", detail: "Return to 100% around the canvas center" },
       viewToggleMinimap: { label: "Show or hide minimap", detail: "Toggle the diagram overview" },
-      viewAutoLayout: { label: "Organize automatically", detail: "Rearrange the conceptual diagram" },
+      viewAutoLayout: { label: "Organize automatically", detail: "Rearrange the current diagram" },
       workspaceSqlReverse: { label: "Reverse Engineering SQL", detail: "Import CREATE TABLE with a guided workflow" },
       workspaceExplorer: { label: "Open Explorer", detail: "Show project files and folders" },
       workspaceErrors: { label: "Open Errors", detail: "Show issues and validation" },
@@ -714,6 +714,7 @@ export const en: DeepPartialMessages = {
       resetViewport: "Reset and center the viewport",
       toggleMinimap: "Show or hide the minimap",
       autoLayoutConceptual: "Organize the conceptual diagram",
+      autoLayout: "Organize the current diagram",
       wheelZoom: "Viewport zoom",
       middleButtonPan: "Canvas pan",
       insertTab: "Insert a tab in ERS code",
@@ -1919,6 +1920,7 @@ export const en: DeepPartialMessages = {
     },
   },
   canvas: {
+    logicalAria: "Interactive logical diagram canvas",
     regionAria:
       "ER diagram canvas. Use Tab to focus nodes and links, arrows to move the selection, Enter to rename, and Delete to remove.",
     viewportControls: "Viewport controls",
@@ -1937,7 +1939,10 @@ export const en: DeepPartialMessages = {
     },
     autoLayout: {
       confirmTitle: "Organize conceptual diagram?",
+      translationConfirmTitle: "Organize translated diagram?",
+      logicalConfirmTitle: "Organize logical diagram?",
       confirmMessage: "This will replace the current manual arrangement. You can undo it in one step.",
+      logicalConfirmMessage: "This will replace the current table arrangement. You can undo it in one step.",
       confirmAction: "Organize",
     },
     aria: {
@@ -1969,6 +1974,8 @@ export const en: DeepPartialMessages = {
       minimapHidden: "Minimap hidden.",
       autoLayoutEmpty: "Add nodes before organizing the diagram.",
       autoLayoutComplete: "Conceptual diagram organized.",
+      autoLayoutTranslationComplete: "Translated diagram organized.",
+      autoLayoutLogicalEmpty: "Add tables before organizing the logical diagram.",
       zoom: "Zoom {{zoom}}%.",
       selectionMovedWithKeyboard: "Selection moved with the keyboard.",
       connectorRoutingAutomatic: "Connector routing is automatic: move the entity or relationship.",

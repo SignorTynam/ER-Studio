@@ -597,7 +597,7 @@ export const it = {
       viewFitSelection: { label: "Inquadra selezione", detail: "Inquadra la selezione corrente" },
       viewReset: { label: "Reimposta zoom", detail: "Torna al 100% rispetto al centro del canvas" },
       viewToggleMinimap: { label: "Mostra o nascondi minimappa", detail: "Attiva la panoramica del diagramma" },
-      viewAutoLayout: { label: "Organizza automaticamente", detail: "Ridisponi il diagramma concettuale" },
+      viewAutoLayout: { label: "Organizza automaticamente", detail: "Ridisponi il diagramma corrente" },
       workspaceSqlReverse: { label: "Reverse Engineering SQL", detail: "Importa CREATE TABLE con workflow guidato" },
       workspaceExplorer: { label: "Apri Explorer", detail: "Mostra file e cartelle del progetto" },
       workspaceErrors: { label: "Apri Errors", detail: "Mostra problemi e validazione" },
@@ -712,6 +712,7 @@ export const it = {
       resetViewport: "Reimposta e centra la viewport",
       toggleMinimap: "Mostra o nasconde la minimappa",
       autoLayoutConceptual: "Organizza il diagramma concettuale",
+      autoLayout: "Organizza il diagramma corrente",
       wheelZoom: "Zoom viewport",
       middleButtonPan: "Pan del canvas",
       insertTab: "Inserisce tabulazione nel codice ERS",
@@ -1917,6 +1918,7 @@ export const it = {
     },
   },
   canvas: {
+    logicalAria: "Canvas interattivo del diagramma logico",
     regionAria:
       "Canvas diagramma ER. Usa Tab per mettere a fuoco nodi e collegamenti, frecce per spostare la selezione, Invio per rinominare e Canc per eliminare.",
     viewportControls: "Controlli viewport",
@@ -1935,7 +1937,10 @@ export const it = {
     },
     autoLayout: {
       confirmTitle: "Organizzare il diagramma concettuale?",
+      translationConfirmTitle: "Organizzare il diagramma tradotto?",
+      logicalConfirmTitle: "Organizzare il diagramma logico?",
       confirmMessage: "La disposizione manuale corrente verrà sostituita. Puoi annullare l'operazione in un solo passaggio.",
+      logicalConfirmMessage: "La disposizione corrente delle tabelle verrà sostituita. Puoi annullare l'operazione in un solo passaggio.",
       confirmAction: "Organizza",
     },
     aria: {
@@ -1967,6 +1972,8 @@ export const it = {
       minimapHidden: "Minimappa nascosta.",
       autoLayoutEmpty: "Aggiungi nodi prima di organizzare il diagramma.",
       autoLayoutComplete: "Diagramma concettuale organizzato.",
+      autoLayoutTranslationComplete: "Diagramma tradotto organizzato.",
+      autoLayoutLogicalEmpty: "Aggiungi tabelle prima di organizzare il diagramma logico.",
       zoom: "Zoom {{zoom}}%.",
       selectionMovedWithKeyboard: "Selezione spostata con la tastiera.",
       connectorRoutingAutomatic: "Il routing dei connector è automatico: sposta entità o relazione.",
