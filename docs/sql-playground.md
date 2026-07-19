@@ -19,11 +19,13 @@ Il Playground si apre dal pulsante `Prova SQL` della vista SQL logica o dal coma
 
 ## Architettura
 
-- `SqlPlaygroundWorkspace` e i componenti affini rendono editor, stati, errori e risultati.
+- `SqlPlaygroundWorkspace` e i componenti affini rendono command bar, editor condiviso, splitter, stati, errori e risultati.
 - `useSqlPlayground` collega il rendering allo stato temporaneo della sessione.
-- `SqlPlaygroundManager` crea il worker solo al primo utilizzo, instrada richieste tipizzate e conserva query e risultati separati.
+- `SqlPlaygroundManager` crea il worker solo al primo utilizzo, instrada richieste tipizzate, conserva sessioni separate e pubblica eventi con unsubscribe esplicito.
 - `sqlPlaygroundProtocol.ts` definisce richieste e risposte discriminate senza payload `any`.
-- `sqlite.worker.ts` inizializza SQLite, possiede i database, prepara/finalizza gli statement, esporta i byte e chiude le risorse.
+- `sqlite.worker.ts` inizializza SQLite, possiede i database, prepara/finalizza gli statement, misura le versioni schema, esegue l'introspezione, esporta i byte e chiude le risorse.
+- `SqlExplorerPanel`, `SqlExplorerTree` e `useSqlExplorer` presentano metadata reali senza eseguire SQLite nel main thread.
+- `sqlExplorerIntrospection.ts` concentra query parametrizzate, quoting degli identificatori e cleanup degli statement.
 - `src/utils/sqlPlayground.ts` contiene checksum, formattazione valori, limiti e download testabili senza React.
 
 ## Worker e SQLite WASM
@@ -50,6 +52,18 @@ Tutto resta locale al browser. Dati e query non vengono inviati a servizi estern
 
 I result set rimangono separati e sono limitati a 500 righe visualizzate. `NULL`, stringhe vuote e BLOB hanno rappresentazioni distinte; i valori lunghi conservano il valore completo nel titolo accessibile. INSERT, UPDATE, DELETE e DDL mostrano modifiche, ultimo row id quando disponibile e durata approssimativa.
 
+L'editor riusa `CodeEditorSurface`: numeri di riga, scroll sincronizzato, Tab, auto-pairing e highlighting SQL restano condivisi con gli altri editor. Il comando `Esegui` della command bar e `Ctrl/Cmd+Invio` chiamano la stessa funzione selezione-o-documento.
+
+Il pannello Risultati usa uno splitter orizzontale con pointer capture e controllo da tastiera (`ArrowUp/ArrowDown`, con Shift per passi maggiori). Può essere chiuso lasciando una barra di riapertura; altezza e stato collapsed sopravvivono alla chiusura della tab nella sessione corrente, ma non vengono serializzati. Le tabelle mantengono semantica HTML e aggiungono row header numerati da 1.
+
+## SQL Explorer
+
+L'attività `SQL Explorer`, immediatamente prima di Export, rappresenta il database effettivo della sessione. Mostra `main` e database collegati con `ATTACH`, tabelle, colonne, viste, indici, trigger e foreign key; gli oggetti `sqlite_*` restano nascosti. Tipi, posizione PK, nullability, default, unique e azioni referenziali derivano dalle PRAGMA SQLite, non dal modello logico.
+
+Il worker espone `inspect-schema` e legge `PRAGMA database_list`, `<database>.sqlite_schema`, `pragma_table_info`, `pragma_foreign_key_list`, `pragma_index_list` e `pragma_index_info`. Gli argomenti supportati sono bindati e i nomi database sono quotati da un helper dedicato. Prima e dopo ogni script viene confrontata una firma delle `schema_version` di tutti i database: il manager emette `schema-changed` soltanto quando la struttura cambia. Il tree conserva selezione ed espansioni ancora valide durante il refresh e supporta il pattern ARIA tree con roving tabindex.
+
+SQL Explorer gestisce assenza di progetto/schema/sessione/database, loading, errore e retry. Aprirlo o ridimensionare/nascondere i risultati non ricrea il database, non chiude il Playground e non modifica il dirty state.
+
 ## Export `.sqlite`
 
 Il manager richiede al worker i byte serializzati, crea un Blob `application/vnd.sqlite3`, avvia il download con un nome derivato dallo schema e revoca sempre l'Object URL. L'export non modifica il dirty state del progetto.
@@ -67,8 +81,10 @@ In `dist` devono essere presenti il worker e il file `.wasm`; i riferimenti devo
 ## Test
 
 - `test/sql-playground.test.ts`: checksum, valori, limiti, errori, export e SQL SQLite reale.
-- `test/sql-playground-components.test.tsx`: markup accessibile di editor, risultati ed errori.
-- `tests/e2e/sql-playground.spec.ts`: worker/WASM reale, tabelle, DML, PK/FK, stale, ricreazione, export, riapertura, responsive e Axe.
+- `test/sql-playground-components.test.tsx`: command bar, editor condiviso, risultati, row header e collapsed state.
+- `test/sql-explorer.test.ts`: introspezione SQLite reale, database collegati, metadata e firme schema.
+- `test/sql-explorer-components.test.tsx`: empty state, splitter e tree ARIA.
+- `tests/e2e/sql-playground.spec.ts`: worker/WASM reale, splitter, collapse, SQL Explorer, refresh DDL, responsive e Axe.
 
 ## Troubleshooting
 

@@ -11,9 +11,12 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 - Aggiunti worker SQLite/WASM lazy-loaded, sessioni temporanee separate per schema, rilevamento dello schema non aggiornato e ricreazione atomica protetta da conferma.
 - Aggiunti accessi dalla vista SQL logica e dalla command palette, risultati multipli accessibili, riepiloghi DML ed errori SQLite localizzati in italiano, inglese e albanese.
 - Aggiunta copertura unitaria, component e Playwright reale per vincoli SQLite, export, stato stale, responsive e WCAG 2.1 A/AA.
+- Aggiunto SQL Explorer nell'activity rail con database collegati, tabelle, colonne, viste, indici, trigger, primary key e foreign key ottenuti dal database SQLite reale.
+- Aggiunti splitter accessibile e pannello Risultati richiudibile, numerazione semantica delle righe e refresh automatico dell'Explorer dopo DDL e `ATTACH`/`DETACH`.
 
 ### Changed
 - Esteso il sistema di tab con viste tecniche temporanee che non entrano nel file `.ersp` e non modificano Source Control.
+- Unificate command bar e azioni del SQL Playground; l'editor ora riusa `CodeEditorSurface` con numeri di riga, selezione eseguibile e highlighting SQL esteso.
 
 ### Fixed
 - Inserire qui bug fix.

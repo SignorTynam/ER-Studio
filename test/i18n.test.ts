@@ -42,6 +42,7 @@ const IMPORTANT_LOCALIZED_KEYS = [
   "canvas.externalIdentifier.importsFrom",
   "sqlPlayground.status.stale",
   "sqlPlayground.results.changedRows",
+  "sqlExplorer.refresh",
 ] as const;
 const NEW_I18N_SECTIONS = [
   "toolbar.commands.select.label",
@@ -107,6 +108,15 @@ const NEW_I18N_SECTIONS = [
   "sqlPlayground.errors.query",
   "sqlPlayground.executeTooltip",
   "sqlPlayground.results.limit",
+  "sqlPlayground.results.rowNumber",
+  "sqlPlayground.results.resize",
+  "sqlExplorer.title",
+  "sqlExplorer.refresh",
+  "sqlExplorer.tables",
+  "sqlExplorer.columns",
+  "sqlExplorer.foreignKeys",
+  "sqlExplorer.empty.databaseMissing",
+  "sqlExplorer.error.title",
   "technicalDock.aria",
   "technicalDock.tabsAria",
   "technicalDock.tabs.review",

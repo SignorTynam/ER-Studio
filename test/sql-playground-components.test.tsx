@@ -4,6 +4,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { SqlPlaygroundEditor } from "../src/features/sql-playground/SqlPlaygroundEditor.tsx";
+import { SqlPlaygroundHeader } from "../src/features/sql-playground/SqlPlaygroundHeader.tsx";
+import { createSqlPlaygroundSessionState } from "../src/utils/sqlPlayground.ts";
 import { SqlPlaygroundError } from "../src/features/sql-playground/SqlPlaygroundError.tsx";
 import { SqlPlaygroundResults } from "../src/features/sql-playground/SqlPlaygroundResults.tsx";
 
@@ -13,18 +15,34 @@ function render(node: React.ReactNode): string {
   return renderToStaticMarkup(<I18nProvider>{node}</I18nProvider>);
 }
 
-test("SQL playground editor has an accessible multiline input and real execute action", () => {
+test("SQL playground editor uses the shared highlighted editor with line numbers", () => {
   const markup = render(
-    <SqlPlaygroundEditor value="SELECT 1;" running={false} executeDisabled={false} onChange={() => undefined} onExecute={() => undefined} />,
+    <SqlPlaygroundEditor value={'SELECT s.id FROM student s LEFT JOIN course c ON c.id = s.id ORDER BY s.id;\nPRAGMA table_info("student");'} executeDisabled={false} onChange={() => undefined} onExecute={() => undefined} />,
   );
   assert.match(markup, /<textarea/);
   assert.match(markup, /Editor query SQL|SQL query editor/);
+  assert.match(markup, /designer-code-line-numbers/);
+  assert.match(markup, /sql-token-keyword/);
+  assert.match(markup, /ORDER/);
+  assert.match(markup, /JOIN/);
+  assert.match(markup, /PRAGMA/);
+  assert.match(markup, />2<\/span>/);
+  assert.doesNotMatch(markup, /ui-button--primary/);
+});
+
+test("SQL playground command bar owns all primary actions on one header", () => {
+  const session = { ...createSqlPlaygroundSessionState({ sessionId: "p:s", schemaFileId: "s", schemaName: "university.erschema", currentGeneratedChecksum: "a" }), sqliteVersion: "3.50.4", status: "engine-ready" as const };
+  const markup = render(<SqlPlaygroundHeader session={session} executeDisabled onCreateDatabase={() => undefined} onExecute={() => undefined} onDownload={() => undefined} />);
+  assert.match(markup, /sql-playground-command-bar/);
+  assert.match(markup, /Crea database|Create database/);
   assert.match(markup, /Esegui|Run/);
-  assert.match(markup, /Ctrl\/Cmd\+(?:Invio|Enter)/);
+  assert.match(markup, /Scarica database|Download database/);
+  assert.match(markup, /SQLite 3\.50\.4/);
+  assert.doesNotMatch(markup, /sql-playground-toolbar/);
 });
 
 test("SQL playground renders multiple semantic result sets, NULL, BLOB and DML summaries", () => {
-  const markup = render(<SqlPlaygroundResults results={[
+  const markup = render(<SqlPlaygroundResults collapsed={false} onCollapsedChange={() => undefined} results={[
     {
       statementIndex: 0,
       sql: "SELECT a, b FROM t;",
@@ -51,11 +69,29 @@ test("SQL playground renders multiple semantic result sets, NULL, BLOB and DML s
   ]} />);
   assert.match(markup, /<table>/);
   assert.match(markup, /<th scope="col">a<\/th>/);
+  assert.match(markup, /scope="row">1<\/th>/);
   assert.match(markup, /NULL/);
   assert.match(markup, /\[BLOB · 8 byte\]/);
   assert.match(markup, /Righe modificate|Rows changed/);
   assert.match(markup, /Ultimo ID inserito|Last inserted ID/);
   assert.match(markup, /Istruzione 2|Statement 2/);
+});
+
+test("collapsed SQL results keep only the reopen bar and skip heavy result markup", () => {
+  const markup = render(<SqlPlaygroundResults collapsed onCollapsedChange={() => undefined} results={[{
+    statementIndex: 0,
+    sql: "SELECT 1",
+    kind: "rows",
+    columns: ["value"],
+    rows: [[1]],
+    rowCount: 1,
+    truncated: false,
+    changes: 0,
+    durationMs: 1,
+  }]} />);
+  assert.match(markup, /is-collapsed/);
+  assert.match(markup, /aria-expanded="false"/);
+  assert.doesNotMatch(markup, /<table>/);
 });
 
 test("SQL playground errors expose a useful SQLite detail through a polite live region", () => {

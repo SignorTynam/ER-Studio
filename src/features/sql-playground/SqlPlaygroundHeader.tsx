@@ -1,6 +1,6 @@
-import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../../components/icons/StudioIcon";
-import { Badge, type BadgeTone } from "../../components/ui";
+import { Badge, Button, Tooltip, type BadgeTone } from "../../components/ui";
+import { useI18n } from "../../i18n/useI18n";
 import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
 
 function getStatusPresentation(session: SqlPlaygroundSessionState): { key: string; tone: BadgeTone } {
@@ -29,32 +29,104 @@ function getStatusPresentation(session: SqlPlaygroundSessionState): { key: strin
   }
 }
 
-export function SqlPlaygroundHeader({ session }: { session: SqlPlaygroundSessionState }) {
+interface SqlPlaygroundHeaderProps {
+  session: SqlPlaygroundSessionState;
+  executeDisabled?: boolean;
+  onCreateDatabase?: () => void;
+  onRecreateDatabase?: () => void;
+  onExecute?: () => void;
+  onDownload?: () => void;
+}
+
+export function SqlPlaygroundHeader({
+  session,
+  executeDisabled = true,
+  onCreateDatabase,
+  onRecreateDatabase,
+  onExecute,
+  onDownload,
+}: SqlPlaygroundHeaderProps) {
   const { t } = useI18n();
   const presentation = getStatusPresentation(session);
+  const busy = session.status === "loading-engine" || session.status === "creating-database" || session.status === "running";
+  const interactive = Boolean(onCreateDatabase || onRecreateDatabase || onExecute || onDownload);
   return (
-    <header className="sql-playground-header">
-      <div className="sql-playground-header__identity">
-        <span className="sql-playground-header__icon" aria-hidden="true">
+    <header className="sql-playground-command-bar" aria-label={t("sqlPlayground.actionsLabel")}>
+      <div className="sql-playground-command-bar__primary">
+        <span className="sql-playground-command-bar__icon" aria-hidden="true">
           <StudioIcon name="database" />
         </span>
-        <div>
-          <div className="sql-playground-header__title-row">
-            <h1>{t("sqlPlayground.title")}</h1>
-            <span aria-live="polite" aria-atomic="true">
-              <Badge tone={presentation.tone}>{t(presentation.key)}</Badge>
-            </span>
-          </div>
-          <p>
-            <strong>{session.schemaName}</strong>
-            <span aria-hidden="true"> · </span>
-            {t("sqlPlayground.localExecution")}
-          </p>
-        </div>
+        <h1>{t("sqlPlayground.title")}</h1>
+        <span className="sql-playground-command-bar__status" aria-live="polite" aria-atomic="true">
+          <Badge tone={presentation.tone}>{t(presentation.key)}</Badge>
+        </span>
+        {interactive ? (
+          <>
+            {!session.databaseReady ? (
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft="database"
+                loading={session.status === "creating-database"}
+                disabled={session.status === "loading-engine"}
+                onClick={onCreateDatabase}
+              >
+                {t("sqlPlayground.createDatabase")}
+              </Button>
+            ) : (
+              <Button
+                variant={session.status === "stale" ? "primary" : "secondary"}
+                size="sm"
+                iconLeft="refresh"
+                loading={session.status === "creating-database"}
+                onClick={onRecreateDatabase}
+              >
+                {t("sqlPlayground.recreateDatabase")}
+              </Button>
+            )}
+            <Tooltip label={t("sqlPlayground.executeTooltip")} position="bottom">
+              {(aria) => (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  iconLeft="code"
+                  loading={session.status === "running"}
+                  disabled={executeDisabled}
+                  onClick={onExecute}
+                  {...aria}
+                >
+                  {t("sqlPlayground.execute")}
+                </Button>
+              )}
+            </Tooltip>
+            <Tooltip label={t("sqlPlayground.downloadDatabase")} position="bottom">
+              {(aria) => (
+                <Button
+                  className="sql-playground-command-bar__download"
+                  variant="secondary"
+                  size="sm"
+                  iconLeft="download"
+                  disabled={!session.databaseReady || busy}
+                  onClick={onDownload}
+                  {...aria}
+                >
+                  <span className="sql-playground-command-bar__download-label">{t("sqlPlayground.downloadDatabase")}</span>
+                </Button>
+              )}
+            </Tooltip>
+          </>
+        ) : null}
       </div>
-      <div className="sql-playground-header__session-note">
-        <StudioIcon name="info" aria-hidden="true" />
-        <span>{t("sqlPlayground.sessionNotice")}</span>
+      <div className="sql-playground-command-bar__metadata">
+        <strong title={session.schemaName}>{session.schemaName}</strong>
+        {session.sqliteVersion ? <span>SQLite {session.sqliteVersion}</span> : null}
+        <Tooltip label={t("sqlPlayground.sessionNotice")} position="bottom">
+          {(aria) => (
+            <span className="sql-playground-command-bar__info" role="img" aria-label={t("sqlPlayground.sessionNotice")} tabIndex={0} {...aria}>
+              <StudioIcon name="info" aria-hidden="true" />
+            </span>
+          )}
+        </Tooltip>
       </div>
     </header>
   );

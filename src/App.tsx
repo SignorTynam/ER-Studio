@@ -89,6 +89,8 @@ import type { ProjectWorkspaceFile, WorkspaceOpenTab } from "./types/projectExpl
 import type { EditorDiagnostic } from "./types/editor";
 import { SqlPlaygroundManager } from "./features/sql-playground/SqlPlaygroundManager";
 import { SqlPlaygroundWorkspace } from "./features/sql-playground/SqlPlaygroundWorkspace";
+import { SqlExplorerPanel } from "./features/sql-playground/SqlExplorerPanel";
+import { buildSqlPlaygroundSessionId } from "./utils/sqlPlayground";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -1046,12 +1048,13 @@ export default function App() {
   );
   const [openSqlPlaygroundSchemaIds, setOpenSqlPlaygroundSchemaIds] = useState<string[]>([]);
   const [activeSqlPlaygroundSchemaId, setActiveSqlPlaygroundSchemaId] = useState<string | null>(null);
+  const [lastSqlPlaygroundSchemaId, setLastSqlPlaygroundSchemaId] = useState<string | null>(null);
   const sqlPlaygroundManagerRef = useRef<SqlPlaygroundManager | null>(null);
   const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(() => {
     if (sessionBootstrap.codePanelOpen) return "code";
     if (typeof window !== "undefined") {
       const stored = window.localStorage.getItem("builder:last-activity-panel");
-      if (["file", "code", "reverse", "errors", "version", "export"].includes(stored ?? "")) {
+      if (["file", "code", "reverse", "errors", "version", "sql-explorer", "export"].includes(stored ?? "")) {
         return stored as ProjectActivityId;
       }
     }
@@ -1109,6 +1112,15 @@ export default function App() {
     ? projectExplorer.files[activeSqlPlaygroundSchemaId]
     : undefined;
   const sqlPlaygroundActive = activeSqlPlaygroundSchema?.kind === "schema";
+  const sqlExplorerSchemaId = activeSqlPlaygroundSchemaId
+    ?? activeSchemaFile?.id
+    ?? (lastSqlPlaygroundSchemaId && projectExplorer.files[lastSqlPlaygroundSchemaId]?.kind === "schema"
+      ? lastSqlPlaygroundSchemaId
+      : null);
+  const sqlExplorerSchema = sqlExplorerSchemaId ? projectExplorer.files[sqlExplorerSchemaId] : undefined;
+  const sqlExplorerSessionId = hasProject && sqlExplorerSchema?.kind === "schema"
+    ? buildSqlPlaygroundSessionId(projectExplorer.project.id, sqlExplorerSchema.id)
+    : null;
   const hasOpenSchema = Boolean(activeSchemaFile);
   const activeProjectTab = hasProject && projectExplorer.view.activeTabId
     ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
@@ -2412,12 +2424,28 @@ export default function App() {
       setStatusWarning(t("sqlPlayground.noActiveSchema"));
       return;
     }
+    activateSqlPlayground(activeSchemaFile.id, activeSchemaFile.name);
+  }
+
+  function activateSqlPlayground(schemaFileId: string, schemaName: string) {
     getSqlPlaygroundManager();
     setOpenSqlPlaygroundSchemaIds((current) =>
-      current.includes(activeSchemaFile.id) ? current : [...current, activeSchemaFile.id],
+      current.includes(schemaFileId) ? current : [...current, schemaFileId],
     );
-    setActiveSqlPlaygroundSchemaId(activeSchemaFile.id);
-    setStatus(t("sqlPlayground.opened", { name: activeSchemaFile.name }));
+    setActiveSqlPlaygroundSchemaId(schemaFileId);
+    setLastSqlPlaygroundSchemaId(schemaFileId);
+    setStatus(t("sqlPlayground.opened", { name: schemaName }));
+  }
+
+  function handleOpenSqlExplorerPlayground() {
+    if (!sqlExplorerSchemaId || sqlExplorerSchema?.kind !== "schema") {
+      setStatusWarning(t("sqlPlayground.noActiveSchema"));
+      return;
+    }
+    if (activeSchemaFile?.id !== sqlExplorerSchemaId) {
+      openSchemaWorkspaceFile(sqlExplorerSchemaId, syncActiveSchemaToProject());
+    }
+    activateSqlPlayground(sqlExplorerSchemaId, sqlExplorerSchema.name);
   }
 
   function handleNotesChange(nextNotes: string) {
@@ -2732,6 +2760,7 @@ export default function App() {
       if (file?.kind === "schema") {
         openSchemaWorkspaceFile(playgroundSchemaId, synced);
         setActiveSqlPlaygroundSchemaId(playgroundSchemaId);
+        setLastSqlPlaygroundSchemaId(playgroundSchemaId);
       }
       return;
     }
@@ -4118,6 +4147,7 @@ export default function App() {
     sqlPlaygroundManagerRef.current = null;
     setOpenSqlPlaygroundSchemaIds([]);
     setActiveSqlPlaygroundSchemaId(null);
+    setLastSqlPlaygroundSchemaId(null);
 
     const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
     const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
@@ -4191,6 +4221,7 @@ export default function App() {
     sqlPlaygroundManagerRef.current = null;
     setOpenSqlPlaygroundSchemaIds([]);
     setActiveSqlPlaygroundSchemaId(null);
+    setLastSqlPlaygroundSchemaId(null);
     setHasProject(false);
     setProjectExplorer(emptyProjectExplorer);
     history.reset(blankDiagram);
@@ -6583,6 +6614,7 @@ export default function App() {
       sqlPlaygroundManagerRef.current = null;
       setOpenSqlPlaygroundSchemaIds([]);
       setActiveSqlPlaygroundSchemaId(null);
+      setLastSqlPlaygroundSchemaId(null);
       setHasProject(true);
       if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
         const nextProjectExplorer = normalizeProjectTabs({
@@ -6976,6 +7008,7 @@ export default function App() {
     { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
     { id: "errors", label: t("appHeader.menus.errors"), ...errorsActivityPresentation, shortcut: "Ctrl+Shift+M" },
     { id: "version", label: t("appHeader.menus.version"), icon: "branch", badge: hasVersioningUncommittedChanges ? 1 : undefined },
+    { id: "sql-explorer", label: t("sqlExplorer.title"), icon: "database" },
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
@@ -7181,6 +7214,16 @@ export default function App() {
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />
+    ) : activeActivityPanel === "sql-explorer" ? (
+      <SqlExplorerPanel
+        manager={sqlPlaygroundManagerRef.current}
+        sessionId={sqlExplorerSessionId}
+        schemaName={sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema.name : null}
+        hasProject={hasProject}
+        hasSchema={Boolean(sqlExplorerSchema?.kind === "schema")}
+        onOpenPlayground={handleOpenSqlExplorerPlayground}
+        onClose={handleToggleActivityPanelOpen}
+      />
     ) : (
       <section className="project-activity-section" aria-label={t("workspaceActivity.export.title")}>
         <ProjectActivityPanelHeader
@@ -7370,7 +7413,7 @@ export default function App() {
               onViewChange={handleDiagramViewChange}
             />
           ) : null}
-          <div className="project-main-content">
+          <div className={sqlPlaygroundActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
             {sqlPlaygroundActive && activeSchemaFile ? (
               <SqlPlaygroundWorkspace
                 key={`${projectExplorer.project.id}:${activeSchemaFile.id}`}

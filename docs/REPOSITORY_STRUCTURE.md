@@ -49,6 +49,8 @@ buildER/
 
 ## Debito tecnico da gestire con calma
 
+La feature `src/features/sql-playground` contiene workspace, splitter, risultati, SQL Explorer, tipi metadata, introspezione SQLite, manager, hook e protocollo worker. L'integrazione nell'activity rail resta in `App.tsx`, mentre query SQLite e stato di sessione non devono essere spostati nei componenti React.
+
 `src/App.tsx` resta il principale orchestratore dell'app. Per evitare refactor rischiosi, non va spezzato in modo massivo senza test. Le future estrazioni devono essere progressive, per esempio:
 
 - stato e comandi del canvas in hook dedicati;

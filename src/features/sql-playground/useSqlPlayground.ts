@@ -4,6 +4,7 @@ import {
   downloadSqliteDatabase,
   getSqlPlaygroundStatus,
   hashSqlSchema,
+  SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT,
   normalizeSqlPlaygroundError,
   SQL_PLAYGROUND_MAX_ROWS,
 } from "../../utils/sqlPlayground";
@@ -28,9 +29,17 @@ export function useSqlPlayground({
   const currentGeneratedChecksum = useMemo(() => hashSqlSchema(generatedSql), [generatedSql]);
   const [session, setSession] = useState<SqlPlaygroundSessionState>(() => {
     const stored = manager.getSessionState(sessionId);
-    return stored
-      ? { ...stored, schemaName, currentGeneratedChecksum }
+    const initial = stored
+      ? {
+          ...stored,
+          schemaName,
+          currentGeneratedChecksum,
+          resultsPanelHeight: stored.resultsPanelHeight ?? SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT,
+          resultsPanelCollapsed: stored.resultsPanelCollapsed ?? false,
+        }
       : createSqlPlaygroundSessionState({ sessionId, schemaFileId, schemaName, currentGeneratedChecksum });
+    manager.setSessionState(initial);
+    return initial;
   });
 
   const updateSession = useCallback(
@@ -89,6 +98,16 @@ export function useSqlPlayground({
 
   const setQuery = useCallback(
     (query: string) => updateSession((current) => ({ ...current, query })),
+    [updateSession],
+  );
+
+  const setResultsPanelHeight = useCallback(
+    (resultsPanelHeight: number) => updateSession((current) => ({ ...current, resultsPanelHeight })),
+    [updateSession],
+  );
+
+  const setResultsPanelCollapsed = useCallback(
+    (resultsPanelCollapsed: boolean) => updateSession((current) => ({ ...current, resultsPanelCollapsed })),
     [updateSession],
   );
 
@@ -154,5 +173,13 @@ export function useSqlPlayground({
     }
   }, [manager, schemaName, sessionId, updateSession]);
 
-  return { session, setQuery, createDatabase, execute, downloadDatabase };
+  return {
+    session,
+    setQuery,
+    setResultsPanelHeight,
+    setResultsPanelCollapsed,
+    createDatabase,
+    execute,
+    downloadDatabase,
+  };
 }
