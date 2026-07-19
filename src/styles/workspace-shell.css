@@ -159,6 +159,7 @@
 }
 
 .project-main-content {
+  grid-row: 3;
   min-width: 0;
   min-height: 0;
   background: var(--color-bg-editor);
