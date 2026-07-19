@@ -85,8 +85,10 @@ import type {
   ErTranslationWorkspaceDocument,
   WorkspaceView,
 } from "./types/translation";
-import type { ProjectWorkspaceFile } from "./types/projectExplorer";
+import type { ProjectWorkspaceFile, WorkspaceOpenTab } from "./types/projectExplorer";
 import type { EditorDiagnostic } from "./types/editor";
+import { SqlPlaygroundManager } from "./features/sql-playground/SqlPlaygroundManager";
+import { SqlPlaygroundWorkspace } from "./features/sql-playground/SqlPlaygroundWorkspace";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -1042,6 +1044,9 @@ export default function App() {
       view: sessionBootstrap.explorerView,
     }),
   );
+  const [openSqlPlaygroundSchemaIds, setOpenSqlPlaygroundSchemaIds] = useState<string[]>([]);
+  const [activeSqlPlaygroundSchemaId, setActiveSqlPlaygroundSchemaId] = useState<string | null>(null);
+  const sqlPlaygroundManagerRef = useRef<SqlPlaygroundManager | null>(null);
   const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(() => {
     if (sessionBootstrap.codePanelOpen) return "code";
     if (typeof window !== "undefined") {
@@ -1100,6 +1105,10 @@ export default function App() {
   const activeProjectFileId = hasProject ? projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId : null;
   const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
   const activeSchemaFile = activeProjectFile?.kind === "schema" ? activeProjectFile : null;
+  const activeSqlPlaygroundSchema = activeSqlPlaygroundSchemaId
+    ? projectExplorer.files[activeSqlPlaygroundSchemaId]
+    : undefined;
+  const sqlPlaygroundActive = activeSqlPlaygroundSchema?.kind === "schema";
   const hasOpenSchema = Boolean(activeSchemaFile);
   const activeProjectTab = hasProject && projectExplorer.view.activeTabId
     ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
@@ -1148,6 +1157,11 @@ export default function App() {
     window.localStorage.setItem("builder:last-activity-panel", activeActivityPanel);
   }, [activeActivityPanel]);
 
+  useEffect(() => () => {
+    void sqlPlaygroundManagerRef.current?.dispose();
+    sqlPlaygroundManagerRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!identifierSelection) {
       return;
@@ -1185,6 +1199,10 @@ export default function App() {
   const logicalSqlCode = useMemo(
     () => generateLogicalSql(logicalHistory.present.model, { dialect: logicalSqlDialect }),
     [logicalHistory.present.model, logicalSqlDialect],
+  );
+  const sqlPlaygroundSchemaCode = useMemo(
+    () => generateLogicalSql(logicalHistory.present.model, { dialect: "sqlite", quoteIdentifiers: true }),
+    [logicalHistory.present.model],
   );
   const logicalRelationalSchemaCode = useMemo(
     () => generateLogicalRelationalSchema(logicalHistory.present.model),
@@ -2382,6 +2400,26 @@ export default function App() {
     handleLogicalPanelModeChange("sql");
   }
 
+  function getSqlPlaygroundManager(): SqlPlaygroundManager {
+    if (!sqlPlaygroundManagerRef.current) {
+      sqlPlaygroundManagerRef.current = new SqlPlaygroundManager();
+    }
+    return sqlPlaygroundManagerRef.current;
+  }
+
+  function handleOpenSqlPlayground() {
+    if (!activeSchemaFile) {
+      setStatusWarning(t("sqlPlayground.noActiveSchema"));
+      return;
+    }
+    getSqlPlaygroundManager();
+    setOpenSqlPlaygroundSchemaIds((current) =>
+      current.includes(activeSchemaFile.id) ? current : [...current, activeSchemaFile.id],
+    );
+    setActiveSqlPlaygroundSchemaId(activeSchemaFile.id);
+    setStatus(t("sqlPlayground.opened", { name: activeSchemaFile.name }));
+  }
+
   function handleNotesChange(nextNotes: string) {
     const normalizedNotes = nextNotes.replace(/\r\n/g, "\n");
     if (normalizedNotes === history.present.notes) {
@@ -2627,6 +2665,7 @@ export default function App() {
       return;
     }
 
+    setActiveSqlPlaygroundSchemaId(null);
     const nextState = ensureFileTabOpen(state, fileId);
     setProjectExplorer(nextState);
     const centeredViewport = options.center ? createCenteredViewportForDiagram(file.schema.diagram) : file.schema.view.erViewport;
@@ -2657,6 +2696,7 @@ export default function App() {
       return;
     }
 
+    setActiveSqlPlaygroundSchemaId(null);
     const synced = syncActiveSchemaToProject();
     if (file.kind === "schema") {
       openSchemaWorkspaceFile(fileId, synced, { center: true });
@@ -2685,6 +2725,17 @@ export default function App() {
   }
 
   function handleProjectFileTabSelect(tabId: string) {
+    const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
+    if (playgroundSchemaId) {
+      const synced = syncActiveSchemaToProject();
+      const file = synced.files[playgroundSchemaId];
+      if (file?.kind === "schema") {
+        openSchemaWorkspaceFile(playgroundSchemaId, synced);
+        setActiveSqlPlaygroundSchemaId(playgroundSchemaId);
+      }
+      return;
+    }
+    setActiveSqlPlaygroundSchemaId(null);
     const nextState = setActiveProjectTab(syncActiveSchemaToProject(), tabId);
     const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
     const file = activeFileId ? nextState.files[activeFileId] : undefined;
@@ -2713,6 +2764,12 @@ export default function App() {
   }
 
   async function handleProjectFileTabClose(tabId: string) {
+    const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
+    if (playgroundSchemaId) {
+      setOpenSqlPlaygroundSchemaIds((current) => current.filter((schemaId) => schemaId !== playgroundSchemaId));
+      if (activeSqlPlaygroundSchemaId === playgroundSchemaId) setActiveSqlPlaygroundSchemaId(null);
+      return;
+    }
     const tab = projectExplorer.view.openTabs.find((candidate) => candidate.id === tabId);
     if (tab?.dirty) {
       const shouldClose = await requestConfirmDialog({
@@ -2774,15 +2831,34 @@ export default function App() {
   }
 
   function handleProjectTabsCloseOthers(tabId: string) {
+    const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
+    if (playgroundSchemaId) {
+      setOpenSqlPlaygroundSchemaIds([playgroundSchemaId]);
+      closeProjectTabsBy((candidateId) => candidateId !== `file:${playgroundSchemaId}`);
+      return;
+    }
+    setOpenSqlPlaygroundSchemaIds([]);
+    setActiveSqlPlaygroundSchemaId(null);
     closeProjectTabsBy((candidateId) => candidateId !== tabId);
   }
 
   function handleProjectTabsCloseToRight(tabId: string) {
+    const playgroundIndex = openSqlPlaygroundSchemaIds.findIndex((schemaId) => `sql-playground:${schemaId}` === tabId);
+    if (playgroundIndex >= 0) {
+      const removedIds = new Set(openSqlPlaygroundSchemaIds.slice(playgroundIndex + 1));
+      setOpenSqlPlaygroundSchemaIds((current) => current.slice(0, playgroundIndex + 1));
+      if (activeSqlPlaygroundSchemaId && removedIds.has(activeSqlPlaygroundSchemaId)) setActiveSqlPlaygroundSchemaId(null);
+      return;
+    }
+    setOpenSqlPlaygroundSchemaIds([]);
+    setActiveSqlPlaygroundSchemaId(null);
     const index = projectExplorer.view.openTabs.findIndex((tab) => tab.id === tabId);
     closeProjectTabsBy((_candidateId, candidateIndex) => candidateIndex > index);
   }
 
   function handleProjectTabsCloseAll() {
+    setOpenSqlPlaygroundSchemaIds([]);
+    setActiveSqlPlaygroundSchemaId(null);
     closeProjectTabsBy(() => true);
   }
 
@@ -4038,6 +4114,11 @@ export default function App() {
       return;
     }
 
+    await sqlPlaygroundManagerRef.current?.dispose();
+    sqlPlaygroundManagerRef.current = null;
+    setOpenSqlPlaygroundSchemaIds([]);
+    setActiveSqlPlaygroundSchemaId(null);
+
     const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
     const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
     const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
@@ -4106,6 +4187,10 @@ export default function App() {
     const emptyProjectExplorer = createEmptyProjectExplorerState("buildER Project");
     const blankCode = serializeDiagramToErs(blankDiagram);
 
+    await sqlPlaygroundManagerRef.current?.dispose();
+    sqlPlaygroundManagerRef.current = null;
+    setOpenSqlPlaygroundSchemaIds([]);
+    setActiveSqlPlaygroundSchemaId(null);
     setHasProject(false);
     setProjectExplorer(emptyProjectExplorer);
     history.reset(blankDiagram);
@@ -6494,6 +6579,10 @@ export default function App() {
             : parsedProject.source === "schema-file"
               ? t("projectExplorer.status.schemaImported")
           : t("workspace.projectLoaded");
+      await sqlPlaygroundManagerRef.current?.dispose();
+      sqlPlaygroundManagerRef.current = null;
+      setOpenSqlPlaygroundSchemaIds([]);
+      setActiveSqlPlaygroundSchemaId(null);
       setHasProject(true);
       if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
         const nextProjectExplorer = normalizeProjectTabs({
@@ -6890,7 +6979,20 @@ export default function App() {
     { id: "export", label: t("appHeader.menus.export"), icon: "export" },
   ];
   const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
-  const visibleProjectTabs = applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds);
+  const visibleProjectTabs: WorkspaceOpenTab[] = [
+    ...applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds),
+    ...openSqlPlaygroundSchemaIds.flatMap((schemaFileId) => {
+      const file = projectExplorer.files[schemaFileId];
+      return file?.kind === "schema"
+        ? [{
+            id: `sql-playground:${schemaFileId}`,
+            kind: "sql-playground" as const,
+            schemaFileId,
+            title: t("sqlPlayground.tabTitle", { name: file.name }),
+          }]
+        : [];
+    }),
+  ];
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
     if (created) {
@@ -6958,18 +7060,29 @@ export default function App() {
                 </button>
               </div>
               {logicalCodePreviewMode === "sql" ? (
-                <label className="code-activity-panel__dialect">
-                  <select
-                    value={logicalSqlDialect}
-                    onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
+                <>
+                  <label className="code-activity-panel__dialect">
+                    <select
+                      value={logicalSqlDialect}
+                      onChange={(event) => setLogicalSqlDialect(event.target.value as LogicalSqlDialect)}
+                    >
+                      {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    iconLeft="database"
+                    disabled={!activeSchemaFile}
+                    onClick={handleOpenSqlPlayground}
                   >
-                    {LOGICAL_SQL_DIALECT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    {t("sqlPlayground.open")}
+                  </Button>
+                </>
               ) : null}
               <PanelIconButton
                 icon="copy"
@@ -7235,7 +7348,7 @@ export default function App() {
             <div className="project-main-area">
           <ProjectFileTabs
             tabs={visibleProjectTabs}
-            activeTabId={projectExplorer.view.activeTabId}
+            activeTabId={sqlPlaygroundActive ? `sql-playground:${activeSqlPlaygroundSchemaId}` : projectExplorer.view.activeTabId}
             files={projectExplorer.files}
             paths={projectFilePaths}
             onSelectTab={handleProjectFileTabSelect}
@@ -7247,7 +7360,7 @@ export default function App() {
             onReorder={handleProjectTabReorder}
             onNewFile={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
           />
-          {activeProjectFile ? (
+          {activeProjectFile && !sqlPlaygroundActive ? (
             <WorkspaceEditorHeader
               projectName={projectExplorer.project.name}
               file={activeProjectFile}
@@ -7258,7 +7371,22 @@ export default function App() {
             />
           ) : null}
           <div className="project-main-content">
-            {sqlReversePreviewContent ? (
+            {sqlPlaygroundActive && activeSchemaFile ? (
+              <SqlPlaygroundWorkspace
+                key={`${projectExplorer.project.id}:${activeSchemaFile.id}`}
+                manager={getSqlPlaygroundManager()}
+                projectId={projectExplorer.project.id}
+                schemaFileId={activeSchemaFile.id}
+                schemaName={activeSchemaFile.name}
+                generatedSql={sqlPlaygroundSchemaCode}
+                hasLogicalModel={logicalGenerated && logicalHistory.present.model.tables.length > 0}
+                logicalOutOfDate={logicalOutOfDate}
+                onGenerateLogicalModel={() => {
+                  setActiveSqlPlaygroundSchemaId(null);
+                  handleGenerateLogicalModel();
+                }}
+              />
+            ) : sqlReversePreviewContent ? (
               sqlReversePreviewContent
             ) : welcomeTabActive ? (
               <WorkspaceWelcomePage
@@ -7535,6 +7663,7 @@ export default function App() {
         <CommandMenuModal
           diagramView={diagramView}
           logicalSqlOpen={logicalPanelMode === "sql"}
+          sqlPlaygroundOpen={Boolean(sqlPlaygroundActive)}
           codePanelOpen={codePanelOpen}
           notesPanelOpen={notesPanelOpen}
           errorsPanelOpen={activeActivityPanel === "errors" && projectExplorer.view.explorerOpen}
@@ -7562,6 +7691,7 @@ export default function App() {
           onOpenShortcuts={openKeyboardShortcuts}
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
+          onOpenSqlPlayground={handleOpenSqlPlayground}
           onOpenLogicalWorkflow={handleOpenLogicalStage}
           onNewProject={handleNewProject}
           onCloseProject={handleCloseProject}

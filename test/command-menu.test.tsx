@@ -25,6 +25,7 @@ function renderPalette() {
       <CommandMenuModal
         diagramView="er"
         logicalSqlOpen={false}
+        sqlPlaygroundOpen={false}
         codePanelOpen={false}
         notesPanelOpen={false}
         errorsPanelOpen={false}
@@ -52,6 +53,7 @@ function renderPalette() {
         onOpenShortcuts={noop}
         onDiagramViewChange={noop}
         onOpenSql={noop}
+        onOpenSqlPlayground={noop}
         onOpenLogicalWorkflow={noop}
         onNewProject={noop}
         onCloseProject={noop}
@@ -134,4 +136,11 @@ test("command palette espone i comandi viewport del canvas ER", () => {
   assert.match(markup, /Reset zoom/);
   assert.match(markup, /Show or hide minimap/);
   assert.match(markup, /Organize automatically/);
+});
+
+test("command palette espone SQL Playground e lo disabilita senza schema attivo", () => {
+  const markup = renderPalette();
+
+  assert.match(markup, /Open SQL Playground/);
+  assert.match(markup, /Open SQL Playground[\s\S]*?aria-disabled="true"/);
 });

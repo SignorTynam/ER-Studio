@@ -28,6 +28,7 @@ buildER/
 | Inspector | `src/inspector` | Sezioni di editing per entità, attributi e relazioni |
 | Toolbar | `src/toolbar` | Strumenti e controlli del canvas |
 | Traduzione logica | `src/logical`, `src/translation` | Workspace e flussi di trasformazione |
+| Feature verticali | `src/features` | UI, orchestrazione e adapter isolati per funzionalità complete come SQL Playground |
 | Internazionalizzazione | `src/i18n` | Provider, hook, dizionari e chiavi testuali |
 | Tipi condivisi | `src/types` | Tipi TypeScript di dominio e DTO interni |
 | Logica pura | `src/utils` | Parser, serializzazione, layout, validazione, export |

@@ -7,10 +7,13 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ## [Unreleased]
 
 ### Added
-- Inserire qui nuove funzionalita non ancora rilasciate.
+- Aggiunto SQL Playground locale per creare un database SQLite reale dal modello logico, eseguire script e query nel browser e scaricare il file `.sqlite`.
+- Aggiunti worker SQLite/WASM lazy-loaded, sessioni temporanee separate per schema, rilevamento dello schema non aggiornato e ricreazione atomica protetta da conferma.
+- Aggiunti accessi dalla vista SQL logica e dalla command palette, risultati multipli accessibili, riepiloghi DML ed errori SQLite localizzati in italiano, inglese e albanese.
+- Aggiunta copertura unitaria, component e Playwright reale per vincoli SQLite, export, stato stale, responsive e WCAG 2.1 A/AA.
 
 ### Changed
-- Inserire qui modifiche a funzionalita esistenti.
+- Esteso il sistema di tab con viste tecniche temporanee che non entrano nel file `.ersp` e non modificano Source Control.
 
 ### Fixed
 - Inserire qui bug fix.

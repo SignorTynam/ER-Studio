@@ -19,6 +19,7 @@ import "./styles/source-control-panel.css";
 import "./styles/responsive.css";
 import "./styles/ui.css";
 import "./styles/canvas-navigation.css";
+import "./styles/sql-playground.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

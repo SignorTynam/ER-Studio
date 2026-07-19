@@ -87,6 +87,7 @@
      I valori intermedi sparsi nei CSS (0.74, 0.78, 0.84, ...) sono
      debito documentato in TOKEN-DEBT.md: la convergenza sulla scala
      e un cambio visivo e appartiene alle fasi successive. */
+  --font-family-mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --font-size-2xs: 0.68rem; /* micro-etichette, badge, contatori */
   --font-size-xs: 0.72rem;  /* etichette uppercase, header pannelli */
   --font-size-sm: 0.76rem;  /* testo secondario denso */

@@ -13,6 +13,7 @@ import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
 interface CommandMenuModalProps {
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
+  sqlPlaygroundOpen: boolean;
   codePanelOpen: boolean;
   notesPanelOpen: boolean;
   errorsPanelOpen: boolean;
@@ -40,6 +41,7 @@ interface CommandMenuModalProps {
   onOpenShortcuts: () => void;
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
+  onOpenSqlPlayground: () => void;
   onOpenLogicalWorkflow: () => void;
   onNewProject: () => void;
   onCloseProject: () => void;
@@ -224,6 +226,12 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       label: t("commandMenu.commands.workflowSql.label"), detail: t("commandMenu.commands.workflowSql.detail"),
       icon: "code", disabled: !props.hasActiveSchema, active: isLogicalView && props.logicalSqlOpen, order: 3,
       action: props.onOpenSql,
+    },
+    {
+      id: "command-workflow-sql-playground", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.workflowSqlPlayground.label"), detail: t("commandMenu.commands.workflowSqlPlayground.detail"),
+      icon: "database", disabled: !props.hasActiveSchema, active: props.sqlPlaygroundOpen, order: 4,
+      action: props.onOpenSqlPlayground,
     },
     {
       id: "command-workflow-reset-translation", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,

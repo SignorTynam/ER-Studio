@@ -32,6 +32,7 @@ buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update 
 - Export PNG/SVG/JPEG con crop stretto del contenuto e sfondi coerenti per raster e vettoriale.
 - Sorgente ERS con sincronizzazione live.
 - Reverse engineering SQL con preview logica e preview ER.
+- SQL Playground locale con SQLite WebAssembly in un Web Worker, query reali e download `.sqlite`.
 - UI responsive per desktop, tablet e telefono.
 - Localizzazione in italiano, inglese e albanese.
 
@@ -82,6 +83,7 @@ Per la struttura dettagliata vedere `docs/REPOSITORY_STRUCTURE.md`.
 - `docs/CODEX_UI_STYLE_GUIDE.md` — guida stile UI da seguire per Cursor/Codex e refactor grafici.
 - `docs/reverse-engineering-sql.md` — note tecniche sul reverse engineering SQL.
 - `docs/sql-reverse-attribute-layout.md` — note sul layout attributi da reverse SQL.
+- `docs/sql-playground.md` — architettura, uso, limiti e troubleshooting del Playground SQLite locale.
 
 ## Regole di repository hygiene
 

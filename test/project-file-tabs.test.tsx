@@ -70,6 +70,31 @@ test("ProjectFileTabs supports many tabs with scroller and stable new button", (
   assert.match(markup, /project-file-tab dirty/);
 });
 
+test("ProjectFileTabs renders a closable technical playground tab without project dirty state", () => {
+  const markup = renderToStaticMarkup(
+    <I18nProvider>
+      <ProjectFileTabs
+        tabs={[{
+          id: "sql-playground:schema-1",
+          kind: "sql-playground",
+          schemaFileId: "schema-1",
+          title: "Playground · university.erschema",
+        }]}
+        activeTabId="sql-playground:schema-1"
+        files={{}}
+        onSelectTab={() => undefined}
+        onCloseTab={() => undefined}
+        onNewFile={() => undefined}
+      />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /Playground · university\.erschema/);
+  assert.match(markup, /aria-current="page"/);
+  assert.match(markup, /Close Playground · university\.erschema tab|Chiudi tab Playground/);
+  assert.doesNotMatch(markup, /Unsaved changes|Modifiche non salvate/);
+});
+
 test("ProjectFileTabs close button stops tab selection propagation", () => {
   const source = readFileSync(new URL("../src/components/project/ProjectFileTabs.tsx", import.meta.url), "utf8");
 

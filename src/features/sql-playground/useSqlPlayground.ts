@@ -1,0 +1,158 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createSqlPlaygroundSessionState,
+  downloadSqliteDatabase,
+  getSqlPlaygroundStatus,
+  hashSqlSchema,
+  normalizeSqlPlaygroundError,
+  SQL_PLAYGROUND_MAX_ROWS,
+} from "../../utils/sqlPlayground";
+import { SqlPlaygroundClientError, type SqlPlaygroundManager } from "./SqlPlaygroundManager";
+import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
+
+interface UseSqlPlaygroundOptions {
+  manager: SqlPlaygroundManager;
+  sessionId: string;
+  schemaFileId: string;
+  schemaName: string;
+  generatedSql: string;
+}
+
+export function useSqlPlayground({
+  manager,
+  sessionId,
+  schemaFileId,
+  schemaName,
+  generatedSql,
+}: UseSqlPlaygroundOptions) {
+  const currentGeneratedChecksum = useMemo(() => hashSqlSchema(generatedSql), [generatedSql]);
+  const [session, setSession] = useState<SqlPlaygroundSessionState>(() => {
+    const stored = manager.getSessionState(sessionId);
+    return stored
+      ? { ...stored, schemaName, currentGeneratedChecksum }
+      : createSqlPlaygroundSessionState({ sessionId, schemaFileId, schemaName, currentGeneratedChecksum });
+  });
+
+  const updateSession = useCallback(
+    (updater: (current: SqlPlaygroundSessionState) => SqlPlaygroundSessionState) => {
+      setSession((current) => {
+        const next = updater(current);
+        manager.setSessionState(next);
+        return next;
+      });
+    },
+    [manager],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    updateSession((current) => ({ ...current, status: "loading-engine", error: null }));
+    void manager.initialize().then(
+      (sqliteVersion) => {
+        if (cancelled) return;
+        updateSession((current) => ({
+          ...current,
+          sqliteVersion,
+          status: getSqlPlaygroundStatus(
+            current.databaseReady,
+            current.schemaChecksum,
+            current.currentGeneratedChecksum,
+          ),
+          error: null,
+        }));
+      },
+      (error) => {
+        if (cancelled) return;
+        updateSession((current) => ({
+          ...current,
+          status: "runtime-error",
+          error: normalizeSqlPlaygroundError("initialize", error),
+        }));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [manager, updateSession]);
+
+  useEffect(() => {
+    updateSession((current) => ({
+      ...current,
+      schemaName,
+      currentGeneratedChecksum,
+      status:
+        current.status === "creating-database" || current.status === "running" || current.status === "loading-engine"
+          ? current.status
+          : getSqlPlaygroundStatus(current.databaseReady, current.schemaChecksum, currentGeneratedChecksum),
+    }));
+  }, [currentGeneratedChecksum, schemaName, updateSession]);
+
+  const setQuery = useCallback(
+    (query: string) => updateSession((current) => ({ ...current, query })),
+    [updateSession],
+  );
+
+  const createDatabase = useCallback(
+    async (reset = false) => {
+      updateSession((current) => ({ ...current, status: "creating-database", error: null }));
+      try {
+        await manager.createSchema(sessionId, generatedSql, currentGeneratedChecksum, reset);
+        updateSession((current) => ({
+          ...current,
+          status: "ready",
+          databaseReady: true,
+          schemaChecksum: currentGeneratedChecksum,
+          currentGeneratedChecksum,
+          hasUserDataChanges: false,
+          results: [],
+          error: null,
+        }));
+      } catch (error) {
+        const normalized = error instanceof SqlPlaygroundClientError
+          ? error.payload
+          : normalizeSqlPlaygroundError(reset ? "reset" : "create-schema", error);
+        updateSession((current) => ({ ...current, status: "schema-error", error: normalized }));
+      }
+    },
+    [currentGeneratedChecksum, generatedSql, manager, sessionId, updateSession],
+  );
+
+  const execute = useCallback(
+    async (sql: string) => {
+      if (!sql.trim()) return;
+      updateSession((current) => ({ ...current, status: "running", error: null }));
+      try {
+        const response = await manager.execute(sessionId, sql, SQL_PLAYGROUND_MAX_ROWS);
+        updateSession((current) => ({
+          ...current,
+          status: getSqlPlaygroundStatus(true, current.schemaChecksum, current.currentGeneratedChecksum),
+          results: response.results,
+          hasUserDataChanges: current.hasUserDataChanges || response.databaseChanged,
+          error: null,
+        }));
+      } catch (error) {
+        const normalized = error instanceof SqlPlaygroundClientError
+          ? error.payload
+          : normalizeSqlPlaygroundError("execute", error);
+        updateSession((current) => ({ ...current, status: "runtime-error", error: normalized }));
+      }
+    },
+    [manager, sessionId, updateSession],
+  );
+
+  const downloadDatabase = useCallback(async () => {
+    try {
+      const bytes = await manager.exportDatabase(sessionId);
+      downloadSqliteDatabase(bytes, schemaName);
+      return true;
+    } catch (error) {
+      const normalized = error instanceof SqlPlaygroundClientError
+        ? error.payload
+        : normalizeSqlPlaygroundError("export", error);
+      updateSession((current) => ({ ...current, status: "runtime-error", error: normalized }));
+      return false;
+    }
+  }, [manager, schemaName, sessionId, updateSession]);
+
+  return { session, setQuery, createDatabase, execute, downloadDatabase };
+}

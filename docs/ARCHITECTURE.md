@@ -48,6 +48,10 @@ Strumenti di inserimento, selezione e azioni rapide del canvas.
 
 Workspace dedicati alla trasformazione dal modello ER al modello logico e alla visualizzazione/gestione della traduzione.
 
+### `src/features/sql-playground`
+
+Feature verticale del Playground SQLite. I componenti React delegano stato e ciclo di vita a un manager per sessione; un Web Worker dedicato possiede il modulo WASM e tutte le istanze database. Il protocollo discriminato main thread/worker, la creazione atomica dello schema e l'export restano separati dalla UI. SQLite viene caricato soltanto alla prima apertura del Playground e non entra nel bundle iniziale dell'editor.
+
 ### `src/i18n`
 
 Messaggi localizzati, hook e layer di traduzione. Le nuove stringhe UI non devono essere hardcoded dentro i componenti quando sono visibili all'utente.
@@ -99,4 +103,5 @@ I vecchi `.ersp` single-schema e i diagrammi JSON legacy vengono convertiti in u
 | Connector e cardinalità | Edge deformabili o label sovrapposte | Test di routing e cardinality flow |
 | ERS / `.ersp` | Rottura compatibilità progetto | Test parser/serializer/versioning |
 | SQL Reverse | Entità/relazioni/attributi errati | Test parser, modello logico e diagramma |
+| SQL Playground | Worker orfani, schema parziale, confusione tra sessioni | Session ID progetto/schema, sostituzione atomica, cleanup esplicito ed E2E WASM |
 | i18n | Fallback italiani in EN/SQ | Test dizionari e chiavi mancanti |

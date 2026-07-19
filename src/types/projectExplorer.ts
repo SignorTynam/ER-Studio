@@ -50,6 +50,16 @@ export interface ProjectOpenTab {
   preview?: boolean;
 }
 
+export interface SqlPlaygroundOpenTab {
+  id: string;
+  kind: "sql-playground";
+  schemaFileId: string;
+  title: string;
+  dirty?: false;
+}
+
+export type WorkspaceOpenTab = ProjectOpenTab | SqlPlaygroundOpenTab;
+
 export interface ProjectExplorerViewState {
   activeFileId: string | null;
   explorerOpen: boolean;

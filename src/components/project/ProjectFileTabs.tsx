@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import type { ProjectOpenTab, ProjectWorkspaceFile } from "../../types/projectExplorer";
+import type { ProjectWorkspaceFile, WorkspaceOpenTab } from "../../types/projectExplorer";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 
 interface ProjectFileTabsProps {
-  tabs: ProjectOpenTab[];
+  tabs: WorkspaceOpenTab[];
   activeTabId: string | null;
   files: Record<string, ProjectWorkspaceFile>;
   paths?: Record<string, string>;
@@ -27,9 +27,9 @@ function getFileIcon(file?: ProjectWorkspaceFile): StudioIconName {
   return "type";
 }
 
-function getTabTitle(tab: ProjectOpenTab, files: Record<string, ProjectWorkspaceFile>, welcomeLabel: string): string {
+function getTabTitle(tab: WorkspaceOpenTab, files: Record<string, ProjectWorkspaceFile>, welcomeLabel: string): string {
   if (tab.kind === "welcome") return welcomeLabel;
-  return tab.fileId ? files[tab.fileId]?.name ?? tab.title : tab.title;
+  return tab.kind === "file" && tab.fileId ? files[tab.fileId]?.name ?? tab.title : tab.title;
 }
 
 export function ProjectFileTabs({
@@ -134,8 +134,8 @@ export function ProjectFileTabs({
     tabs.forEach((tab) => onCloseTab(tab.id));
   }
 
-  async function copyPath(tab: ProjectOpenTab) {
-    const path = tab.fileId ? paths[tab.fileId] : undefined;
+  async function copyPath(tab: WorkspaceOpenTab) {
+    const path = tab.kind === "file" && tab.fileId ? paths[tab.fileId] : undefined;
     if (!path || typeof navigator === "undefined" || !navigator.clipboard) return;
     await navigator.clipboard.writeText(path);
   }
@@ -217,12 +217,12 @@ export function ProjectFileTabs({
             const file = tab.kind === "file" && tab.fileId ? files[tab.fileId] : undefined;
             const title = getTabTitle(tab, files, t("projectTabs.welcome"));
             const active = tab.id === activeTabId;
-            const fullPath = tab.fileId ? paths[tab.fileId] ?? title : title;
+            const fullPath = tab.kind === "file" && tab.fileId ? paths[tab.fileId] ?? title : title;
             return (
               <div
                 key={tab.id}
                 className={["project-file-tab", active ? "active" : "", tab.dirty ? "dirty" : ""].filter(Boolean).join(" ")}
-                draggable={Boolean(onReorder)}
+                draggable={Boolean(onReorder && tab.kind !== "sql-playground")}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("application/x-builder-tab", tab.id);
@@ -249,7 +249,7 @@ export function ProjectFileTabs({
                   onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
                   title={fullPath}
                 >
-                  <StudioIcon name={tab.kind === "welcome" ? "info" : getFileIcon(file)} size={15} aria-hidden="true" />
+                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
                   <span className="project-file-tab__title">{title}</span>
                   {tab.dirty ? <span className="project-file-tab__dirty" aria-label={t("projectTabs.unsaved")} /> : null}
                 </button>
@@ -312,7 +312,7 @@ export function ProjectFileTabs({
         {openTabsMenu ? (
           <div ref={openTabsMenuRef} className="project-file-tabs__open-menu" role="menu" aria-label={t("workspaceChrome.tabs.openTabs")} onKeyDown={handleMenuKeyDown}>
             {tabs.map((tab) => {
-              const file = tab.fileId ? files[tab.fileId] : undefined;
+              const file = tab.kind === "file" && tab.fileId ? files[tab.fileId] : undefined;
               const title = getTabTitle(tab, files, t("projectTabs.welcome"));
               return (
                 <button
@@ -324,9 +324,9 @@ export function ProjectFileTabs({
                     onSelectTab(tab.id);
                     setOpenTabsMenu(false);
                   }}
-                  title={tab.fileId ? paths[tab.fileId] ?? title : title}
+                  title={tab.kind === "file" && tab.fileId ? paths[tab.fileId] ?? title : title}
                 >
-                  <StudioIcon name={tab.kind === "welcome" ? "info" : getFileIcon(file)} size={15} aria-hidden="true" />
+                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
                   <span>{title}</span>
                   {tab.dirty ? <span className="project-file-tab__dirty" aria-label={t("projectTabs.unsaved")} /> : null}
                 </button>
@@ -355,7 +355,7 @@ export function ProjectFileTabs({
             <StudioIcon name="delete" size={15} aria-hidden="true" />
             <span>{t("workspaceChrome.tabs.closeAll")}</span>
           </button>
-          {contextTab.fileId ? (
+          {contextTab.kind === "file" && contextTab.fileId ? (
             <>
               <div className="project-file-tab-menu__separator" role="separator" />
               <button type="button" className="project-file-tab-menu__item" role="menuitem" onClick={() => { onRevealFile?.(contextTab.fileId!); setContextMenu(null); }}>

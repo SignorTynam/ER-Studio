@@ -85,6 +85,7 @@ Font UI: ereditato dallo stack di piattaforma configurato in `foundations.css`.
 
 | Token | Valore | Uso |
 |---|---|---|
+| `--font-family-mono` | Cascadia Code / SFMono / Consolas / Liberation Mono | Editor e valori SQL |
 | `--font-size-2xs` | `0.68rem` | Micro-etichette, badge, contatori |
 | `--font-size-xs` | `0.72rem` | Etichette uppercase, header di pannello |
 | `--font-size-sm` | `0.76rem` | Testo secondario denso |
