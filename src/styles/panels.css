@@ -4193,6 +4193,7 @@ textarea {
 .sql-reverse-preview-shell-er .canvas-panel,
 .sql-reverse-preview-shell-er .diagram-canvas {
   --diagram-canvas-fill: var(--er-preview-canvas-fill, var(--color-bg-diagram-canvas));
+  --diagram-node-fill: var(--diagram-canvas-fill);
   background: var(--er-preview-canvas-fill, var(--color-bg-diagram-canvas));
   background-image: none;
 }
