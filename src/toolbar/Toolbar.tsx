@@ -35,6 +35,7 @@ interface ToolbarProps {
   onRedo?: () => void;
   onCreateEntity?: () => void;
   onCreateRelationship?: () => void;
+  onAutoLayout?: () => void;
   onSaveProject?: () => void;
   onSaveErs?: () => void;
   onExportPng: () => void;
@@ -381,6 +382,14 @@ export function Toolbar(props: ToolbarProps) {
   ];
 
   const workflowCommands: ToolbarCommand[] = [
+    {
+      key: "auto-layout",
+      label: t("toolbar.commands.autoLayout.label"),
+      icon: <StudioIcon name="fix" />,
+      onClick: () => props.onAutoLayout?.(),
+      disabled: !canEdit || props.diagram.nodes.length === 0 || !props.onAutoLayout,
+      title: t("toolbar.commands.autoLayout.title"),
+    },
     { key: "translate", label: t("toolbar.commands.translate.label"), icon: <StudioIcon name="translate" />, onClick: props.onOpenTranslation },
     {
       key: "export",

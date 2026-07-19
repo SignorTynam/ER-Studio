@@ -158,6 +158,7 @@ import {
   layoutIncrementallyConnectedAttribute,
 } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
+import { autoLayoutConceptualDiagram } from "./utils/conceptualLayout";
 import {
   applyErTranslationChoice,
   buildErTranslationOverview,
@@ -3878,6 +3879,26 @@ export default function App() {
     setStatus(t("workspace.logicalLayoutUpdated"));
   }
 
+  async function handleConceptualAutoLayout() {
+    const previousDiagram = history.present;
+    if (previousDiagram.nodes.length === 0) {
+      setStatus(t("canvas.status.autoLayoutEmpty"));
+      return;
+    }
+
+    const confirmed = await requestConfirmDialog({
+      title: t("canvas.autoLayout.confirmTitle"),
+      message: t("canvas.autoLayout.confirmMessage"),
+      confirmLabel: t("canvas.autoLayout.confirmAction"),
+    });
+    if (!confirmed) return;
+
+    const nextDiagram = autoLayoutConceptualDiagram(previousDiagram);
+    commitDiagram(nextDiagram, previousDiagram, { suppressExternalIdentifierWarnings: true });
+    setStatus(t("canvas.status.autoLayoutComplete"));
+    requestErViewportCommand("fitAll");
+  }
+
   function handleLogicalFit() {
     setLogicalFitRequestToken((current) => current + 1);
   }
@@ -7306,6 +7327,7 @@ export default function App() {
                   onRedo={handleRedoAction}
                   onCreateEntity={() => handleCreateNodeFromToolbar("entity")}
                   onCreateRelationship={() => handleCreateNodeFromToolbar("relationship")}
+                  onAutoLayout={() => void handleConceptualAutoLayout()}
                   onSaveProject={handleSaveProject}
                   onSaveErs={handleSaveErs}
                   onExportPng={handleExportPng}
@@ -7349,6 +7371,7 @@ export default function App() {
                   onViewportChange={setViewport}
                   viewportCommand={erViewportCommand}
                   showMinimap
+                  onAutoLayout={() => void handleConceptualAutoLayout()}
                   onSelectionChange={handleErSelectionChange}
                   selectedIdentifier={identifierSelection}
                   onIdentifierSelectionChange={setIdentifierSelection}
@@ -7558,6 +7581,8 @@ export default function App() {
           onFitSelection={() => requestErViewportCommand("fitSelection")}
           onResetZoom={() => requestErViewportCommand("resetZoom")}
           onToggleMinimap={() => requestErViewportCommand("toggleMinimap")}
+          canAutoLayoutEr={mode === "edit" && history.present.nodes.length > 0}
+          onAutoLayoutEr={() => void handleConceptualAutoLayout()}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onOpenExplorer={() => handleSelectActivityPanel("file")}
           onOpenErrorsPanel={handleOpenErrorsPanel}

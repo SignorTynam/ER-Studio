@@ -304,3 +304,17 @@ La superficie riusa `PanelIconButton`, `--color-*`, `--space-*`, `--radius-panel
 Il toggle mostra/nasconde è disponibile nel pannello, nel command menu e con `M`, e persiste in
 `localStorage`. Senza preferenza salvata la minimap parte aperta su desktop e chiusa sotto `860px`;
 il toggle da 32px resta sempre accessibile anche nello stato chiuso.
+
+## Auto-layout concettuale — canvas ER (Fase F3)
+
+L'azione **Organizza** è disponibile nella toolbar, nel command menu e con `Shift+L`. Prima di
+spostare i nodi apre sempre la shell `Modal` condivisa: l'utente può annullare senza modifiche.
+L'applicazione del layout passa da un solo `commitDiagram`, quindi l'intera operazione è un
+singolo step di undo; al termine richiede automaticamente **Inquadra tutto**.
+
+`autoLayoutConceptualDiagram` è un layout Chen deterministico senza dipendenze: organizza entità
+e relazioni per componenti e livelli, mantiene i supertipi sopra i sottotipi e riancora attributi
+semplici, composti e annidati usando i primitivi di `attributeLayout`. Modifica esclusivamente
+`x`/`y`: archi, cardinalità, identificatori, gruppi, dimensioni e ogni altra proprietà restano
+immutati. Le coordinate usano la griglia geometrica esistente; nessun nuovo stile o valore UI è
+introdotto dalla feature.

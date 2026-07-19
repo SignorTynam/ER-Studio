@@ -71,6 +71,8 @@ function renderPalette() {
         onFitSelection={noop}
         onResetZoom={noop}
         onToggleMinimap={noop}
+        canAutoLayoutEr
+        onAutoLayoutEr={noop}
         onOpenSqlReverseWorkflow={noop}
         onOpenExplorer={noop}
         onOpenErrorsPanel={noop}
@@ -131,4 +133,5 @@ test("command palette espone i comandi viewport del canvas ER", () => {
   assert.match(markup, /Fit selection/);
   assert.match(markup, /Reset zoom/);
   assert.match(markup, /Show or hide minimap/);
+  assert.match(markup, /Organize automatically/);
 });

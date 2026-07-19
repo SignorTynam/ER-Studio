@@ -194,6 +194,7 @@ interface DiagramCanvasProps {
   onViewportChange: (viewport: Viewport) => void;
   viewportCommand?: { action: "fitAll" | "fitSelection" | "resetZoom" | "toggleMinimap"; token: number } | null;
   showMinimap?: boolean;
+  onAutoLayout?: () => void;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
   onIdentifierSelectionChange?: (selection: IdentifierSelection | null) => void;
@@ -3075,6 +3076,13 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       event.preventDefault();
       event.stopPropagation();
       toggleMinimap();
+      return;
+    }
+
+    if (!readOnly && props.onAutoLayout && event.shiftKey && event.code === "KeyL") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onAutoLayout();
       return;
     }
 
