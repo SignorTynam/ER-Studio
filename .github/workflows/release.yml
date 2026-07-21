@@ -1,6 +1,13 @@
 name: GitHub Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      confirm_publish:
+        description: "Confermo la pubblicazione della versione corrente dichiarata in package.json"
+        required: true
+        type: boolean
+        default: false
   push:
     tags:
       - "v*.*.*"
@@ -8,12 +15,34 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: builder-release-publication
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify manual publication request
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          CONFIRM_PUBLISH: ${{ inputs.confirm_publish }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ "${CONFIRM_PUBLISH}" != "true" ]]; then
+            echo "La pubblicazione deve essere confermata esplicitamente." >&2
+            exit 1
+          fi
+          if [[ "${REF_NAME}" != "main" ]]; then
+            echo "Le release ufficiali di buildER possono essere pubblicate solo dalla branch main." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -21,34 +50,202 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci --include=dev
-
-      - name: Verify tag and package version
+      - name: Read and verify package version
+        id: version
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           VERSION="$(node -p "require('./package.json').version")"
-          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package.json v${VERSION}." >&2
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "package.json: la versione '${VERSION}' non usa il formato SemVer completo MAJOR.MINOR.PATCH." >&2
             exit 1
           fi
 
-      - name: Validate release
-        run: |
-          npm run release:check
-          npm run changelog:check
-          npm test
-          npm run build
+          TAG="v${VERSION}"
+          if [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" != "${TAG}" ]]; then
+            echo "Il tag ${REF_NAME} non corrisponde alla versione package.json ${TAG}." >&2
+            exit 1
+          fi
+
+          RELEASE_TYPE="stable"
+          IS_PRERELEASE="false"
+          if [[ "${VERSION}" == *-* ]]; then
+            RELEASE_TYPE="prerelease"
+            IS_PRERELEASE="true"
+          fi
+
+          {
+            echo "value=${VERSION}"
+            echo "tag=${TAG}"
+            echo "type=${RELEASE_TYPE}"
+            echo "is_prerelease=${IS_PRERELEASE}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Verify release catalog and translations
+        run: npm run release:check
+
+      - name: Verify changelog
+        run: npm run changelog:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
 
       - name: Generate release notes
         run: npm run release:notes -- --output release-notes.md
 
+      - name: Inspect existing tag and GitHub Release
+        id: publication
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          EXPECTED_COMMIT="$(git rev-parse HEAD)"
+          REMOTE_TAGS="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}")"
+          TAG_EXISTS="false"
+          REMOTE_COMMIT=""
+
+          if [[ -n "${REMOTE_TAGS}" ]]; then
+            TAG_EXISTS="true"
+            DIRECT_SHA="$(awk -v ref="refs/tags/${TAG}" '$2 == ref { print $1 }' <<< "${REMOTE_TAGS}")"
+            PEELED_SHA="$(awk -v ref="refs/tags/${TAG}^{}" '$2 == ref { print $1 }' <<< "${REMOTE_TAGS}")"
+            REMOTE_COMMIT="${PEELED_SHA:-${DIRECT_SHA}}"
+            if [[ -z "${REMOTE_COMMIT}" ]]; then
+              echo "Impossibile determinare il commit remoto del tag ${TAG}." >&2
+              exit 1
+            fi
+          fi
+
+          RELEASE_EXISTS="false"
+          RELEASE_ERROR=""
+          if RELEASE_ERROR="$(gh release view "${TAG}" --json tagName 2>&1)"; then
+            RELEASE_EXISTS="true"
+          elif ! grep -qiE 'release not found|HTTP 404' <<< "${RELEASE_ERROR}"; then
+            echo "Impossibile verificare l'esistenza della GitHub Release ${TAG}:" >&2
+            echo "${RELEASE_ERROR}" >&2
+            exit 1
+          fi
+
+          if [[ "${RELEASE_EXISTS}" == "true" && "${TAG_EXISTS}" == "false" ]]; then
+            echo "Stato incoerente: la GitHub Release ${TAG} esiste, ma il tag remoto è assente." >&2
+            exit 1
+          fi
+
+          if [[ "${RELEASE_EXISTS}" == "true" ]]; then
+            echo "La GitHub Release ${TAG} esiste già. Nessuna modifica verrà effettuata."
+            ACTION="already_published"
+          elif [[ "${TAG_EXISTS}" == "true" ]]; then
+            if [[ "${REMOTE_COMMIT}" != "${EXPECTED_COMMIT}" ]]; then
+              echo "Il tag remoto ${TAG} punta a ${REMOTE_COMMIT}, non al commit atteso ${EXPECTED_COMMIT}." >&2
+              echo "Il tag esistente non verrà spostato o sovrascritto." >&2
+              exit 1
+            fi
+            ACTION="create_release_only"
+          elif [[ "${EVENT_NAME}" == "push" ]]; then
+            echo "Il workflow è stato avviato da un push del tag ${TAG}, ma il tag remoto non esiste." >&2
+            exit 1
+          else
+            ACTION="create_tag_and_release"
+          fi
+
+          {
+            echo "action=${ACTION}"
+            echo "tag_exists=${TAG_EXISTS}"
+            echo "release_exists=${RELEASE_EXISTS}"
+            echo "commit=${EXPECTED_COMMIT}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create and push annotated tag
+        if: github.event_name == 'workflow_dispatch' && steps.publication.outputs.action == 'create_tag_and_release'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "buildER v${VERSION}"
+          git push origin "${TAG}"
+
       - name: Create GitHub Release
+        if: steps.publication.outputs.action != 'already_published'
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          PRERELEASE=""
-          if [[ "${VERSION}" == *-* ]]; then PRERELEASE="--prerelease"; fi
-          gh release create "v${VERSION}" --title "buildER v${VERSION}" --notes-file release-notes.md ${PRERELEASE}
+          RELEASE_ARGS=(
+            "${TAG}"
+            --verify-tag
+            --title "buildER v${VERSION}"
+            --notes-file release-notes.md
+          )
+          if [[ "${IS_PRERELEASE}" == "true" ]]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
+          gh release create "${RELEASE_ARGS[@]}"
+
+      - name: Write success summary
+        if: success()
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_TYPE: ${{ steps.version.outputs.type }}
+          ACTION: ${{ steps.publication.outputs.action }}
+          COMMIT: ${{ steps.publication.outputs.commit }}
+        run: |
+          if [[ "${ACTION}" == "already_published" ]]; then
+            TITLE="buildER ${TAG} era già pubblicato"
+            TAG_RESULT="già presente"
+            RELEASE_RESULT="già esistente; nessuna modifica"
+          elif [[ "${ACTION}" == "create_release_only" ]]; then
+            TITLE="buildER ${TAG} pubblicato"
+            TAG_RESULT="già presente e verificato sul commit atteso"
+            RELEASE_RESULT="creata"
+          else
+            TITLE="buildER ${TAG} pubblicato"
+            TAG_RESULT="annotato, creato e inviato"
+            RELEASE_RESULT="creata"
+          fi
+
+          {
+            echo "# ${TITLE}"
+            echo
+            echo "- Versione: ${VERSION}"
+            echo "- Tag: ${TAG} (${TAG_RESULT})"
+            echo "- Commit: ${COMMIT}"
+            echo "- Tipo: ${RELEASE_TYPE}"
+            echo "- Controlli: superati"
+            echo "- GitHub Release: ${RELEASE_RESULT}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Write failure summary
+        if: failure()
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          {
+            echo "# Pubblicazione buildER non completata"
+            echo
+            if [[ -n "${VERSION}" ]]; then echo "- Versione: ${VERSION}"; fi
+            if [[ -n "${TAG}" ]]; then echo "- Tag: ${TAG}"; fi
+            echo "- Commit: ${COMMIT}"
+            echo "- Esito: il workflow si è interrotto nello step fallito; nessuna release è stata sovrascritta."
+          } >> "${GITHUB_STEP_SUMMARY}"

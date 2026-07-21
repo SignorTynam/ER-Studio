@@ -91,6 +91,7 @@ Per la struttura dettagliata vedere `docs/REPOSITORY_STRUCTURE.md`.
 
 ## Documentazione utile
 
+- [Guida alla pubblicazione delle release](docs/RELEASING.md) — procedura consigliata da GitHub Actions e alternativa tramite tag locale.
 - `docs/ARCHITECTURE.md` — panoramica tecnica dei moduli e del flusso dati.
 - `docs/DEVELOPMENT.md` — setup, branch, commit, checklist PR e regole operative.
 - `docs/REPOSITORY_STRUCTURE.md` — dove mettere nuove feature, test, utility e documentazione.
