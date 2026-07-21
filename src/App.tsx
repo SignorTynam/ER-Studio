@@ -1482,7 +1482,7 @@ export default function App() {
     }
 
     restoredSessionNoticeShownRef.current = true;
-    setStatusMessage("Sessione precedente ripristinata automaticamente.");
+    setStatusMessage(t("workspace.restoredSession"));
   }, [sessionBootstrap.restored]);
 
   useEffect(() => {
@@ -1639,7 +1639,7 @@ export default function App() {
         setStatusWarning(access.reason ?? "La vista logica non e piu disponibile finche la traduzione non viene completata.");
       }
     } else if (diagramView === "translation") {
-      setStatus("Vista Traduzione riallineata al modello ER.");
+      setStatus(t("workspace.translationRealigned"));
     }
   }, [currentErSignature, diagramView, history.present, translationHistory]);
 
@@ -1666,7 +1666,7 @@ export default function App() {
     logicalHistory.setPresent(refreshedWorkspace);
 
     if (diagramView === "logical") {
-      setStatus("Vista logica riallineata all'ER tradotto.");
+      setStatus(t("workspace.logicalRealigned"));
     }
   }, [currentTranslatedSignature, diagramView, logicalGenerated, logicalHistory, translationHistory]);
 
@@ -1750,7 +1750,7 @@ export default function App() {
     });
     onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
     setOnboardingOpen(true);
-    setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
+    setStatusMessage(t("workspace.tourActive"));
   }, [diagramView, hasProject, onboardingOpen, sessionBootstrap.restored]);
 
   useEffect(() => {
@@ -1813,7 +1813,7 @@ export default function App() {
     markOnboardingCompleted();
     setOnboardingOpen(false);
     onboardingPreviousSnapshotRef.current = null;
-    setStatus("Tour chiuso. Ora puoi modellare liberamente.");
+    setStatus(t("workspace.tourClosed"));
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
   function markDocumentBaseline(
@@ -1935,24 +1935,24 @@ export default function App() {
   function handleOnboardingStepAction(stepId: OnboardingStepId) {
     if (stepId === "create-entity") {
       setTool("entity");
-      setStatus("Step 1: crea una nuova entita con un click nel canvas.");
+      setStatus(t("workspace.tourStep1"));
       return;
     }
 
     if (stepId === "create-relationship") {
       setTool("relationship");
-      setStatus("Step 2: crea una nuova associazione nel canvas.");
+      setStatus(t("workspace.tourStep2"));
       return;
     }
 
     if (stepId === "create-connection") {
       setTool("connector");
-      setStatus("Step 3: collega entita e associazione trascinando tra i nodi.");
+      setStatus(t("workspace.tourStep3"));
       return;
     }
 
     setTool("select");
-    setStatus("Step 4: fai doppio click su un nodo e rinominalo.");
+    setStatus(t("workspace.tourStep4"));
   }
 
   function handleCanvasStatusMessage(message: string) {
@@ -3837,7 +3837,7 @@ export default function App() {
         if (nextTool) {
           event.preventDefault();
           handleToolChange(nextTool);
-          setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
+          setStatus(t("workspace.toolActive", { tool: getToolLabel(nextTool) }));
           return;
         }
       }
@@ -3899,7 +3899,7 @@ export default function App() {
         if (diagramView === "er") {
           if (tool === "entity" || tool === "relationship") {
             setTool("select");
-            setStatus("Posizionamento annullato.");
+            setStatus(t("canvas.status.placementCancelled"));
             return;
           }
           setSelection({ nodeIds: [], edgeIds: [] });
@@ -4049,7 +4049,7 @@ export default function App() {
     }
 
     setTool("select");
-    setStatus("Workspace di traduzione ER->ER resettato.");
+    setStatus(t("workspace.translationWorkspaceReset"));
   }
 
   function regenerateLogicalWorkspace(options?: {
@@ -4079,7 +4079,7 @@ export default function App() {
 
     setTool("select");
     if (options?.resetDecisions) {
-      setStatus("Workflow logico manuale resettato.");
+      setStatus(t("workspace.logicalManualReset"));
       return;
     }
 
@@ -4129,7 +4129,7 @@ export default function App() {
           logicalHistory.present,
         );
         logicalHistory.setPresent(refreshedWorkspace);
-        setStatus("Vista logica riallineata all'ER tradotto senza conversione automatica completa.");
+        setStatus(t("workspace.logicalRealignedNoAutoConvert"));
       }
 
       if (diagramView === "translation") {
@@ -4146,7 +4146,7 @@ export default function App() {
     setLogicalTypeMode(false);
     setTranslationSelection({ nodeIds: [], edgeIds: [] });
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-    setStatus("Vista ER attiva.");
+    setStatus(t("workspace.erViewActive"));
   }
 
   function handleGenerateLogicalModel() {
@@ -4178,7 +4178,7 @@ export default function App() {
       logicalHistory.present.translation.decisions.length > 0 ||
       logicalHistory.present.model.tables.length > 0 ||
       logicalHistory.present.model.foreignKeys.length > 0;
-    if (hasAppliedWork && !window.confirm("Vuoi cancellare tutte le modifiche della traduzione logica?")) {
+    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
       return;
     }
 
@@ -4192,7 +4192,7 @@ export default function App() {
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(DEFAULT_VIEWPORT);
     setDiagramView("logical");
-    setStatus("Traduzione logica resettata.");
+    setStatus(t("workspace.logicalReset"));
   }
 
   function showLogicalStageAfterFix(
@@ -5070,7 +5070,7 @@ export default function App() {
       );
       commitDiagram(nextDiagram, cardinalityDialog.previousDiagramBeforeTemporary);
       setSelection({ nodeIds: [], edgeIds: [] });
-      setStatus("Creazione collegamento annullata.");
+      setStatus(t("canvas.status.connectionCreationCancelled"));
     }
 
     setCardinalityDialog(null);
@@ -5554,7 +5554,7 @@ export default function App() {
       const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [dialog.edgeId] });
       commitDiagram(nextDiagram);
       setSelection({ nodeIds: [], edgeIds: [] });
-      setStatus("Creazione gerarchia ISA annullata.");
+      setStatus(t("workspace.isaCreationCancelled"));
     }
   }
 
@@ -5743,7 +5743,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus("Identificatori interni aggiornati.");
+    setStatus(t("workspace.internalIdentifiersUpdated"));
   }
 
   function handleEntityExternalIdentifiersChange(entityId: string, patch: Partial<EntityNode>) {
@@ -5785,7 +5785,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus("Identificatori esterni aggiornati.");
+    setStatus(t("workspace.externalIdentifiersUpdated"));
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -5915,7 +5915,7 @@ export default function App() {
       if (Object.prototype.hasOwnProperty.call(attributePatch, "cardinality")) {
         const normalizedCardinality = normalizeSupportedCardinality(attributePatch.cardinality);
         if (normalizedCardinality !== undefined && !canAttributeHaveCardinality(workingDiagram, currentNode)) {
-          setStatusWarning("La cardinalita non e assegnabile ad attributi usati come identificatori.");
+          setStatusWarning(t("workspace.cardinalityNotAssignableToIdentifiers"));
           return;
         }
 
@@ -6083,7 +6083,7 @@ export default function App() {
         });
 
         if (targetIds.length !== nodeIds.length) {
-          setStatusWarning("La cardinalita non e stata applicata agli attributi usati come identificatori.");
+          setStatusWarning(t("workspace.cardinalityNotAppliedToIdentifiers"));
         }
       }
     }
@@ -6216,7 +6216,7 @@ export default function App() {
       }
 
       handleRenameNode(selectedNode.id, nextLabel);
-      setStatus("Elemento rinominato.");
+      setStatus(t("workspace.nodeRenamed"));
       return;
     }
 
@@ -6265,7 +6265,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, selection);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus("Selezione eliminata.");
+    setStatus(t("workspace.selectionDeleted"));
   }
 
   function handleRemoveSelectedEntityFromHierarchy() {
@@ -6290,7 +6290,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, { nodeIds: [nodeId], edgeIds: [] });
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus("Elemento eliminato.");
+    setStatus(t("workspace.nodeDeleted"));
   }
 
   function handleDeleteEdgeById(edgeId: string) {
