@@ -7646,6 +7646,7 @@ export default function App() {
           const issue = visibleActivityIssues.find((candidate) => candidate.id === issueId);
           if (issue) handleIssueNotice(issue);
         }}
+        onIssueAction={(issue, action) => handleValidationIssueAction(issue, action)}
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />
