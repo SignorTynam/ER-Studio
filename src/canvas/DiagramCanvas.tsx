@@ -4974,6 +4974,8 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
         <CanvasMinimap
           canvasRef={containerRef}
           nodes={props.diagram.nodes}
+          edges={props.diagram.edges}
+          selectedNodeIds={props.selection.nodeIds}
           viewport={props.viewport}
           visible={minimapVisible}
           onViewportChange={(viewport) => {

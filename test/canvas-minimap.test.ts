@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fitBoundsToAspect } from "../src/canvas/CanvasMinimap.tsx";
+import { fitBoundsToAspect, minimapEdgeSegments } from "../src/canvas/CanvasMinimap.tsx";
 import type { Bounds } from "../src/types/diagram.ts";
 
 // G1 — the minimap projection must stay uniform: fitBoundsToAspect grows the world
@@ -56,4 +56,25 @@ test("fitBoundsToAspect returns the input unchanged for degenerate inputs", () =
   assert.deepEqual(fitBoundsToAspect(valid, 0), valid);
   assert.deepEqual(fitBoundsToAspect(valid, Number.NaN), valid);
   assert.deepEqual(fitBoundsToAspect(valid, -3), valid);
+});
+
+// G2 — minimap connections are straight centre-to-centre segments.
+test("minimapEdgeSegments links node centres and skips edges with a missing endpoint", () => {
+  const nodes = [
+    { id: "a", x: 0, y: 0, width: 100, height: 40 }, // centre 50, 20
+    { id: "b", x: 200, y: 100, width: 60, height: 60 }, // centre 230, 130
+  ];
+  const segments = minimapEdgeSegments(nodes, [
+    { id: "e1", sourceId: "a", targetId: "b" },
+    { id: "e2", sourceId: "a", targetId: "ghost" },
+  ]);
+  assert.equal(segments.length, 1);
+  assert.deepEqual(segments[0], { id: "e1", x1: 50, y1: 20, x2: 230, y2: 130 });
+});
+
+test("minimapEdgeSegments returns empty when there is nothing to connect", () => {
+  const node = { id: "a", x: 0, y: 0, width: 10, height: 10 };
+  assert.deepEqual(minimapEdgeSegments([node], undefined), []);
+  assert.deepEqual(minimapEdgeSegments([node], []), []);
+  assert.deepEqual(minimapEdgeSegments([], [{ id: "e", sourceId: "a", targetId: "b" }]), []);
 });

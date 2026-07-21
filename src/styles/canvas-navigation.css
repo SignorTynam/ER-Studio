@@ -78,6 +78,20 @@
   fill: color-mix(in srgb, var(--color-text-secondary) 38%, var(--color-bg-elevated));
 }
 
+/* Selected nodes stay recognisable in the minimap when lost in a large diagram. */
+.canvas-minimap__node--selected {
+  fill: color-mix(in srgb, var(--color-accent) 72%, var(--color-bg-elevated));
+  stroke: var(--color-accent);
+  stroke-width: var(--stroke-canvas-minimap-viewport);
+}
+
+/* Simplified connections: straight segments between node centres (no routing). */
+.canvas-minimap__edge {
+  stroke: color-mix(in srgb, var(--color-text-secondary) 34%, transparent);
+  stroke-width: var(--border-width-default);
+  vector-effect: non-scaling-stroke;
+}
+
 .canvas-minimap__viewport {
   fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
   stroke: var(--color-accent);

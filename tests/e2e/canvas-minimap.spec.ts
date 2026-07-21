@@ -121,3 +121,15 @@ test("minimap projects the diagram without distortion", async ({ page }) => {
   });
   expect(Math.abs(aspects.viewBox - aspects.client)).toBeLessThan(0.02);
 });
+
+test("minimap highlights the selected node", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await createDiagram(page, 3);
+
+  const minimap = page.getByRole("complementary", { name: "Minimappa" });
+  await expect(minimap).toBeVisible();
+  await expect(minimap.locator(".canvas-minimap__node--selected")).toHaveCount(0);
+
+  await page.locator(".diagram-node").first().click();
+  await expect(minimap.locator(".canvas-minimap__node--selected")).toHaveCount(1);
+});

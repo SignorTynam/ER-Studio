@@ -8,6 +8,8 @@ import { getSelectionBounds } from "../utils/geometry";
 interface CanvasMinimapProps {
   canvasRef: RefObject<HTMLDivElement>;
   nodes: DiagramNode[];
+  edges?: ReadonlyArray<{ id: string; sourceId: string; targetId: string }>;
+  selectedNodeIds?: ReadonlyArray<string>;
   viewport: Viewport;
   visible: boolean;
   onViewportChange: (viewport: Viewport) => void;
@@ -94,6 +96,36 @@ export function fitBoundsToAspect(bounds: Bounds, aspect: number): Bounds {
   return { x: bounds.x - (width - bounds.width) / 2, y: bounds.y, width, height: bounds.height };
 }
 
+export interface MinimapSegment {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+// Simplified minimap connections: one straight segment between the centres of the two
+// nodes an edge links (no routing). Edges whose endpoints are missing are skipped.
+export function minimapEdgeSegments(
+  nodes: ReadonlyArray<Pick<DiagramNode, "id" | "x" | "y" | "width" | "height">>,
+  edges: ReadonlyArray<{ id: string; sourceId: string; targetId: string }> | undefined,
+): MinimapSegment[] {
+  if (!edges || edges.length === 0) return [];
+  const centers = new Map<string, Point>();
+  for (const node of nodes) {
+    centers.set(node.id, { x: node.x + node.width / 2, y: node.y + node.height / 2 });
+  }
+  const segments: MinimapSegment[] = [];
+  for (const edge of edges) {
+    const source = centers.get(edge.sourceId);
+    const target = centers.get(edge.targetId);
+    if (source && target) {
+      segments.push({ id: edge.id, x1: source.x, y1: source.y, x2: target.x, y2: target.y });
+    }
+  }
+  return segments;
+}
+
 export function CanvasMinimap(props: CanvasMinimapProps) {
   const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -142,6 +174,8 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
         : viewBounds,
     [viewBounds, mapSize],
   );
+  const selectedIds = useMemo(() => new Set(props.selectedNodeIds ?? []), [props.selectedNodeIds]);
+  const edgeSegments = useMemo(() => minimapEdgeSegments(props.nodes, props.edges), [props.nodes, props.edges]);
 
   function worldPointFromPointer(event: PointerEvent<SVGSVGElement>): Point | null {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -249,10 +283,23 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
             dragOffsetRef.current = { x: 0, y: 0 };
           }}
         >
+          {edgeSegments.map((segment) => (
+            <line
+              key={segment.id}
+              className="canvas-minimap__edge"
+              x1={segment.x1}
+              y1={segment.y1}
+              x2={segment.x2}
+              y2={segment.y2}
+              aria-hidden="true"
+            />
+          ))}
           {props.nodes.map((node) => (
             <rect
               key={node.id}
-              className={`canvas-minimap__node canvas-minimap__node--${node.type}`}
+              className={`canvas-minimap__node canvas-minimap__node--${node.type}${
+                selectedIds.has(node.id) ? " canvas-minimap__node--selected" : ""
+              }`}
               x={node.x}
               y={node.y}
               width={node.width}
