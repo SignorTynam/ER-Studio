@@ -114,6 +114,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
           { keys: "0", action: t("keyboardShortcuts.actions.resetViewport") },
           { keys: "M", action: t("keyboardShortcuts.actions.toggleMinimap") },
           { keys: "Shift + L", action: t("keyboardShortcuts.actions.autoLayout") },
+          { keys: "Shift + Alt + L", action: t("keyboardShortcuts.actions.autoLayoutSelection") },
           { keys: t("keyboardShortcuts.keys.wheel"), action: t("keyboardShortcuts.actions.wheelZoom") },
           { keys: t("keyboardShortcuts.keys.middleButtonDrag"), action: t("keyboardShortcuts.actions.middleButtonPan") },
         ],

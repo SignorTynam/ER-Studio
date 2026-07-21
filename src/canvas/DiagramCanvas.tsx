@@ -202,6 +202,7 @@ interface DiagramCanvasProps {
   showMinimap?: boolean;
   minimapStorageKey?: string;
   onAutoLayout?: () => void;
+  onAutoLayoutSelection?: () => void;
   onSelectionChange: (selection: SelectionState) => void;
   selectedIdentifier?: IdentifierSelection | null;
   onIdentifierSelectionChange?: (selection: IdentifierSelection | null) => void;
@@ -3065,7 +3066,14 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
       return;
     }
 
-    if (!readOnly && props.onAutoLayout && event.shiftKey && event.code === "KeyL") {
+    if (!readOnly && props.onAutoLayoutSelection && event.shiftKey && event.altKey && event.code === "KeyL") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onAutoLayoutSelection();
+      return;
+    }
+
+    if (!readOnly && props.onAutoLayout && event.shiftKey && !event.altKey && event.code === "KeyL") {
       event.preventDefault();
       event.stopPropagation();
       props.onAutoLayout();

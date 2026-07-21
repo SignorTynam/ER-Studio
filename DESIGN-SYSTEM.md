@@ -339,6 +339,12 @@ di undo e termina con **Inquadra tutto**; il completamento mostra un toast di co
 **Annulla** (ripristino in un clic tramite `handleUndoAction`, riusa il sistema notice esistente).
 Toolbar, command menu e `Shift+L` invocano lo stesso handler della vista attiva.
 
+**Organizza selezione** (`Shift+Alt+L` o command menu, solo ER, abilitata con ≥2 nodi core
+selezionati) riordina **solo** i nodi selezionati e i loro attributi come sotto-diagramma
+(riusa `autoLayoutConceptualDiagram`), ri-ancorandolo al centro attuale della selezione così il
+resto del diagramma resta fermo. Senza dialog (meno distruttivo), con toast **Annulla** e
+**Inquadra selezione** finale.
+
 ## Overlay del canvas — stacking e z-index
 
 Gli overlay del canvas usano una scala z-index a token (in `tokens.css`), tutti **sotto** le

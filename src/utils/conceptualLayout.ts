@@ -363,3 +363,80 @@ export function autoLayoutConceptualDiagram(
     }),
   };
 }
+
+function nodesBounds(nodes: readonly DiagramNode[]): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + node.width);
+    maxY = Math.max(maxY, node.y + node.height);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * Re-layouts only the selected core nodes (and their anchored attributes) as a
+ * sub-diagram, reusing the full Chen-layout pass, then re-centres the result on the
+ * selection's original centre so it stays roughly in place and the rest of the diagram
+ * is untouched. Requires at least two selected core nodes; otherwise returns the diagram
+ * unchanged. Only node x/y change.
+ */
+export function autoLayoutConceptualSelection(
+  diagram: DiagramDocument,
+  selectedNodeIds: readonly string[],
+  options: ConceptualLayoutOptions = {},
+): DiagramDocument {
+  const selected = new Set(selectedNodeIds);
+  const coreSelected = diagram.nodes.filter(
+    (node): node is CoreNode => node.type !== "attribute" && selected.has(node.id),
+  );
+  if (coreSelected.length < 2) return diagram;
+
+  const nodeById = new Map(diagram.nodes.map((node) => [node.id, node]));
+  const included = new Set(coreSelected.map((node) => node.id));
+  // Pull in attributes anchored (directly or transitively) to the selected cores,
+  // never crossing into another core node.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of diagram.edges) {
+      if (edge.type !== "attribute") continue;
+      for (const [from, to] of [
+        [edge.sourceId, edge.targetId],
+        [edge.targetId, edge.sourceId],
+      ] as const) {
+        if (included.has(from) && !included.has(to) && nodeById.get(to)?.type === "attribute") {
+          included.add(to);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  const subNodes = diagram.nodes.filter((node) => included.has(node.id));
+  const subEdges = diagram.edges.filter((edge) => included.has(edge.sourceId) && included.has(edge.targetId));
+  const laid = autoLayoutConceptualDiagram({ ...diagram, nodes: subNodes, edges: subEdges }, options);
+
+  const before = nodesBounds(subNodes);
+  const after = nodesBounds(laid.nodes);
+  const offsetX = (before.minX + before.maxX) / 2 - (after.minX + after.maxX) / 2;
+  const offsetY = (before.minY + before.maxY) / 2 - (after.minY + after.maxY) / 2;
+
+  const laidPositions = new Map(
+    laid.nodes.map((node) => [
+      node.id,
+      { x: snapValue(node.x + offsetX, GRID_SIZE), y: snapValue(node.y + offsetY, GRID_SIZE) },
+    ]),
+  );
+  return {
+    ...diagram,
+    nodes: diagram.nodes.map((node) => {
+      const position = laidPositions.get(node.id);
+      return position ? { ...node, x: position.x, y: position.y } : node;
+    }),
+  };
+}

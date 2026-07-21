@@ -189,7 +189,7 @@ import {
   layoutIncrementallyConnectedAttribute,
 } from "./utils/attributeLayout";
 import { autoLayoutLogicalModel, normalizeLogicalModelGeometry } from "./utils/logicalLayout";
-import { autoLayoutConceptualDiagram } from "./utils/conceptualLayout";
+import { autoLayoutConceptualDiagram, autoLayoutConceptualSelection } from "./utils/conceptualLayout";
 import {
   applyErTranslationChoice,
   buildErTranslationOverview,
@@ -4331,6 +4331,30 @@ export default function App() {
     requestErViewportCommand("fitAll");
   }
 
+  function handleConceptualAutoLayoutSelection() {
+    const previousDiagram = history.present;
+    const coreSelected = previousDiagram.nodes.filter(
+      (node) => node.type !== "attribute" && selection.nodeIds.includes(node.id),
+    );
+    if (coreSelected.length < 2) {
+      setStatus(t("canvas.status.autoLayoutSelectionNeedsNodes"));
+      return;
+    }
+
+    const nextDiagram = autoLayoutConceptualSelection(previousDiagram, selection.nodeIds);
+    if (nextDiagram === previousDiagram) {
+      setStatus(t("canvas.status.autoLayoutSelectionNeedsNodes"));
+      return;
+    }
+    commitDiagram(nextDiagram, previousDiagram, { suppressExternalIdentifierWarnings: true });
+    setStatus(t("canvas.status.autoLayoutSelectionComplete"));
+    showSuccessNotice(t("canvas.status.autoLayoutSelectionComplete"), {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
+    requestErViewportCommand("fitSelection");
+  }
+
   async function handleTranslationAutoLayout() {
     const previousWorkspace = translationHistory.present;
     const previousDiagram = previousWorkspace.translatedDiagram;
@@ -7925,6 +7949,7 @@ export default function App() {
                   viewportCommand={erViewportCommand}
                   showMinimap
                   onAutoLayout={() => void handleConceptualAutoLayout()}
+                  onAutoLayoutSelection={() => handleConceptualAutoLayoutSelection()}
                   onSelectionChange={handleErSelectionChange}
                   selectedIdentifier={identifierSelection}
                   onIdentifierSelectionChange={setIdentifierSelection}
@@ -8249,6 +8274,14 @@ export default function App() {
             else if (diagramView === "translation") void handleTranslationAutoLayout();
             else void handleConceptualAutoLayout();
           }}
+          canAutoLayoutSelection={
+            mode === "edit" &&
+            diagramView === "er" &&
+            history.present.nodes.filter(
+              (node) => node.type !== "attribute" && selection.nodeIds.includes(node.id),
+            ).length >= 2
+          }
+          onAutoLayoutSelection={() => handleConceptualAutoLayoutSelection()}
           onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
           onOpenExplorer={() => handleSelectActivityPanel("file")}
           onOpenErrorsPanel={handleOpenErrorsPanel}

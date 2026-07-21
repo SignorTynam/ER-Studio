@@ -66,6 +66,8 @@ interface CommandMenuModalProps {
   onToggleMinimap: () => void;
   canAutoLayoutCurrent: boolean;
   onAutoLayoutCurrent: () => void;
+  canAutoLayoutSelection: boolean;
+  onAutoLayoutSelection: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onOpenExplorer: () => void;
   onOpenErrorsPanel: () => void;
@@ -271,6 +273,12 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       label: t("commandMenu.commands.viewAutoLayout.label"), detail: t("commandMenu.commands.viewAutoLayout.detail"),
       icon: "fix", disabled: !props.hasActiveSchema || !props.canAutoLayoutCurrent, order: 12,
       action: props.onAutoLayoutCurrent,
+    },
+    {
+      id: "command-view-auto-layout-selection", kind: "command", categoryId: "workflow", category: categoryLabels.workflow,
+      label: t("commandMenu.commands.viewAutoLayoutSelection.label"), detail: t("commandMenu.commands.viewAutoLayoutSelection.detail"),
+      icon: "fix", disabled: !props.canAutoLayoutSelection, order: 13,
+      action: props.onAutoLayoutSelection,
     },
     {
       id: "command-workspace-explorer", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,

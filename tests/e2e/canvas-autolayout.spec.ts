@@ -59,3 +59,32 @@ test("auto-layout offers a one-click Annulla toast", async ({ page }) => {
   await undo.click();
   await expect(undo).toBeHidden();
 });
+
+test("organize selection is gated on a multi-node selection and offers Annulla", async ({ page }) => {
+  await createDiagram(page);
+
+  const option = (label: string) =>
+    page.locator('[data-testid="command-menu"] [role="option"]', { hasText: label });
+
+  // With no selection the command is disabled.
+  await page.getByTestId("app-header-menu").click();
+  await page.getByTestId("command-menu-search").fill("Organizza selezione");
+  await expect(option("Organizza selezione")).toHaveClass(/disabled/);
+  await page.keyboard.press("Escape");
+
+  // Select two entities (additive with Shift).
+  await page.locator('.diagram-node[aria-label="Nodo entity: CUSTOMER"]').click();
+  await page.locator('.diagram-node[aria-label="Nodo entity: ORDER"]').click({ modifiers: ["Shift"] });
+
+  // Now the command is enabled and its toast offers a one-click Annulla.
+  await page.getByTestId("app-header-menu").click();
+  await page.getByTestId("command-menu-search").fill("Organizza selezione");
+  const command = option("Organizza selezione");
+  await expect(command).not.toHaveClass(/disabled/);
+  await command.click();
+
+  const undo = page.locator(".workspace-toast-action", { hasText: "Annulla" });
+  await expect(undo).toBeVisible();
+  await undo.click();
+  await expect(undo).toBeHidden();
+});
