@@ -931,6 +931,8 @@ export const it = {
       attributeRemoved: "Attributo rimosso.",
       cardinalityRemoved: "Cardinalità rimossa.",
     },
+    focusModeOn: "Modalità focus attiva: il canvas diventa protagonista.",
+    focusModeOff: "Modalità focus disattivata.",
     tourActive: "Tour guidato attivo: completa i 4 step nel canvas.",
     tourClosed: "Tour chiuso. Ora puoi modellare liberamente.",
     tourStep1: "Step 1: crea una nuova entità con un clic nel canvas.",

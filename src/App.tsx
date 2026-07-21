@@ -2085,7 +2085,7 @@ export default function App() {
   function handleToggleFocusMode() {
     setFocusMode((current) => {
       const next = !current;
-      setStatus(next ? "Modalita focus attiva: il canvas diventa protagonista." : "Modalita focus disattivata.");
+      setStatus(next ? t("workspace.focusModeOn") : t("workspace.focusModeOff"));
       return next;
     });
   }

@@ -933,6 +933,8 @@ export const sq: DeepPartialMessages = {
       attributeRemoved: "Atributi u hoq.",
       cardinalityRemoved: "Kardinaliteti u hoq.",
     },
+    focusModeOn: "Modaliteti fokus aktiv: kanavaca merr qendrën.",
+    focusModeOff: "Modaliteti fokus joaktiv.",
     tourActive: "Turi i udhëhequr aktiv: plotëso 4 hapat në kanavacë.",
     tourClosed: "Turi u mbyll. Tani mund të modelosh lirisht.",
     tourStep1: "Hapi 1: krijo një entitet të ri me një klik në kanavacë.",

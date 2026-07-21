@@ -933,6 +933,8 @@ export const en: DeepPartialMessages = {
       attributeRemoved: "Attribute removed.",
       cardinalityRemoved: "Cardinality removed.",
     },
+    focusModeOn: "Focus mode on: the canvas takes center stage.",
+    focusModeOff: "Focus mode off.",
     tourActive: "Guided tour active: complete the 4 steps on the canvas.",
     tourClosed: "Tour closed. You can now model freely.",
     tourStep1: "Step 1: create a new entity with a click on the canvas.",
