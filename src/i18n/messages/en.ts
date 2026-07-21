@@ -1323,6 +1323,48 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_0: {
+        headline: "buildER 7: real databases, a complete SQL workspace, and accessible release news",
+        summary: "buildER 7 brings SQLite work directly into the browser: open real databases, explore them, run queries, create databases from the logical model, and turn them back into ER diagrams. The new What's New center also makes every update easier to understand and revisit.",
+        hero: {
+          eyebrow: "Major release",
+          title: "Welcome to buildER 7",
+          subtitle: "A more complete environment for moving from models to real data, examining SQLite databases, and returning to clear diagrams without leaving the browser.",
+        },
+        highlights: {
+          database: {
+            title: "Real SQLite databases",
+            description: "Open multiple databases, query them safely, save a copy, and restore the original without changing the source file.",
+            tag: "Database",
+          },
+          reverse: {
+            title: "Guided Reverse Engineering",
+            description: "Choose tables, review logical and ER previews, and create a schema in the current project or in a new project.",
+            tag: "Reverse",
+          },
+          releases: {
+            title: "A real What's New center",
+            description: "Browse every release from the header and receive announcements that match the importance of each update.",
+            tag: "What's new",
+          },
+        },
+        updates: {
+          "0": "You can open and manage real SQLite databases directly in the browser, even without creating a project first.",
+          "1": "SQL Explorer shows tables, columns, keys, relationships, views, indexes, and triggers for the selected database.",
+          "2": "SQL Playground creates a SQLite database from the logical model, runs queries, and lets you download the resulting file.",
+          "3": "The new guided Reverse Engineering flow turns a SQLite database into a logical model and an ER diagram.",
+          "4": "You can work with multiple independent database sessions while keeping generated and imported copies separate.",
+          "5": "The What's New center in the header collects the complete release history, highlights, and every published change.",
+          "6": "The SQL editor, commands, and results are more consistent, readable, and keyboard accessible.",
+          "7": "SQL Explorer refreshes automatically after structural changes and provides quick actions for data, definitions, and names.",
+          "8": "Detection of generated or hidden columns, advanced indexes, and SQLite objects is more complete.",
+          "9": "Technical views and temporary databases stay separate from .ersp files and never alter project history.",
+          "10": "Release announcements now match update importance: compact toasts for fixes and dedicated presentations for major versions.",
+          "11": "Database Workspace, SQL Explorer, Reverse Engineering, and the What's New center are available in Italian, English, and Albanian.",
+          "12": "Closing an imported database with unsaved changes now requires an explicit choice, preventing accidental data loss.",
+          "13": "Version normalization prevents duplicate announcements and keeps preferences from earlier versions compatible.",
+        },
+      },
       generic: {
         headline: "buildER {{version}}",
         summary: "Updates and improvements for release {{version}}.",

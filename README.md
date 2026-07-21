@@ -12,16 +12,27 @@ buildER è la nuova evoluzione di ER Studio. La versione corrente è pubblicata 
 
 ## Novità principali
 
-- Versione applicativa letta direttamente dai metadati del pacchetto e gestita con Semantic Versioning completo.
-- Topbar riorganizzata con File, Importa/Esporta e Informazioni come menu principali.
-- Azioni di import ed export spostate nel menu Importa/Esporta con sezioni dedicate.
-- Menu File ridotto alle azioni di progetto, apertura, salvataggio e creazione nuovi file.
-- Menu Informazioni in header con accessi diretti a Menu, Novità e modal della nuova versione.
-- Help mantenuto come menu compatto per Scorciatoie, Novità e About.
-- Pulsante More actions dell'Explorer sostituito con una X dedicata alla chiusura del pannello.
-- Campo editabile del nome progetto rimosso dall'header insieme a stato locale, callback, selettore DOM, chiavi i18n e CSS collegati.
-- Centro Novità localizzato con cronologia delle release e annunci proporzionati all'impatto.
-- Controlli automatici mantengono catalogo, changelog, package metadata e lockfile allineati.
+### Nuovo
+
+- Apri e gestisci database SQLite reali nel browser, anche senza creare un progetto.
+- Esplora tabelle, colonne, chiavi, relazioni, viste, indici e trigger con SQL Explorer.
+- Crea un database SQLite dal modello logico, esegui query e scarica il risultato con SQL Playground.
+- Trasforma un database SQLite in modello logico e diagramma ER con il Reverse Engineering guidato.
+- Lavora con più database e sessioni indipendenti, senza modificare i file originali.
+- Consulta tutte le release dal nuovo centro Novità nell'header.
+
+### Miglioramenti
+
+- Editor, comandi e risultati SQL sono più coerenti, leggibili e accessibili da tastiera.
+- SQL Explorer si aggiorna automaticamente dopo le modifiche strutturali.
+- Le viste database temporanee restano separate dai progetti `.ersp` e dalla loro cronologia.
+- Gli annunci sono proporzionati all'aggiornamento: toast compatti per le correzioni e presentazioni dedicate per le release principali.
+- Database Workspace, SQL Explorer, Reverse Engineering e Novità sono localizzati in italiano, inglese e albanese.
+
+### Correzioni
+
+- La chiusura di database importati con modifiche non salvate richiede una scelta esplicita e previene perdite accidentali.
+- La normalizzazione SemVer evita annunci duplicati e mantiene compatibili le preferenze delle versioni precedenti.
 
 ## Funzionalità principali
 

@@ -6,27 +6,31 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 
 ## [Unreleased]
 
-### Added
-- Aggiunto Database Workspace per aprire file SQLite reali nel browser, anche senza progetto, con query, multi-sessione, export, restore e protezione delle modifiche non esportate.
-- Aggiunto Reverse Engineering guidato da metadata SQLite reali con anteprime logica/ER, selezione tabelle, tre destinazioni progetto e conservazione SQL di viste, trigger, indici speciali e tabelle virtuali.
-- Aggiunte azioni SQL Explorer per prime 100 righe, generazione SELECT, definizione, copia nome e reverse engineering sulla sessione selezionata.
-- Aggiunto SQL Playground locale per creare un database SQLite reale dal modello logico, eseguire script e query nel browser e scaricare il file `.sqlite`.
-- Aggiunti worker SQLite/WASM lazy-loaded, sessioni temporanee separate per schema, rilevamento dello schema non aggiornato e ricreazione atomica protetta da conferma.
-- Aggiunti accessi dalla vista SQL logica e dalla command palette, risultati multipli accessibili, riepiloghi DML ed errori SQLite localizzati in italiano, inglese e albanese.
-- Aggiunta copertura unitaria, component e Playwright reale per vincoli SQLite, export, stato stale, responsive e WCAG 2.1 A/AA.
-- Aggiunto SQL Explorer nell'activity rail con database collegati, tabelle, colonne, viste, indici, trigger, primary key e foreign key ottenuti dal database SQLite reale.
-- Aggiunti splitter accessibile e pannello Risultati richiudibile, numerazione semantica delle righe e refresh automatico dell'Explorer dopo DDL e `ATTACH`/`DETACH`.
-
-### Changed
-- Il manager e il worker SQLite ora gestiscono sessioni discriminate generate/importate; chiudere un progetto elimina solo i database generati dal progetto.
-- L'introspezione usa `table_xinfo` e `index_xinfo` per colonne generate/nascoste, auto-index, indici parziali ed espressioni.
-- Esteso il sistema di tab con viste tecniche temporanee che non entrano nel file `.ersp` e non modificano Source Control.
-- Unificate command bar e azioni del SQL Playground; l'editor ora riusa `CodeEditorSurface` con numeri di riga, selezione eseguibile e highlighting SQL esteso.
-
-### Fixed
-- Le azioni bulk sulle tab rispettano ora il dialog Salva copia/Chiudi senza salvare/Annulla per ogni database importato modificato.
+Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.0.0] - 2026-07-21
+
+### Added
+- Puoi aprire e gestire database SQLite reali direttamente nel browser, anche senza creare prima un progetto.
+- SQL Explorer mostra tabelle, colonne, chiavi, relazioni, viste, indici e trigger del database selezionato.
+- SQL Playground crea un database SQLite dal modello logico, esegue query e permette di scaricare il file risultante.
+- Il nuovo Reverse Engineering trasforma un database SQLite in un modello logico e in un diagramma ER attraverso un percorso guidato.
+- Puoi lavorare con più database e sessioni indipendenti, mantenendo separate le copie generate e quelle importate.
+- Il centro Novità nell'header raccoglie la cronologia completa delle release, i punti principali e tutti i cambiamenti.
+
+### Changed
+- Editor SQL, comandi e risultati sono più coerenti, leggibili e accessibili anche da tastiera.
+- SQL Explorer si aggiorna automaticamente dopo le modifiche strutturali e offre azioni rapide per dati, definizioni e nomi.
+- Il riconoscimento di colonne generate o nascoste, indici avanzati e oggetti SQLite è più completo.
+- Le viste tecniche e i database temporanei restano separati dai file .ersp e non alterano la cronologia del progetto.
+- Gli annunci delle release ora rispettano l'importanza dell'aggiornamento: toast per le correzioni e presentazioni dedicate per le versioni principali.
+- Database Workspace, SQL Explorer, Reverse Engineering e centro Novità sono disponibili in italiano, inglese e albanese.
+
+### Fixed
+- La chiusura di database importati con modifiche non salvate richiede ora una scelta esplicita, evitando perdite accidentali.
+- La normalizzazione delle versioni evita annunci duplicati e mantiene compatibili le preferenze salvate dalle versioni precedenti.
+
 ## [6.3.0] - 2026-07-02
 
 ### Added

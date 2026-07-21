@@ -35,6 +35,7 @@ test("managed changelog replacement is deterministic and preserves legacy text",
   const next = replaceGeneratedChangelog(source, generated);
   assert.match(next, /before/);
   assert.match(next, /after/);
+  assert.match(next, /## \[7\.0\.0\]/);
   assert.match(next, /## \[6\.3\.0\]/);
   assert.equal(replaceGeneratedChangelog(next, generated), next);
 });

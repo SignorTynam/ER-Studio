@@ -9,18 +9,19 @@ import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { localizeReleaseCatalog } from "../src/releases/releaseLocalization.ts";
 import { RELEASE_CATALOG } from "../src/releases/releaseCatalog.ts";
 import { translate } from "../src/i18n/index.ts";
+import { APP_VERSION } from "../src/utils/appMeta.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 test("release center renders current badge, ordered releases and change sections", () => {
   const releases = localizeReleaseCatalog(RELEASE_CATALOG, (key, params) => translate(key, params, "en"));
-  const markup = renderToStaticMarkup(<I18nProvider><ReleaseCenter currentVersion="6.3.0" releases={releases} unreadVersions={["6.3.0"]} onClose={() => undefined} /></I18nProvider>);
+  const markup = renderToStaticMarkup(<I18nProvider><ReleaseCenter currentVersion={APP_VERSION} releases={releases} unreadVersions={[APP_VERSION]} onClose={() => undefined} /></I18nProvider>);
   assert.match(markup, /data-testid="release-center"/);
   assert.match(markup, /Current version/);
   assert.match(markup, /Unread/);
   assert.match(markup, />New</);
   assert.match(markup, />Improved</);
-  assert.ok(markup.indexOf("v6.3.0") < markup.indexOf("v6.2.0"));
+  assert.ok(markup.indexOf("v7.0.0") < markup.indexOf("v6.3.0"));
 });
 
 test("unread badge formatting caps values above nine", () => {

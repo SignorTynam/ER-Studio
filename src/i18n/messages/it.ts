@@ -1321,6 +1321,48 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_0: {
+        headline: "buildER 7: database reali, SQL completo e novità sempre accessibili",
+        summary: "buildER 7 porta il lavoro con SQLite direttamente nel browser: puoi aprire database reali, esplorarli, eseguire query, creare nuovi database dal modello logico e trasformarli in diagrammi ER. Il nuovo centro Novità rende inoltre ogni aggiornamento più chiaro e facile da consultare.",
+        hero: {
+          eyebrow: "Major release",
+          title: "Benvenuto in buildER 7",
+          subtitle: "Un ambiente più completo per passare dal modello ai dati reali, analizzare database SQLite e tornare a diagrammi comprensibili senza lasciare il browser.",
+        },
+        highlights: {
+          database: {
+            title: "Database SQLite reali",
+            description: "Apri più database, esegui query in sicurezza, salva una copia e ripristina l'originale senza modificare il file di partenza.",
+            tag: "Database",
+          },
+          reverse: {
+            title: "Reverse Engineering guidato",
+            description: "Scegli le tabelle, controlla le anteprime logica ed ER e crea uno schema nel progetto corrente oppure in un nuovo progetto.",
+            tag: "Reverse",
+          },
+          releases: {
+            title: "Un vero centro Novità",
+            description: "Consulta tutte le release dall'header e ricevi annunci proporzionati all'importanza dell'aggiornamento.",
+            tag: "Novità",
+          },
+        },
+        updates: {
+          "0": "Puoi aprire e gestire database SQLite reali direttamente nel browser, anche senza creare prima un progetto.",
+          "1": "SQL Explorer mostra tabelle, colonne, chiavi, relazioni, viste, indici e trigger del database selezionato.",
+          "2": "SQL Playground crea un database SQLite dal modello logico, esegue query e permette di scaricare il file risultante.",
+          "3": "Il nuovo Reverse Engineering trasforma un database SQLite in un modello logico e in un diagramma ER attraverso un percorso guidato.",
+          "4": "Puoi lavorare con più database e sessioni indipendenti, mantenendo separate le copie generate e quelle importate.",
+          "5": "Il centro Novità nell'header raccoglie la cronologia completa delle release, i punti principali e tutti i cambiamenti.",
+          "6": "Editor SQL, comandi e risultati sono più coerenti, leggibili e accessibili anche da tastiera.",
+          "7": "SQL Explorer si aggiorna automaticamente dopo le modifiche strutturali e offre azioni rapide per dati, definizioni e nomi.",
+          "8": "Il riconoscimento di colonne generate o nascoste, indici avanzati e oggetti SQLite è più completo.",
+          "9": "Le viste tecniche e i database temporanei restano separati dai file .ersp e non alterano la cronologia del progetto.",
+          "10": "Gli annunci delle release ora rispettano l'importanza dell'aggiornamento: toast per le correzioni e presentazioni dedicate per le versioni principali.",
+          "11": "Database Workspace, SQL Explorer, Reverse Engineering e centro Novità sono disponibili in italiano, inglese e albanese.",
+          "12": "La chiusura di database importati con modifiche non salvate richiede ora una scelta esplicita, evitando perdite accidentali.",
+          "13": "La normalizzazione delle versioni evita annunci duplicati e mantiene compatibili le preferenze salvate dalle versioni precedenti.",
+        },
+      },
       generic: {
         headline: "buildER {{version}}",
         summary: "Aggiornamenti e miglioramenti della release {{version}}.",

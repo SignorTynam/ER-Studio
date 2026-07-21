@@ -1323,6 +1323,48 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_0: {
+        headline: "buildER 7: databaza reale, hapësirë e plotë SQL dhe të reja gjithmonë të arritshme",
+        summary: "buildER 7 sjell punën me SQLite drejtpërdrejt në shfletues: hap databaza reale, eksploroji, ekzekuto pyetje, krijo databaza nga modeli logjik dhe ktheji në diagrame ER. Qendra e re Të rejat e bën çdo përditësim më të qartë dhe të lehtë për t'u rishikuar.",
+        hero: {
+          eyebrow: "Version kryesor",
+          title: "Mirë se vjen në buildER 7",
+          subtitle: "Një mjedis më i plotë për të kaluar nga modelet te të dhënat reale, për të analizuar databaza SQLite dhe për t'u kthyer te diagrame të qarta pa dalë nga shfletuesi.",
+        },
+        highlights: {
+          database: {
+            title: "Databaza reale SQLite",
+            description: "Hap disa databaza, ekzekuto pyetje në mënyrë të sigurt, ruaj një kopje dhe rikthe origjinalin pa ndryshuar skedarin burimor.",
+            tag: "Databaza",
+          },
+          reverse: {
+            title: "Reverse Engineering i udhëzuar",
+            description: "Zgjidh tabelat, kontrollo pamjet paraprake logjike dhe ER dhe krijo një skemë në projektin aktual ose në një projekt të ri.",
+            tag: "Reverse",
+          },
+          releases: {
+            title: "Një qendër e vërtetë Të rejat",
+            description: "Shfleto çdo version nga header-i dhe merr njoftime që përputhen me rëndësinë e përditësimit.",
+            tag: "Të rejat",
+          },
+        },
+        updates: {
+          "0": "Mund të hapësh dhe menaxhosh databaza reale SQLite drejtpërdrejt në shfletues, edhe pa krijuar më parë një projekt.",
+          "1": "SQL Explorer tregon tabelat, kolonat, çelësat, lidhjet, views, indekset dhe trigger-at e databazës së zgjedhur.",
+          "2": "SQL Playground krijon një databazë SQLite nga modeli logjik, ekzekuton pyetje dhe lejon shkarkimin e skedarit përfundimtar.",
+          "3": "Rrjedha e re e udhëzuar Reverse Engineering e kthen një databazë SQLite në model logjik dhe diagram ER.",
+          "4": "Mund të punosh me disa sesione të pavarura databazash duke mbajtur të ndara kopjet e krijuara dhe ato të importuara.",
+          "5": "Qendra Të rejat në header mbledh historikun e plotë të versioneve, pikat kryesore dhe çdo ndryshim të publikuar.",
+          "6": "Editori SQL, komandat dhe rezultatet janë më të njëtrajtshme, më të lexueshme dhe të arritshme nga tastiera.",
+          "7": "SQL Explorer rifreskohet automatikisht pas ndryshimeve strukturore dhe ofron veprime të shpejta për të dhënat, përkufizimet dhe emrat.",
+          "8": "Njohja e kolonave të gjeneruara ose të fshehura, indekseve të avancuara dhe objekteve SQLite është më e plotë.",
+          "9": "Pamjet teknike dhe databazat e përkohshme qëndrojnë të ndara nga skedarët .ersp dhe nuk ndryshojnë historikun e projektit.",
+          "10": "Njoftimet e versioneve tani respektojnë rëndësinë e përditësimit: toast kompakt për korrigjime dhe prezantime të dedikuara për versionet kryesore.",
+          "11": "Database Workspace, SQL Explorer, Reverse Engineering dhe qendra Të rejat janë të disponueshme në italisht, anglisht dhe shqip.",
+          "12": "Mbyllja e një databaze të importuar me ndryshime të paruajtura tani kërkon një zgjedhje të qartë, duke parandaluar humbjen aksidentale të të dhënave.",
+          "13": "Normalizimi i versioneve parandalon njoftimet e dyfishta dhe ruan pajtueshmërinë me preferencat e versioneve të mëparshme.",
+        },
+      },
       generic: {
         headline: "buildER {{version}}",
         summary: "Përditësime dhe përmirësime për release-in {{version}}.",
