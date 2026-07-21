@@ -928,6 +928,11 @@ export const sq: DeepPartialMessages = {
     },
   },
   workspace: {
+    validationFix: {
+      linkRemoved: "Lidhja u hoq.",
+      attributeRemoved: "Atributi u hoq.",
+      cardinalityRemoved: "Kardinaliteti u hoq.",
+    },
     tourActive: "Turi i udhëhequr aktiv: plotëso 4 hapat në kanavacë.",
     tourClosed: "Turi u mbyll. Tani mund të modelosh lirisht.",
     tourStep1: "Hapi 1: krijo një entitet të ri me një klik në kanavacë.",

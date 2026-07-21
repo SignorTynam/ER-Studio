@@ -928,6 +928,11 @@ export const en: DeepPartialMessages = {
     },
   },
   workspace: {
+    validationFix: {
+      linkRemoved: "Link removed.",
+      attributeRemoved: "Attribute removed.",
+      cardinalityRemoved: "Cardinality removed.",
+    },
     tourActive: "Guided tour active: complete the 4 steps on the canvas.",
     tourClosed: "Tour closed. You can now model freely.",
     tourStep1: "Step 1: create a new entity with a click on the canvas.",

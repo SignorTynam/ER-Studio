@@ -926,6 +926,11 @@ export const it = {
     },
   },
   workspace: {
+    validationFix: {
+      linkRemoved: "Collegamento rimosso.",
+      attributeRemoved: "Attributo rimosso.",
+      cardinalityRemoved: "Cardinalità rimossa.",
+    },
     tourActive: "Tour guidato attivo: completa i 4 step nel canvas.",
     tourClosed: "Tour chiuso. Ora puoi modellare liberamente.",
     tourStep1: "Step 1: crea una nuova entità con un clic nel canvas.",

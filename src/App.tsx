@@ -288,6 +288,7 @@ import {
   presentValidationIssue,
   validationIssueTargetExists,
 } from "./utils/validationIssuePresentation";
+import type { ValidationIssueAction } from "./utils/validationIssuePresentation";
 import type { SqlReverseIssue } from "./types/sqlReverse";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
@@ -2026,6 +2027,75 @@ export default function App() {
       });
     }
     return true;
+  }
+
+  // Fase H — esecuzione delle azioni di correzione guidata. La presentazione (validationIssuePresentation)
+  // e' pura e dice *quale* azione offrire; qui la si esegue. Auto-fix = singolo undo via commitDiagram.
+  function handleValidationIssueAction(issue: ValidationIssue, action: ValidationIssueAction) {
+    if (action.kind === "auto") {
+      applyValidationAutoFix(issue, action);
+      return;
+    }
+
+    // navigate: porta l'utente nel posto giusto senza decidere la semantica al suo posto.
+    handleIssueNotice(issue);
+    if (action.type === "open-cardinality") {
+      handleOpenCardinalityControl(issue.targetId);
+    } else if (action.type === "create-attribute") {
+      handleToolChange("attribute");
+    }
+  }
+
+  function applyValidationAutoFix(issue: ValidationIssue, action: ValidationIssueAction) {
+    const previousDiagram = history.present;
+
+    if (action.type === "delete-edge") {
+      commitDiagram(
+        removeSelection(previousDiagram, { nodeIds: [], edgeIds: [issue.targetId] }),
+        previousDiagram,
+      );
+      setSelection({ nodeIds: [], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.linkRemoved");
+      return;
+    }
+
+    if (action.type === "delete-attribute") {
+      commitDiagram(
+        removeSelection(previousDiagram, { nodeIds: [issue.targetId], edgeIds: [] }),
+        previousDiagram,
+      );
+      setSelection({ nodeIds: [], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.attributeRemoved");
+      return;
+    }
+
+    if (action.type === "clear-attribute-cardinality") {
+      const nextDiagram: DiagramDocument = {
+        ...previousDiagram,
+        nodes: previousDiagram.nodes.map((node) =>
+          node.id === issue.targetId && node.type === "attribute"
+            ? { ...node, cardinality: undefined }
+            : node,
+        ),
+      };
+      commitDiagram(nextDiagram, previousDiagram);
+      setSelection({ nodeIds: [issue.targetId], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.cardinalityRemoved");
+    }
+  }
+
+  function notifyValidationAutoFix(
+    messageKey:
+      | "workspace.validationFix.linkRemoved"
+      | "workspace.validationFix.attributeRemoved"
+      | "workspace.validationFix.cardinalityRemoved",
+  ) {
+    const message = t(messageKey);
+    setStatus(message);
+    showSuccessNotice(message, {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
   }
 
   function handleToggleFocusMode() {
