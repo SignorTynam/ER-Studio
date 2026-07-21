@@ -335,8 +335,9 @@ reali, mentre gli elementi ER della trasformazione usano i rettangoli schematici
 
 **Organizza** usa `autoLayoutConceptualDiagram` in ER e Translate e `autoLayoutLogicalModel` in
 Logic. In ogni vista richiede conferma quando sostituisce una disposizione, produce un solo step
-di undo e termina con **Inquadra tutto**. Toolbar, command menu e `Shift+L` invocano lo stesso
-handler della vista attiva.
+di undo e termina con **Inquadra tutto**; il completamento mostra un toast di conferma con azione
+**Annulla** (ripristino in un clic tramite `handleUndoAction`, riusa il sistema notice esistente).
+Toolbar, command menu e `Shift+L` invocano lo stesso handler della vista attiva.
 
 ## Overlay del canvas — stacking e z-index
 

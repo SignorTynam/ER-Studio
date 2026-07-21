@@ -2003,6 +2003,7 @@ export const sq: DeepPartialMessages = {
       confirmMessage: "Vendosja aktuale manuale do të zëvendësohet. Mund ta zhbësh në një hap.",
       logicalConfirmMessage: "Vendosja aktuale e tabelave do të zëvendësohet. Mund ta zhbësh në një hap.",
       confirmAction: "Organizo",
+      undoAction: "Zhbëj",
     },
     aria: {
       zoomOut: "Zvogelo zoom-in",

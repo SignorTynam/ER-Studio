@@ -4300,6 +4300,10 @@ export default function App() {
     const nextModel = autoLayoutLogicalModel(previousModel);
     commitLogicalModel(nextModel, previousModel);
     setStatus(t("workspace.logicalLayoutUpdated"));
+    showSuccessNotice(t("workspace.logicalLayoutUpdated"), {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
     requestLogicalViewportCommand("fitAll");
   }
 
@@ -4320,6 +4324,10 @@ export default function App() {
     const nextDiagram = autoLayoutConceptualDiagram(previousDiagram);
     commitDiagram(nextDiagram, previousDiagram, { suppressExternalIdentifierWarnings: true });
     setStatus(t("canvas.status.autoLayoutComplete"));
+    showSuccessNotice(t("canvas.status.autoLayoutComplete"), {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
     requestErViewportCommand("fitAll");
   }
 
@@ -4344,6 +4352,10 @@ export default function App() {
       { ...previousWorkspace, translatedDiagram: previousDiagram },
     );
     setStatus(t("canvas.status.autoLayoutTranslationComplete"));
+    showSuccessNotice(t("canvas.status.autoLayoutTranslationComplete"), {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
     requestTranslationViewportCommand("fitAll");
   }
 

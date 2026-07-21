@@ -2003,6 +2003,7 @@ export const en: DeepPartialMessages = {
       confirmMessage: "This will replace the current manual arrangement. You can undo it in one step.",
       logicalConfirmMessage: "This will replace the current table arrangement. You can undo it in one step.",
       confirmAction: "Organize",
+      undoAction: "Undo",
     },
     aria: {
       zoomOut: "Zoom out",

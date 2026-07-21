@@ -2001,6 +2001,7 @@ export const it = {
       confirmMessage: "La disposizione manuale corrente verrà sostituita. Puoi annullare l'operazione in un solo passaggio.",
       logicalConfirmMessage: "La disposizione corrente delle tabelle verrà sostituita. Puoi annullare l'operazione in un solo passaggio.",
       confirmAction: "Organizza",
+      undoAction: "Annulla",
     },
     aria: {
       zoomOut: "Riduci zoom",
