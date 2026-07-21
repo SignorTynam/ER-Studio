@@ -14,6 +14,7 @@ import {
 import { en } from "../src/i18n/messages/en.ts";
 import { it } from "../src/i18n/messages/it.ts";
 import { sq } from "../src/i18n/messages/sq.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 type RawMessages = Record<string, unknown>;
 type LeafValue = string | PluralMessage;
@@ -489,17 +490,16 @@ test("identifier toolbar labels resolve for every locale", () => {
   };
 
   for (const locale of SUPPORTED_LOCALES) {
-    setCurrentLocale(locale);
-    assert.equal(translate("toolbar.commands.externalIdUnified.label"), expectedExternalIdLabels[locale]);
-    assert.notEqual(translate("toolbar.commands.deleteIdentifier.label"), "toolbar.commands.deleteIdentifier.label");
-    assert.equal(translate("toolbar.commands.deleteIdentifier.title"), expectedDeleteIdentifierTitles[locale]);
-    assert.notEqual(
-      translate("workspace.identifierAlreadyExistsUseDelete"),
-      "workspace.identifierAlreadyExistsUseDelete",
-    );
+    withTestLocale(locale, () => {
+      assert.equal(translate("toolbar.commands.externalIdUnified.label"), expectedExternalIdLabels[locale]);
+      assert.notEqual(translate("toolbar.commands.deleteIdentifier.label"), "toolbar.commands.deleteIdentifier.label");
+      assert.equal(translate("toolbar.commands.deleteIdentifier.title"), expectedDeleteIdentifierTitles[locale]);
+      assert.notEqual(
+        translate("workspace.identifierAlreadyExistsUseDelete"),
+        "workspace.identifierAlreadyExistsUseDelete",
+      );
+    });
   }
-
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("important English and Albanian UI strings are not Italian fallbacks", () => {
@@ -600,6 +600,21 @@ test("locale state can switch among all supported locales", () => {
   } finally {
     setCurrentLocale(originalLocale);
   }
+});
+
+test("withTestLocale restores the previous locale after localized work", () => {
+  const originalLocale = getCurrentLocale();
+  const testLocale = originalLocale === "en" ? "it" : "en";
+
+  withTestLocale(testLocale, () => {
+    assert.notEqual(getCurrentLocale(), originalLocale);
+  });
+
+  assert.equal(getCurrentLocale(), originalLocale);
+  assert.throws(() => withTestLocale(testLocale, () => {
+    throw new Error("localized test failure");
+  }), /localized test failure/);
+  assert.equal(getCurrentLocale(), originalLocale);
 });
 
 test("workspace redesign strings exist in English, Italian, and Albanian", () => {

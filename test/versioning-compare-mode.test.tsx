@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { VersionCompareMode } from "../src/components/versioning/VersionCompareMode.tsx";
 import { VersionCompareWorkspaceInstance } from "../src/components/versioning/VersionCompareWorkspaceInstance.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
-import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 import { buildProjectVersionDiff } from "../src/features/versioning/projectVersionDiff.ts";
 import {
   buildDiagramVersionHighlights,
@@ -30,7 +30,7 @@ import {
 const VIEWPORT = { x: 0, y: 0, zoom: 1 };
 
 function renderWithI18n(element: React.ReactElement): string {
-  return renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>);
+  return withTestLocale("it", () => renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>));
 }
 
 function createSnapshot(name: string, variant: "base" | "changed" = "base"): ProjectCommitSnapshot {
@@ -217,7 +217,6 @@ function createVersioning() {
 }
 
 test("VersionCompareMode apre il picker di scope prima del canvas", () => {
-  setCurrentLocale("it");
   const versioning = createVersioning();
   const markup = renderWithI18n(
     <VersionCompareMode
@@ -253,11 +252,9 @@ test("VersionCompareMode apre il picker di scope prima del canvas", () => {
   assert.doesNotMatch(markup, /studio-modal-backdrop/);
   assert.doesNotMatch(markup, /Nuovo progetto/);
   assert.doesNotMatch(markup, /Apri progetto/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionCompareMode mostra overview progetto e file cliccabili con initialScope project", () => {
-  setCurrentLocale("it");
   const { base, changed } = createScopedSnapshotPair();
   const versioning = {
     ...createEmptyProjectVersioningState(),
@@ -293,11 +290,9 @@ test("VersionCompareMode mostra overview progetto e file cliccabili con initialS
   assert.match(markup, /notes\.txt/);
   assert.match(markup, /query\.sql/);
   assert.match(markup, /Cambia elemento confrontato/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionCompareMode renderizza diff testuale per file txt e sql", () => {
-  setCurrentLocale("it");
   const { base, changed } = createScopedSnapshotPair();
   const notesId = Object.values(changed.files ?? {}).find((file) => file.name === "notes.txt")?.id;
   const sqlId = Object.values(changed.files ?? {}).find((file) => file.name === "query.sql")?.id;
@@ -350,11 +345,9 @@ test("VersionCompareMode renderizza diff testuale per file txt e sql", () => {
   assert.match(sqlMarkup, /query\.sql/);
   assert.match(sqlMarkup, /select 1;/);
   assert.match(sqlMarkup, /select 2;/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionCompareMode renderizza schema scoped dal file selezionato", () => {
-  setCurrentLocale("it");
   const { base, changed } = createScopedSnapshotPair();
   const schema2Id = Object.values(changed.files ?? {}).find((file) => file.name === "schema2.erschema")?.id;
   assert.ok(schema2Id);
@@ -391,11 +384,9 @@ test("VersionCompareMode renderizza schema scoped dal file selezionato", () => {
   assert.match(markup, /data-testid="version-compare-instance-right"/);
   assert.match(markup, /ORDINE_RIGA/);
   assert.doesNotMatch(markup, /Cliente finale/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-only", () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot("Visual pane");
   const diff = buildProjectVersionDiff(snapshot, createSnapshot("Visual pane changed", "changed"));
   const markup = renderWithI18n(
@@ -426,5 +417,4 @@ test("VersionCompareWorkspaceInstance mantiene viste indipendenti e canvas read-
   assert.match(markup, /designer-canvas-region/);
   assert.match(markup, /class="diagram-canvas" data-readonly="true"/);
   assert.doesNotMatch(markup, /designer-toolbar/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });

@@ -8,11 +8,12 @@ import { SqlPlaygroundHeader } from "../src/features/sql-playground/SqlPlaygroun
 import { createSqlPlaygroundSessionState } from "../src/utils/sqlPlayground.ts";
 import { SqlPlaygroundError } from "../src/features/sql-playground/SqlPlaygroundError.tsx";
 import { SqlPlaygroundResults } from "../src/features/sql-playground/SqlPlaygroundResults.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 function render(node: React.ReactNode): string {
-  return renderToStaticMarkup(<I18nProvider>{node}</I18nProvider>);
+  return withTestLocale("en", () => renderToStaticMarkup(<I18nProvider>{node}</I18nProvider>));
 }
 
 test("SQL playground editor uses the shared highlighted editor with line numbers", () => {

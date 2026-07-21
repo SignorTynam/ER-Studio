@@ -8,7 +8,7 @@ import { RestoreVersionDialog } from "../src/components/versioning/RestoreVersio
 import { VersionDiffDialog } from "../src/components/versioning/VersionDiffDialog.tsx";
 import { VersioningPanel } from "../src/components/versioning/VersioningPanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
-import { DEFAULT_LOCALE, setCurrentLocale } from "../src/i18n/index.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 import { buildProjectCommitDraft, createProjectCommitSnapshot } from "../src/features/versioning/projectCommitSnapshot.ts";
 import {
   buildProjectVersionDiff,
@@ -37,7 +37,7 @@ const EMPTY_CATEGORIES = {
 };
 
 function renderWithI18n(element: React.ReactElement): string {
-  return renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>);
+  return withTestLocale("it", () => renderToStaticMarkup(<I18nProvider>{element}</I18nProvider>));
 }
 
 function createSnapshot() {
@@ -90,7 +90,6 @@ function createSnapshot() {
 }
 
 test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
-  setCurrentLocale("it");
   const markup = renderWithI18n(
     <CommitDialog
       open
@@ -114,11 +113,9 @@ test("dialog commit si apre con input messaggio, descrizione ed errore", () => {
   assert.match(markup, /Suggerimento messaggio/);
   assert.match(markup, /Aggiornato schema ER/);
   assert.match(markup, /Modifiche allo schema ER/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("dialog commit disabilita la creazione quando non ci sono modifiche", () => {
-  setCurrentLocale("it");
   const markup = renderWithI18n(
     <CommitDialog
       open
@@ -135,11 +132,9 @@ test("dialog commit disabilita la creazione quando non ci sono modifiche", () =>
 
   assert.match(markup, /Nessuna modifica rispetto a HEAD/);
   assert.match(markup, /<button type="submit" class="[^"]*ui-button--primary[^"]*" disabled="" data-testid="create-commit-button"/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messaggio e statistiche", async () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot();
   const commit = await buildProjectCommitDraft({
     id: "commit-ui-test",
@@ -193,11 +188,9 @@ test("pannello Versioni mostra modifiche non committate, categorie, HEAD, messag
   assert.doesNotMatch(markup, /data-testid="commit-dialog"/);
   assert.doesNotMatch(markup, /data-testid="versioning-detail-panel"/);
   assert.doesNotMatch(markup, /Edge: 1/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("pannello Versioni mostra lo stato vuoto", () => {
-  setCurrentLocale("it");
   const emptyState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), createSnapshot());
   const noContentState = {
     ...emptyState,
@@ -221,11 +214,9 @@ test("pannello Versioni mostra lo stato vuoto", () => {
 
   assert.match(markup, /data-testid="versioning-empty"/);
   assert.match(markup, /Nessun commit/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenuto", () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot();
   const changeState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), snapshot);
   const markup = renderWithI18n(
@@ -245,11 +236,9 @@ test("pannello Versioni mostra CTA primo commit quando manca HEAD ma c'e contenu
   assert.match(markup, /Questo progetto non ha ancora commit/);
   assert.match(markup, /Crea commit/);
   assert.match(markup, /Modifiche allo schema ER/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("pannello Versioni mostra working copy pulita quando HEAD e invariato", async () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot();
   const result = await createProjectCommitInState(createEmptyProjectVersioningState(), {
     snapshot,
@@ -276,11 +265,9 @@ test("pannello Versioni mostra working copy pulita quando HEAD e invariato", asy
   assert.match(markup, /data-testid="versioning-clean"/);
   assert.match(markup, /Working copy pulita/);
   assert.match(markup, /Nessuna modifica rispetto a HEAD/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", async () => {
-  setCurrentLocale("it");
   const base = createSnapshot();
   const first = await createProjectCommitInState(createEmptyProjectVersioningState(), {
     snapshot: base,
@@ -321,11 +308,9 @@ test("pannello Versioni mostra azione Confronta con HEAD per commit non HEAD", a
 
   assert.match(markup, /Confronta/);
   assert.match(markup, /Ripristina/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("timeline distingue commit manuale, backup e restore automatici", async () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot();
   const manual = await buildProjectCommitDraft({
     id: "manual-commit",
@@ -374,11 +359,9 @@ test("timeline distingue commit manuale, backup e restore automatici", async () 
   assert.match(markup, /Commit di restore/);
   assert.doesNotMatch(markup, /auto-backup/);
   assert.doesNotMatch(markup, /auto-restore/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("RestoreVersionDialog mostra conferma e commit target", async () => {
-  setCurrentLocale("it");
   const commit = await buildProjectCommitDraft({
     id: "restore-target",
     parentId: null,
@@ -408,11 +391,9 @@ test("RestoreVersionDialog mostra conferma e commit target", async () => {
   assert.match(markup, /Versione stabile/);
   assert.doesNotMatch(markup, /versioning-commit-meta/);
   assert.match(markup, /data-testid="confirm-restore-button"/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionDiffDialog mostra riepilogo, sezioni e una modifica", () => {
-  setCurrentLocale("it");
   const base = createSnapshot();
   const changed = createProjectCommitSnapshot({
     ...base,
@@ -438,11 +419,9 @@ test("VersionDiffDialog mostra riepilogo, sezioni e una modifica", () => {
   assert.match(markup, /Workspace/);
   assert.match(markup, /Codice modificato/);
   assert.match(markup, /Nessuna modifica in questa sezione/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("VersionDiffDialog mostra empty state se le versioni sono identiche", () => {
-  setCurrentLocale("it");
   const snapshot = createSnapshot();
   const diff = buildProjectVersionDiff(snapshot, snapshot, {
     leftLabel: "Schema iniziale",
@@ -454,7 +433,6 @@ test("VersionDiffDialog mostra empty state se le versioni sono identiche", () =>
 
   assert.match(markup, /Le due versioni sono identiche/);
   assert.match(markup, /Nessuna modifica/);
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("funzioni diff commit usate dalla UI producono confronti commit e working copy", async () => {

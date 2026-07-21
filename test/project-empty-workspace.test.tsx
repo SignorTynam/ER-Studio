@@ -8,12 +8,16 @@ import { NoProjectWelcomePage } from "../src/components/workspace/NoProjectWelco
 import { WorkspaceEmptyEditor } from "../src/components/workspace/WorkspaceEmptyEditor.tsx";
 import { WorkspaceWelcomePage } from "../src/components/workspace/WorkspaceWelcomePage.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 import { createEmptyProjectExplorerState } from "../src/utils/projectExplorer.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const renderInEnglish = (element: React.ReactElement): string =>
+  withTestLocale("en", () => renderToStaticMarkup(element));
+
 test("WorkspaceWelcomePage renderizza start actions senza canvas", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <WorkspaceWelcomePage
         projectName="Empty Project"
@@ -37,7 +41,7 @@ test("WorkspaceWelcomePage renderizza start actions senza canvas", () => {
 });
 
 test("NoProjectWelcomePage mostra solo azioni globali senza contesto progetto", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <NoProjectWelcomePage
         onNewProject={() => undefined}
@@ -60,7 +64,7 @@ test("NoProjectWelcomePage mostra solo azioni globali senza contesto progetto", 
 });
 
 test("WorkspaceEmptyEditor mostra logo e tre azioni compatte", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <WorkspaceEmptyEditor
         onNewSchema={() => undefined}

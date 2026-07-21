@@ -6,14 +6,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ProjectFileTabs } from "../src/components/project/ProjectFileTabs.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 import { createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
 import { createWelcomeTab } from "../src/utils/projectTabs.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const renderInEnglish = (element: React.ReactElement): string =>
+  withTestLocale("en", () => renderToStaticMarkup(element));
+
 test("ProjectFileTabs renders Welcome and file tabs with tab roles", () => {
   const note = createTextWorkspaceFile("notes.txt", "text", "hello");
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <ProjectFileTabs
         tabs={[createWelcomeTab(), { id: `file:${note.id}`, kind: "file", fileId: note.id, title: note.name, dirty: true }]}
@@ -51,7 +55,7 @@ test("ProjectFileTabs supports many tabs with scroller and stable new button", (
     title: file.name,
     dirty: file.name === "notes-3.txt",
   }));
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <ProjectFileTabs
         tabs={tabs}
@@ -71,7 +75,7 @@ test("ProjectFileTabs supports many tabs with scroller and stable new button", (
 });
 
 test("ProjectFileTabs renders a closable technical playground tab without project dirty state", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <ProjectFileTabs
         tabs={[{

@@ -11,6 +11,7 @@ import {
   createEmptySchemaDocument,
   createProjectFromSchema,
 } from "../src/utils/projectExplorer.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -18,7 +19,7 @@ function renderExplorer() {
   const state = createProjectFromSchema("Project", createEmptySchemaDocument("Main schema.erschema"));
   return {
     state,
-    markup: renderToStaticMarkup(
+    markup: withTestLocale("en", () => renderToStaticMarkup(
       <I18nProvider>
         <ProjectExplorer
           project={state.project}
@@ -38,7 +39,7 @@ function renderExplorer() {
           onResizeStart={() => undefined}
         />
       </I18nProvider>,
-    ),
+    )),
   };
 }
 
@@ -59,7 +60,7 @@ test("ProjectExplorer distingue active file e selected folder nel tree", () => {
   assert.equal(folder.ok, true);
   if (!folder.ok) return;
   const view = { ...folder.state.view, selectedNodeId: folder.nodeId };
-  const markup = renderToStaticMarkup(
+  const markup = withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <ProjectExplorer
         project={folder.state.project}
@@ -79,7 +80,7 @@ test("ProjectExplorer distingue active file e selected folder nel tree", () => {
         onResizeStart={() => undefined}
       />
     </I18nProvider>,
-  );
+  ));
 
   assert.match(markup, /project-explorer-item folder selected/);
   assert.match(markup, /project-explorer-item file active/);

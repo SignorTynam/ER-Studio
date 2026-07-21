@@ -8,11 +8,12 @@ import { SqlExplorerPanel } from "../src/features/sql-playground/SqlExplorerPane
 import { SqlExplorerTree } from "../src/features/sql-playground/SqlExplorerTree.tsx";
 import { SqlPlaygroundSplitter } from "../src/features/sql-playground/SqlPlaygroundSplitter.tsx";
 import type { SqlExplorerMetadata } from "../src/features/sql-playground/sqlExplorerTypes.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 function render(node: React.ReactNode): string {
-  return renderToStaticMarkup(<I18nProvider>{node}</I18nProvider>);
+  return withTestLocale("en", () => renderToStaticMarkup(<I18nProvider>{node}</I18nProvider>));
 }
 
 const metadata: SqlExplorerMetadata = {

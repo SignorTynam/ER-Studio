@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CommandMenuModal } from "../src/components/CommandMenuModal.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import type { ProjectTextWorkspaceFile } from "../src/types/projectExplorer.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -20,7 +21,7 @@ const notesFile: ProjectTextWorkspaceFile = {
 };
 
 function renderPalette() {
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <CommandMenuModal
         diagramView="er"
@@ -102,7 +103,7 @@ function renderPalette() {
         onToggleToolRail={noop}
       />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("command palette espone combobox, listbox e sezioni file/comandi", () => {

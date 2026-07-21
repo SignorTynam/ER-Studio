@@ -92,8 +92,11 @@ jobs:
       - name: Verify changelog
         run: npm run changelog:check
 
-      - name: Run tests
-        run: npm test
+      - name: Run release preflight tests
+        run: npm run pretest
+
+      - name: Run full test suite
+        run: npm --ignore-scripts test
 
       - name: Build
         run: npm run build

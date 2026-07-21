@@ -6,11 +6,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { SqlReversePanel } from "../src/components/reverse/SqlReversePanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const renderInEnglish = (element: React.ReactElement): string =>
+  withTestLocale("en", () => renderToStaticMarkup(element));
+
 test("SqlReversePanel usa header ed editor condivisi senza progress bar", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <SqlReversePanel
         sql="CREATE TABLE course (id INT);"

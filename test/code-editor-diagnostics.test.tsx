@@ -6,11 +6,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { CodeEditorSurface } from "../src/components/editor/CodeEditorSurface.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 function renderSurface(readOnly: boolean) {
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <CodeEditorSurface
         value={"CREATE TABLE Course (\n  id INTEGER\n);"}
@@ -21,7 +22,7 @@ function renderSurface(readOnly: boolean) {
         diagnostics={[{ id: "sql:2", level: "warning", line: 2, column: 3, message: "Type warning" }]}
       />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("shared code editor renders one scroll surface with gutter, highlight and textarea", () => {

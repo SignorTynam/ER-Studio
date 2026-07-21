@@ -6,11 +6,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { AppHeader } from "../src/components/AppHeader.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 function renderHeader() {
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <AppHeader
         appTitle="buildER"
@@ -61,7 +62,7 @@ function renderHeader() {
         onCreateCommit={() => undefined}
       />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topbar", () => {

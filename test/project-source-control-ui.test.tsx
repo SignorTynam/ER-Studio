@@ -10,6 +10,7 @@ import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { createEmptyProjectVersioningState } from "../src/utils/projectFile.ts";
 import { getProjectUncommittedChangeState, type ProjectFileChange } from "../src/features/versioning/useProjectVersioning.ts";
 import { createProjectWideSnapshotForTest } from "./support/projectWideSnapshot.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 const noop = () => undefined;
@@ -17,7 +18,7 @@ const noop = () => undefined;
 function renderPanel() {
   const snapshot = createProjectWideSnapshotForTest();
   const changeState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), snapshot);
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <SourceControlPanel
         projectName="ER Studio" projectFilePaths={{}} workingFileIds={Object.keys(snapshot.files ?? {})}
@@ -27,7 +28,7 @@ function renderPanel() {
         onCompareWithHead={noop} onCompareWithParent={noop} onRestoreCommit={noop} onDeleteCommit={noop}
       />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("Source Control presents local snapshots without fake Git concepts", () => {

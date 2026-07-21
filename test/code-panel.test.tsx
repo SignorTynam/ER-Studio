@@ -6,11 +6,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { CodePanel } from "../src/components/CodePanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const renderInItalian = (element: React.ReactElement): string =>
+  withTestLocale("it", () => renderToStaticMarkup(element));
+
 test("CodePanel embedded non mostra caption CODE ne bottone close", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInItalian(
     <I18nProvider>
       <CodePanel
         embedded
@@ -35,7 +39,7 @@ test("CodePanel embedded non mostra caption CODE ne bottone close", () => {
 });
 
 test("CodePanel evidenzia ERS editabile come default", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInItalian(
     <I18nProvider>
       <CodePanel
         embedded
@@ -53,7 +57,7 @@ test("CodePanel evidenzia ERS editabile come default", () => {
 });
 
 test("CodePanel mostra SQL read-only con evidenziazione SQL", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInItalian(
     <I18nProvider>
       <CodePanel
         embedded
@@ -76,7 +80,7 @@ test("CodePanel mostra SQL read-only con evidenziazione SQL", () => {
 });
 
 test("CodePanel mostra schema relazionale read-only", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInItalian(
     <I18nProvider>
       <CodePanel
         embedded
@@ -100,7 +104,7 @@ test("CodePanel mostra schema relazionale read-only", () => {
 });
 
 test("CodePanel usa diagnostica inline senza blocco errore inferiore", () => {
-  const markup = renderToStaticMarkup(
+  const markup = renderInItalian(
     <I18nProvider>
       <CodePanel
         embedded

@@ -12,6 +12,7 @@ import {
   getNoticeRelativeTime,
   getVisibleWorkspaceToasts,
 } from "../src/components/WorkspaceToastStack.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
@@ -27,11 +28,11 @@ function notice(overrides: Partial<WorkspaceNotice> = {}): WorkspaceNotice {
 }
 
 function renderToastStack(notices: WorkspaceNotice[]): string {
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <WorkspaceToastStack notices={notices} onDismissNotice={() => undefined} />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("workspace toast viewport remains mounted as a portal target when empty", () => {

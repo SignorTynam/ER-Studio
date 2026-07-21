@@ -7,18 +7,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { AppHeader } from "../src/components/AppHeader.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import {
-  DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
   getLanguageMenuLabel,
-  setCurrentLocale,
 } from "../src/i18n/index.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 const appCommandCssSource = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
 
 function renderHeader(): string {
-  return renderToStaticMarkup(
+  return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <AppHeader
         appTitle="buildER"
@@ -69,11 +68,10 @@ function renderHeader(): string {
         onCreateCommit={() => undefined}
       />
     </I18nProvider>,
-  );
+  ));
 }
 
 test("AppHeader renders the language button between help and command menu", () => {
-  setCurrentLocale("en");
   const markup = renderHeader();
 
   const helpIndex = markup.indexOf('data-testid="app-header-help-menu"');
@@ -92,18 +90,15 @@ test("AppHeader renders the language button between help and command menu", () =
   assert.doesNotMatch(markup, />Reverse</);
   assert.doesNotMatch(markup, />Version</);
 
-  setCurrentLocale(DEFAULT_LOCALE);
 });
 
 test("AppHeader language menu supports every configured locale", () => {
-  setCurrentLocale("it");
-
-  assert.deepEqual(SUPPORTED_LOCALES, ["it", "en", "sq"]);
-  assert.equal(getLanguageMenuLabel("it"), "Italiano (Italiano)");
-  assert.equal(getLanguageMenuLabel("en"), "Inglese (English)");
-  assert.equal(getLanguageMenuLabel("sq"), "Albanese (Shqip)");
-
-  setCurrentLocale(DEFAULT_LOCALE);
+  withTestLocale("it", () => {
+    assert.deepEqual(SUPPORTED_LOCALES, ["it", "en", "sq"]);
+    assert.equal(getLanguageMenuLabel("it"), "Italiano (Italiano)");
+    assert.equal(getLanguageMenuLabel("en"), "Inglese (English)");
+    assert.equal(getLanguageMenuLabel("sq"), "Albanese (Shqip)");
+  });
 });
 
 test("AppHeader language menu keeps the expected interactive wiring", () => {

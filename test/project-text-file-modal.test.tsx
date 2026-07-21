@@ -6,12 +6,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ProjectTextFileModal } from "../src/components/project/ProjectTextFileModal.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 
+const renderInEnglish = (element: React.ReactElement): string =>
+  withTestLocale("en", () => renderToStaticMarkup(element));
+
 test("ProjectTextFileModal renderizza editor note per file txt", () => {
   const source = readFileSync(new URL("../src/components/project/ProjectTextFileModal.tsx", import.meta.url), "utf8");
-  const markup = renderToStaticMarkup(
+  const markup = renderInEnglish(
     <I18nProvider>
       <ProjectTextFileModal
         open

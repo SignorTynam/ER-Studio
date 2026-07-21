@@ -7,8 +7,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ErrorsPanel } from "../src/components/validation/ErrorsPanel.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { getValidationActivityPresentation, sortValidationIssuePresentations, type ValidationIssuePresentation } from "../src/utils/validationIssuePresentation.ts";
+import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
+const renderInEnglish = (element: React.ReactElement): string =>
+  withTestLocale("en", () => renderToStaticMarkup(element));
 const issues: ValidationIssuePresentation[] = [
   { id: "warning-b", level: "warning", targetId: "b", targetType: "node", title: "Beta", targetKind: "Entity", message: "Warning" },
   { id: "error-z", level: "error", targetId: "z", targetType: "node", title: "Zeta", targetKind: "Attribute", message: "Error Z" },
@@ -16,7 +19,7 @@ const issues: ValidationIssuePresentation[] = [
 ];
 
 test("ErrorsPanel uses shared primitives, filters, counts, and flat problem rows", () => {
-  const markup = renderToStaticMarkup(<I18nProvider><ErrorsPanel issues={issues} showIndicators onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
+  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={issues} showIndicators onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
   assert.match(markup, /role="tablist"/);
   assert.match(markup, /All|Tutti/);
   assert.match(markup, /role="listbox"/);
@@ -25,7 +28,7 @@ test("ErrorsPanel uses shared primitives, filters, counts, and flat problem rows
 });
 
 test("ErrorsPanel hides the numeric badge at zero and shows a compact empty state", () => {
-  const markup = renderToStaticMarkup(<I18nProvider><ErrorsPanel issues={[]} showIndicators={false} onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
+  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={[]} showIndicators={false} onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
   assert.doesNotMatch(markup, /workspace-panel__badge/);
   assert.match(markup, /workspace-panel__empty/);
 });
