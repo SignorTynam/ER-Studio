@@ -14,7 +14,7 @@ function renderHeader() {
     <I18nProvider>
       <AppHeader
         appTitle="buildER"
-        appVersion="6.3"
+        appVersion="6.3.0"
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
@@ -55,8 +55,8 @@ function renderHeader() {
         onOpenCommandMenu={() => undefined}
         onOpenShortcuts={() => undefined}
         onOpenAbout={() => undefined}
-        onOpenWhatsNew={() => undefined}
-        onOpenVersionAnnouncement={() => undefined}
+        onOpenReleaseCenter={() => undefined}
+        unreadReleaseCount={3}
         onActivityPanelSelect={() => undefined}
         onCreateCommit={() => undefined}
       />
@@ -71,6 +71,9 @@ test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topba
   assert.match(markup, /data-testid="app-header-import-export-menu"/);
   assert.match(markup, /data-testid="app-header-info-menu"/);
   assert.match(markup, /data-testid="app-header-help-menu"/);
+  assert.match(markup, /data-testid="app-header-release-center"/);
+  assert.match(markup, /release-center-button__badge/);
+  assert.match(markup, />3<\/span>/);
   assert.doesNotMatch(markup, /app-command-tab/);
   assert.doesNotMatch(markup, />Code</);
   assert.doesNotMatch(markup, />Reverse</);
@@ -132,7 +135,7 @@ test("Importa/Esporta contiene tutte le azioni di import ed export", () => {
   assert.doesNotMatch(importExportBlock, /onCreateCommit/);
 });
 
-test("Informazioni contiene Menu, Novita e Nuova versione", () => {
+test("Informazioni contiene Menu e il centro Novita", () => {
   const source = readFileSync(new URL("../src/components/AppHeader.tsx", import.meta.url), "utf8");
   const infoBlock = source.slice(
     source.indexOf('data-menu-block="info"'),
@@ -140,8 +143,7 @@ test("Informazioni contiene Menu, Novita e Nuova versione", () => {
   );
 
   assert.match(infoBlock, /onOpenCommandMenu/);
-  assert.match(infoBlock, /onOpenWhatsNew/);
-  assert.match(infoBlock, /onOpenVersionAnnouncement/);
+  assert.match(infoBlock, /onOpenReleaseCenter/);
   assert.doesNotMatch(infoBlock, /onImportSchema/);
   assert.doesNotMatch(infoBlock, /onExportPng/);
 });
@@ -154,9 +156,9 @@ test("Help menu espone shortcut, novita e informazioni", () => {
   );
 
   assert.match(source, /onOpenAbout: \(\) => void/);
-  assert.match(source, /onOpenWhatsNew: \(\) => void/);
+  assert.match(source, /onOpenReleaseCenter: \(\) => void/);
   assert.match(helpBlock, /onOpenShortcuts/);
-  assert.match(helpBlock, /onOpenWhatsNew/);
+  assert.match(helpBlock, /onOpenReleaseCenter/);
   assert.match(helpBlock, /onOpenAbout/);
 });
 

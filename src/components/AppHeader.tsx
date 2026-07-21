@@ -56,8 +56,8 @@ interface AppHeaderProps {
   onOpenCommandMenu: () => void;
   onOpenShortcuts: () => void;
   onOpenAbout: () => void;
-  onOpenWhatsNew: () => void;
-  onOpenVersionAnnouncement: () => void;
+  onOpenReleaseCenter: () => void;
+  unreadReleaseCount: number;
   onActivityPanelSelect: (panel: ProjectActivityId) => void;
   onCreateCommit: () => void;
 }
@@ -212,8 +212,7 @@ export function AppHeader(props: AppHeaderProps) {
               data-menu-block="info"
             >
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenCommandMenu)}>{t("fileMenu.menu")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenWhatsNew)}>{t("fileMenu.whatsNew")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenVersionAnnouncement)}>{t("fileMenu.versionAnnouncement")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenReleaseCenter)}>{t("releases.header.label")}</button>
             </div>
           ) : null}
         </div>
@@ -271,6 +270,23 @@ export function AppHeader(props: AppHeaderProps) {
       </div>
 
       <div className="designer-topbar-actions">
+        <Tooltip position="bottom" label={t("releases.header.tooltip")}>
+          <button
+            type="button"
+            className="designer-icon-button release-center-button"
+            onClick={props.onOpenReleaseCenter}
+            aria-label={t("releases.header.ariaLabel", { count: props.unreadReleaseCount })}
+            data-testid="app-header-release-center"
+          >
+            <StudioIcon name="sparkles" aria-hidden="true" />
+            <span className="release-center-button__label">{t("releases.header.label")}</span>
+            {props.unreadReleaseCount > 0 ? (
+              <span className="release-center-button__badge" aria-label={t("releases.header.unreadAria", { count: props.unreadReleaseCount })}>
+                {props.unreadReleaseCount > 9 ? "9+" : props.unreadReleaseCount}
+              </span>
+            ) : null}
+          </button>
+        </Tooltip>
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>
           <Tooltip position="bottom" label={t("appHeader.actions.helpTitle")}>
             <button
@@ -294,7 +310,7 @@ export function AppHeader(props: AppHeaderProps) {
               data-menu-block="help"
             >
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenShortcuts)}>{t("fileMenu.shortcuts")}</button>
-              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenWhatsNew)}>{t("fileMenu.whatsNew")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenReleaseCenter)}>{t("releases.header.label")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenAbout)}>{t("fileMenu.about")}</button>
             </div>
           ) : null}

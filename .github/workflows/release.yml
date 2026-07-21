@@ -1,0 +1,54 @@
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Verify tag and package version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json v${VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Validate release
+        run: |
+          npm run release:check
+          npm run changelog:check
+          npm test
+          npm run build
+
+      - name: Generate release notes
+        run: npm run release:notes -- --output release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          PRERELEASE=""
+          if [[ "${VERSION}" == *-* ]]; then PRERELEASE="--prerelease"; fi
+          gh release create "v${VERSION}" --title "buildER v${VERSION}" --notes-file release-notes.md ${PRERELEASE}

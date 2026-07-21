@@ -34,7 +34,10 @@ jobs:
           NODE_ENV: development
 
       - name: Build
-        run: npm run build -- --base=/${{ github.event.repository.name }}/
+        run: |
+          npm run release:check
+          npm run changelog:check
+          npm run build -- --base=/${{ github.event.repository.name }}/
         env:
           NODE_ENV: production
 

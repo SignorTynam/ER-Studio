@@ -151,6 +151,7 @@ export type StudioIconName =
   | "select"
   | "show"
   | "simpleId"
+  | "sparkles"
   | "split"
   | "success"
   | "translate"
@@ -233,6 +234,7 @@ const lucideIcons: Partial<Record<StudioIconName, LucideIcon>> = {
   role: Tag,
   save: Save,
   search: Search,
+  sparkles: Sparkles,
   select: MousePointer2,
   show: PanelRightOpen,
   split: Split,

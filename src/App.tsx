@@ -4,7 +4,10 @@ import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { BottomStatusBar } from "./components/BottomStatusBar";
 import { AppLoadingScreen } from "./components/AppLoadingScreen";
-import { ChangelogModal } from "./components/ChangelogModal";
+import { ReleaseAnnouncement } from "./components/releases/ReleaseAnnouncement";
+import { ReleaseCenter } from "./components/releases/ReleaseCenter";
+import { ReleaseToast } from "./components/releases/ReleaseToast";
+import { CriticalReleaseBanner } from "./components/releases/CriticalReleaseBanner";
 import { CodePanel } from "./components/CodePanel";
 import { CommandMenuModal } from "./components/CommandMenuModal";
 import {
@@ -299,16 +302,8 @@ import {
   shouldOpenCardinalityDialogAfterEdgeCreation,
 } from "./utils/cardinality";
 import { TOOL_BY_SHORTCUT, getToolLabel } from "./utils/toolConfig";
-import { APP_NAME, APP_TITLE, APP_VERSION, getAppChangelog, type AppChangelogEntry } from "./utils/appMeta";
-import { VersionAnnouncement } from "./components/VersionAnnouncement";
-import { classifyAppUpdate } from "./utils/versioning";
-import type { AppUpdateKind } from "./utils/versioning";
-import {
-  getLastSeenAppVersion,
-  hasSeenVersionAnnouncement,
-  rememberLastSeenAppVersion,
-  rememberVersionAnnouncementSeen,
-} from "./utils/versionAnnouncementStorage";
+import { APP_TITLE, APP_VERSION } from "./utils/appMeta";
+import { useAppReleases } from "./features/releases/useAppReleases";
 
 interface VersionCompareSession {
   left: VersionCompareRef;
@@ -316,40 +311,7 @@ interface VersionCompareSession {
   scope?: VersionCompareScope;
 }
 
-type VisibleVersionUpdateKind = Extract<AppUpdateKind, "patch" | "minor" | "major">;
 type AppTranslator = (key: MessageKey, params?: TranslationParams) => string;
-
-interface VersionAnnouncementState {
-  previousVersion: string | null;
-  updateKind: VisibleVersionUpdateKind;
-  changelogEntry: AppChangelogEntry;
-}
-
-function createFallbackChangelogEntry(
-  version: string,
-  updateKind: VisibleVersionUpdateKind,
-  translate: AppTranslator,
-): AppChangelogEntry {
-  const importantUpdate = updateKind === "minor" || updateKind === "major";
-
-  return {
-    version,
-    date: new Date().toISOString().slice(0, 10),
-    impact: updateKind,
-    headline: importantUpdate
-      ? translate("app.updateFallback.importantHeadline")
-      : translate("app.updateFallback.patchHeadline"),
-    summary: importantUpdate
-      ? translate("app.updateFallback.importantSummary")
-      : translate("app.updateFallback.patchSummary"),
-    updates: importantUpdate
-      ? [
-          translate("app.updateFallback.importantUpdatePrimary"),
-          translate("app.updateFallback.importantUpdateSecondary"),
-        ]
-      : [translate("app.updateFallback.patchUpdate")],
-  };
-}
 
 function createInitialSqlReverseWorkflowState(
   sourceSql = "",
@@ -935,7 +897,7 @@ function createProjectFileWorkspaceStateFromBootstrap(
 
 export default function App() {
   const { t } = useI18n();
-  const appChangelog = useMemo(() => getAppChangelog(t), [t]);
+  const appReleases = useAppReleases();
   const sessionBootstrapRef = useRef<WorkspaceSessionBootstrap | null>(null);
   if (!sessionBootstrapRef.current) {
     sessionBootstrapRef.current = readWorkspaceSessionBootstrap();
@@ -1010,8 +972,6 @@ export default function App() {
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const [versionAnnouncement, setVersionAnnouncement] = useState<VersionAnnouncementState | null>(null);
   const [introOpen, setIntroOpen] = useState(false);
   const {
     confirmDialog,
@@ -1482,11 +1442,11 @@ export default function App() {
     "--technical-panel-resizer-width": technicalPanelVisible ? `${RESIZER_WIDTH}px` : "0px",
   } as CSSProperties;
   const onboardingProgress = getOnboardingProgress(onboardingStepState);
-  const versionAnnouncementBlocked =
+  const releaseAnnouncementBlocked =
     commandMenuOpen ||
     keyboardShortcutsOpen ||
     aboutOpen ||
-    whatsNewOpen ||
+    appReleases.releaseCenterOpen ||
     introOpen ||
     confirmDialog !== null ||
     promptDialog !== null ||
@@ -1515,53 +1475,6 @@ export default function App() {
 
     return () => window.clearTimeout(timeout);
   }, []);
-
-  useEffect(() => {
-    const previousVersion = getLastSeenAppVersion();
-    const classification = classifyAppUpdate(previousVersion, APP_VERSION);
-
-    if (classification.kind === "first-run") {
-      rememberLastSeenAppVersion(APP_VERSION);
-      return;
-    }
-
-    if (!classification.shouldShow) {
-      return;
-    }
-
-    if (
-      classification.kind !== "patch" &&
-      classification.kind !== "minor" &&
-      classification.kind !== "major"
-    ) {
-      return;
-    }
-
-    if (hasSeenVersionAnnouncement(APP_VERSION)) {
-      rememberLastSeenAppVersion(APP_VERSION);
-      return;
-    }
-
-    if (versionAnnouncement || versionAnnouncementBlocked) {
-      return;
-    }
-
-    const changelogEntry =
-      appChangelog.find((entry) => entry.version === APP_VERSION) ??
-      createFallbackChangelogEntry(APP_VERSION, classification.kind, t);
-    const updateKind: VisibleVersionUpdateKind = changelogEntry.impact ?? classification.kind;
-    const openDelay = window.setTimeout(() => {
-      setVersionAnnouncement((current) =>
-        current ?? {
-          previousVersion,
-          updateKind,
-          changelogEntry,
-        },
-      );
-    }, 550);
-
-    return () => window.clearTimeout(openDelay);
-  }, [appChangelog, t, versionAnnouncement, versionAnnouncementBlocked]);
 
   useEffect(() => {
     if (!sessionBootstrap.hasProject || !sessionBootstrap.restored || restoredSessionNoticeShownRef.current) {
@@ -1956,10 +1869,9 @@ export default function App() {
       commandMenuReturnFocusRef.current = activeElement;
     }
     setAboutOpen(false);
-    setWhatsNewOpen(false);
+    appReleases.closeReleaseCenter();
     setIntroOpen(false);
     setKeyboardShortcutsOpen(false);
-    setVersionAnnouncement(null);
     setNotesPanelOpen(false);
     setCommandMenuOpen(true);
   }
@@ -1976,45 +1888,17 @@ export default function App() {
   function openKeyboardShortcuts() {
     setCommandMenuOpen(false);
     setAboutOpen(false);
-    setWhatsNewOpen(false);
+    appReleases.closeReleaseCenter();
     setIntroOpen(false);
     setKeyboardShortcutsOpen(true);
   }
 
-  function closeVersionAnnouncement() {
-    rememberVersionAnnouncementSeen(APP_VERSION);
-    setVersionAnnouncement(null);
-  }
-
-  function openFullChangelogFromVersionAnnouncement() {
-    rememberVersionAnnouncementSeen(APP_VERSION);
-    setVersionAnnouncement(null);
+  function openReleaseCenter() {
     setAboutOpen(false);
     setCommandMenuOpen(false);
     setKeyboardShortcutsOpen(false);
     setIntroOpen(false);
-    setWhatsNewOpen(true);
-  }
-
-  function openVersionAnnouncementManually() {
-    const changelogEntry =
-      appChangelog.find((entry) => entry.version === APP_VERSION) ??
-      createFallbackChangelogEntry(APP_VERSION, "minor", t);
-    const updateKind: VisibleVersionUpdateKind =
-      changelogEntry.impact === "major" || changelogEntry.impact === "minor"
-        ? changelogEntry.impact
-        : "minor";
-
-    setAboutOpen(false);
-    setCommandMenuOpen(false);
-    setKeyboardShortcutsOpen(false);
-    setIntroOpen(false);
-    setWhatsNewOpen(false);
-    setVersionAnnouncement({
-      previousVersion: getLastSeenAppVersion() === APP_VERSION ? null : getLastSeenAppVersion(),
-      updateKind,
-      changelogEntry,
-    });
+    appReleases.openReleaseCenter();
   }
 
   function reportExternalIdentifierInvalidations(
@@ -2993,7 +2877,7 @@ export default function App() {
           ? "translation"
           : "er";
     setAboutOpen(false);
-    setWhatsNewOpen(false);
+    appReleases.closeReleaseCenter();
     setIntroOpen(false);
     setLogicalGenerated(nextLogicalGenerated);
     setLogicalStage(options?.logicalStage === "schema" && nextLogicalGenerated ? "schema" : "translation");
@@ -3992,12 +3876,6 @@ export default function App() {
           return;
         }
 
-        if (versionAnnouncement) {
-          event.preventDefault();
-          closeVersionAnnouncement();
-          return;
-        }
-
         if (commandMenuOpen) {
           closeCommandMenu(true);
           return;
@@ -4015,11 +3893,6 @@ export default function App() {
 
         if (aboutOpen) {
           setAboutOpen(false);
-          return;
-        }
-
-        if (whatsNewOpen) {
-          setWhatsNewOpen(false);
           return;
         }
 
@@ -4059,9 +3932,7 @@ export default function App() {
     technicalPanelOpen,
     technicalPanelTab,
     tool,
-    versionAnnouncement,
     versionCompareSession,
-    whatsNewOpen,
   ]);
 
   function commitDiagram(
@@ -4714,7 +4585,7 @@ export default function App() {
     setCommandMenuOpen(false);
     setKeyboardShortcutsOpen(false);
     setAboutOpen(false);
-    setWhatsNewOpen(false);
+    appReleases.closeReleaseCenter();
     setIntroOpen(false);
     setVersionCompareSession(null);
     setSourceControlCommitMessage("");
@@ -7831,8 +7702,8 @@ export default function App() {
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
         onOpenAbout={() => setAboutOpen(true)}
-        onOpenWhatsNew={() => setWhatsNewOpen(true)}
-        onOpenVersionAnnouncement={openVersionAnnouncementManually}
+        onOpenReleaseCenter={openReleaseCenter}
+        unreadReleaseCount={appReleases.unreadCount}
         onActivityPanelSelect={handleSelectActivityPanel}
           onCreateCommit={() => {
             setActiveActivityPanel("version");
@@ -8393,14 +8264,13 @@ export default function App() {
           onExportSvg={handleExportSvg}
           onResetErs={handleResetCodeFromDiagram}
           onAbout={() => {
-            setWhatsNewOpen(false);
+            appReleases.closeReleaseCenter();
             setAboutOpen(true);
           }}
-          onWhatsNew={() => {
+          onOpenReleaseCenter={() => {
             setAboutOpen(false);
-            setWhatsNewOpen(true);
+            openReleaseCenter();
           }}
-          onVersionAnnouncement={openVersionAnnouncementManually}
           onToggleFocusMode={handleToggleFocusMode}
           onToggleToolRail={handleToggleToolRail}
         />
@@ -8851,24 +8721,32 @@ export default function App() {
         </Modal>
       ) : null}
 
-      {versionAnnouncement ? (
-        <VersionAnnouncement
-          appName={APP_NAME}
-          currentVersion={APP_VERSION}
-          previousVersion={versionAnnouncement.previousVersion}
-          updateKind={versionAnnouncement.updateKind}
-          changelogEntry={versionAnnouncement.changelogEntry}
-          onClose={closeVersionAnnouncement}
-          onOpenFullChangelog={openFullChangelogFromVersionAnnouncement}
+      {!releaseAnnouncementBlocked && appReleases.announcement?.mode === "toast" ? (
+        <ReleaseToast
+          announcement={appReleases.announcement}
+          onClose={appReleases.dismissAnnouncement}
+          onOpenReleaseCenter={openReleaseCenter}
         />
       ) : null}
 
-      {whatsNewOpen ? (
-        <ChangelogModal
-          appName={APP_NAME}
-          currentVersion={APP_VERSION}
-          entries={appChangelog}
-          onClose={() => setWhatsNewOpen(false)}
+      {!releaseAnnouncementBlocked && appReleases.announcement?.mode === "modal" ? (
+        <ReleaseAnnouncement
+          announcement={appReleases.announcement}
+          onClose={appReleases.dismissAnnouncement}
+          onOpenReleaseCenter={openReleaseCenter}
+        />
+      ) : null}
+
+      {appReleases.announcement?.mode === "critical" ? (
+        <CriticalReleaseBanner announcement={appReleases.announcement} onOpenReleaseCenter={openReleaseCenter} />
+      ) : null}
+
+      {appReleases.releaseCenterOpen ? (
+        <ReleaseCenter
+          currentVersion={appReleases.currentVersion}
+          releases={appReleases.allReleases}
+          unreadVersions={appReleases.releaseCenterUnreadVersions}
+          onClose={appReleases.closeReleaseCenter}
         />
       ) : null}
 

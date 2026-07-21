@@ -90,8 +90,7 @@ interface CommandMenuModalProps {
   onExportSvg: () => void;
   onResetErs: () => void;
   onAbout: () => void;
-  onWhatsNew: () => void;
-  onVersionAnnouncement: () => void;
+  onOpenReleaseCenter: () => void;
   onToggleFocusMode: () => void;
   onToggleToolRail: () => void;
 }
@@ -485,16 +484,11 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
     },
     {
       id: "command-help-whats-new", kind: "command", categoryId: "help", category: categoryLabels.help,
-      label: t("commandMenu.commands.helpWhatsNew.label"), icon: "history", order: 401, action: props.onWhatsNew,
+      label: t("releases.center.title"), icon: "sparkles", order: 401, action: props.onOpenReleaseCenter,
     },
     {
       id: "command-help-about", kind: "command", categoryId: "help", category: categoryLabels.help,
       label: t("commandMenu.commands.helpAbout.label"), icon: "info", order: 402, action: props.onAbout,
-    },
-    {
-      id: "command-help-version", kind: "command", categoryId: "help", category: categoryLabels.help,
-      label: t("commandMenu.commands.helpVersionAnnouncement.label"), icon: "history", order: 403,
-      action: props.onVersionAnnouncement,
     },
     ...SUPPORTED_LOCALES.map((language, index): CommandPaletteEntry => ({
       id: `command-language-${language}`,

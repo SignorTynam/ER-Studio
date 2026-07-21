@@ -97,8 +97,7 @@ function renderPalette() {
         onExportSvg={noop}
         onResetErs={noop}
         onAbout={noop}
-        onWhatsNew={noop}
-        onVersionAnnouncement={noop}
+        onOpenReleaseCenter={noop}
         onToggleFocusMode={noop}
         onToggleToolRail={noop}
       />

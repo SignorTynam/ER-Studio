@@ -82,4 +82,10 @@ test("normalizza parti di versione mancanti", () => {
   });
   assert.equal(compareAppVersions("4.6", "4.6.0"), 0);
   assert.equal(compareAppVersions("5.2.1-beta", "5.2.1"), -1);
+  assert.equal(compareAppVersions("v6.2", "6.2.0"), 0);
+  assert.equal(compareAppVersions("6.2.1", "6.2.0"), 1);
+  assert.equal(compareAppVersions("6.3.0", "6.2.9"), 1);
+  assert.equal(compareAppVersions("7.0.0", "6.99.99"), 1);
+  assert.equal(compareAppVersions("6.3.0-beta.1", "6.3.0"), -1);
+  assert.deepEqual(classifyAppUpdate("broken", "6.3.0"), { kind: "invalid", shouldShow: false, wow: false });
 });

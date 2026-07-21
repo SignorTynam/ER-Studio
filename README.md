@@ -2,17 +2,17 @@
   <img src="src/image/buildER%20no%20background.png" alt="buildER logo" width="520" />
 </p>
 
-# buildER (v6.3)
+# buildER
 
 Editor web React + TypeScript per modellare diagrammi ER in stile Chen con canvas SVG, toolbar laterale, undo/redo, project file `.ersp`, export PNG/SVG/JPEG e sincronizzazione ERS live.
 
 ## Stato del progetto
 
-buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update dedicato alla riorganizzazione della topbar, alla pulizia dell'header, al menu Informazioni e a controlli Explorer piu diretti.
+buildER è la nuova evoluzione di ER Studio. La versione corrente è pubblicata e tracciata tramite le release GitHub e il catalogo applicativo.
 
-## Novità principali in buildER 6.3
+## Novità principali
 
-- Versione applicativa aggiornata a buildER 6.3 e marcata come major update.
+- Versione applicativa letta direttamente dai metadati del pacchetto e gestita con Semantic Versioning completo.
 - Topbar riorganizzata con File, Importa/Esporta e Informazioni come menu principali.
 - Azioni di import ed export spostate nel menu Importa/Esporta con sezioni dedicate.
 - Menu File ridotto alle azioni di progetto, apertura, salvataggio e creazione nuovi file.
@@ -20,8 +20,8 @@ buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update 
 - Help mantenuto come menu compatto per Scorciatoie, Novità e About.
 - Pulsante More actions dell'Explorer sostituito con una X dedicata alla chiusura del pannello.
 - Campo editabile del nome progetto rimosso dall'header insieme a stato locale, callback, selettore DOM, chiavi i18n e CSS collegati.
-- Changelog applicativo localizzato aggiornato per alimentare il modal di nuova versione con il delta dalla 6.2.
-- Test dell'header, test Explorer, README, changelog, package metadata e lockfile allineati alla release 6.3.
+- Centro Novità localizzato con cronologia delle release e annunci proporzionati all'impatto.
+- Controlli automatici mantengono catalogo, changelog, package metadata e lockfile allineati.
 
 ## Funzionalità principali
 
