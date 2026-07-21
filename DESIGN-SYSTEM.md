@@ -337,3 +337,20 @@ reali, mentre gli elementi ER della trasformazione usano i rettangoli schematici
 Logic. In ogni vista richiede conferma quando sostituisce una disposizione, produce un solo step
 di undo e termina con **Inquadra tutto**. Toolbar, command menu e `Shift+L` invocano lo stesso
 handler della vista attiva.
+
+## Overlay del canvas — stacking e z-index
+
+Gli overlay del canvas usano una scala z-index a token (in `tokens.css`), tutti **sotto** le
+modali dell'app (z 1200):
+
+| Token | Valore | Overlay |
+|---|---:|---|
+| `--z-canvas-overlay-info` | 10 | Overlay informativi in alto a sinistra (`.canvas-overlay-stack`: guidance, flow prompt, chip di affordance, pan hint). |
+| `--z-canvas-overlay-controls` | 20 | Controlli interattivi in basso a destra: cluster zoom (`.canvas-viewport-hud`) e minimappa (`.canvas-minimap-layer`) — prima con valori locali incoerenti (19 e 4). |
+
+Cluster zoom e minimappa condividono l'angolo in basso a destra, ma il `bottom` del HUD è ancorato
+in modo **variabile** (fino a ~148px dal fondo del `.canvas-panel` in certi stati): una distanza
+fissa non garantisce la non-sovrapposizione. Per questo la minimappa **resta collassata (solo
+toggle) sotto 860px** — coerente col suo default già chiuso a quel breakpoint — ed è espandibile
+solo sopra, dove c'è spazio e resta un margine dal HUD. Nessuna collisione a 1280/860/640,
+verificato da `tests/e2e/canvas-minimap.spec.ts`.

@@ -133,3 +133,29 @@ test("minimap highlights the selected node", async ({ page }) => {
   await page.locator(".diagram-node").first().click();
   await expect(minimap.locator(".canvas-minimap__node--selected")).toHaveCount(1);
 });
+
+// G3 — the minimap and the zoom HUD must never overlap. Below 860px the minimap is
+// forced collapsed (a single toggle) so it stays clear of the variably-anchored HUD.
+for (const width of [1280, 860, 640]) {
+  test(`zoom HUD and minimap never overlap at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 820 });
+    await createDiagram(page, width > 860 ? 3 : 0);
+
+    await expect(page.locator(".canvas-viewport-hud")).toBeVisible();
+    await expect(page.locator(".canvas-minimap-layer")).toBeVisible();
+
+    const overlap = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const hud = rect(".canvas-viewport-hud");
+      const minimap = rect(".canvas-minimap-layer");
+      if (!hud || !minimap) return false;
+      return !(
+        minimap.right <= hud.left ||
+        hud.right <= minimap.left ||
+        minimap.bottom <= hud.top ||
+        hud.bottom <= minimap.top
+      );
+    });
+    expect(overlap).toBe(false);
+  });
+}

@@ -1658,6 +1658,7 @@ summary:focus-visible {
   top: 10px;
   left: 10px;
   gap: 8px;
+  z-index: var(--z-canvas-overlay-info);
 }
 
 .canvas-guidance-main,

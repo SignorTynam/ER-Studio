@@ -25,6 +25,9 @@ const MINIMAP_WORLD_PADDING_RATIO = 0.08;
 const MINIMAP_WORLD_PADDING_MIN = 80;
 const MINIMAP_KEYBOARD_PAN_RATIO = 0.12;
 const CANVAS_MINIMAP_COMPACT_QUERY = "(max-width: 860px)";
+// The floating minimap cannot sit clear of the (variably-anchored) zoom HUD below the
+// compact breakpoint, so at/under it the minimap stays collapsed to a single toggle.
+const CANVAS_MINIMAP_FORCE_COLLAPSE_QUERY = CANVAS_MINIMAP_COMPACT_QUERY;
 
 export const DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible";
 
@@ -133,6 +136,12 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
   const dragOffsetRef = useRef<Point>({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState<CanvasSize>(() => readCanvasSize(props.canvasRef.current));
   const [mapSize, setMapSize] = useState<CanvasSize>({ width: 0, height: 0 });
+  const [forceCollapsed, setForceCollapsed] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(CANVAS_MINIMAP_FORCE_COLLAPSE_QUERY).matches,
+  );
 
   useEffect(() => {
     const canvas = props.canvasRef.current;
@@ -158,6 +167,17 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
     observer.observe(svg);
     return () => observer.disconnect();
   }, [props.visible]);
+
+  // Below 640px the floating minimap cannot sit clear of the zoom HUD, so it stays
+  // collapsed (a single toggle) regardless of the stored preference.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(CANVAS_MINIMAP_FORCE_COLLAPSE_QUERY);
+    const update = () => setForceCollapsed(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   const viewportBounds = useMemo(
     () => viewportWorldBounds(props.viewport, canvasSize),
@@ -219,7 +239,9 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
     centerViewport(center);
   }
 
-  if (!props.visible) {
+  const showFull = props.visible && !forceCollapsed;
+
+  if (!showFull) {
     return (
       <div className="canvas-minimap-layer canvas-minimap-layer--collapsed">
         <PanelIconButton

@@ -234,4 +234,8 @@
   --diagram-version-added: #2a8a5f;
   --diagram-version-modified: #b5850a;
   --diagram-version-removed: #c44536;
+
+  /* Canvas overlay stacking — coherent local scale, all below app modals (z 1200). */
+  --z-canvas-overlay-info: 10;
+  --z-canvas-overlay-controls: 20;
 }

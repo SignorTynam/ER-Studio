@@ -2,7 +2,7 @@
   position: absolute;
   right: var(--space-6);
   bottom: calc(var(--space-6) + var(--size-button) + var(--space-6));
-  z-index: 19;
+  z-index: var(--z-canvas-overlay-controls);
   pointer-events: none;
 }
 
