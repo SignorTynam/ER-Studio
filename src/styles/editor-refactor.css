@@ -1657,7 +1657,7 @@ summary:focus-visible {
 .canvas-overlay-stack {
   top: 10px;
   left: 10px;
-  gap: 8px;
+  gap: var(--space-2);
   z-index: var(--z-canvas-overlay-info);
 }
 
@@ -1666,9 +1666,9 @@ summary:focus-visible {
 .canvas-persistent-message-body,
 .canvas-affordance-chip,
 .canvas-pan-hint {
-  border: 1px solid var(--editor-border);
-  background: rgba(251, 252, 250, 0.92);
-  color: var(--editor-text);
+  border: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
   box-shadow: none;
   backdrop-filter: none;
 }
@@ -1676,6 +1676,7 @@ summary:focus-visible {
 .canvas-guidance-main,
 .canvas-flow-prompt,
 .canvas-persistent-message-body {
+  /* 10px horizontal is off the 4px spacing scale; kept literal to preserve parity. */
   padding: 8px 10px;
   border-radius: 0;
 }
@@ -1683,7 +1684,7 @@ summary:focus-visible {
 .canvas-guidance-copy strong,
 .canvas-flow-prompt-copy strong,
 .canvas-persistent-message-body p {
-  font-size: 0.78rem;
+  font-size: var(--font-size-sm);
 }
 
 .canvas-guidance-copy p,
@@ -1692,16 +1693,16 @@ summary:focus-visible {
 .canvas-affordance-chip span,
 .canvas-pan-hint {
   margin: 0;
-  font-size: 0.72rem;
-  color: var(--editor-text-muted);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .canvas-shortcut-chip,
 .canvas-persistent-message-badge,
 .canvas-flow-prompt-eyebrow {
-  border: 1px solid var(--editor-border);
-  background: var(--editor-panel-muted);
-  color: var(--editor-text);
+  border: var(--border-width-default) solid var(--color-border-default);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .canvas-viewport-hud {
@@ -1744,14 +1745,14 @@ summary:focus-visible {
 }
 
 .canvas-pan-hint {
-  left: 16px;
-  bottom: 16px;
+  left: var(--space-4);
+  bottom: var(--space-4);
   padding: 6px 8px;
   border-radius: 0;
 }
 
 .canvas-affordance-rail {
-  left: 16px;
+  left: var(--space-4);
   bottom: 56px;
   gap: 6px;
 }

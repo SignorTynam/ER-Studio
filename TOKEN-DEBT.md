@@ -1779,3 +1779,17 @@ TSX). `elDiffs` vuoto sugli elementi sempre presenti. Gate: build + 693 unit + 4
 - Sistema **`--ui-*`** (`:root@9092` + 101 consumatori interni a index.css): rimovibile solo
   se tutti i consumatori risultano selettori morti.
 - **NON rimuovere** `:root@5382` (`--workspace-*`/`--tool-rail-*`): 16 usi live esterni.
+
+### Fase G4 — overlay canvas: de-alias + token a parità (2026-07-21)
+Nel blocco overlay di `editor-refactor.css` (~1657: `.canvas-overlay-stack`, `.canvas-guidance-*`,
+`.canvas-flow-prompt`, `.canvas-persistent-message-*`, `.canvas-affordance-chip`, `.canvas-pan-hint`)
+gli alias `--editor-*` sono ora canonici `--color-*` e i valori di scala sono tokenizzati
+(`8px`→`--space-2`, `16px`→`--space-4`, `0.72rem`→`--font-size-xs`, `0.78rem`→`--font-size-sm`,
+`1px`→`--border-width-default`, rgba di sfondo morti→`--color-bg-elevated`). **A parità di resa**:
+`border`/`background`/`box-shadow` del gruppo sono comunque sovrascritti da `panels.css`
+(`.canvas-guidance-main…` @2549) — verificato via computed-style before/after (invariato).
+**Residui OFF-SCALA** lasciati letterali per parità (non esprimibili sulla scala 4px senza
+spostamento): `10px` (offset overlay-stack + padding orizzontale), `6px` (padding chip/pan-hint,
+gap affordance), `56px` (affordance-rail bottom), `border-radius: 0`.
+Il blocco **HUD** (`.canvas-viewport-hud`/`.canvas-hud-button`) conserva 4 `--editor-*` + dimensioni
+(34/30/58px): fuori dallo scope "overlay stack", ed è comunque sovrascritto da `panels.css`.
