@@ -361,3 +361,36 @@ fissa non garantisce la non-sovrapposizione. Per questo la minimappa **resta col
 toggle) sotto 860px** — coerente col suo default già chiuso a quel breakpoint — ed è espandibile
 solo sopra, dove c'è spazio e resta un margine dal HUD. Nessuna collisione a 1280/860/640,
 verificato da `tests/e2e/canvas-minimap.spec.ts`.
+
+## Correzione guidata dei problemi — pannello Errori (Fase H)
+
+Ogni problema di validazione porta con sé un'**azione suggerita**, calcolata in modo puro da
+`getValidationIssueActions` (`utils/validationIssuePresentation.ts`) secondo il catalogo H2.
+Due categorie:
+
+- **`auto`** — correzione non ambigua che l'app può applicare da sola (elimina collegamento
+  invalido/mancante/duplicato, elimina attributo orfano, azzera cardinalità non ammessa). Passa da
+  `computeValidationAutoFix` → `commitDiagram(next, prev)`, quindi è **un singolo undo**, e mostra un
+  toast con azione **Annulla** (stesso pattern dell'auto-layout, `showSuccessNotice` +
+  `handleUndoAction`).
+- **`navigate`** — dove la scelta è **semantica** l'app non decide al posto dell'utente: seleziona
+  l'elemento, centra il viewport (`selectIssueTarget`) e apre il posto giusto (inspector, modale
+  cardinalità, o innesca lo strumento attributo). Regola non negoziabile: *meglio nessuna quick fix
+  che una che indovina*.
+
+Nel pannello (`ErrorsPanel.tsx`) ogni riga è un `div[role="option"]` focusabile (roving tabindex,
+frecce/Home/End/Enter invariati). L'azione vive in uno **`span` sorella** con `PanelIconButton`
++ `Tooltip` (label localizzata), **rivelato su hover / focus-within / selezione** (`visibility`):
+così resta fuori dal tab order quando la riga non è attiva e la navigazione a frecce non cambia,
+ma è raggiungibile da tastiera appena la riga riceve il focus. L'icona viene dal catalogo
+(`delete`, `cardinality`, `externalId`, `role`, `attribute`, `info`).
+
+Verifica: `test/validation-issue-actions.test.ts` (catalogo + ordine prefissi + invariante
+auto/navigate), `test/validation-auto-fix.test.ts` (per ogni auto: errore → modello valido, input
+non mutato quindi undo affidabile), `test/errors-panel.test.tsx` (un controllo per riga con azione),
+`tests/e2e/errors-quick-fix.spec.ts` (flusso navigate reale: azione per riga, navigazione a frecce
+preservata, axe pulito, click che seleziona l'entità senza mutare il modello). Nota: gli stati che
+attivano gli **auto-fix** non sono raggiungibili dalla UI normale (l'app impedisce attributi orfani
+e collegamenti incompatibili, e la cancellazione di un'entità fa cascata sugli attributi), perciò
+nascono solo da dati legacy/importati: la loro correttezza è verificata in modo **deterministico** a
+livello di modello anziché via e2e.
