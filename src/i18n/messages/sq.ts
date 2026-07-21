@@ -2303,6 +2303,7 @@ export const sq: DeepPartialMessages = {
   },
   sqlExplorer: {
     title: "SQL Explorer",
+    addDatabase: "Shto bazë të dhënash",
     refresh: "Përditëso",
     database: "Baza e të dhënave",
     databaseUnavailable: "Baza e të dhënave nuk është e disponueshme",

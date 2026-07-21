@@ -2367,6 +2367,7 @@ export const en: DeepPartialMessages = {
   },
   sqlExplorer: {
     title: "SQL Explorer",
+    addDatabase: "Add database",
     refresh: "Refresh",
     database: "Database",
     databaseUnavailable: "Database unavailable",

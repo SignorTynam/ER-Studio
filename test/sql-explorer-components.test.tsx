@@ -59,6 +59,8 @@ test("SQL Explorer empty states expose real navigation actions", () => {
   assert.match(markup, /Apri SQL Playground|Open SQL Playground/);
   assert.match(markup, /<button/);
   assert.match(markup, /SQL Explorer/);
+  assert.match(markup, /Aggiungi database|Add database/);
+  assert.match(markup, /sql-explorer-panel__toolbar/);
 });
 
 test("results splitter exposes horizontal ARIA values and keyboard-sized bounds", () => {

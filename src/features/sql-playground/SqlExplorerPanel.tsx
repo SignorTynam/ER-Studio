@@ -53,7 +53,6 @@ export function SqlExplorerPanel({
     content = (
       <div className="sql-explorer-empty">
         <p>{hasProject ? t("sqlExplorer.empty.noSchema") : t("sqlExplorer.empty.noProject")}</p>
-        <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenDatabase}>{t("databaseWorkspace.openDatabase")}</Button>
         {hasProject && hasSchema ? <Button size="sm" variant="secondary" onClick={onOpenPlayground}>{t("sqlExplorer.openPlayground")}</Button> : null}
       </div>
     );
@@ -111,6 +110,11 @@ export function SqlExplorerPanel({
           )}
         </Tooltip>
       </ProjectActivityPanelHeader>
+      <div className="sql-explorer-panel__toolbar">
+        <Button size="sm" variant="secondary" iconLeft="database" onClick={onOpenDatabase}>
+          {t("sqlExplorer.addDatabase")}
+        </Button>
+      </div>
       {sessions.length > 1 ? (
         <label className="sql-explorer-session-select">
           <span>{t("databaseWorkspace.session")}</span>

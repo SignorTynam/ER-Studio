@@ -657,6 +657,19 @@
   font-size: var(--font-size-xs);
 }
 
+.sql-explorer-panel__toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.sql-explorer-panel__toolbar .ui-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .sql-explorer-session-select select {
   min-width: 0;
   width: 100%;

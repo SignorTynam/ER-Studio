@@ -110,6 +110,46 @@ test("rejects a renamed text file without creating a database tab", async ({ pag
   await expect(page.locator(".database-workspace")).toHaveCount(0);
 });
 
+test("SQL Explorer adds databases and its session selector activates the matching workspace", async ({ page }) => {
+  test.setTimeout(120_000);
+  await boot(page);
+  const sqliteBytes = await createSqliteFixture();
+
+  await page.getByRole("button", { name: /Apri database SQLite/ }).click();
+  await page.locator(`input[type="file"][accept*=".sqlite"]`).setInputFiles({
+    name: "first-university.sqlite",
+    mimeType: "application/vnd.sqlite3",
+    buffer: sqliteBytes,
+  });
+  await expect(page.locator(".project-file-tab.active")).toContainText("Database · first-university.sqlite", { timeout: 20_000 });
+
+  await page.getByRole("button", { name: "SQL Explorer", exact: true }).click();
+  const explorer = page.locator(".sql-explorer-panel");
+  await expect(explorer).toBeVisible();
+  const addDatabase = explorer.getByRole("button", { name: "Aggiungi database", exact: true });
+  await expect(addDatabase).toBeVisible();
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await addDatabase.click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: "second-university.sqlite",
+    mimeType: "application/vnd.sqlite3",
+    buffer: sqliteBytes,
+  });
+  await expect(page.locator(".project-file-tab.active")).toContainText("Database · second-university.sqlite", { timeout: 20_000 });
+
+  const sessionSelect = explorer.getByRole("combobox", { name: "Sessione database" });
+  await expect(sessionSelect.locator("option")).toHaveCount(2);
+  await sessionSelect.selectOption({ label: "first-university.sqlite · Database importato" });
+  await expect(page.locator(".project-file-tab.active")).toContainText("Database · first-university.sqlite");
+  await expect(page.locator(".database-workspace")).toContainText("first-university.sqlite");
+
+  await sessionSelect.selectOption({ label: "second-university.sqlite · Database importato" });
+  await expect(page.locator(".project-file-tab.active")).toContainText("Database · second-university.sqlite");
+  await expect(page.locator(".database-workspace")).toContainText("second-university.sqlite");
+});
+
 test("styles every Database Reverse Engineering step and its completion state", async ({ page }) => {
   test.setTimeout(120_000);
   await boot(page);

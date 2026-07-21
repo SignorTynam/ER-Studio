@@ -2675,6 +2675,24 @@ export default function App() {
     setDatabaseReverseSessionId(sessionId);
   }
 
+  function handleSqlExplorerSessionChange(sessionId: string) {
+    const session = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
+    if (!session) return;
+    setManualSqlExplorerSessionId(sessionId);
+    if (session.source.kind === "imported-sqlite") {
+      setActiveImportedDatabaseSessionId(sessionId);
+      setActiveSqlPlaygroundSchemaId(null);
+      return;
+    }
+    const file = projectExplorer.files[session.source.schemaFileId];
+    if (file?.kind !== "schema") return;
+    openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
+    setOpenSqlPlaygroundSchemaIds((current) => current.includes(file.id) ? current : [...current, file.id]);
+    setActiveSqlPlaygroundSchemaId(file.id);
+    setActiveImportedDatabaseSessionId(null);
+    setLastSqlPlaygroundSchemaId(file.id);
+  }
+
   function handleOpenSqlExplorerQuery(sessionId: string, query: string, execute: boolean) {
     const session = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
     if (!session) return;
@@ -7688,7 +7706,7 @@ export default function App() {
         hasProject={hasProject}
         hasSchema={Boolean(sqlExplorerSchema?.kind === "schema")}
         sessions={availableSqlExplorerSessions}
-        onSessionChange={setManualSqlExplorerSessionId}
+        onSessionChange={handleSqlExplorerSessionChange}
         onOpenDatabase={handleOpenSqliteDatabaseRequest}
         onReverseDatabase={handleStartDatabaseReverse}
         onOpenQuery={handleOpenSqlExplorerQuery}

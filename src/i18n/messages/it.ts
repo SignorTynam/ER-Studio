@@ -2365,6 +2365,7 @@ export const it = {
   },
   sqlExplorer: {
     title: "SQL Explorer",
+    addDatabase: "Aggiungi database",
     refresh: "Aggiorna",
     database: "Database",
     databaseUnavailable: "Database non disponibile",
