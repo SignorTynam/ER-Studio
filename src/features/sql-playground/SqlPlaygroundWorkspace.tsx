@@ -22,6 +22,7 @@ interface SqlPlaygroundWorkspaceProps {
   hasLogicalModel: boolean;
   logicalOutOfDate: boolean;
   onGenerateLogicalModel: () => void;
+  queryRequest?: { id: number; query: string; execute: boolean } | null;
 }
 
 function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
@@ -60,6 +61,13 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
     setBodyHeight(element.getBoundingClientRect().height);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!props.queryRequest) return;
+    setQuery(props.queryRequest.query);
+    if (props.queryRequest.execute) void execute(props.queryRequest.query);
+    window.requestAnimationFrame(() => editorRef.current?.focus());
+  }, [props.queryRequest?.id]);
 
   function executeSelectionOrAll(): void {
     if (!canExecute) return;

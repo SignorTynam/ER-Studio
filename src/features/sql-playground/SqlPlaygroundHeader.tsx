@@ -1,9 +1,9 @@
 import { StudioIcon } from "../../components/icons/StudioIcon";
 import { Badge, Button, Tooltip, type BadgeTone } from "../../components/ui";
 import { useI18n } from "../../i18n/useI18n";
-import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
+import type { GeneratedSqlPlaygroundSessionState } from "./sqlPlaygroundState";
 
-function getStatusPresentation(session: SqlPlaygroundSessionState): { key: string; tone: BadgeTone } {
+function getStatusPresentation(session: GeneratedSqlPlaygroundSessionState): { key: string; tone: BadgeTone } {
   switch (session.status) {
     case "loading-engine":
       return { key: "sqlPlayground.status.loadingEngine", tone: "info" };
@@ -23,6 +23,14 @@ function getStatusPresentation(session: SqlPlaygroundSessionState): { key: strin
           : "sqlPlayground.status.runtimeError",
         tone: "danger",
       };
+    case "opening-database":
+    case "verifying-database":
+    case "restoring":
+    case "exporting":
+      return { key: "sqlPlayground.status.loadingEngine", tone: "info" };
+    case "modified":
+    case "exported":
+      return { key: "sqlPlayground.status.ready", tone: "success" };
     case "idle":
     case "engine-ready":
       return { key: "sqlPlayground.status.notCreated", tone: "neutral" };
@@ -30,7 +38,7 @@ function getStatusPresentation(session: SqlPlaygroundSessionState): { key: strin
 }
 
 interface SqlPlaygroundHeaderProps {
-  session: SqlPlaygroundSessionState;
+  session: GeneratedSqlPlaygroundSessionState;
   executeDisabled?: boolean;
   onCreateDatabase?: () => void;
   onRecreateDatabase?: () => void;

@@ -6,9 +6,13 @@ import type {
 import { isSqlPlaygroundResponse } from "./sqlPlaygroundProtocol";
 import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
 import type { SqlExplorerMetadata } from "./sqlExplorerTypes";
+import type { ImportedDatabaseOpenResult } from "../database-workspace/databaseWorkspaceTypes";
 
 export type SqlPlaygroundManagerEvent =
   | { type: "session-created"; sessionId: string }
+  | { type: "session-state-changed"; sessionId: string }
+  | { type: "database-opened"; sessionId: string }
+  | { type: "database-restored"; sessionId: string }
   | { type: "schema-ready"; sessionId: string }
   | { type: "execution-complete"; sessionId: string; schemaChanged: boolean }
   | { type: "schema-changed"; sessionId: string }
@@ -46,6 +50,7 @@ export class SqlPlaygroundManager {
     const created = !this.sessionStates.has(state.sessionId);
     this.sessionStates.set(state.sessionId, state);
     if (created) this.emit({ type: "session-created", sessionId: state.sessionId });
+    this.emit({ type: "session-state-changed", sessionId: state.sessionId });
   }
 
   getSessionStates(): SqlPlaygroundSessionState[] {
@@ -84,11 +89,11 @@ export class SqlPlaygroundManager {
     return worker;
   }
 
-  private send(payload: SqlPlaygroundRequestPayload): Promise<SqlPlaygroundResponse> {
+  private send(payload: SqlPlaygroundRequestPayload, transfer: Transferable[] = []): Promise<SqlPlaygroundResponse> {
     const requestId = `sql-playground-${this.nextRequestId++}`;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.getWorker().postMessage({ ...payload, requestId });
+      this.getWorker().postMessage({ ...payload, requestId }, transfer);
     });
   }
 
@@ -114,6 +119,19 @@ export class SqlPlaygroundManager {
     this.emit({ type: "schema-ready", sessionId });
   }
 
+  async openDatabase(input: {
+    sessionId: string;
+    fileName: string;
+    fileSize: number;
+    bytes: ArrayBuffer;
+  }): Promise<ImportedDatabaseOpenResult> {
+    await this.initialize();
+    const response = await this.send({ type: "open-database", ...input }, [input.bytes]);
+    if (response.type !== "database-opened") throw new Error("Unexpected SQLite open response.");
+    this.emit({ type: "database-opened", sessionId: input.sessionId });
+    return response;
+  }
+
   async execute(sessionId: string, sql: string, maxRows: number) {
     const response = await this.send({ type: "execute", sessionId, sql, maxRows });
     if (response.type !== "execution-complete") throw new Error("Unexpected SQLite execution response.");
@@ -126,6 +144,26 @@ export class SqlPlaygroundManager {
     const response = await this.send({ type: "inspect-schema", sessionId });
     if (response.type !== "schema-inspected") throw new Error("Unexpected SQLite schema inspection response.");
     return response.metadata;
+  }
+
+  async reverseDatabase(sessionId: string): Promise<{
+    metadata: SqlExplorerMetadata;
+    schemaSignature: string;
+  }> {
+    const response = await this.send({ type: "reverse-database", sessionId });
+    if (response.type !== "database-reversed") throw new Error("Unexpected SQLite reverse response.");
+    return { metadata: response.metadata, schemaSignature: response.schemaSignature };
+  }
+
+  async restoreDatabase(sessionId: string): Promise<{
+    metadata: SqlExplorerMetadata;
+    schemaSignature: string;
+  }> {
+    const response = await this.send({ type: "restore-database", sessionId });
+    if (response.type !== "database-restored") throw new Error("Unexpected SQLite restore response.");
+    this.emit({ type: "database-restored", sessionId });
+    this.emit({ type: "schema-changed", sessionId });
+    return { metadata: response.metadata, schemaSignature: response.schemaSignature };
   }
 
   async exportDatabase(sessionId: string): Promise<ArrayBuffer> {
@@ -143,6 +181,14 @@ export class SqlPlaygroundManager {
     const response = await this.send({ type: "close-session", sessionId });
     if (response.type !== "session-closed") throw new Error("Unexpected SQLite close response.");
     this.emit({ type: "session-closed", sessionId });
+  }
+
+  async closeGeneratedSessions(projectId?: string): Promise<void> {
+    const sessionIds = this.getSessionStates()
+      .filter((state) => state.source.kind === "generated-schema"
+        && (projectId === undefined || state.source.projectId === projectId))
+      .map((state) => state.sessionId);
+    await Promise.all(sessionIds.map((sessionId) => this.closeSession(sessionId)));
   }
 
   async dispose(): Promise<void> {

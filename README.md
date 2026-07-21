@@ -34,6 +34,8 @@ buildER è la nuova evoluzione di ER Studio. La versione 6.3 è un major update 
 - Reverse engineering SQL con preview logica e preview ER.
 - SQL Playground locale con command bar compatta, editor SQL condiviso con gutter/highlighting, risultati ridimensionabili e download `.sqlite`.
 - SQL Explorer accessibile nell'activity rail, alimentato dall'introspezione del database SQLite WebAssembly reale nel Web Worker e aggiornato automaticamente dopo modifiche DDL.
+- Database Workspace per aprire file `.sqlite`, `.sqlite3` e `.db` reali senza progetto, lavorare su una copia locale, esportare o ripristinare e gestire più sessioni indipendenti.
+- Reverse Engineering da metadata SQLite con selezione tabelle, anteprime logica/ER, destinazioni progetto e conservazione opzionale di viste, trigger e indici non convertibili.
 - UI responsive per desktop, tablet e telefono.
 - Localizzazione in italiano, inglese e albanese.
 
@@ -85,6 +87,8 @@ Per la struttura dettagliata vedere `docs/REPOSITORY_STRUCTURE.md`.
 - `docs/reverse-engineering-sql.md` — note tecniche sul reverse engineering SQL.
 - `docs/sql-reverse-attribute-layout.md` — note sul layout attributi da reverse SQL.
 - `docs/sql-playground.md` — architettura, uso, limiti e troubleshooting del Playground SQLite locale.
+- `docs/database-workspace.md` — apertura, sicurezza, sessioni, restore ed export di database SQLite locali.
+- `docs/sql-reverse-engineering.md` — ingressi SQL testuale e SQLite reale verso la pipeline logico/ER.
 
 ## Regole di repository hygiene
 

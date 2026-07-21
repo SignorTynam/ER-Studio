@@ -92,7 +92,29 @@ import type { EditorDiagnostic } from "./types/editor";
 import { SqlPlaygroundManager } from "./features/sql-playground/SqlPlaygroundManager";
 import { SqlPlaygroundWorkspace } from "./features/sql-playground/SqlPlaygroundWorkspace";
 import { SqlExplorerPanel } from "./features/sql-playground/SqlExplorerPanel";
-import { buildSqlPlaygroundSessionId } from "./utils/sqlPlayground";
+import {
+  buildSqlPlaygroundSessionId,
+  createImportedDatabaseSessionState,
+  downloadImportedSqliteDatabase,
+  markImportedDatabaseExported,
+  markImportedDatabaseRestored,
+} from "./utils/sqlPlayground";
+import { ImportedDatabaseWorkspace } from "./features/database-workspace/ImportedDatabaseWorkspace";
+import { DatabaseCloseDialog } from "./features/database-workspace/DatabaseCloseDialog";
+import { DatabaseReverseWizard } from "./features/database-workspace/reverse/DatabaseReverseWizard";
+import {
+  SQLITE_DATABASE_ACCEPT,
+  SqliteFileValidationError,
+  createImportedDatabaseSessionId,
+  readAndValidateSqliteFile,
+  validateSqliteFileMetadata,
+} from "./features/database-workspace/importedDatabaseFile";
+import type {
+  DatabaseReverseApplyReport,
+  DatabaseReverseApplyRequest,
+} from "./features/database-workspace/databaseWorkspaceTypes";
+import type { ImportedSqlDatabaseSessionState } from "./features/sql-playground/sqlPlaygroundState";
+import { createReverseExtrasSql } from "./features/database-workspace/reverse/sqliteMetadataToSqlSchemaModel";
 import {
   DEFAULT_VIEWPORT,
   WORKSPACE_SESSION_SAVE_DEBOUNCE_MS,
@@ -219,6 +241,7 @@ import {
   addProjectFile,
   addProjectFolder,
   createEmptyProjectExplorerState,
+  createProjectFromSchema,
   createSchemaWorkspaceFile,
   createTextWorkspaceFile,
   deleteProjectNode,
@@ -1062,7 +1085,25 @@ export default function App() {
   const [openSqlPlaygroundSchemaIds, setOpenSqlPlaygroundSchemaIds] = useState<string[]>([]);
   const [activeSqlPlaygroundSchemaId, setActiveSqlPlaygroundSchemaId] = useState<string | null>(null);
   const [lastSqlPlaygroundSchemaId, setLastSqlPlaygroundSchemaId] = useState<string | null>(null);
+  const [openImportedDatabaseSessionIds, setOpenImportedDatabaseSessionIds] = useState<string[]>([]);
+  const [activeImportedDatabaseSessionId, setActiveImportedDatabaseSessionId] = useState<string | null>(null);
+  const [manualSqlExplorerSessionId, setManualSqlExplorerSessionId] = useState<string | null>(null);
+  const [databaseManagerRevision, setDatabaseManagerRevision] = useState(0);
+  const [databaseOpeningName, setDatabaseOpeningName] = useState<string | null>(null);
+  const [largeDatabaseFile, setLargeDatabaseFile] = useState<File | null>(null);
+  const [databaseCloseSessionId, setDatabaseCloseSessionId] = useState<string | null>(null);
+  const [databaseRestoreSessionId, setDatabaseRestoreSessionId] = useState<string | null>(null);
+  const [databaseCloseBusy, setDatabaseCloseBusy] = useState(false);
+  const [databaseReverseSessionId, setDatabaseReverseSessionId] = useState<string | null>(null);
+  const [sqlExplorerQueryRequest, setSqlExplorerQueryRequest] = useState<{
+    id: number;
+    sessionId: string;
+    query: string;
+    execute: boolean;
+  } | null>(null);
   const sqlPlaygroundManagerRef = useRef<SqlPlaygroundManager | null>(null);
+  const sqlPlaygroundManagerUnsubscribeRef = useRef<(() => void) | null>(null);
+  const databaseCloseResolverRef = useRef<((closed: boolean) => void) | null>(null);
   const [activeActivityPanel, setActiveActivityPanel] = useState<ProjectActivityId>(() => {
     if (sessionBootstrap.codePanelOpen) return "code";
     if (typeof window !== "undefined") {
@@ -1086,6 +1127,7 @@ export default function App() {
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const schemaFileInputRef = useRef<HTMLInputElement | null>(null);
   const ersFileInputRef = useRef<HTMLInputElement | null>(null);
+  const sqliteFileInputRef = useRef<HTMLInputElement | null>(null);
   const lastSerializedCodeRef = useRef(codeDraft);
   const codeDraftRef = useRef(codeDraft);
   const codeDirtyRef = useRef(codeDirty);
@@ -1113,6 +1155,7 @@ export default function App() {
     ),
   );
   const hasUnsavedChangesRef = useRef(false);
+  const hasUnexportedDatabaseChangesRef = useRef(false);
   const onboardingPreviousSnapshotRef = useRef<OnboardingSnapshot | null>(null);
   const latestSessionSnapshotRef = useRef<WorkspaceSessionSnapshot | null>(null);
   const restoredSessionNoticeShownRef = useRef(false);
@@ -1125,21 +1168,60 @@ export default function App() {
     ? projectExplorer.files[activeSqlPlaygroundSchemaId]
     : undefined;
   const sqlPlaygroundActive = activeSqlPlaygroundSchema?.kind === "schema";
+  const importedDatabaseSessions = useMemo(() => {
+    void databaseManagerRevision;
+    const manager = sqlPlaygroundManagerRef.current;
+    if (!manager) return [];
+    return openImportedDatabaseSessionIds.flatMap((sessionId) => {
+      const state = manager.getSessionState(sessionId);
+      return state?.source.kind === "imported-sqlite" ? [state as ImportedSqlDatabaseSessionState] : [];
+    });
+  }, [databaseManagerRevision, openImportedDatabaseSessionIds]);
+  const activeImportedDatabaseSession = activeImportedDatabaseSessionId
+    ? importedDatabaseSessions.find((session) => session.sessionId === activeImportedDatabaseSessionId) ?? null
+    : null;
+  const databaseCloseSession = databaseCloseSessionId
+    ? importedDatabaseSessions.find((session) => session.sessionId === databaseCloseSessionId) ?? null
+    : null;
+  const databaseRestoreSession = databaseRestoreSessionId
+    ? importedDatabaseSessions.find((session) => session.sessionId === databaseRestoreSessionId) ?? null
+    : null;
+  const databaseReverseSession = databaseReverseSessionId
+    ? importedDatabaseSessions.find((session) => session.sessionId === databaseReverseSessionId) ?? null
+    : null;
+  const importedDatabaseActive = Boolean(activeImportedDatabaseSession);
   const sqlExplorerSchemaId = activeSqlPlaygroundSchemaId
     ?? activeSchemaFile?.id
     ?? (lastSqlPlaygroundSchemaId && projectExplorer.files[lastSqlPlaygroundSchemaId]?.kind === "schema"
       ? lastSqlPlaygroundSchemaId
       : null);
   const sqlExplorerSchema = sqlExplorerSchemaId ? projectExplorer.files[sqlExplorerSchemaId] : undefined;
-  const sqlExplorerSessionId = hasProject && sqlExplorerSchema?.kind === "schema"
+  const generatedSqlExplorerSessionId = hasProject && sqlExplorerSchema?.kind === "schema"
     ? buildSqlPlaygroundSessionId(projectExplorer.project.id, sqlExplorerSchema.id)
     : null;
+  const availableSqlExplorerSessions = sqlPlaygroundManagerRef.current?.getSessionStates() ?? [];
+  const sqlExplorerSessionId = activeImportedDatabaseSessionId
+    ?? (sqlPlaygroundActive ? generatedSqlExplorerSessionId : null)
+    ?? (manualSqlExplorerSessionId && availableSqlExplorerSessions.some((session) => session.sessionId === manualSqlExplorerSessionId)
+      ? manualSqlExplorerSessionId
+      : generatedSqlExplorerSessionId
+        ?? availableSqlExplorerSessions[availableSqlExplorerSessions.length - 1]?.sessionId
+        ?? null);
+  const sqlExplorerSessionState = sqlExplorerSessionId
+    ? sqlPlaygroundManagerRef.current?.getSessionState(sqlExplorerSessionId)
+    : undefined;
+  const sqlExplorerDisplayName = sqlExplorerSessionState?.source.kind === "imported-sqlite"
+    ? sqlExplorerSessionState.source.fileName
+    : sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema.name : null;
   const hasOpenSchema = Boolean(activeSchemaFile);
   const activeProjectTab = hasProject && projectExplorer.view.activeTabId
     ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
     : undefined;
   const welcomeTabActive = activeProjectTab?.kind === "welcome";
   const hasProjectTabsOpen = hasProject && projectExplorer.view.openTabs.length > 0;
+  const hasDatabaseWorkspace = importedDatabaseSessions.length > 0;
+  const hasWorkspaceShell = hasProject || hasDatabaseWorkspace;
+  hasUnexportedDatabaseChangesRef.current = importedDatabaseSessions.some((session) => session.hasUnexportedChanges);
   const projectFileCount = hasProject ? Object.keys(projectExplorer.files).length : 0;
   const projectFolderCount = hasProject ? projectExplorer.project.fileTree.filter((node) => node.kind === "folder").length : 0;
   const projectFilePaths = useMemo(() => {
@@ -1183,6 +1265,8 @@ export default function App() {
   }, [activeActivityPanel]);
 
   useEffect(() => () => {
+    sqlPlaygroundManagerUnsubscribeRef.current?.();
+    sqlPlaygroundManagerUnsubscribeRef.current = null;
     void sqlPlaygroundManagerRef.current?.dispose();
     sqlPlaygroundManagerRef.current = null;
   }, []);
@@ -1696,7 +1780,7 @@ export default function App() {
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
       persistWorkspaceSessionNow();
-      if (!hasUnsavedChangesRef.current) {
+      if (!hasUnsavedChangesRef.current && !hasUnexportedDatabaseChangesRef.current) {
         return;
       }
 
@@ -2427,9 +2511,317 @@ export default function App() {
 
   function getSqlPlaygroundManager(): SqlPlaygroundManager {
     if (!sqlPlaygroundManagerRef.current) {
-      sqlPlaygroundManagerRef.current = new SqlPlaygroundManager();
+      const manager = new SqlPlaygroundManager();
+      sqlPlaygroundManagerRef.current = manager;
+      sqlPlaygroundManagerUnsubscribeRef.current = manager.subscribe((event) => {
+        if (event.type !== "session-state-changed") return;
+        if (manager.getSessionState(event.sessionId)?.source.kind !== "imported-sqlite") return;
+        queueMicrotask(() => setDatabaseManagerRevision((current) => current + 1));
+      });
     }
     return sqlPlaygroundManagerRef.current;
+  }
+
+  async function handleImportSqlWithoutProject() {
+    if (hasProject) {
+      handleOpenSqlReverseWorkflow();
+      return;
+    }
+    await handleNewProject();
+    setFocusMode(false);
+    closeTechnicalPanel();
+    setActiveActivityPanel("reverse");
+    setWorkspaceActivityOpen(true);
+    setSqlReverseWorkflow(createInitialSqlReverseWorkflowState());
+  }
+
+  function handleOpenSqliteDatabaseRequest() {
+    sqliteFileInputRef.current?.click();
+  }
+
+  function databaseFileErrorMessage(error: unknown): string {
+    if (error instanceof SqliteFileValidationError) {
+      if (error.code === "empty-file") return t("databaseWorkspace.errors.emptyFile");
+      if (error.code === "too-large") return t("databaseWorkspace.errors.tooLarge");
+      if (error.code === "wal-file" || error.code === "shm-file") return t("databaseWorkspace.errors.walShm");
+      return t("databaseWorkspace.errors.invalidFile");
+    }
+    return error instanceof Error ? error.message : t("databaseWorkspace.errors.openFailed");
+  }
+
+  async function openSqliteDatabase(file: File): Promise<void> {
+    setDatabaseOpeningName(file.name);
+    try {
+      const bytes = await readAndValidateSqliteFile(file);
+      const manager = getSqlPlaygroundManager();
+      const sqliteVersion = await manager.initialize();
+      const sessionId = createImportedDatabaseSessionId();
+      const openedAt = new Date().toISOString();
+      const opened = await manager.openDatabase({
+        sessionId,
+        fileName: file.name,
+        fileSize: file.size,
+        bytes,
+      });
+      manager.setSessionState(createImportedDatabaseSessionState({
+        sessionId,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        openedAt,
+        sqliteVersion,
+        schemaSignature: opened.schemaSignature,
+      }));
+      setOpenImportedDatabaseSessionIds((current) => [...current, sessionId]);
+      setActiveImportedDatabaseSessionId(sessionId);
+      setActiveSqlPlaygroundSchemaId(null);
+      setManualSqlExplorerSessionId(sessionId);
+      setStatusSuccess(t("databaseWorkspace.opened", { name: file.name }));
+    } catch (error) {
+      setStatusError(databaseFileErrorMessage(error));
+    } finally {
+      setDatabaseOpeningName(null);
+      setLargeDatabaseFile(null);
+    }
+  }
+
+  function handleSqliteDatabaseFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    const validation = validateSqliteFileMetadata(file.name, file.size);
+    if (!validation.ok) {
+      setStatusError(databaseFileErrorMessage(new SqliteFileValidationError(validation.code ?? "invalid-header")));
+      return;
+    }
+    if (validation.warning) {
+      setLargeDatabaseFile(file);
+      return;
+    }
+    void openSqliteDatabase(file);
+  }
+
+  async function closeImportedDatabaseSession(sessionId: string): Promise<void> {
+    await sqlPlaygroundManagerRef.current?.closeSession(sessionId);
+    const remaining = openImportedDatabaseSessionIds.filter((id) => id !== sessionId);
+    setOpenImportedDatabaseSessionIds(remaining);
+    setActiveImportedDatabaseSessionId((current) => current === sessionId ? remaining[remaining.length - 1] ?? null : current);
+    setManualSqlExplorerSessionId((current) => current === sessionId ? null : current);
+    setDatabaseCloseSessionId(null);
+    setDatabaseReverseSessionId((current) => current === sessionId ? null : current);
+  }
+
+  async function requestImportedDatabaseClose(sessionId: string): Promise<boolean> {
+    const state = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
+    if (state?.source.kind !== "imported-sqlite") return true;
+    if (!(state as ImportedSqlDatabaseSessionState).hasUnexportedChanges) {
+      await closeImportedDatabaseSession(sessionId);
+      return true;
+    }
+    return new Promise<boolean>((resolve) => {
+      databaseCloseResolverRef.current = resolve;
+      setDatabaseCloseSessionId(sessionId);
+    });
+  }
+
+  function resolveImportedDatabaseClose(closed: boolean) {
+    const resolve = databaseCloseResolverRef.current;
+    databaseCloseResolverRef.current = null;
+    setDatabaseCloseSessionId(null);
+    resolve?.(closed);
+  }
+
+  async function exportImportedDatabaseSession(sessionId: string): Promise<boolean> {
+    const manager = sqlPlaygroundManagerRef.current;
+    const state = manager?.getSessionState(sessionId);
+    if (!manager || state?.source.kind !== "imported-sqlite") return false;
+    try {
+      const bytes = await manager.exportDatabase(sessionId);
+      downloadImportedSqliteDatabase(bytes, state.source.fileName, (state as ImportedSqlDatabaseSessionState).hasSessionChanges);
+      manager.setSessionState(markImportedDatabaseExported(state as ImportedSqlDatabaseSessionState));
+      return true;
+    } catch (error) {
+      setStatusError(databaseFileErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function restoreImportedDatabaseSession(sessionId: string): Promise<boolean> {
+    const manager = sqlPlaygroundManagerRef.current;
+    const state = manager?.getSessionState(sessionId);
+    if (!manager || state?.source.kind !== "imported-sqlite") return false;
+    manager.setSessionState({ ...(state as ImportedSqlDatabaseSessionState), status: "restoring", error: null });
+    try {
+      const restored = await manager.restoreDatabase(sessionId);
+      manager.setSessionState(markImportedDatabaseRestored(state as ImportedSqlDatabaseSessionState, restored.schemaSignature));
+      setDatabaseRestoreSessionId(null);
+      return true;
+    } catch (error) {
+      manager.setSessionState({
+        ...(state as ImportedSqlDatabaseSessionState),
+        status: "runtime-error",
+        error: {
+          operation: "restore-database",
+          message: databaseFileErrorMessage(error),
+          recoverable: true,
+        },
+      });
+      setStatusError(databaseFileErrorMessage(error));
+      return false;
+    }
+  }
+
+  function handleStartDatabaseReverse(sessionId: string) {
+    setDatabaseReverseSessionId(sessionId);
+  }
+
+  function handleOpenSqlExplorerQuery(sessionId: string, query: string, execute: boolean) {
+    const session = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
+    if (!session) return;
+    if (session.source.kind === "imported-sqlite") {
+      setActiveImportedDatabaseSessionId(sessionId);
+      setActiveSqlPlaygroundSchemaId(null);
+    } else {
+      const file = projectExplorer.files[session.source.schemaFileId];
+      if (file?.kind !== "schema") return;
+      openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
+      setOpenSqlPlaygroundSchemaIds((current) => current.includes(file.id) ? current : [...current, file.id]);
+      setActiveSqlPlaygroundSchemaId(file.id);
+      setActiveImportedDatabaseSessionId(null);
+      setLastSqlPlaygroundSchemaId(file.id);
+    }
+    setSqlExplorerQueryRequest((current) => ({
+      id: (current?.id ?? 0) + 1,
+      sessionId,
+      query,
+      execute,
+    }));
+  }
+
+  function createSchemaFromDatabaseReverse(request: DatabaseReverseApplyRequest) {
+    const diagram = {
+      ...request.result.diagram,
+      meta: {
+        ...request.result.diagram.meta,
+        name: stripKnownProjectExtension(request.schemaFileName) || request.result.diagram.meta.name,
+      },
+    };
+    const translationWorkspace = createEmptyErTranslationWorkspace(diagram);
+    const logicalWorkspace = updateLogicalWorkspaceModel(
+      translationWorkspace.translatedDiagram,
+      createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram),
+      request.result.logicalModel,
+    );
+    return createSchemaDocumentFromProjectState({
+      diagram,
+      translationWorkspace,
+      logicalWorkspace,
+      logicalGenerated: true,
+      logicalStage: "schema",
+      diagramView: "er",
+      viewport: createCenteredViewportForDiagram(diagram),
+      translationViewport: createCenteredViewportForDiagram(translationWorkspace.translatedDiagram),
+      logicalViewport: DEFAULT_VIEWPORT,
+      workspace: {
+        ...currentProjectWorkspaceState,
+        tool: "select",
+        selection: { nodeIds: [], edgeIds: [] },
+        translationSelection: { nodeIds: [], edgeIds: [] },
+        logicalSelection: { ...EMPTY_LOGICAL_SELECTION },
+        codeDraft: serializeDiagramToErs(diagram),
+        codeDirty: false,
+      },
+    });
+  }
+
+  function addReverseExtrasFile(
+    state: ProjectExplorerState,
+    request: DatabaseReverseApplyRequest,
+  ): ProjectExplorerState {
+    if (!request.includeUnconvertedDefinitions || request.result.unconvertedDefinitions.length === 0) return state;
+    const extras = createReverseExtrasSql(request.result);
+    if (!extras.trim()) return state;
+    const requestedName = `${stripKnownProjectExtension(request.schemaFileName)}-extras.sql`;
+    const uniqueName = getUniqueProjectNodeName(state.project, state.project.rootId, requestedName);
+    const extraFile = createTextWorkspaceFile(uniqueName, "sql", extras);
+    const added = addProjectFile(state, state.project.rootId, extraFile);
+    return added.ok ? added.state : state;
+  }
+
+  async function handleApplyDatabaseReverse(
+    request: DatabaseReverseApplyRequest,
+  ): Promise<DatabaseReverseApplyReport | null> {
+    const schema = createSchemaFromDatabaseReverse(request);
+    let schemaFileId = "";
+    let schemaFileName = request.schemaFileName;
+
+    if (request.destination === "new-project") {
+      if (hasProject && !(await confirmDiscardChanges(t("workspace.unsavedActions.createNewProject")))) return null;
+      await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
+      let nextState = createProjectFromSchema(request.projectName, schema);
+      nextState = addReverseExtrasFile(nextState, request);
+      const schemaFile = Object.values(nextState.files).find((file) => file.kind === "schema");
+      if (!schemaFile || schemaFile.kind !== "schema") throw new Error(t("databaseWorkspace.reverse.error"));
+      schemaFileId = schemaFile.id;
+      schemaFileName = schemaFile.name;
+      setHasProject(true);
+      setProjectExplorer(nextState);
+      openSchemaWorkspaceFile(schemaFile.id, markProjectTabDirty(nextState, schemaFile.id, true), { center: true });
+      hasUnsavedChangesRef.current = true;
+    } else if (request.destination === "replace-current-schema") {
+      if (!activeSchemaFile) throw new Error(t("databaseWorkspace.reverse.noActiveSchema"));
+      const confirmed = await requestConfirmDialog({
+        title: t("databaseWorkspace.reverse.replaceConfirmTitle"),
+        message: t("databaseWorkspace.reverse.replaceConfirmMessage"),
+        confirmLabel: t("databaseWorkspace.reverse.replaceCurrentSchema"),
+        cancelLabel: t("common.actions.cancel"),
+        danger: true,
+      });
+      if (!confirmed) return null;
+      const synced = syncActiveSchemaToProject();
+      const replaced = {
+        ...synced,
+        files: {
+          ...synced.files,
+          [activeSchemaFile.id]: {
+            ...activeSchemaFile,
+            schema,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      };
+      const dirty = addReverseExtrasFile(markProjectTabDirty(replaced, activeSchemaFile.id, true), request);
+      schemaFileId = activeSchemaFile.id;
+      schemaFileName = activeSchemaFile.name;
+      openSchemaWorkspaceFile(activeSchemaFile.id, dirty, { center: true });
+      hasUnsavedChangesRef.current = true;
+    } else {
+      const synced = syncActiveSchemaToProject();
+      const uniqueName = getUniqueProjectNodeName(
+        synced.project,
+        synced.project.rootId,
+        ensureProjectFileExtension(request.schemaFileName, "schema"),
+      );
+      const schemaFile = createSchemaWorkspaceFile(uniqueName, schema);
+      const added = addProjectFile(synced, synced.project.rootId, schemaFile);
+      if (!added.ok) throw new Error(t(`projectExplorer.errors.${added.reason}`));
+      const withExtras = addReverseExtrasFile(added.state, request);
+      schemaFileId = schemaFile.id;
+      schemaFileName = schemaFile.name;
+      openSchemaWorkspaceFile(schemaFile.id, markProjectTabDirty(withExtras, schemaFile.id, true), { center: true });
+      hasUnsavedChangesRef.current = true;
+    }
+
+    return {
+      schemaFileId,
+      schemaFileName,
+      tableCount: request.result.sqlModel.tables.length,
+      entityCount: request.result.diagram.nodes.filter((node) => node.type === "entity").length,
+      relationshipCount: request.result.diagram.nodes.filter((node) => node.type === "relationship").length,
+      warningCount: request.result.issues.filter((issue) => issue.level === "warning").length
+        + request.result.logicalIssues.filter((issue) => issue.level === "warning").length,
+      preservedDefinitionCount: request.includeUnconvertedDefinitions ? request.result.unconvertedDefinitions.length : 0,
+    };
   }
 
   function handleOpenSqlPlayground() {
@@ -2697,6 +3089,8 @@ export default function App() {
       return;
     }
 
+    setActiveImportedDatabaseSessionId(null);
+    setActiveSqlPlaygroundSchemaId(null);
     setProjectExplorer(openWelcomeTab(syncActiveSchemaToProject()));
   }
 
@@ -2707,6 +3101,7 @@ export default function App() {
     }
 
     setActiveSqlPlaygroundSchemaId(null);
+    setActiveImportedDatabaseSessionId(null);
     const nextState = ensureFileTabOpen(state, fileId);
     setProjectExplorer(nextState);
     const centeredViewport = options.center ? createCenteredViewportForDiagram(file.schema.diagram) : file.schema.view.erViewport;
@@ -2738,6 +3133,7 @@ export default function App() {
     }
 
     setActiveSqlPlaygroundSchemaId(null);
+    setActiveImportedDatabaseSessionId(null);
     const synced = syncActiveSchemaToProject();
     if (file.kind === "schema") {
       openSchemaWorkspaceFile(fileId, synced, { center: true });
@@ -2766,6 +3162,13 @@ export default function App() {
   }
 
   function handleProjectFileTabSelect(tabId: string) {
+    const importedSessionId = openImportedDatabaseSessionIds.find((sessionId) => `database:${sessionId}` === tabId);
+    if (importedSessionId) {
+      setActiveImportedDatabaseSessionId(importedSessionId);
+      setActiveSqlPlaygroundSchemaId(null);
+      setManualSqlExplorerSessionId(importedSessionId);
+      return;
+    }
     const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
     if (playgroundSchemaId) {
       const synced = syncActiveSchemaToProject();
@@ -2773,11 +3176,13 @@ export default function App() {
       if (file?.kind === "schema") {
         openSchemaWorkspaceFile(playgroundSchemaId, synced);
         setActiveSqlPlaygroundSchemaId(playgroundSchemaId);
+        setActiveImportedDatabaseSessionId(null);
         setLastSqlPlaygroundSchemaId(playgroundSchemaId);
       }
       return;
     }
     setActiveSqlPlaygroundSchemaId(null);
+    setActiveImportedDatabaseSessionId(null);
     const nextState = setActiveProjectTab(syncActiveSchemaToProject(), tabId);
     const activeFileId = nextState.project.activeFileId ?? nextState.view.activeFileId;
     const file = activeFileId ? nextState.files[activeFileId] : undefined;
@@ -2806,6 +3211,11 @@ export default function App() {
   }
 
   async function handleProjectFileTabClose(tabId: string) {
+    const importedSessionId = openImportedDatabaseSessionIds.find((sessionId) => `database:${sessionId}` === tabId);
+    if (importedSessionId) {
+      await requestImportedDatabaseClose(importedSessionId);
+      return;
+    }
     const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
     if (playgroundSchemaId) {
       setOpenSqlPlaygroundSchemaIds((current) => current.filter((schemaId) => schemaId !== playgroundSchemaId));
@@ -2872,36 +3282,29 @@ export default function App() {
     applyProjectTabMutation(nextState);
   }
 
-  function handleProjectTabsCloseOthers(tabId: string) {
-    const playgroundSchemaId = openSqlPlaygroundSchemaIds.find((schemaId) => `sql-playground:${schemaId}` === tabId);
-    if (playgroundSchemaId) {
-      setOpenSqlPlaygroundSchemaIds([playgroundSchemaId]);
-      closeProjectTabsBy((candidateId) => candidateId !== `file:${playgroundSchemaId}`);
-      return;
+  async function closeWorkspaceTabs(tabIds: string[]): Promise<void> {
+    for (const tabId of tabIds) {
+      const sessionId = tabId.startsWith("database:") ? tabId.slice("database:".length) : null;
+      if (sessionId && !(await requestImportedDatabaseClose(sessionId))) return;
     }
-    setOpenSqlPlaygroundSchemaIds([]);
-    setActiveSqlPlaygroundSchemaId(null);
-    closeProjectTabsBy((candidateId) => candidateId !== tabId);
+    const closingPlaygroundIds = new Set(tabIds.filter((id) => id.startsWith("sql-playground:")).map((id) => id.slice("sql-playground:".length)));
+    setOpenSqlPlaygroundSchemaIds((current) => current.filter((id) => !closingPlaygroundIds.has(id)));
+    if (activeSqlPlaygroundSchemaId && closingPlaygroundIds.has(activeSqlPlaygroundSchemaId)) setActiveSqlPlaygroundSchemaId(null);
+    const closingProjectIds = new Set(tabIds.filter((id) => !id.startsWith("database:") && !id.startsWith("sql-playground:")));
+    if (closingProjectIds.size > 0) closeProjectTabsBy((candidateId) => closingProjectIds.has(candidateId));
+  }
+
+  function handleProjectTabsCloseOthers(tabId: string) {
+    void closeWorkspaceTabs(visibleProjectTabs.filter((tab) => tab.id !== tabId).map((tab) => tab.id));
   }
 
   function handleProjectTabsCloseToRight(tabId: string) {
-    const playgroundIndex = openSqlPlaygroundSchemaIds.findIndex((schemaId) => `sql-playground:${schemaId}` === tabId);
-    if (playgroundIndex >= 0) {
-      const removedIds = new Set(openSqlPlaygroundSchemaIds.slice(playgroundIndex + 1));
-      setOpenSqlPlaygroundSchemaIds((current) => current.slice(0, playgroundIndex + 1));
-      if (activeSqlPlaygroundSchemaId && removedIds.has(activeSqlPlaygroundSchemaId)) setActiveSqlPlaygroundSchemaId(null);
-      return;
-    }
-    setOpenSqlPlaygroundSchemaIds([]);
-    setActiveSqlPlaygroundSchemaId(null);
-    const index = projectExplorer.view.openTabs.findIndex((tab) => tab.id === tabId);
-    closeProjectTabsBy((_candidateId, candidateIndex) => candidateIndex > index);
+    const index = visibleProjectTabs.findIndex((tab) => tab.id === tabId);
+    if (index >= 0) void closeWorkspaceTabs(visibleProjectTabs.slice(index + 1).map((tab) => tab.id));
   }
 
   function handleProjectTabsCloseAll() {
-    setOpenSqlPlaygroundSchemaIds([]);
-    setActiveSqlPlaygroundSchemaId(null);
-    closeProjectTabsBy(() => true);
+    void closeWorkspaceTabs(visibleProjectTabs.map((tab) => tab.id));
   }
 
   function handleProjectTabReorder(sourceTabId: string, targetTabId: string) {
@@ -4190,11 +4593,11 @@ export default function App() {
       return;
     }
 
-    await sqlPlaygroundManagerRef.current?.dispose();
-    sqlPlaygroundManagerRef.current = null;
+    await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
     setOpenSqlPlaygroundSchemaIds([]);
     setActiveSqlPlaygroundSchemaId(null);
     setLastSqlPlaygroundSchemaId(null);
+    setActiveImportedDatabaseSessionId(null);
 
     const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
     const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
@@ -4264,11 +4667,11 @@ export default function App() {
     const emptyProjectExplorer = createEmptyProjectExplorerState("buildER Project");
     const blankCode = serializeDiagramToErs(blankDiagram);
 
-    await sqlPlaygroundManagerRef.current?.dispose();
-    sqlPlaygroundManagerRef.current = null;
+    await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
     setOpenSqlPlaygroundSchemaIds([]);
     setActiveSqlPlaygroundSchemaId(null);
     setLastSqlPlaygroundSchemaId(null);
+    setActiveImportedDatabaseSessionId((current) => current ?? openImportedDatabaseSessionIds[openImportedDatabaseSessionIds.length - 1] ?? null);
     setHasProject(false);
     setProjectExplorer(emptyProjectExplorer);
     history.reset(blankDiagram);
@@ -6657,11 +7060,11 @@ export default function App() {
             : parsedProject.source === "schema-file"
               ? t("projectExplorer.status.schemaImported")
           : t("workspace.projectLoaded");
-      await sqlPlaygroundManagerRef.current?.dispose();
-      sqlPlaygroundManagerRef.current = null;
+      await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
       setOpenSqlPlaygroundSchemaIds([]);
       setActiveSqlPlaygroundSchemaId(null);
       setLastSqlPlaygroundSchemaId(null);
+      setActiveImportedDatabaseSessionId(null);
       setHasProject(true);
       if (parsedProject.state.project && parsedProject.state.files && parsedProject.state.explorerView) {
         const nextProjectExplorer = normalizeProjectTabs({
@@ -7060,8 +7463,8 @@ export default function App() {
   ];
   const dirtyProjectFileIds = new Set(versioningChangeState.files.map((file) => file.fileId));
   const visibleProjectTabs: WorkspaceOpenTab[] = [
-    ...applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds),
-    ...openSqlPlaygroundSchemaIds.flatMap((schemaFileId) => {
+    ...(hasProject ? applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds) : []),
+    ...(hasProject ? openSqlPlaygroundSchemaIds.flatMap((schemaFileId) => {
       const file = projectExplorer.files[schemaFileId];
       return file?.kind === "schema"
         ? [{
@@ -7071,8 +7474,24 @@ export default function App() {
             title: t("sqlPlayground.tabTitle", { name: file.name }),
           }]
         : [];
+    }) : []),
+    ...importedDatabaseSessions.map((session, index, allSessions) => {
+      const duplicateIndex = allSessions.slice(0, index).filter((candidate) => candidate.fileName === session.fileName).length;
+      const titleSuffix = duplicateIndex > 0 ? ` (${duplicateIndex + 1})` : "";
+      return {
+        id: `database:${session.sessionId}`,
+        kind: "sqlite-database" as const,
+        databaseSessionId: session.sessionId,
+        title: t("databaseWorkspace.tabTitle", { name: `${session.fileName}${titleSuffix}` }),
+        databaseDirty: session.hasUnexportedChanges,
+      };
     }),
   ];
+  const activeWorkspaceTabId = importedDatabaseActive
+    ? `database:${activeImportedDatabaseSessionId}`
+    : sqlPlaygroundActive
+      ? `sql-playground:${activeSqlPlaygroundSchemaId}`
+      : hasProject ? projectExplorer.view.activeTabId : null;
   async function handleCreateSourceControlCommit() {
     const created = await handleCreateProjectCommit(sourceControlCommitMessage);
     if (created) {
@@ -7265,9 +7684,14 @@ export default function App() {
       <SqlExplorerPanel
         manager={sqlPlaygroundManagerRef.current}
         sessionId={sqlExplorerSessionId}
-        schemaName={sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema.name : null}
+        schemaName={sqlExplorerDisplayName}
         hasProject={hasProject}
         hasSchema={Boolean(sqlExplorerSchema?.kind === "schema")}
+        sessions={availableSqlExplorerSessions}
+        onSessionChange={setManualSqlExplorerSessionId}
+        onOpenDatabase={handleOpenSqliteDatabaseRequest}
+        onReverseDatabase={handleStartDatabaseReverse}
+        onOpenQuery={handleOpenSqlExplorerQuery}
         onOpenPlayground={handleOpenSqlExplorerPlayground}
         onClose={handleToggleActivityPanelOpen}
       />
@@ -7379,6 +7803,7 @@ export default function App() {
         onSaveErs={handleSaveErs}
         onOpenSqlReverseWorkflow={handleOpenSqlReverseWorkflow}
         onImportSql={handleOpenSqlReverseWorkflow}
+        onOpenSqliteDatabase={handleOpenSqliteDatabaseRequest}
         onOpenErrorsPanel={handleOpenErrorsPanel}
         onToggleDiagnostics={() => setShowDiagnostics((current) => !current)}
         onExportPng={handleExportPng}
@@ -7400,7 +7825,7 @@ export default function App() {
       <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
 
       <div className={workspaceRegionClassName}>
-        {hasProject ? (
+        {hasWorkspaceShell ? (
           <>
             <div className="workspace-overlay-region">
               {showOnboardingGuide ? (
@@ -7438,7 +7863,7 @@ export default function App() {
             <div className="project-main-area">
           <ProjectFileTabs
             tabs={visibleProjectTabs}
-            activeTabId={sqlPlaygroundActive ? `sql-playground:${activeSqlPlaygroundSchemaId}` : projectExplorer.view.activeTabId}
+            activeTabId={activeWorkspaceTabId}
             files={projectExplorer.files}
             paths={projectFilePaths}
             onSelectTab={handleProjectFileTabSelect}
@@ -7448,9 +7873,9 @@ export default function App() {
             onCloseAll={handleProjectTabsCloseAll}
             onRevealFile={handleRevealProjectFile}
             onReorder={handleProjectTabReorder}
-            onNewFile={() => handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+            onNewFile={hasProject ? () => handleProjectExplorerCreateSchema(projectExplorer.project.rootId) : undefined}
           />
-          {activeProjectFile && !sqlPlaygroundActive ? (
+          {activeProjectFile && !sqlPlaygroundActive && !importedDatabaseActive ? (
             <WorkspaceEditorHeader
               projectName={projectExplorer.project.name}
               file={activeProjectFile}
@@ -7460,8 +7885,16 @@ export default function App() {
               onViewChange={handleDiagramViewChange}
             />
           ) : null}
-          <div className={sqlPlaygroundActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
-            {sqlPlaygroundActive && activeSchemaFile ? (
+          <div className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
+            {importedDatabaseActive && activeImportedDatabaseSessionId ? (
+              <ImportedDatabaseWorkspace
+                key={activeImportedDatabaseSessionId}
+                manager={getSqlPlaygroundManager()}
+                sessionId={activeImportedDatabaseSessionId}
+                onReverse={handleStartDatabaseReverse}
+                queryRequest={sqlExplorerQueryRequest?.sessionId === activeImportedDatabaseSessionId ? sqlExplorerQueryRequest : null}
+              />
+            ) : sqlPlaygroundActive && activeSchemaFile ? (
               <SqlPlaygroundWorkspace
                 key={`${projectExplorer.project.id}:${activeSchemaFile.id}`}
                 manager={getSqlPlaygroundManager()}
@@ -7471,6 +7904,7 @@ export default function App() {
                 generatedSql={sqlPlaygroundSchemaCode}
                 hasLogicalModel={logicalGenerated && logicalHistory.present.model.tables.length > 0}
                 logicalOutOfDate={logicalOutOfDate}
+                queryRequest={sqlExplorerQueryRequest?.sessionId === buildSqlPlaygroundSessionId(projectExplorer.project.id, activeSchemaFile.id) ? sqlExplorerQueryRequest : null}
                 onGenerateLogicalModel={() => {
                   setActiveSqlPlaygroundSchemaId(null);
                   handleGenerateLogicalModel();
@@ -7703,6 +8137,8 @@ export default function App() {
             onNewProject={handleNewProject}
             onOpenProject={handleLoadProjectRequest}
             onImportSchema={handleImportSchemaRequest}
+            onOpenSqliteDatabase={handleOpenSqliteDatabaseRequest}
+            onImportSql={() => void handleImportSqlWithoutProject()}
           />
         )}
       </div>
@@ -7744,6 +8180,91 @@ export default function App() {
         accept=".ers,text/plain"
         onChange={handleLoadErsFile}
       />
+      <input
+        ref={sqliteFileInputRef}
+        className="hidden-input"
+        type="file"
+        accept={SQLITE_DATABASE_ACCEPT}
+        aria-label={t("databaseWorkspace.openDatabase")}
+        onChange={handleSqliteDatabaseFile}
+      />
+
+      <Modal
+        open={Boolean(largeDatabaseFile)}
+        onClose={() => setLargeDatabaseFile(null)}
+        title={t("databaseWorkspace.largeFile.title")}
+        subtitle={t("databaseWorkspace.largeFile.message")}
+        size="sm"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setLargeDatabaseFile(null)}>{t("common.actions.cancel")}</Button>
+            <Button variant="primary" onClick={() => { if (largeDatabaseFile) void openSqliteDatabase(largeDatabaseFile); }}>{t("databaseWorkspace.largeFile.openAnyway")}</Button>
+          </>
+        )}
+      >
+        <p>{t("databaseWorkspace.largeFile.originalSafe")}</p>
+      </Modal>
+
+      <Modal
+        open={Boolean(databaseOpeningName)}
+        onClose={() => undefined}
+        title={t("databaseWorkspace.status.opening")}
+        subtitle={databaseOpeningName ?? undefined}
+        size="sm"
+        busy
+        hideClose
+      >
+        <div className="sql-explorer-loading" role="status"><span className="ui-button__spinner" aria-hidden="true" />{t("databaseWorkspace.status.verifying")}</div>
+      </Modal>
+
+      <DatabaseCloseDialog
+        open={Boolean(databaseCloseSession)}
+        fileName={databaseCloseSession?.fileName ?? ""}
+        busy={databaseCloseBusy}
+        onCancel={() => resolveImportedDatabaseClose(false)}
+        onDiscard={() => {
+          if (!databaseCloseSessionId) return;
+          void closeImportedDatabaseSession(databaseCloseSessionId).then(() => resolveImportedDatabaseClose(true));
+        }}
+        onSaveCopy={() => {
+          if (!databaseCloseSessionId) return;
+          setDatabaseCloseBusy(true);
+          void exportImportedDatabaseSession(databaseCloseSessionId).then(async (saved) => {
+            if (saved) {
+              await closeImportedDatabaseSession(databaseCloseSessionId);
+              resolveImportedDatabaseClose(true);
+            }
+            setDatabaseCloseBusy(false);
+          });
+        }}
+      />
+
+      <Modal
+        open={Boolean(databaseRestoreSession)}
+        onClose={() => setDatabaseRestoreSessionId(null)}
+        title={t("databaseWorkspace.restoreDialog.title")}
+        subtitle={t("databaseWorkspace.restoreDialog.message")}
+        size="sm"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setDatabaseRestoreSessionId(null)}>{t("common.actions.cancel")}</Button>
+            <Button variant="danger" onClick={() => { if (databaseRestoreSessionId) void restoreImportedDatabaseSession(databaseRestoreSessionId); }}>{t("databaseWorkspace.restoreOriginal")}</Button>
+          </>
+        )}
+      >
+        <p>{t("databaseWorkspace.restoreDialog.originalSafe")}</p>
+      </Modal>
+
+      {databaseReverseSession && sqlPlaygroundManagerRef.current ? (
+        <DatabaseReverseWizard
+          manager={sqlPlaygroundManagerRef.current}
+          session={databaseReverseSession}
+          hasProject={hasProject}
+          hasActiveSchema={Boolean(activeSchemaFile)}
+          onClose={() => setDatabaseReverseSessionId(null)}
+          onApply={handleApplyDatabaseReverse}
+        />
+      ) : null}
 
       <NotesModal
         open={notesPanelOpen}
@@ -7786,6 +8307,17 @@ export default function App() {
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenSqlPlayground={handleOpenSqlPlayground}
+          onOpenSqliteDatabase={handleOpenSqliteDatabaseRequest}
+          hasImportedDatabase={Boolean(activeImportedDatabaseSession)}
+          onSaveImportedDatabase={() => {
+            if (activeImportedDatabaseSessionId) void exportImportedDatabaseSession(activeImportedDatabaseSessionId);
+          }}
+          onRestoreImportedDatabase={() => {
+            if (activeImportedDatabaseSessionId) setDatabaseRestoreSessionId(activeImportedDatabaseSessionId);
+          }}
+          onReverseImportedDatabase={() => {
+            if (activeImportedDatabaseSessionId) handleStartDatabaseReverse(activeImportedDatabaseSessionId);
+          }}
           onOpenLogicalWorkflow={handleOpenLogicalStage}
           onNewProject={handleNewProject}
           onCloseProject={handleCloseProject}

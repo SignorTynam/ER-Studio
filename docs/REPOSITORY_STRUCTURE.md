@@ -29,6 +29,7 @@ buildER/
 | Toolbar | `src/toolbar` | Strumenti e controlli del canvas |
 | Traduzione logica | `src/logical`, `src/translation` | Workspace e flussi di trasformazione |
 | Feature verticali | `src/features` | UI, orchestrazione e adapter isolati per funzionalità complete come SQL Playground |
+| Database SQLite importati | `src/features/database-workspace` | Validazione file, workspace, lifecycle e reverse da metadata |
 | Internazionalizzazione | `src/i18n` | Provider, hook, dizionari e chiavi testuali |
 | Tipi condivisi | `src/types` | Tipi TypeScript di dominio e DTO interni |
 | Logica pura | `src/utils` | Parser, serializzazione, layout, validazione, export |
@@ -49,7 +50,7 @@ buildER/
 
 ## Debito tecnico da gestire con calma
 
-La feature `src/features/sql-playground` contiene workspace, splitter, risultati, SQL Explorer, tipi metadata, introspezione SQLite, manager, hook e protocollo worker. L'integrazione nell'activity rail resta in `App.tsx`, mentre query SQLite e stato di sessione non devono essere spostati nei componenti React.
+Le feature `src/features/sql-playground` e `src/features/database-workspace` condividono manager, worker, protocollo, risultati e SQL Explorer. La seconda aggiunge il lifecycle dei file importati e l'adapter reverse; i byte SQLite e le query restano fuori da `App.tsx` e dalla serializzazione progetto.
 
 `src/App.tsx` resta il principale orchestratore dell'app. Per evitare refactor rischiosi, non va spezzato in modo massivo senza test. Le future estrazioni devono essere progressive, per esempio:
 

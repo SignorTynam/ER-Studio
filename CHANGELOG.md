@@ -7,6 +7,9 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 ## [Unreleased]
 
 ### Added
+- Aggiunto Database Workspace per aprire file SQLite reali nel browser, anche senza progetto, con query, multi-sessione, export, restore e protezione delle modifiche non esportate.
+- Aggiunto Reverse Engineering guidato da metadata SQLite reali con anteprime logica/ER, selezione tabelle, tre destinazioni progetto e conservazione SQL di viste, trigger, indici speciali e tabelle virtuali.
+- Aggiunte azioni SQL Explorer per prime 100 righe, generazione SELECT, definizione, copia nome e reverse engineering sulla sessione selezionata.
 - Aggiunto SQL Playground locale per creare un database SQLite reale dal modello logico, eseguire script e query nel browser e scaricare il file `.sqlite`.
 - Aggiunti worker SQLite/WASM lazy-loaded, sessioni temporanee separate per schema, rilevamento dello schema non aggiornato e ricreazione atomica protetta da conferma.
 - Aggiunti accessi dalla vista SQL logica e dalla command palette, risultati multipli accessibili, riepiloghi DML ed errori SQLite localizzati in italiano, inglese e albanese.
@@ -15,11 +18,13 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 - Aggiunti splitter accessibile e pannello Risultati richiudibile, numerazione semantica delle righe e refresh automatico dell'Explorer dopo DDL e `ATTACH`/`DETACH`.
 
 ### Changed
+- Il manager e il worker SQLite ora gestiscono sessioni discriminate generate/importate; chiudere un progetto elimina solo i database generati dal progetto.
+- L'introspezione usa `table_xinfo` e `index_xinfo` per colonne generate/nascoste, auto-index, indici parziali ed espressioni.
 - Esteso il sistema di tab con viste tecniche temporanee che non entrano nel file `.ersp` e non modificano Source Control.
 - Unificate command bar e azioni del SQL Playground; l'editor ora riusa `CodeEditorSurface` con numeri di riga, selezione eseguibile e highlighting SQL esteso.
 
 ### Fixed
-- Inserire qui bug fix.
+- Le azioni bulk sulle tab rispettano ora il dialog Salva copia/Chiudi senza salvare/Annulla per ogni database importato modificato.
 
 ## [6.3] - 2026-07-02
 

@@ -17,10 +17,19 @@ import type {
 } from "./sqlPlaygroundProtocol";
 import { inspectSqliteSchema, readSqliteSchemaSignature } from "./sqlExplorerIntrospection";
 
-interface WorkerSession {
-  database: Database;
-  schemaChecksum: string;
-}
+type WorkerSession =
+  | {
+      source: "generated-schema";
+      database: Database;
+      schemaChecksum: string;
+    }
+  | {
+      source: "imported-sqlite";
+      database: Database;
+      fileName: string;
+      fileSize: number;
+      originalBytes: Uint8Array;
+    };
 
 interface StatementExecutionError extends Error {
   statementIndex?: number;
@@ -48,13 +57,38 @@ function createErrorPayload(
     typeof error === "object" && error !== null && "statementIndex" in error
       ? Number((error as StatementExecutionError).statementIndex)
       : undefined;
+  const normalized = normalizeDatabaseError(operation, error);
   return {
     operation,
-    message: getErrorMessage(error),
+    message: normalized.message,
     statementIndex: Number.isInteger(statementIndex) ? statementIndex : undefined,
-    technicalDetail: error instanceof Error ? error.name : undefined,
+    technicalDetail: normalized.code,
     recoverable: operation !== "initialize",
   };
+}
+
+function normalizeDatabaseError(
+  operation: SqlPlaygroundOperation,
+  error: unknown,
+): { message: string; code: string } {
+  const raw = getErrorMessage(error);
+  const name = error instanceof Error ? error.name : "SQLiteError";
+  if (name === "SQLiteIntegrityError") {
+    return { message: "SQLite reported an integrity problem in the database.", code: name };
+  }
+  if (name === "ImportedDatabaseRequiredError") {
+    return { message: "The operation is available only for an imported SQLite database.", code: name };
+  }
+  if (/file is not a database|encrypted|not a database|malformed|unsupported file format/i.test(raw)) {
+    return { message: "The file is encrypted, corrupt, or uses an unsupported SQLite format.", code: "EncryptedOrCorruptDatabase" };
+  }
+  if (operation === "open-database") {
+    return { message: "The file does not contain a valid SQLite database.", code: name };
+  }
+  if (operation === "restore-database") {
+    return { message: "The database was not restored. The current local copy remains available.", code: name };
+  }
+  return { message: raw, code: name };
 }
 
 async function initializeSqlite(): Promise<Sqlite3Static> {
@@ -196,8 +230,129 @@ async function createSchemaDatabase(
   }
 
   const previous = sessions.get(sessionId);
-  sessions.set(sessionId, { database: temporaryDatabase, schemaChecksum });
+  sessions.set(sessionId, { source: "generated-schema", database: temporaryDatabase, schemaChecksum });
   previous?.database.close();
+}
+
+function readSingleNumber(database: Database, sql: string): number {
+  let statement: PreparedStatement | null = null;
+  try {
+    statement = database.prepare(sql);
+    if (!statement.step()) return 0;
+    const value = statement.get([])[0];
+    return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
+  } finally {
+    statement?.finalize();
+  }
+}
+
+function validateImportedDatabase(database: Database): {
+  metadata: ReturnType<typeof inspectSqliteSchema>;
+  schemaSignature: string;
+  schemaVersion: number;
+  applicationId: number;
+  userVersion: number;
+} {
+  database.exec("PRAGMA foreign_keys = ON;");
+  const schemaVersion = readSingleNumber(database, "PRAGMA schema_version;");
+  const applicationId = readSingleNumber(database, "PRAGMA application_id;");
+  const userVersion = readSingleNumber(database, "PRAGMA user_version;");
+  let quickCheck: PreparedStatement | null = null;
+  try {
+    quickCheck = database.prepare("PRAGMA quick_check(1);");
+    if (!quickCheck.step() || String(quickCheck.get([])[0] ?? "").toLowerCase() !== "ok") {
+      const error = new Error("quick_check failed");
+      error.name = "SQLiteIntegrityError";
+      throw error;
+    }
+  } finally {
+    quickCheck?.finalize();
+  }
+  // This query deliberately verifies that the authoritative catalog can be read.
+  readSingleNumber(database, "SELECT count(*) FROM sqlite_schema;");
+  const metadata = inspectSqliteSchema(database);
+  return {
+    metadata,
+    schemaSignature: readSqliteSchemaSignature(database),
+    schemaVersion,
+    applicationId,
+    userVersion,
+  };
+}
+
+function deserializeDatabase(sqliteApi: Sqlite3Static, bytes: Uint8Array): Database {
+  const database = new sqliteApi.oo1.DB(":memory:");
+  const pointer = sqliteApi.wasm.allocFromTypedArray(bytes);
+  let sqliteOwnsPointer = false;
+  try {
+    const databasePointer = database.pointer;
+    if (databasePointer == null) throw new Error("The SQLite database is closed.");
+    const flags = sqliteApi.capi.SQLITE_DESERIALIZE_FREEONCLOSE
+      | sqliteApi.capi.SQLITE_DESERIALIZE_RESIZEABLE;
+    const resultCode = sqliteApi.capi.sqlite3_deserialize(
+      databasePointer,
+      "main",
+      pointer,
+      bytes.byteLength,
+      bytes.byteLength,
+      flags,
+    );
+    // FREEONCLOSE transfers ownership even when sqlite3_deserialize() fails.
+    sqliteOwnsPointer = true;
+    database.checkRc(resultCode);
+    return database;
+  } catch (error) {
+    database.close();
+    if (!sqliteOwnsPointer) sqliteApi.wasm.dealloc(pointer);
+    throw error;
+  }
+}
+
+async function openImportedDatabase(
+  sessionId: string,
+  fileName: string,
+  fileSize: number,
+  buffer: ArrayBuffer,
+) {
+  const sqliteApi = await initializeSqlite();
+  const originalBytes = new Uint8Array(buffer).slice();
+  const temporaryDatabase = deserializeDatabase(sqliteApi, originalBytes);
+  try {
+    const validation = validateImportedDatabase(temporaryDatabase);
+    const previous = sessions.get(sessionId);
+    sessions.set(sessionId, {
+      source: "imported-sqlite",
+      database: temporaryDatabase,
+      fileName,
+      fileSize,
+      originalBytes,
+    });
+    previous?.database.close();
+    return validation;
+  } catch (error) {
+    temporaryDatabase.close();
+    throw error;
+  }
+}
+
+async function restoreImportedDatabase(session: WorkerSession) {
+  if (session.source !== "imported-sqlite") {
+    const error = new Error("Imported database required");
+    error.name = "ImportedDatabaseRequiredError";
+    throw error;
+  }
+  const sqliteApi = await initializeSqlite();
+  const temporaryDatabase = deserializeDatabase(sqliteApi, session.originalBytes);
+  try {
+    const validation = validateImportedDatabase(temporaryDatabase);
+    const previousDatabase = session.database;
+    session.database = temporaryDatabase;
+    previousDatabase.close();
+    return validation;
+  } catch (error) {
+    temporaryDatabase.close();
+    throw error;
+  }
 }
 
 function requireSession(sessionId: string): WorkerSession {
@@ -222,6 +377,23 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
           type: "schema-ready",
           sessionId: request.sessionId,
           schemaChecksum: request.schemaChecksum,
+        });
+        return;
+      }
+      case "open-database": {
+        const validation = await openImportedDatabase(
+          request.sessionId,
+          request.fileName,
+          request.fileSize,
+          request.bytes,
+        );
+        postResponse({
+          requestId: request.requestId,
+          type: "database-opened",
+          sessionId: request.sessionId,
+          fileName: request.fileName,
+          fileSize: request.fileSize,
+          ...validation,
         });
         return;
       }
@@ -250,6 +422,29 @@ async function handleRequest(request: SqlPlaygroundRequest): Promise<void> {
           type: "schema-inspected",
           sessionId: request.sessionId,
           metadata: inspectSqliteSchema(session.database),
+        });
+        return;
+      }
+      case "reverse-database": {
+        const session = requireSession(request.sessionId);
+        postResponse({
+          requestId: request.requestId,
+          type: "database-reversed",
+          sessionId: request.sessionId,
+          metadata: inspectSqliteSchema(session.database),
+          schemaSignature: readSqliteSchemaSignature(session.database),
+        });
+        return;
+      }
+      case "restore-database": {
+        const session = requireSession(request.sessionId);
+        const validation = await restoreImportedDatabase(session);
+        postResponse({
+          requestId: request.requestId,
+          type: "database-restored",
+          sessionId: request.sessionId,
+          metadata: validation.metadata,
+          schemaSignature: validation.schemaSignature,
         });
         return;
       }

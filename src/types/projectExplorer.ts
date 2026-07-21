@@ -58,7 +58,15 @@ export interface SqlPlaygroundOpenTab {
   dirty?: false;
 }
 
-export type WorkspaceOpenTab = ProjectOpenTab | SqlPlaygroundOpenTab;
+export interface ImportedDatabaseOpenTab {
+  id: string;
+  kind: "sqlite-database";
+  databaseSessionId: string;
+  title: string;
+  databaseDirty: boolean;
+}
+
+export type WorkspaceOpenTab = ProjectOpenTab | SqlPlaygroundOpenTab | ImportedDatabaseOpenTab;
 
 export interface ProjectExplorerViewState {
   activeFileId: string | null;

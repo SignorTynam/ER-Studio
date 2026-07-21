@@ -217,12 +217,14 @@ export function ProjectFileTabs({
             const file = tab.kind === "file" && tab.fileId ? files[tab.fileId] : undefined;
             const title = getTabTitle(tab, files, t("projectTabs.welcome"));
             const active = tab.id === activeTabId;
+            const tabDirty = tab.kind === "sqlite-database" ? tab.databaseDirty : tab.dirty;
+            const dirtyLabel = tab.kind === "sqlite-database" ? t("databaseWorkspace.status.modified") : t("projectTabs.unsaved");
             const fullPath = tab.kind === "file" && tab.fileId ? paths[tab.fileId] ?? title : title;
             return (
               <div
                 key={tab.id}
-                className={["project-file-tab", active ? "active" : "", tab.dirty ? "dirty" : ""].filter(Boolean).join(" ")}
-                draggable={Boolean(onReorder && tab.kind !== "sql-playground")}
+                className={["project-file-tab", active ? "active" : "", tabDirty ? "dirty database-dirty" : ""].filter(Boolean).join(" ")}
+                draggable={Boolean(onReorder && tab.kind === "file")}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("application/x-builder-tab", tab.id);
@@ -244,14 +246,14 @@ export function ProjectFileTabs({
                   data-tab-id={tab.id}
                   tabIndex={active ? 0 : -1}
                   aria-current={active ? "page" : undefined}
-                  aria-label={tab.dirty ? `${title}, ${t("projectTabs.unsaved")}` : title}
+                  aria-label={tabDirty ? `${title}, ${dirtyLabel}` : title}
                   onClick={() => onSelectTab(tab.id)}
                   onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
                   title={fullPath}
                 >
-                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
+                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" || tab.kind === "sqlite-database" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
                   <span className="project-file-tab__title">{title}</span>
-                  {tab.dirty ? <span className="project-file-tab__dirty" aria-label={t("projectTabs.unsaved")} /> : null}
+                  {tabDirty ? <span className="project-file-tab__dirty" aria-label={dirtyLabel} /> : null}
                 </button>
                 <button
                   type="button"
@@ -314,6 +316,7 @@ export function ProjectFileTabs({
             {tabs.map((tab) => {
               const file = tab.kind === "file" && tab.fileId ? files[tab.fileId] : undefined;
               const title = getTabTitle(tab, files, t("projectTabs.welcome"));
+              const tabDirty = tab.kind === "sqlite-database" ? tab.databaseDirty : tab.dirty;
               return (
                 <button
                   key={tab.id}
@@ -326,9 +329,9 @@ export function ProjectFileTabs({
                   }}
                   title={tab.kind === "file" && tab.fileId ? paths[tab.fileId] ?? title : title}
                 >
-                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
+                  <StudioIcon name={tab.kind === "welcome" ? "info" : tab.kind === "sql-playground" || tab.kind === "sqlite-database" ? "database" : getFileIcon(file)} size={15} aria-hidden="true" />
                   <span>{title}</span>
-                  {tab.dirty ? <span className="project-file-tab__dirty" aria-label={t("projectTabs.unsaved")} /> : null}
+                  {tabDirty ? <span className="project-file-tab__dirty" aria-label={t("databaseWorkspace.status.modified")} /> : null}
                 </button>
               );
             })}

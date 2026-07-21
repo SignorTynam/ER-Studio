@@ -5,9 +5,11 @@ import type {
   SqlStatementResult,
 } from "../features/sql-playground/sqlPlaygroundProtocol";
 import type {
-  SqlPlaygroundSessionState,
+  GeneratedSqlPlaygroundSessionState,
+  ImportedSqlDatabaseSessionState,
   SqlPlaygroundStatus,
 } from "../features/sql-playground/sqlPlaygroundState";
+import { createImportedDatabaseDownloadName } from "../features/database-workspace/importedDatabaseFile";
 
 export const SQL_PLAYGROUND_MAX_ROWS = 500;
 export const SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT = 264;
@@ -43,12 +45,20 @@ export function getSqlPlaygroundStatus(
 
 export function createSqlPlaygroundSessionState(input: {
   sessionId: string;
+  projectId?: string;
   schemaFileId: string;
   schemaName: string;
   currentGeneratedChecksum: string;
-}): SqlPlaygroundSessionState {
+}): GeneratedSqlPlaygroundSessionState {
   return {
     ...input,
+    source: {
+      kind: "generated-schema",
+      projectId: input.projectId ?? input.sessionId.slice(0, input.sessionId.indexOf(":")),
+      schemaFileId: input.schemaFileId,
+      schemaName: input.schemaName,
+      schemaChecksum: null,
+    },
     query: SQL_PLAYGROUND_DEFAULT_QUERY,
     status: "idle",
     databaseReady: false,
@@ -58,6 +68,70 @@ export function createSqlPlaygroundSessionState(input: {
     results: [],
     resultsPanelHeight: SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT,
     resultsPanelCollapsed: false,
+    error: null,
+  };
+}
+
+export function createImportedDatabaseSessionState(input: {
+  sessionId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  openedAt: string;
+  sqliteVersion: string;
+  schemaSignature: string;
+}): ImportedSqlDatabaseSessionState {
+  return {
+    sessionId: input.sessionId,
+    source: {
+      kind: "imported-sqlite",
+      fileName: input.fileName,
+      fileSize: input.fileSize,
+      mimeType: input.mimeType,
+      openedAt: input.openedAt,
+    },
+    fileName: input.fileName,
+    fileSize: input.fileSize,
+    query: SQL_PLAYGROUND_DEFAULT_QUERY,
+    status: "ready",
+    databaseReady: true,
+    sqliteVersion: input.sqliteVersion,
+    schemaSignature: input.schemaSignature,
+    hasSessionChanges: false,
+    hasUnexportedChanges: false,
+    lastExportedAt: null,
+    results: [],
+    resultsPanelHeight: SQL_PLAYGROUND_DEFAULT_RESULTS_HEIGHT,
+    resultsPanelCollapsed: false,
+    error: null,
+  };
+}
+
+export function markImportedDatabaseExported(
+  state: ImportedSqlDatabaseSessionState,
+  exportedAt = new Date().toISOString(),
+): ImportedSqlDatabaseSessionState {
+  return {
+    ...state,
+    status: "exported",
+    hasUnexportedChanges: false,
+    lastExportedAt: exportedAt,
+    error: null,
+  };
+}
+
+export function markImportedDatabaseRestored(
+  state: ImportedSqlDatabaseSessionState,
+  schemaSignature: string,
+): ImportedSqlDatabaseSessionState {
+  return {
+    ...state,
+    status: "ready",
+    schemaSignature,
+    hasSessionChanges: false,
+    hasUnexportedChanges: false,
+    lastExportedAt: null,
+    results: [],
     error: null,
   };
 }
@@ -157,6 +231,33 @@ export function downloadSqliteDatabase(
     urlApi.revokeObjectURL(objectUrl);
   }
   return fileName;
+}
+
+export function downloadImportedSqliteDatabase(
+  bytes: ArrayBuffer,
+  fileName: string,
+  modified: boolean,
+  dependencies: {
+    documentRef?: Document;
+    urlApi?: Pick<typeof URL, "createObjectURL" | "revokeObjectURL">;
+  } = {},
+): string {
+  const documentRef = dependencies.documentRef ?? document;
+  const urlApi = dependencies.urlApi ?? URL;
+  const downloadName = createImportedDatabaseDownloadName(fileName, modified);
+  const objectUrl = urlApi.createObjectURL(new Blob([bytes], { type: "application/vnd.sqlite3" }));
+  const anchor = documentRef.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = downloadName;
+  anchor.hidden = true;
+  documentRef.body.appendChild(anchor);
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    urlApi.revokeObjectURL(objectUrl);
+  }
+  return downloadName;
 }
 
 export function countSqlResultSets(results: SqlStatementResult[]): number {

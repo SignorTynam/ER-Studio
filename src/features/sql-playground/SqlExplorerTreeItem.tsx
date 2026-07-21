@@ -8,6 +8,12 @@ export interface SqlExplorerTreeNode {
   title?: string;
   icon: StudioIconName;
   children?: SqlExplorerTreeNode[];
+  actions?: Array<{
+    id: string;
+    label: string;
+    icon: StudioIconName;
+    onSelect: () => void;
+  }>;
 }
 
 interface SqlExplorerTreeItemProps {
@@ -52,6 +58,24 @@ export function SqlExplorerTreeItem({
         <StudioIcon className="sql-explorer-tree__icon" name={node.icon} aria-hidden="true" />
         <span className="sql-explorer-tree__label">{node.label}</span>
         {node.detail ? <span className="sql-explorer-tree__detail">{node.detail}</span> : null}
+        {node.actions?.length ? (
+          <span className="sql-explorer-tree__actions" aria-label={node.label}>
+            {node.actions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                title={action.label}
+                aria-label={`${action.label}: ${node.label}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  action.onSelect();
+                }}
+              >
+                <StudioIcon name={action.icon} size={13} aria-hidden="true" />
+              </button>
+            ))}
+          </span>
+        ) : null}
       </div>
       {expanded ? (
         <div role="group">

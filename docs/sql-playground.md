@@ -32,7 +32,7 @@ Il Playground si apre dal pulsante `Prova SQL` della vista SQL logica o dal coma
 
 La dipendenza runtime è `@sqlite.org/sqlite-wasm`, distribuzione ufficiale SQLite. Il modulo OO1 viene inizializzato dentro un Web Worker di tipo module. `sqlite3.wasm` è importato come asset Vite (`?url`), quindi worker e WASM ricevono nomi hashed e rispettano il base path della build.
 
-Non sono richiesti `SharedArrayBuffer`, isolamento cross-origin, OPFS o header server speciali. La prima versione usa database `:memory:`.
+Non sono richiesti `SharedArrayBuffer`, isolamento cross-origin, OPFS o header server speciali. I database generati usano `:memory:`; i file importati vengono deserializzati in memoria in sessioni separate dal Database Workspace.
 
 ## Creazione e ricreazione
 
@@ -42,7 +42,7 @@ La sessione conserva il checksum dello schema usato. Se il SQL generato cambia, 
 
 ## Sessioni e privacy
 
-L'identificatore è `projectId:schemaFileId`. Query, risultati e database di due schemi non si sovrascrivono. Chiudere e riaprire la tab mantiene la sessione; chiudere o sostituire il progetto dispone i database e termina il worker.
+Le sessioni generate usano `projectId:schemaFileId`; quelle importate usano `imported:<uuid>`. Query, risultati e database non si sovrascrivono. Chiudere o sostituire il progetto dispone solo le sessioni generate interessate; il worker termina quando viene disposto esplicitamente.
 
 Tutto resta locale al browser. Dati e query non vengono inviati a servizi esterni, inclusi GitHub o servizi analytics, e non vengono aggiunti al file `.ersp`. Un reload perde la sessione salvo export manuale.
 
@@ -63,6 +63,8 @@ L'attività `SQL Explorer`, immediatamente prima di Export, rappresenta il datab
 Il worker espone `inspect-schema` e legge `PRAGMA database_list`, `<database>.sqlite_schema`, `pragma_table_info`, `pragma_foreign_key_list`, `pragma_index_list` e `pragma_index_info`. Gli argomenti supportati sono bindati e i nomi database sono quotati da un helper dedicato. Prima e dopo ogni script viene confrontata una firma delle `schema_version` di tutti i database: il manager emette `schema-changed` soltanto quando la struttura cambia. Il tree conserva selezione ed espansioni ancora valide durante il refresh e supporta il pattern ARIA tree con roving tabindex.
 
 SQL Explorer gestisce assenza di progetto/schema/sessione/database, loading, errore e retry. Aprirlo o ridimensionare/nascondere i risultati non ricrea il database, non chiude il Playground e non modifica il dirty state.
+
+Quando sono presenti più sessioni, un selettore distingue database generati e importati. Le azioni sugli oggetti possono aprire/eseguire SELECT nella sessione corretta, mostrare la definizione, copiare il nome o avviare il reverse da metadata.
 
 ## Export `.sqlite`
 
@@ -95,4 +97,4 @@ In `dist` devono essere presenti il worker e il file `.wasm`; i riferimenti devo
 
 ## Limiti deliberati
 
-Nessun import `.sqlite`, backend, cloud sync, OPFS obbligatorio, collaborazione, AI, explain plan grafico o persistenza automatica. Queste capacità non sono simulate con controlli inattivi.
+L'import `.sqlite` è gestito dal Database Workspace documentato separatamente. Restano fuori scope backend, cloud sync, OPFS obbligatorio, collaborazione, AI, explain plan grafico e persistenza automatica.

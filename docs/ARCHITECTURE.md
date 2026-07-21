@@ -54,6 +54,12 @@ Feature verticale del Playground SQLite. I componenti React delegano stato e cic
 
 `CodeEditorSurface` fornisce gutter, highlighting e selezione tramite un handle tipizzato riusabile. Altezza e stato collapsed dei risultati vivono esclusivamente nello stato temporaneo della sessione. SQL Explorer interroga `database_list`, `sqlite_schema` e le table-valued PRAGMA nel worker; confronta le versioni schema prima e dopo ogni script e aggiorna il tree soltanto quando la struttura cambia. I metadata, l'espansione del tree e il layout del pannello non entrano nella serializzazione `.ersp` e non influenzano Source Control.
 
+### `src/features/database-workspace`
+
+Feature verticale per file SQLite importati. Validazione preliminare e nomi download sono pure utility; header/workspace/hook rendono la sessione importata; il wizard `reverse` adatta metadata SQLite reali a `SqlSchemaModel` e riusa la pipeline logica/ER. Worker e manager rimangono condivisi con il Playground, ma la source discriminata impedisce che il lifecycle progetto chiuda database importati indipendenti.
+
+I byte originali restano solo nel worker e non sono serializzati. Apertura e restore sono atomici: una sessione viene pubblicata o sostituita solo dopo deserializzazione, controllo integrità e introspezione riusciti.
+
 ### `src/i18n`
 
 Messaggi localizzati, hook e layer di traduzione. Le nuove stringhe UI non devono essere hardcoded dentro i componenti quando sono visibili all'utente.
@@ -105,5 +111,5 @@ I vecchi `.ersp` single-schema e i diagrammi JSON legacy vengono convertiti in u
 | Connector e cardinalità | Edge deformabili o label sovrapposte | Test di routing e cardinality flow |
 | ERS / `.ersp` | Rottura compatibilità progetto | Test parser/serializer/versioning |
 | SQL Reverse | Entità/relazioni/attributi errati | Test parser, modello logico e diagramma |
-| SQL Playground | Worker orfani, schema parziale, confusione tra sessioni | Session ID progetto/schema, sostituzione atomica, cleanup esplicito ed E2E WASM |
+| SQL Playground / Database Workspace | Worker orfani, file corrotti, schema parziale, confusione tra sessioni | Source discriminate, validazione a due livelli, sostituzione atomica, cleanup esplicito ed E2E WASM |
 | i18n | Fallback italiani in EN/SQ | Test dizionari e chiavi mancanti |

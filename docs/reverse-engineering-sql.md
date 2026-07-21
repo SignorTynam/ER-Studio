@@ -4,6 +4,8 @@
 
 La feature Reverse Engineering SQL importa uno schema SQL testuale e produce un modello intermedio tipizzato. Il flusso attuale copre anche la conversione verso modello logico e diagramma ER, ma il parser rimane volutamente leggero e senza dipendenze esterne.
 
+Per un database SQLite esistente è disponibile anche un ingresso basato sui metadata reali, senza parsing del DDL. Vedere `docs/database-workspace.md` e il confronto in `docs/sql-reverse-engineering.md`.
+
 ## Come usarla
 
 Aprire il pannello SQL Reverse Engineering, incollare uno schema con istruzioni `CREATE TABLE` e avviare l'importazione. Il risultato viene validato in tre passaggi: parsing SQL, modello logico e diagramma ER.

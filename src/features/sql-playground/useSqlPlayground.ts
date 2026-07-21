@@ -9,7 +9,7 @@ import {
   SQL_PLAYGROUND_MAX_ROWS,
 } from "../../utils/sqlPlayground";
 import { SqlPlaygroundClientError, type SqlPlaygroundManager } from "./SqlPlaygroundManager";
-import type { SqlPlaygroundSessionState } from "./sqlPlaygroundState";
+import type { GeneratedSqlPlaygroundSessionState } from "./sqlPlaygroundState";
 
 interface UseSqlPlaygroundOptions {
   manager: SqlPlaygroundManager;
@@ -27,8 +27,11 @@ export function useSqlPlayground({
   generatedSql,
 }: UseSqlPlaygroundOptions) {
   const currentGeneratedChecksum = useMemo(() => hashSqlSchema(generatedSql), [generatedSql]);
-  const [session, setSession] = useState<SqlPlaygroundSessionState>(() => {
-    const stored = manager.getSessionState(sessionId);
+  const [session, setSession] = useState<GeneratedSqlPlaygroundSessionState>(() => {
+    const candidate = manager.getSessionState(sessionId);
+    const stored = candidate?.source.kind === "generated-schema"
+      ? candidate as GeneratedSqlPlaygroundSessionState
+      : undefined;
     const initial = stored
       ? {
           ...stored,
@@ -43,7 +46,7 @@ export function useSqlPlayground({
   });
 
   const updateSession = useCallback(
-    (updater: (current: SqlPlaygroundSessionState) => SqlPlaygroundSessionState) => {
+    (updater: (current: GeneratedSqlPlaygroundSessionState) => GeneratedSqlPlaygroundSessionState) => {
       setSession((current) => {
         const next = updater(current);
         manager.setSessionState(next);
@@ -121,6 +124,7 @@ export function useSqlPlayground({
           status: "ready",
           databaseReady: true,
           schemaChecksum: currentGeneratedChecksum,
+          source: { ...current.source, schemaChecksum: currentGeneratedChecksum },
           currentGeneratedChecksum,
           hasUserDataChanges: false,
           results: [],

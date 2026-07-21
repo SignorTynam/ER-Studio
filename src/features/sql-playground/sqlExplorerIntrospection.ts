@@ -61,15 +61,26 @@ function readForeignKeys(database: Database, databaseName: string, tableName: st
 function readIndexes(database: Database, databaseName: string, tableName: string): SqlExplorerIndex[] {
   return queryRows(
     database,
-    "SELECT name, \"unique\", origin, partial FROM pragma_index_list(?, ?) WHERE name NOT LIKE 'sqlite_%' ORDER BY name",
+    "SELECT name, \"unique\", origin, partial FROM pragma_index_list(?, ?) ORDER BY name",
     [tableName, databaseName],
   ).map((row) => {
     const name = asString(row[0]);
-    const columns = queryRows(
+    const indexColumnRows = queryRows(
       database,
-      "SELECT name FROM pragma_index_info(?, ?) ORDER BY seqno",
+      "SELECT seqno, cid, name, \"key\" FROM pragma_index_xinfo(?, ?) WHERE \"key\" = 1 ORDER BY seqno",
       [name, databaseName],
-    ).map((columnRow) => asString(columnRow[0]));
+    );
+    const columns = indexColumnRows
+      .map((columnRow) => asNullableString(columnRow[2]))
+      .filter((columnName): columnName is string => columnName !== null);
+    const expressionColumns = indexColumnRows
+      .filter((columnRow) => asNullableString(columnRow[2]) === null)
+      .map((columnRow) => asNumber(columnRow[0]));
+    const sql = asNullableString(queryRows(
+      database,
+      `SELECT sql FROM ${quoteSqliteIdentifier(databaseName)}.sqlite_schema WHERE type = 'index' AND name = ?`,
+      [name],
+    )[0]?.[0]);
     return {
       name,
       tableName,
@@ -77,6 +88,8 @@ function readIndexes(database: Database, databaseName: string, tableName: string
       origin: asString(row[2]),
       partial: asNumber(row[3]) === 1,
       columns,
+      expressionColumns,
+      sql,
     };
   });
 }
@@ -91,7 +104,7 @@ function readTable(database: Database, databaseName: string, name: string, sql: 
   });
   const columns: SqlExplorerColumn[] = queryRows(
     database,
-    "SELECT cid, name, type, \"notnull\", dflt_value, pk FROM pragma_table_info(?, ?) ORDER BY cid",
+    "SELECT cid, name, type, \"notnull\", dflt_value, pk, hidden FROM pragma_table_xinfo(?, ?) ORDER BY cid",
     [name, databaseName],
   ).map((row) => {
     const columnName = asString(row[1]);
@@ -108,9 +121,18 @@ function readTable(database: Database, databaseName: string, name: string, sql: 
         table: foreignKey.toTable,
         column: foreignKey.toColumn,
       })),
+      hidden: asNumber(row[6]),
+      generated: asNumber(row[6]) === 2 || asNumber(row[6]) === 3,
     };
   });
-  return { name, sql, columns, foreignKeys, indexes: readIndexes(database, databaseName, name) };
+  return {
+    name,
+    sql,
+    columns,
+    foreignKeys,
+    indexes: readIndexes(database, databaseName, name),
+    virtual: /^\s*CREATE\s+VIRTUAL\s+TABLE\b/i.test(sql ?? ""),
+  };
 }
 
 function inspectDatabase(database: Database, sequence: number, name: string, file: string): SqlExplorerDatabase {

@@ -12,6 +12,8 @@ export interface SqlExplorerColumn {
   defaultValue: string | null;
   primaryKeyPosition: number;
   references: SqlExplorerColumnReference[];
+  hidden: number;
+  generated: boolean;
 }
 
 export interface SqlExplorerForeignKey {
@@ -32,6 +34,8 @@ export interface SqlExplorerIndex {
   origin: string;
   partial: boolean;
   columns: string[];
+  expressionColumns: number[];
+  sql: string | null;
 }
 
 export interface SqlExplorerTable {
@@ -40,6 +44,7 @@ export interface SqlExplorerTable {
   columns: SqlExplorerColumn[];
   foreignKeys: SqlExplorerForeignKey[];
   indexes: SqlExplorerIndex[];
+  virtual: boolean;
 }
 
 export interface SqlExplorerView {

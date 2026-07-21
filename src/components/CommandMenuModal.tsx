@@ -42,6 +42,11 @@ interface CommandMenuModalProps {
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
   onOpenSqlPlayground: () => void;
+  onOpenSqliteDatabase: () => void;
+  onSaveImportedDatabase: () => void;
+  onRestoreImportedDatabase: () => void;
+  onReverseImportedDatabase: () => void;
+  hasImportedDatabase: boolean;
   onOpenLogicalWorkflow: () => void;
   onNewProject: () => void;
   onCloseProject: () => void;
@@ -407,6 +412,26 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
     {
       id: "command-file-open-ers", kind: "command", categoryId: "file", category: categoryLabels.file,
       label: t("commandMenu.commands.fileOpenErs.label"), icon: "upload", order: 310, action: props.onLoadErs,
+    },
+    {
+      id: "command-file-open-sqlite", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("databaseWorkspace.openDatabase"), detail: t("databaseWorkspace.openDatabaseDescription"), icon: "database",
+      order: 311, action: props.onOpenSqliteDatabase,
+    },
+    {
+      id: "command-file-save-database-copy", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("databaseWorkspace.saveCopy"), detail: t("databaseWorkspace.commandDetails.saveCopy"), icon: "download",
+      disabled: !props.hasImportedDatabase, order: 312, action: props.onSaveImportedDatabase,
+    },
+    {
+      id: "command-file-restore-database", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("databaseWorkspace.restoreOriginal"), detail: t("databaseWorkspace.commandDetails.restore"), icon: "refresh",
+      disabled: !props.hasImportedDatabase, order: 313, action: props.onRestoreImportedDatabase,
+    },
+    {
+      id: "command-file-reverse-database", kind: "command", categoryId: "file", category: categoryLabels.file,
+      label: t("databaseWorkspace.reverseEngineering"), detail: t("databaseWorkspace.commandDetails.reverse"), icon: "databaseReverse",
+      disabled: !props.hasImportedDatabase, order: 314, action: props.onReverseImportedDatabase,
     },
     {
       id: "command-file-import-sql", kind: "command", categoryId: "file", category: categoryLabels.file,

@@ -592,6 +592,597 @@
   white-space: nowrap;
 }
 
+.sql-explorer-tree__actions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sql-explorer-tree__row:hover .sql-explorer-tree__actions,
+.sql-explorer-tree__row:focus-within .sql-explorer-tree__actions,
+.sql-explorer-tree__row.is-selected .sql-explorer-tree__actions {
+  opacity: 1;
+}
+
+.sql-explorer-tree__actions button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.sql-explorer-tree__actions button:hover,
+.sql-explorer-tree__actions button:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.sql-explorer-definition {
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  margin: 0;
+  max-height: min(55vh, 520px);
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
+.database-workspace__privacy {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.database-workspace-command-bar .ui-button {
+  white-space: nowrap;
+}
+
+.sql-explorer-session-select {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.sql-explorer-session-select select {
+  min-width: 0;
+  width: 100%;
+}
+
+.sql-explorer-schema-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.sql-explorer-schema-name > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-reverse-wizard {
+  width: min(1080px, calc(100vw - 32px));
+  max-width: 1080px;
+  height: min(760px, calc(100vh - 32px));
+  border-radius: var(--radius-dialog);
+}
+
+.database-reverse-wizard__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-bg-editor);
+}
+
+.database-reverse-wizard .ui-modal__footer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+}
+
+.database-reverse-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 0 0 auto;
+  gap: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+  list-style: none;
+}
+
+.database-reverse-progress li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.database-reverse-progress li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  left: calc(var(--size-button-sm) + var(--space-3));
+  height: var(--border-width-default);
+  background: var(--color-border-default);
+}
+
+.database-reverse-progress__marker {
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-button-sm);
+  height: var(--size-button-sm);
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.database-reverse-progress__marker svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.database-reverse-progress__label {
+  z-index: 1;
+  min-width: 0;
+  max-width: calc(100% - var(--size-button-sm) - var(--space-2));
+  padding-right: var(--space-2);
+  overflow: hidden;
+  background: var(--color-bg-panel);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-reverse-progress li.is-current {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.database-reverse-progress li.is-current .database-reverse-progress__marker {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  box-shadow: var(--focus-ring);
+}
+
+.database-reverse-progress li.is-complete {
+  color: var(--color-accent);
+}
+
+.database-reverse-progress li.is-complete::after,
+.database-reverse-progress li.is-complete .database-reverse-progress__marker {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent-hover);
+}
+
+.database-reverse-analysis,
+.database-reverse-destination,
+.database-reverse-complete {
+  width: 100%;
+  padding: var(--space-5);
+}
+
+.database-reverse-wizard__stale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-3) var(--space-5) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-panel);
+  background: var(--warning-bg);
+  color: var(--color-warning);
+}
+
+.database-reverse-analysis {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.database-reverse-summary,
+.database-reverse-complete dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.database-reverse-summary > div,
+.database-reverse-complete dl > div {
+  position: relative;
+  min-width: 0;
+  min-height: 72px;
+  padding: var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--elevation-flat);
+}
+
+.database-reverse-summary > div::before,
+.database-reverse-complete dl > div::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--space-1);
+  background: var(--color-accent);
+}
+
+.database-reverse-summary dt,
+.database-reverse-complete dt {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.database-reverse-summary dd,
+.database-reverse-complete dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.database-reverse-section-card,
+.database-reverse-options,
+.database-reverse-destination fieldset {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-panel);
+}
+
+.database-reverse-selection-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--size-panel-header);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.database-reverse-selection-actions strong,
+.database-reverse-options legend,
+.database-reverse-destination legend {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.database-reverse-selection-actions__buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.database-reverse-table-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--space-3);
+}
+
+.database-reverse-table-list label,
+.database-reverse-options label,
+.database-reverse-destination fieldset label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.database-reverse-table-list label,
+.database-reverse-options label {
+  min-height: var(--size-input);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.database-reverse-table-list label:hover,
+.database-reverse-options label:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.database-reverse-table-list label.is-selected {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border-default));
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+.database-reverse-table-list input,
+.database-reverse-options input,
+.database-reverse-choice input {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.database-reverse-table-list label:focus-within,
+.database-reverse-options label:focus-within,
+.database-reverse-choice:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.database-reverse-table-list small {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.database-reverse-options,
+.database-reverse-destination fieldset {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.database-reverse-preview {
+  flex: 1;
+  min-height: 0;
+  margin: var(--space-4) var(--space-5);
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-diagram-canvas);
+  box-shadow: inset 0 0 0 var(--border-width-default) color-mix(in srgb, var(--color-border-subtle) 70%, transparent);
+}
+
+.database-reverse-preview--logical,
+.database-reverse-preview--logical .logical-canvas-panel,
+.database-reverse-preview--logical .logical-canvas {
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas);
+  --diagram-node-fill: var(--diagram-canvas-fill);
+  --logical-table-fill: var(--diagram-canvas-fill);
+  --logical-table-header-fill: var(--diagram-canvas-fill);
+  background: var(--diagram-canvas-fill);
+  background-image: none;
+}
+
+.database-reverse-preview--er,
+.database-reverse-preview--er .canvas-panel,
+.database-reverse-preview--er .diagram-canvas {
+  --diagram-canvas-fill: var(--color-bg-diagram-canvas);
+  --diagram-node-fill: var(--diagram-canvas-fill);
+  background: var(--diagram-canvas-fill);
+  background-image: none;
+}
+
+.database-reverse-preview--er .edge-label-chip {
+  fill: var(--diagram-canvas-fill);
+  stroke: color-mix(in srgb, var(--diagram-stroke) 24%, var(--diagram-canvas-fill));
+}
+
+.database-reverse-destination {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.database-reverse-destination fieldset {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: var(--color-bg-elevated);
+}
+
+.database-reverse-destination legend {
+  padding: 0 var(--space-1);
+}
+
+.database-reverse-choice {
+  min-height: 58px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.database-reverse-choice > svg {
+  width: var(--space-5);
+  height: var(--space-5);
+  color: var(--color-text-muted);
+}
+
+.database-reverse-choice:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.database-reverse-choice.is-selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 var(--border-width-default) var(--color-accent);
+}
+
+.database-reverse-choice.is-selected > svg {
+  color: var(--color-accent-hover);
+}
+
+.database-reverse-destination__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-panel);
+}
+
+.database-reverse-field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.database-reverse-field input {
+  width: 100%;
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+}
+
+.database-reverse-field input:focus {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.database-reverse-complete {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.database-reverse-complete__hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-panel);
+  background: var(--success-bg);
+}
+
+.database-reverse-complete__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-success);
+  color: var(--color-text-on-accent);
+}
+
+.database-reverse-complete__icon svg {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.database-reverse-complete h3,
+.database-reverse-complete p {
+  margin: 0;
+}
+
+.database-reverse-complete h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xl);
+}
+
+.database-reverse-complete p {
+  margin-top: var(--space-1);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .database-workspace-command-bar .sql-playground-command-bar__primary {
+    flex-wrap: wrap;
+  }
+
+  .database-reverse-wizard {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+  }
+
+  .database-reverse-summary,
+  .database-reverse-complete dl,
+  .database-reverse-table-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .database-reverse-progress__label {
+    display: none;
+  }
+
+  .database-reverse-progress li:not(:last-child)::after {
+    right: var(--space-2);
+    left: calc(var(--size-button-sm) + var(--space-2));
+  }
+}
+
+@media (max-width: 640px) {
+  .database-reverse-progress {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .database-reverse-analysis,
+  .database-reverse-destination,
+  .database-reverse-complete {
+    padding: var(--space-3);
+  }
+
+  .database-reverse-preview {
+    margin: var(--space-3);
+  }
+
+  .database-reverse-selection-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .database-reverse-destination fieldset,
+  .database-reverse-destination__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 1180px) {
   .sql-playground-command-bar__metadata strong {
     max-width: var(--size-sidebar-min);

@@ -6,12 +6,16 @@ interface NoProjectWelcomePageProps {
   onNewProject: () => void;
   onOpenProject: () => void;
   onImportSchema: () => void;
+  onOpenSqliteDatabase: () => void;
+  onImportSql: () => void;
 }
 
 export function NoProjectWelcomePage({
   onNewProject,
   onOpenProject,
   onImportSchema,
+  onOpenSqliteDatabase,
+  onImportSql,
 }: NoProjectWelcomePageProps) {
   const { t } = useI18n();
   const actions = [
@@ -27,6 +31,18 @@ export function NoProjectWelcomePage({
       title: t("noProjectWelcome.openProject"),
       description: t("noProjectWelcome.openProjectDescription"),
       onClick: onOpenProject,
+    },
+    {
+      icon: "database" as const,
+      title: t("databaseWorkspace.openDatabase"),
+      description: t("databaseWorkspace.openDatabaseDescription"),
+      onClick: onOpenSqliteDatabase,
+    },
+    {
+      icon: "databaseReverse" as const,
+      title: t("fileMenu.importSql"),
+      description: t("databaseWorkspace.importSqlDescription"),
+      onClick: onImportSql,
     },
     {
       icon: "download" as const,

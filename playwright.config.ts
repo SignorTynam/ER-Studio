@@ -2,8 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const devServerCommand =
   process.platform === "win32"
-    ? "npm.cmd run dev -- --host 127.0.0.1"
-    : "npm run dev -- --host 127.0.0.1";
+    ? "npm.cmd run dev -- --host 127.0.0.1 --port 4175 --strictPort"
+    : "npm run dev -- --host 127.0.0.1 --port 4175 --strictPort";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -14,7 +14,7 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "http://127.0.0.1:4175",
     trace: "on-first-retry",
   },
   projects: [
@@ -25,8 +25,8 @@ export default defineConfig({
   ],
   webServer: {
     command: devServerCommand,
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
+    url: "http://127.0.0.1:4175",
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       VITE_APP_BOOT_DELAY_MS: "3000",

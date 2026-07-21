@@ -46,6 +46,7 @@ interface AppHeaderProps {
   onSaveErs: () => void;
   onOpenSqlReverseWorkflow: () => void;
   onImportSql: () => void;
+  onOpenSqliteDatabase: () => void;
   onOpenErrorsPanel: () => void;
   onToggleDiagnostics: () => void;
   onExportPng: () => void;
@@ -177,6 +178,7 @@ export function AppHeader(props: AppHeaderProps) {
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportSchema)}>{t("fileMenu.importSchema")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportErs)}>{t("fileMenu.importErs")}</button>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onImportSql)} disabled={!props.hasProject}>{t("fileMenu.importSql")}</button>
+              <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onOpenSqliteDatabase)}>{t("databaseWorkspace.openDatabase")}</button>
               <div className="app-topbar-menu__separator" role="separator" />
               <span className="app-topbar-menu__section">{t("fileMenu.export")}</span>
               <button type="button" role="menuitem" onClick={() => runTopbarMenuAction(props.onSaveProject)} disabled={!props.hasProject}>{t("fileMenu.exportProject")}</button>
