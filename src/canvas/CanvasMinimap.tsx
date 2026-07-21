@@ -78,12 +78,29 @@ function readCanvasSize(canvas: HTMLDivElement | null): CanvasSize {
   return { width: rect?.width ?? 0, height: rect?.height ?? 0 };
 }
 
+// Grow `bounds` symmetrically until its aspect ratio matches the minimap viewport,
+// so the world projection scales uniformly (no stretch) while the pointer mapping stays
+// a plain full-rect linear map. Returns `bounds` unchanged when inputs are degenerate.
+export function fitBoundsToAspect(bounds: Bounds, aspect: number): Bounds {
+  if (!Number.isFinite(aspect) || aspect <= 0 || bounds.width <= 0 || bounds.height <= 0) {
+    return bounds;
+  }
+  const boundsAspect = bounds.width / bounds.height;
+  if (boundsAspect > aspect) {
+    const height = bounds.width / aspect;
+    return { x: bounds.x, y: bounds.y - (height - bounds.height) / 2, width: bounds.width, height };
+  }
+  const width = bounds.height * aspect;
+  return { x: bounds.x - (width - bounds.width) / 2, y: bounds.y, width, height: bounds.height };
+}
+
 export function CanvasMinimap(props: CanvasMinimapProps) {
   const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const activePointerRef = useRef<number | null>(null);
   const dragOffsetRef = useRef<Point>({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState<CanvasSize>(() => readCanvasSize(props.canvasRef.current));
+  const [mapSize, setMapSize] = useState<CanvasSize>({ width: 0, height: 0 });
 
   useEffect(() => {
     const canvas = props.canvasRef.current;
@@ -96,6 +113,20 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
     return () => observer.disconnect();
   }, [props.canvasRef]);
 
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const update = () => {
+      const rect = svg.getBoundingClientRect();
+      setMapSize({ width: rect.width, height: rect.height });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [props.visible]);
+
   const viewportBounds = useMemo(
     () => viewportWorldBounds(props.viewport, canvasSize),
     [canvasSize, props.viewport],
@@ -104,13 +135,20 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
     const nodeBounds = getSelectionBounds(props.nodes);
     return expandBounds(nodeBounds ? unionBounds(nodeBounds, viewportBounds) : viewportBounds);
   }, [props.nodes, viewportBounds]);
+  const projectedBounds = useMemo(
+    () =>
+      mapSize.width > 0 && mapSize.height > 0
+        ? fitBoundsToAspect(viewBounds, mapSize.width / mapSize.height)
+        : viewBounds,
+    [viewBounds, mapSize],
+  );
 
   function worldPointFromPointer(event: PointerEvent<SVGSVGElement>): Point | null {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return null;
     return {
-      x: viewBounds.x + ((event.clientX - rect.left) / rect.width) * viewBounds.width,
-      y: viewBounds.y + ((event.clientY - rect.top) / rect.height) * viewBounds.height,
+      x: projectedBounds.x + ((event.clientX - rect.left) / rect.width) * projectedBounds.width,
+      y: projectedBounds.y + ((event.clientY - rect.top) / rect.height) * projectedBounds.height,
     };
   }
 
@@ -177,7 +215,7 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
         <svg
           ref={svgRef}
           className="canvas-minimap__map"
-          viewBox={`${viewBounds.x} ${viewBounds.y} ${Math.max(viewBounds.width, 1)} ${Math.max(viewBounds.height, 1)}`}
+          viewBox={`${projectedBounds.x} ${projectedBounds.y} ${Math.max(projectedBounds.width, 1)} ${Math.max(projectedBounds.height, 1)}`}
           preserveAspectRatio="none"
           role="group"
           tabIndex={0}

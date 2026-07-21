@@ -104,3 +104,20 @@ test("minimap defaults to collapsed below the 860px breakpoint", async ({ page }
   await expect(page.getByRole("button", { name: "Mostra minimappa" })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Minimappa" })).toHaveCount(0);
 });
+
+test("minimap projects the diagram without distortion", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await createDiagram(page);
+
+  const map = page.getByRole("complementary", { name: "Minimappa" }).locator(".canvas-minimap__map");
+  await expect(map).toBeVisible();
+
+  // The viewBox aspect ratio must match the rendered container aspect ratio: with
+  // preserveAspectRatio="none" that is what keeps the projection uniform (no stretch).
+  const aspects = await map.evaluate((svg) => {
+    const viewBox = (svg.getAttribute("viewBox") || "").split(/\s+/).map(Number);
+    const rect = svg.getBoundingClientRect();
+    return { viewBox: viewBox[2] / viewBox[3], client: rect.width / rect.height };
+  });
+  expect(Math.abs(aspects.viewBox - aspects.client)).toBeLessThan(0.02);
+});
