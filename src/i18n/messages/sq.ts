@@ -505,6 +505,9 @@ export const sq: DeepPartialMessages = {
     },
     dialogs: {
       nameLabel: "Emri",
+      newProjectTitle: "Projekt i ri",
+      projectNameLabel: "Emri i projektit",
+      createAction: "Krijo",
       newSchemaTitle: "Skeme e re",
       newTextFileTitle: "File i ri",
       newSqlFileTitle: "File SQL i ri",

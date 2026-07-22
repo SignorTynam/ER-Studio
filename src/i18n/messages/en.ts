@@ -505,6 +505,9 @@ export const en: DeepPartialMessages = {
     },
     dialogs: {
       nameLabel: "Name",
+      newProjectTitle: "New project",
+      projectNameLabel: "Project name",
+      createAction: "Create",
       newSchemaTitle: "New schema",
       newTextFileTitle: "New file",
       newSqlFileTitle: "New SQL file",

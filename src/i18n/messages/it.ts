@@ -503,6 +503,9 @@ export const it = {
     },
     dialogs: {
       nameLabel: "Nome",
+      newProjectTitle: "Nuovo progetto",
+      projectNameLabel: "Nome progetto",
+      createAction: "Crea",
       newSchemaTitle: "Nuovo schema",
       newTextFileTitle: "Nuovo file",
       newSqlFileTitle: "Nuovo file SQL",

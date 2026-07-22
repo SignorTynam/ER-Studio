@@ -4600,13 +4600,26 @@ export default function App() {
       return;
     }
 
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newProjectTitle"),
+      label: t("projectExplorer.dialogs.projectNameLabel"),
+      initialValue: t("workspace.newDiagramName"),
+      confirmLabel: t("projectExplorer.dialogs.createAction"),
+      required: true,
+      validate: (value) => (/[\\/]/.test(value) ? t("projectExplorer.errors.invalid-characters") : null),
+    });
+    if (requestedName == null) {
+      return;
+    }
+    const projectName = requestedName;
+
     await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
     setOpenSqlPlaygroundSchemaIds([]);
     setActiveSqlPlaygroundSchemaId(null);
     setLastSqlPlaygroundSchemaId(null);
     setActiveImportedDatabaseSessionId(null);
 
-    const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
+    const newDiagram = createEmptyDiagram(projectName);
     const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
     const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
     const schema = createSchemaDocumentFromProjectState({
@@ -4630,7 +4643,7 @@ export default function App() {
       },
       versioning: createEmptyProjectVersioningState(),
     });
-    const nextProject = createEmptyProjectExplorerState(t("workspace.newDiagramName"));
+    const nextProject = createEmptyProjectExplorerState(projectName);
     setHasProject(true);
     setProjectExplorer(nextProject);
     applyWorkspaceDocument(

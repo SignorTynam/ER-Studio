@@ -18,6 +18,8 @@ export interface PromptDialogState {
   cancelLabel: string;
   required: boolean;
   requiredMessage: string;
+  /** Validazione extra (oltre a "required"): restituisce un messaggio d'errore o null se valido. */
+  validate?: (value: string) => string | null;
 }
 
 interface RequestConfirmOptions {
@@ -37,6 +39,7 @@ interface RequestPromptOptions {
   cancelLabel?: string;
   required?: boolean;
   requiredMessage?: string;
+  validate?: (value: string) => string | null;
 }
 
 interface UseAppDialogsOptions {
@@ -142,6 +145,7 @@ export function useAppDialogs({
         cancelLabel: options.cancelLabel ?? defaultCancelLabel,
         required: options.required === true,
         requiredMessage: options.requiredMessage ?? defaultRequiredMessage,
+        validate: options.validate,
       });
       setPromptValue(options.initialValue);
       setPromptError("");
@@ -156,6 +160,12 @@ export function useAppDialogs({
     const normalized = promptValue.trim();
     if (promptDialog.required && !normalized) {
       setPromptError(promptDialog.requiredMessage);
+      return;
+    }
+
+    const validationError = promptDialog.validate?.(normalized);
+    if (validationError) {
+      setPromptError(validationError);
       return;
     }
 
