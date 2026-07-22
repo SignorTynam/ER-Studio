@@ -444,6 +444,17 @@ export const sq: DeepPartialMessages = {
   },
   sqlReversePanel: {
     title: "SQL Reverse",
+    dialect: {
+      label: "Dialekti SQL",
+      hint: "Zgjidh variantin SQL që thonjëzat dhe tipet të lexohen saktë. Gjenerik i përshtatet shumicës së skemave.",
+      options: {
+        generic: "Gjenerik",
+        postgresql: "PostgreSQL",
+        mysql: "MySQL",
+        sqlite: "SQLite",
+        sqlserver: "SQL Server",
+      },
+    },
     placeholder: "Ngjit ketu instruksione CREATE TABLE...",
     importFile: "Importo file SQL",
     analyze: "Analizo kodin",

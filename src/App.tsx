@@ -295,7 +295,11 @@ import {
 } from "./utils/validationIssuePresentation";
 import type { ValidationIssueAction } from "./utils/validationIssuePresentation";
 import { computeValidationAutoFix } from "./utils/validationAutoFix";
-import type { SqlReverseIssue } from "./types/sqlReverse";
+import type { SqlReverseDialect, SqlReverseIssue } from "./types/sqlReverse";
+import {
+  readSqlReverseDialectPreference,
+  writeSqlReverseDialectPreference,
+} from "./utils/sqlReverseDialectPreference";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
   applyConnectorCardinalityToDiagram,
@@ -324,12 +328,14 @@ function createInitialSqlReverseWorkflowState(
   sourceSql = "",
   sourceFileId: string | null = null,
   sourceFileName?: string,
+  dialect: SqlReverseDialect = readSqlReverseDialectPreference(),
 ): SqlReverseWorkflowState {
   return {
     step: "idle",
     sourceSql,
     sourceFileId,
     sourceFileName,
+    dialect,
     result: null,
     issues: [],
     logicalIssues: [],
@@ -407,6 +413,7 @@ interface SqlReverseWorkflowState {
   sourceSql: string;
   sourceFileId: string | null;
   sourceFileName?: string;
+  dialect: SqlReverseDialect;
   result: SqlReverseDiagramResult | null;
   issues: SqlReverseIssue[];
   logicalIssues: LogicalIssue[];
@@ -2164,8 +2171,9 @@ export default function App() {
     setStatusWarning(t("sqlReverse.app.importCancelled"));
   }
 
-  function handleAnalyzeSqlReverseWorkflow() {
-    const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+  function handleAnalyzeSqlReverseWorkflow(dialectOverride?: SqlReverseDialect) {
+    const dialect = dialectOverride ?? sqlReverseWorkflow.dialect;
+    const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql, { dialect });
     const validationMessage = validation.errorCode === "empty-source"
       ? t("sqlReverse.app.emptyFile")
       : validation.errorCode === "missing-create-table"
@@ -2196,7 +2204,7 @@ export default function App() {
     }
 
     try {
-      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: t("sqlReverse.input.title") });
+      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: t("sqlReverse.input.title"), dialect });
       const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
       const hasValidDiagram = result.diagram.nodes.length > 0;
 
@@ -2274,6 +2282,24 @@ export default function App() {
         isPreviewReady: true,
       }));
       setStatusError(t("sqlReverse.app.sqlNotImportable"));
+    }
+  }
+
+  function handleSqlReverseDialectChange(dialect: SqlReverseDialect) {
+    if (dialect === sqlReverseWorkflow.dialect) {
+      return;
+    }
+    writeSqlReverseDialectPreference(dialect);
+    setSqlReverseWorkflow((current) => ({ ...current, dialect }));
+    // Se un'analisi è già stata eseguita, ri-analizzo subito col nuovo dialetto; altrimenti
+    // memorizzo solo la scelta (verrà usata al prossimo "Analizza").
+    const alreadyAnalyzed =
+      sqlReverseWorkflow.isPreviewReady
+      || sqlReverseWorkflow.result != null
+      || sqlReverseWorkflow.issues.length > 0
+      || sqlReverseWorkflow.errorMessage.length > 0;
+    if (alreadyAnalyzed && sqlReverseWorkflow.sourceSql.trim().length > 0) {
+      handleAnalyzeSqlReverseWorkflow(dialect);
     }
   }
 
@@ -7674,6 +7700,8 @@ export default function App() {
         unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
         isPreviewReady={sqlReverseWorkflow.isPreviewReady}
         sourceFileName={sqlReverseWorkflow.sourceFileName}
+        dialect={sqlReverseWorkflow.dialect}
+        onDialectChange={handleSqlReverseDialectChange}
         onSqlChange={handleSqlReverseSourceChange}
         onAnalyze={handleAnalyzeSqlReverseWorkflow}
         onLoadFile={handleLoadSqlReverseFile}

@@ -444,6 +444,17 @@ export const en: DeepPartialMessages = {
   },
   sqlReversePanel: {
     title: "SQL Reverse",
+    dialect: {
+      label: "SQL dialect",
+      hint: "Pick the SQL flavor so quoting and types are read correctly. Generic fits most schemas.",
+      options: {
+        generic: "Generic",
+        postgresql: "PostgreSQL",
+        mysql: "MySQL",
+        sqlite: "SQLite",
+        sqlserver: "SQL Server",
+      },
+    },
     placeholder: "Paste CREATE TABLE statements here...",
     importFile: "Import SQL file",
     analyze: "Analyze code",

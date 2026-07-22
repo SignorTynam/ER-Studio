@@ -442,6 +442,17 @@ export const it = {
   },
   sqlReversePanel: {
     title: "SQL Reverse",
+    dialect: {
+      label: "Dialetto SQL",
+      hint: "Scegli la variante SQL così virgolette e tipi vengono letti correttamente. Generico va bene per la maggior parte degli schemi.",
+      options: {
+        generic: "Generico",
+        postgresql: "PostgreSQL",
+        mysql: "MySQL",
+        sqlite: "SQLite",
+        sqlserver: "SQL Server",
+      },
+    },
     placeholder: "Incolla qui istruzioni CREATE TABLE...",
     importFile: "Importa file SQL",
     analyze: "Analizza codice",

@@ -1,11 +1,13 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import type { LogicalIssue } from "../../types/logical";
 import type { EditorDiagnostic } from "../../types/editor";
-import type { SqlReverseIssue } from "../../types/sqlReverse";
+import type { SqlReverseDialect, SqlReverseIssue } from "../../types/sqlReverse";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 import { CodeEditorSurface } from "../editor/CodeEditorSurface";
+import { Tooltip } from "../ui";
 import { PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
+import { SQL_REVERSE_DIALECTS } from "../../utils/sqlReverseDialectPreference";
 
 interface SqlReversePanelProps {
   sql: string;
@@ -16,6 +18,8 @@ interface SqlReversePanelProps {
   unsupportedStatementCount: number;
   isPreviewReady: boolean;
   sourceFileName?: string;
+  dialect: SqlReverseDialect;
+  onDialectChange: (dialect: SqlReverseDialect) => void;
   onSqlChange: (value: string) => void;
   onAnalyze: () => void;
   onLoadFile: (file: File) => void;
@@ -60,6 +64,8 @@ export function SqlReversePanel({
   unsupportedStatementCount,
   isPreviewReady,
   sourceFileName,
+  dialect,
+  onDialectChange,
   onSqlChange,
   onAnalyze,
   onLoadFile,
@@ -69,6 +75,7 @@ export function SqlReversePanel({
 }: SqlReversePanelProps) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dialectSelectId = useId();
   const diagnostics = buildDiagnostics(errorMessage, issues, logicalIssues);
   const lineCount = Math.max(1, sql.split(/\r?\n/).length);
 
@@ -100,6 +107,29 @@ export function SqlReversePanel({
         />
       </WorkspacePanelHeader>
 
+      <div className="sql-reverse-panel__toolbar">
+        <label htmlFor={dialectSelectId} className="sql-reverse-panel__dialect-label">
+          {t("sqlReversePanel.dialect.label")}
+        </label>
+        <Tooltip label={t("sqlReversePanel.dialect.hint")} position="bottom" className="sql-reverse-panel__dialect-tip">
+          {({ "aria-describedby": describedBy }) => (
+            <select
+              id={dialectSelectId}
+              className="settings-select sql-reverse-panel__dialect-select"
+              value={dialect}
+              aria-describedby={describedBy}
+              onChange={(event) => onDialectChange(event.target.value as SqlReverseDialect)}
+            >
+              {SQL_REVERSE_DIALECTS.map((value) => (
+                <option key={value} value={value}>
+                  {t(`sqlReversePanel.dialect.options.${value}`)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Tooltip>
+      </div>
+
       <div className="sql-reverse-panel__editor-surface">
         <CodeEditorSurface
           value={sql}
@@ -125,7 +155,7 @@ export function SqlReversePanel({
           <StudioIcon name="delete" aria-hidden="true" />
           <span>{t("sqlReversePanel.clear")}</span>
         </button>
-        <button type="button" className="project-activity-action primary" onClick={onAnalyze} disabled={sql.trim().length === 0}>
+        <button type="button" className="project-activity-action primary" onClick={() => onAnalyze()} disabled={sql.trim().length === 0}>
           <StudioIcon name="databaseReverse" aria-hidden="true" />
           <span>{t("sqlReversePanel.analyze")}</span>
         </button>

@@ -1,4 +1,4 @@
-import type { SqlReverseIssue } from "../types/sqlReverse";
+import type { SqlReverseIssue, SqlReverseOptions } from "../types/sqlReverse";
 import { parseSqlSchema } from "./sqlReverseParser";
 
 export interface SqlReverseBetaValidationResult {
@@ -9,7 +9,10 @@ export interface SqlReverseBetaValidationResult {
   unsupportedStatementCount: number;
 }
 
-export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaValidationResult {
+export function validateSqlReverseBetaSource(
+  sourceSql: string,
+  options?: SqlReverseOptions,
+): SqlReverseBetaValidationResult {
   const normalizedSql = sourceSql.trim();
 
   if (!normalizedSql) {
@@ -32,7 +35,7 @@ export function validateSqlReverseBetaSource(sourceSql: string): SqlReverseBetaV
     };
   }
 
-  const parsed = parseSqlSchema(normalizedSql, { preserveUnsupportedStatements: true });
+  const parsed = parseSqlSchema(normalizedSql, { ...options, preserveUnsupportedStatements: true });
   if (parsed.model.unsupportedStatements.length > 0) {
     return {
       ok: false,
