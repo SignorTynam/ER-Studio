@@ -178,6 +178,112 @@
   justify-content: space-between;
 }
 
+/* Fase K2 — disclosure "cosa non riesco a importare" nella meta-riga. */
+.sql-reverse-panel__unsupported-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sql-reverse-panel__unsupported-toggle:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.sql-reverse-panel__unsupported-toggle:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--focus-ring);
+}
+
+.sql-reverse-panel__unsupported-toggle svg {
+  width: var(--space-3);
+  height: var(--space-3);
+  transition: transform var(--motion-fast);
+}
+
+.sql-reverse-panel__unsupported-toggle.is-open svg {
+  transform: rotate(90deg);
+}
+
+/* Fase K2 — elenco degli statement non importabili. */
+.sql-reverse-panel__unsupported {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 38%;
+  overflow-y: auto;
+  padding: var(--space-2-5);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.sql-reverse-panel__unsupported-intro {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+.sql-reverse-panel__unsupported-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sql-reverse-panel__unsupported-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+}
+
+.sql-reverse-panel__unsupported-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sql-reverse-panel__unsupported-line {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.sql-reverse-panel__unsupported-fragment {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-editor);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  white-space: pre;
+}
+
+.sql-reverse-panel__unsupported-reason {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
 .project-activity-action.primary {
   border-color: var(--color-accent);
   background: var(--color-accent);

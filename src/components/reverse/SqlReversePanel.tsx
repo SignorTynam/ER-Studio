@@ -1,11 +1,11 @@
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import type { LogicalIssue } from "../../types/logical";
 import type { EditorDiagnostic } from "../../types/editor";
-import type { SqlReverseDialect, SqlReverseIssue } from "../../types/sqlReverse";
+import type { SqlReverseDialect, SqlReverseIssue, SqlUnsupportedStatement } from "../../types/sqlReverse";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 import { CodeEditorSurface } from "../editor/CodeEditorSurface";
-import { Tooltip } from "../ui";
+import { Badge, Tooltip } from "../ui";
 import { PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 import { SQL_REVERSE_DIALECTS } from "../../utils/sqlReverseDialectPreference";
 
@@ -16,6 +16,7 @@ interface SqlReversePanelProps {
   logicalIssues: LogicalIssue[];
   tableCount: number;
   unsupportedStatementCount: number;
+  unsupportedStatements: SqlUnsupportedStatement[];
   isPreviewReady: boolean;
   sourceFileName?: string;
   dialect: SqlReverseDialect;
@@ -26,6 +27,15 @@ interface SqlReversePanelProps {
   onClear: () => void;
   onClose?: () => void;
   closeLabel?: string;
+}
+
+/** Riga 1-based a partire da un offset nel sorgente (gli span degli statement non supportati
+ * portano solo start/end). Riusata anche dal salto alla riga (K3). */
+function sqlLineForOffset(source: string, offset?: number): number | undefined {
+  if (offset == null || offset < 0) {
+    return undefined;
+  }
+  return source.slice(0, offset).split(/\r?\n/).length;
 }
 
 function buildDiagnostics(
@@ -62,6 +72,7 @@ export function SqlReversePanel({
   logicalIssues,
   tableCount,
   unsupportedStatementCount,
+  unsupportedStatements,
   isPreviewReady,
   sourceFileName,
   dialect,
@@ -76,8 +87,11 @@ export function SqlReversePanel({
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dialectSelectId = useId();
+  const unsupportedListId = useId();
+  const [unsupportedOpen, setUnsupportedOpen] = useState(false);
   const diagnostics = buildDiagnostics(errorMessage, issues, logicalIssues);
   const lineCount = Math.max(1, sql.split(/\r?\n/).length);
+  const hasUnsupported = unsupportedStatements.length > 0;
 
   return (
     <WorkspacePanel className="sql-reverse-panel" label={t("sqlReversePanel.title")}>
@@ -146,9 +160,51 @@ export function SqlReversePanel({
         <span>{t("workspaceChrome.lineCount", { count: lineCount })}</span>
         <span>{sourceFileName ?? t("codeEditor.draftUnbound")}</span>
         {isPreviewReady ? <span>{t("sqlReversePanel.tables", { count: tableCount })}</span> : null}
-        {unsupportedStatementCount > 0 ? <span>{t("sqlReversePanel.unsupported", { count: unsupportedStatementCount })}</span> : null}
+        {hasUnsupported ? (
+          <button
+            type="button"
+            className={unsupportedOpen ? "sql-reverse-panel__unsupported-toggle is-open" : "sql-reverse-panel__unsupported-toggle"}
+            aria-expanded={unsupportedOpen}
+            aria-controls={unsupportedListId}
+            onClick={() => setUnsupportedOpen((open) => !open)}
+          >
+            <StudioIcon name="arrowRight" aria-hidden="true" />
+            <span>{t("sqlReversePanel.unsupported", { count: unsupportedStatements.length })}</span>
+          </button>
+        ) : null}
         {diagnostics.length > 0 ? <span>{t("codeEditor.diagnostic.count", { count: diagnostics.length })}</span> : null}
       </div>
+
+      {hasUnsupported && unsupportedOpen ? (
+        <section
+          id={unsupportedListId}
+          className="sql-reverse-panel__unsupported"
+          aria-label={t("sqlReversePanel.unsupportedList.title")}
+        >
+          <p className="sql-reverse-panel__unsupported-intro">{t("sqlReversePanel.unsupportedList.intro")}</p>
+          <ul className="sql-reverse-panel__unsupported-list">
+            {unsupportedStatements.map((statement) => {
+              const line = statement.sourceSpan?.line ?? sqlLineForOffset(sql, statement.sourceSpan?.start);
+              return (
+                <li key={statement.id} className="sql-reverse-panel__unsupported-item">
+                  <div className="sql-reverse-panel__unsupported-head">
+                    <Badge tone="warning">{t(`sqlReversePanel.unsupportedList.kinds.${statement.kind}`)}</Badge>
+                    {line ? (
+                      <span className="sql-reverse-panel__unsupported-line">
+                        {t("sqlReversePanel.unsupportedList.lineLabel", { line })}
+                      </span>
+                    ) : null}
+                  </div>
+                  <code className="sql-reverse-panel__unsupported-fragment">{statement.raw}</code>
+                  <p className="sql-reverse-panel__unsupported-reason">
+                    {t(`sqlReversePanel.unsupportedList.reasons.${statement.kind}`)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <footer className="sql-reverse-panel__footer">
         <button type="button" className="project-activity-action" onClick={onClear}>

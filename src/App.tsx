@@ -295,7 +295,7 @@ import {
 } from "./utils/validationIssuePresentation";
 import type { ValidationIssueAction } from "./utils/validationIssuePresentation";
 import { computeValidationAutoFix } from "./utils/validationAutoFix";
-import type { SqlReverseDialect, SqlReverseIssue } from "./types/sqlReverse";
+import type { SqlReverseDialect, SqlReverseIssue, SqlUnsupportedStatement } from "./types/sqlReverse";
 import {
   readSqlReverseDialectPreference,
   writeSqlReverseDialectPreference,
@@ -341,6 +341,7 @@ function createInitialSqlReverseWorkflowState(
     logicalIssues: [],
     tableCount: 0,
     unsupportedStatementCount: 0,
+    unsupportedStatements: [],
     errorMessage: "",
     logicalViewport: { ...DEFAULT_VIEWPORT },
     erViewport: { ...DEFAULT_VIEWPORT },
@@ -419,6 +420,7 @@ interface SqlReverseWorkflowState {
   logicalIssues: LogicalIssue[];
   tableCount: number;
   unsupportedStatementCount: number;
+  unsupportedStatements: SqlUnsupportedStatement[];
   errorMessage: string;
   logicalViewport: Viewport;
   erViewport: Viewport;
@@ -2196,6 +2198,7 @@ export default function App() {
         logicalIssues: [],
         tableCount: 0,
         unsupportedStatementCount: validation.unsupportedStatementCount,
+        unsupportedStatements: validation.unsupportedStatements,
         errorMessage: validationMessage,
         isPreviewReady: false,
       }));
@@ -2218,6 +2221,7 @@ export default function App() {
           logicalIssues: result.logicalIssues,
           tableCount: result.sqlModel.tables.length,
           unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          unsupportedStatements: result.sqlModel.unsupportedStatements,
           errorMessage: message,
           isPreviewReady: false,
         }));
@@ -2234,6 +2238,7 @@ export default function App() {
           logicalIssues: result.logicalIssues,
           tableCount: result.sqlModel.tables.length,
           unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          unsupportedStatements: result.sqlModel.unsupportedStatements,
           errorMessage: t("sqlReverse.app.sqlNotImportable"),
           isPreviewReady: true,
         }));
@@ -2250,6 +2255,7 @@ export default function App() {
         logicalIssues: result.logicalIssues,
         tableCount: result.sqlModel.tables.length,
         unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+        unsupportedStatements: result.sqlModel.unsupportedStatements,
         errorMessage: "",
         logicalViewport: { ...DEFAULT_VIEWPORT },
         erViewport: { ...DEFAULT_VIEWPORT },
@@ -2278,6 +2284,7 @@ export default function App() {
         logicalIssues: [],
         tableCount: 0,
         unsupportedStatementCount: 0,
+        unsupportedStatements: [],
         errorMessage: message,
         isPreviewReady: true,
       }));
@@ -7698,6 +7705,7 @@ export default function App() {
         logicalIssues={sqlReverseWorkflow.logicalIssues}
         tableCount={sqlReverseWorkflow.tableCount}
         unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
+        unsupportedStatements={sqlReverseWorkflow.unsupportedStatements}
         isPreviewReady={sqlReverseWorkflow.isPreviewReady}
         sourceFileName={sqlReverseWorkflow.sourceFileName}
         dialect={sqlReverseWorkflow.dialect}
