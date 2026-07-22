@@ -539,6 +539,38 @@ export const it = {
       projectRenamed: "Nome progetto aggiornato.",
     },
   },
+  settings: {
+    title: "Impostazioni",
+    subtitle: "Gestisci le preferenze di buildER.",
+    open: "Impostazioni",
+    sectionsAria: "Sezioni delle impostazioni",
+    comingSoon: "In arrivo",
+    sections: {
+      appearance: "Aspetto",
+      diagram: "Diagramma",
+      info: "Info",
+    },
+    appearance: {
+      language: { label: "Lingua", help: "Lingua dell'interfaccia." },
+      theme: { label: "Tema", help: "Tema chiaro; il tema scuro arriverà presto." },
+      density: { label: "Densità", help: "Spaziatura dell'interfaccia." },
+    },
+    diagram: {
+      diagnostics: {
+        label: "Indicatori diagnostici sul canvas",
+        help: "Mostra avvisi ed errori di validazione direttamente sul diagramma.",
+      },
+      minimap: {
+        label: "Mostra la minimap di default",
+        help: "Mostra la minimap del canvas all'apertura della vista ER.",
+      },
+    },
+    info: {
+      version: { label: "Versione", help: "La versione di buildER in uso." },
+      changelog: { label: "Novità", help: "Leggi le note dell'ultima versione.", action: "Apri" },
+      shortcuts: { label: "Scorciatoie da tastiera", help: "Vedi l'elenco completo delle scorciatoie.", action: "Apri" },
+    },
+  },
   commandMenu: {
     title: "Palette comandi",
     paletteAria: "Palette comandi",
@@ -678,6 +710,7 @@ export const it = {
     },
     actions: {
       openCommandPalette: "Apri la palette comandi",
+      openSettings: "Apri le impostazioni",
       navigatePaletteResults: "Naviga i risultati della palette",
       runPaletteResult: "Esegui il risultato selezionato",
       closeCommandPalette: "Chiudi la palette comandi",

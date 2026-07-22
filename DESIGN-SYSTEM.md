@@ -399,3 +399,40 @@ end-to-end; gli auto-fix di **rimozione** (collegamento/attributo/cardinalità) 
 dalla UI normale (l'app impedisce attributi orfani e collegamenti incompatibili, e la cancellazione di
 un'entità fa cascata sugli attributi), nascono solo da dati legacy/importati, quindi la loro
 correttezza è verificata in modo **deterministico** a livello di modello.
+
+## Schermata Impostazioni (Fase I)
+
+Casa unica delle preferenze, stile IDE. È un **modale** su `ui/Modal` (size `lg`,
+`components/settings/SettingsModal.tsx`) con **nav a sinistra + contenuto a destra**. La nav è un
+`role="tablist"` verticale (frecce ↑↓/←→, Home/End, roving tabindex) con `role="tab"` →
+`role="tabpanel"` (`aria-controls`/`aria-labelledby`). Focus-trap, Esc e scroll-lock arrivano dalla
+Modal shell.
+
+Tre sezioni (confermate col critique — niente sezioni a riga singola):
+
+- **Aspetto** — Lingua (`select` → `useI18n().setLocale`); Tema e Densità come **segnaposto "in
+  arrivo"** disabilitati con `Badge`: è qui che il tema scuro atterrerà con una riga sola.
+- **Diagramma** — Indicatori diagnostici e Minimap come **switch** (`input[type=checkbox]`
+  `role="switch"`, label associata via `htmlFor` + `aria-describedby`).
+- **Info** — versione (`APP_VERSION`), Novità (`ReleaseCenter`), Scorciatoie
+  (`KeyboardShortcutsModal`) — launcher, nessuna lista duplicata.
+
+**Principio: un posto solo, non duplicazione.** Ogni controllo legge/scrive lo **stato esistente**,
+sincronizzato col suo controllo originale:
+
+- Lingua → `setLocale` (stessa fonte del menu header, che resta come accesso rapido).
+- Diagnostica → stato `showDiagnostics` di App (stesso del toggle in `ErrorsPanel`).
+- Minimap → nuovo store reattivo `useCanvasMinimapVisibility` (`useSyncExternalStore` sugli helper
+  `read/writeCanvasMinimapVisibility`): `DiagramCanvas` e Impostazioni condividono la sorgente, quindi
+  cambiando in un posto cambia anche nell'altro, senza sollevare lo stato fino ad App.
+
+Apertura: **Ctrl+,** (convenzione VS Code; `Ctrl+.` era già "focus mode"), command palette e
+ingranaggio in header (nuova icona `settings`). Chiusura con Esc. Tutte le stringhe in en/it/sq.
+
+Solo token: lo switch ha dimensioni **derivate dai token** via `calc` (es. traccia
+`calc(var(--space-5) * 2)`, altezza `var(--space-6)` = 24px per il target tocco), nessun colore/px
+magico; le dimensioni strutturali (larghezza modale/nav) seguono la prassi dei componenti esistenti.
+
+Verifica: `tests/e2e/settings.spec.ts` — apertura con Ctrl+, e ingranaggio, cambio sezione, **axe
+pulito**, cambio lingua che **persiste dopo reload**, toggle minimap **sincronizzato col canvas** e
+persistente, toggle diagnostica **sincronizzato col pannello Errori**.

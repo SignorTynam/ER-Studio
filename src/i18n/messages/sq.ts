@@ -541,6 +541,38 @@ export const sq: DeepPartialMessages = {
       projectRenamed: "Emri i projektit u perditesua.",
     },
   },
+  settings: {
+    title: "Cilësimet",
+    subtitle: "Menaxho preferencat e buildER.",
+    open: "Cilësimet",
+    sectionsAria: "Seksionet e cilësimeve",
+    comingSoon: "Së shpejti",
+    sections: {
+      appearance: "Pamja",
+      diagram: "Diagrami",
+      info: "Info",
+    },
+    appearance: {
+      language: { label: "Gjuha", help: "Gjuha e ndërfaqes." },
+      theme: { label: "Tema", help: "Tema e çelët; tema e errët së shpejti." },
+      density: { label: "Dendësia", help: "Hapësira e ndërfaqes." },
+    },
+    diagram: {
+      diagnostics: {
+        label: "Treguesit diagnostikë në kanavacë",
+        help: "Shfaq paralajmërimet dhe gabimet e validimit drejtpërdrejt në diagram.",
+      },
+      minimap: {
+        label: "Shfaq minihartën si parazgjedhje",
+        help: "Shfaq minihartën e kanavacës kur hapet pamja ER.",
+      },
+    },
+    info: {
+      version: { label: "Versioni", help: "Versioni i buildER që po përdorni." },
+      changelog: { label: "Risitë", help: "Lexo shënimet e versionit të fundit.", action: "Hap" },
+      shortcuts: { label: "Shkurtoret e tastierës", help: "Shiko listën e plotë të shkurtoreve.", action: "Hap" },
+    },
+  },
   commandMenu: {
     title: "Paleta e komandave",
     paletteAria: "Paleta e komandave",
@@ -680,6 +712,7 @@ export const sq: DeepPartialMessages = {
     },
     actions: {
       openCommandPalette: "Hap paletën e komandave",
+      openSettings: "Hap cilësimet",
       navigatePaletteResults: "Navigo rezultatet e paletës",
       runPaletteResult: "Ekzekuto rezultatin e zgjedhur",
       closeCommandPalette: "Mbyll paletën e komandave",

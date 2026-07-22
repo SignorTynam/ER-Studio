@@ -35,6 +35,7 @@ import {
   type CardinalityDialogTarget,
 } from "./components/CardinalityModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
+import { SettingsModal } from "./components/settings/SettingsModal";
 import { NotesModal } from "./components/NotesModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
@@ -974,6 +975,7 @@ export default function App() {
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
   const {
@@ -1448,6 +1450,7 @@ export default function App() {
   const releaseAnnouncementBlocked =
     commandMenuOpen ||
     keyboardShortcutsOpen ||
+    settingsOpen ||
     aboutOpen ||
     appReleases.releaseCenterOpen ||
     introOpen ||
@@ -3805,6 +3808,12 @@ export default function App() {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
+
       const isEditingField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -3946,6 +3955,11 @@ export default function App() {
 
         if (commandMenuOpen) {
           closeCommandMenu(true);
+          return;
+        }
+
+        if (settingsOpen) {
+          setSettingsOpen(false);
           return;
         }
 
@@ -7802,6 +7816,7 @@ export default function App() {
         onExportSql={handleSaveLogicalSql}
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
+        onOpenSettings={() => setSettingsOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         onOpenReleaseCenter={openReleaseCenter}
         unreadReleaseCount={appReleases.unreadCount}
@@ -8295,6 +8310,7 @@ export default function App() {
           onClose={closeCommandMenu}
           onOpenProjectFile={handleProjectExplorerOpenFile}
           onOpenShortcuts={openKeyboardShortcuts}
+          onOpenSettings={() => setSettingsOpen(true)}
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenSqlPlayground={handleOpenSqlPlayground}
@@ -8387,6 +8403,20 @@ export default function App() {
       ) : null}
 
       {keyboardShortcutsOpen ? <KeyboardShortcutsModal onClose={() => setKeyboardShortcutsOpen(false)} /> : null}
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        showDiagnostics={showDiagnostics}
+        onShowDiagnosticsChange={setShowDiagnostics}
+        onOpenShortcuts={() => {
+          setSettingsOpen(false);
+          openKeyboardShortcuts();
+        }}
+        onOpenReleaseCenter={() => {
+          setSettingsOpen(false);
+          openReleaseCenter();
+        }}
+      />
 
       {confirmDialog ? (
         <Modal

@@ -61,6 +61,7 @@ function renderHeader(): string {
         onExportSql={() => undefined}
         onOpenCommandMenu={() => undefined}
         onOpenShortcuts={() => undefined}
+        onOpenSettings={() => undefined}
         onOpenAbout={() => undefined}
         onOpenReleaseCenter={() => undefined}
         unreadReleaseCount={0}

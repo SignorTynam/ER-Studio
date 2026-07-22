@@ -1,0 +1,210 @@
+/* Fase I — schermata Impostazioni: modale con nav a sinistra, stile IDE. Solo token. */
+
+.ui-modal.settings-modal {
+  width: min(760px, 92vw);
+  max-width: 92vw;
+}
+
+.settings-layout {
+  display: flex;
+  gap: var(--space-4);
+  min-height: 360px;
+  max-height: min(70vh, 560px);
+}
+
+/* Navigazione sezioni (tablist verticale) */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 0 0 176px;
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.settings-nav__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.settings-nav__item > svg {
+  flex: 0 0 auto;
+}
+
+.settings-nav__item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.settings-nav__item.is-active {
+  background: var(--color-bg-selected);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.settings-nav__item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Contenuto sezione */
+.settings-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+}
+
+.settings-section__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.settings-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Riga impostazione: testo a sinistra, controllo a destra */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.settings-row.is-disabled {
+  opacity: 0.6;
+}
+
+.settings-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-row__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.settings-row__desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.settings-row__value {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-row__badge {
+  flex: 0 0 auto;
+}
+
+/* Select nativa a token */
+.settings-select {
+  flex: 0 0 auto;
+  min-width: 180px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.settings-select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Switch accessibile costruito su checkbox role=switch */
+.settings-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: calc(var(--space-5) * 2); /* 40px derivati dai token */
+  height: var(--space-6); /* 24px — target tocco WCAG 2.2 AA */
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+
+.settings-switch::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-1) / 2);
+  left: calc(var(--space-1) / 2);
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  transition: transform var(--motion-fast);
+}
+
+.settings-switch:checked {
+  background: var(--color-accent);
+}
+
+.settings-switch:checked::after {
+  transform: translateX(var(--space-4));
+}
+
+.settings-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Responsive: nav in orizzontale in cima su schermi stretti */
+@media (max-width: 640px) {
+  .settings-layout {
+    flex-direction: column;
+    max-height: 78vh;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex: 0 0 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    padding-right: 0;
+    padding-bottom: var(--space-2);
+    overflow-x: auto;
+  }
+
+  .settings-nav__item {
+    white-space: nowrap;
+  }
+
+  .settings-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}

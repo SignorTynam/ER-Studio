@@ -541,6 +541,38 @@ export const en: DeepPartialMessages = {
       projectRenamed: "Project name updated.",
     },
   },
+  settings: {
+    title: "Settings",
+    subtitle: "Manage buildER preferences.",
+    open: "Settings",
+    sectionsAria: "Settings sections",
+    comingSoon: "Coming soon",
+    sections: {
+      appearance: "Appearance",
+      diagram: "Diagram",
+      info: "Info",
+    },
+    appearance: {
+      language: { label: "Language", help: "Interface language." },
+      theme: { label: "Theme", help: "Light theme; a dark theme is coming soon." },
+      density: { label: "Density", help: "Spacing of the interface." },
+    },
+    diagram: {
+      diagnostics: {
+        label: "Diagnostic indicators on the canvas",
+        help: "Show validation warnings and errors directly on the diagram.",
+      },
+      minimap: {
+        label: "Show the minimap by default",
+        help: "Display the canvas minimap when opening the ER view.",
+      },
+    },
+    info: {
+      version: { label: "Version", help: "The buildER version you are using." },
+      changelog: { label: "What's new", help: "Read the latest release notes.", action: "Open" },
+      shortcuts: { label: "Keyboard shortcuts", help: "See the full list of shortcuts.", action: "Open" },
+    },
+  },
   commandMenu: {
     title: "Command palette",
     paletteAria: "Command palette",
@@ -680,6 +712,7 @@ export const en: DeepPartialMessages = {
     },
     actions: {
       openCommandPalette: "Open the command palette",
+      openSettings: "Open settings",
       navigatePaletteResults: "Navigate palette results",
       runPaletteResult: "Run the selected result",
       closeCommandPalette: "Close the command palette",

@@ -55,6 +55,7 @@ interface AppHeaderProps {
   onExportSql: () => void;
   onOpenCommandMenu: () => void;
   onOpenShortcuts: () => void;
+  onOpenSettings: () => void;
   onOpenAbout: () => void;
   onOpenReleaseCenter: () => void;
   unreadReleaseCount: number;
@@ -285,6 +286,17 @@ export function AppHeader(props: AppHeaderProps) {
                 {props.unreadReleaseCount > 9 ? "9+" : props.unreadReleaseCount}
               </span>
             ) : null}
+          </button>
+        </Tooltip>
+        <Tooltip position="bottom" label={t("settings.open")}>
+          <button
+            type="button"
+            className="designer-icon-button"
+            onClick={props.onOpenSettings}
+            aria-label={t("settings.open")}
+            data-testid="app-header-settings"
+          >
+            <StudioIcon name="settings" aria-hidden="true" />
           </button>
         </Tooltip>
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>
