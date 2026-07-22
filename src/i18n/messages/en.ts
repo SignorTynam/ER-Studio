@@ -524,6 +524,7 @@ export const en: DeepPartialMessages = {
     errors: {
       "empty-name": "Name cannot be empty.",
       "duplicate-name": "An item with this name already exists in this folder.",
+      "invalid-move": "You can't move a folder into itself or one of its subfolders.",
       "missing-parent": "Destination folder not found.",
       "missing-node": "Project item not found.",
       "root-delete": "The root folder cannot be deleted.",
@@ -538,6 +539,7 @@ export const en: DeepPartialMessages = {
       folderCreated: "Folder created: {{name}}.",
       renamed: "Item renamed: {{name}}.",
       deleted: "Item deleted: {{name}}.",
+      moved: "Moved \"{{name}}\" to \"{{folder}}\".",
       schemaExported: "Schema exported.",
       schemaImported: "Schema imported.",
       legacyConverted: "Legacy project converted to the new multi-file format.",

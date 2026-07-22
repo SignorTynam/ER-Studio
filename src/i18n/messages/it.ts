@@ -522,6 +522,7 @@ export const it = {
     errors: {
       "empty-name": "Il nome non puo essere vuoto.",
       "duplicate-name": "Esiste gia un elemento con questo nome nella cartella.",
+      "invalid-move": "Non puoi spostare una cartella dentro sé stessa o una sua sottocartella.",
       "missing-parent": "Cartella di destinazione non trovata.",
       "missing-node": "Elemento progetto non trovato.",
       "root-delete": "La cartella root non puo essere eliminata.",
@@ -536,6 +537,7 @@ export const it = {
       folderCreated: "Cartella creata: {{name}}.",
       renamed: "Elemento rinominato: {{name}}.",
       deleted: "Elemento eliminato: {{name}}.",
+      moved: "\"{{name}}\" spostato in \"{{folder}}\".",
       schemaExported: "Schema esportato.",
       schemaImported: "Schema importato.",
       legacyConverted: "Progetto legacy convertito al nuovo formato multi-file.",

@@ -252,6 +252,7 @@ import {
   deleteProjectNode,
   ensureProjectFileExtension,
   getUniqueProjectNodeName,
+  moveNode,
   normalizeProjectNodeName,
   renameProjectNode,
   setProjectExplorerExpandedFolders,
@@ -3481,6 +3482,23 @@ export default function App() {
       });
     }
     setStatus(t("projectExplorer.status.renamed", { name: renamedNode?.name ?? requestedName }));
+  }
+
+  function handleProjectExplorerMove(nodeId: string, targetParentId: string) {
+    const source = syncActiveSchemaToProject();
+    const result = moveNode(source, nodeId, targetParentId);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+    if (result.state === source) {
+      return; // no-op: niente cambiamento, niente step di undo
+    }
+
+    applyProjectExplorerState(result.state);
+    const movedNode = result.state.project.fileTree.find((candidate) => candidate.id === nodeId);
+    const targetNode = result.state.project.fileTree.find((candidate) => candidate.id === targetParentId);
+    setStatus(t("projectExplorer.status.moved", { name: movedNode?.name ?? "", folder: targetNode?.name ?? "" }));
   }
 
   async function handleProjectExplorerDelete(nodeId: string) {

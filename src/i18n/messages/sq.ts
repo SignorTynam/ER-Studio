@@ -524,6 +524,7 @@ export const sq: DeepPartialMessages = {
     errors: {
       "empty-name": "Emri nuk mund te jete bosh.",
       "duplicate-name": "Ekziston tashme nje element me kete emer ne kete dosje.",
+      "invalid-move": "Nuk mund ta zhvendosësh një dosje brenda vetes ose një nëndosjeje të saj.",
       "missing-parent": "Dosja e destinacionit nuk u gjet.",
       "missing-node": "Elementi i projektit nuk u gjet.",
       "root-delete": "Dosja root nuk mund te fshihet.",
@@ -538,6 +539,7 @@ export const sq: DeepPartialMessages = {
       folderCreated: "Dosja u krijua: {{name}}.",
       renamed: "Elementi u riemertua: {{name}}.",
       deleted: "Elementi u fshi: {{name}}.",
+      moved: "\"{{name}}\" u zhvendos te \"{{folder}}\".",
       schemaExported: "Skema u eksportua.",
       schemaImported: "Skema u importua.",
       legacyConverted: "Projekti legacy u konvertua ne formatin e ri multi-file.",
