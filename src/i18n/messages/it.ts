@@ -491,8 +491,15 @@ export const it = {
       newFolder: "Nuova cartella",
       open: "Apri",
       rename: "Rinomina",
+      moveTo: "Sposta in…",
       delete: "Elimina",
       rootActions: "Azioni root",
+    },
+    moveDialog: {
+      title: "Sposta \"{{name}}\"",
+      destinationLabel: "Cartella di destinazione",
+      confirm: "Sposta",
+      noDestinations: "Nessuna cartella di destinazione valida.",
     },
     selectedFolderAria: "Cartella selezionata",
     defaults: {

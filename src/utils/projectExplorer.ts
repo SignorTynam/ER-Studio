@@ -687,6 +687,33 @@ export function canMoveNode(state: ProjectExplorerState, nodeId: string, targetP
   return !hasDuplicateProjectNodeName(state.project, targetParentId, node.name, nodeId);
 }
 
+export interface ProjectMoveDestination {
+  id: string;
+  name: string;
+  depth: number;
+}
+
+/**
+ * Elenco PURO delle cartelle di destinazione valide per spostare `nodeId` (root incluso, con il
+ * nome del progetto). Alimenta il dialog "Sposta in…" (alternativa da tastiera al drag & drop).
+ * Ordinato come l'albero (cartelle in ordine alfabetico), con `depth` per l'indentazione.
+ */
+export function getValidMoveDestinations(state: ProjectExplorerState, nodeId: string): ProjectMoveDestination[] {
+  const destinations: ProjectMoveDestination[] = [];
+  const visit = (folderId: string, depth: number, name: string) => {
+    if (canMoveNode(state, nodeId, folderId)) {
+      destinations.push({ id: folderId, name, depth });
+    }
+    const folder = findProjectNode(state.project, folderId);
+    const childFolders = (folder?.children ?? [])
+      .map((childId) => findProjectNode(state.project, childId))
+      .filter((child): child is ProjectExplorerNode => child?.kind === "folder");
+    sortProjectExplorerNodes(childFolders).forEach((child) => visit(child.id, depth + 1, child.name));
+  };
+  visit(state.project.rootId, 0, state.project.name);
+  return destinations;
+}
+
 export function moveNode(
   state: ProjectExplorerState,
   nodeId: string,

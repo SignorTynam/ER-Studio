@@ -8,6 +8,7 @@ import {
   createSchemaWorkspaceFile,
   findProjectNode,
   getProjectNodeChildren,
+  getValidMoveDestinations,
   moveNode,
   validateProjectTreeIntegrity,
 } from "../src/utils/projectExplorer.ts";
@@ -107,6 +108,21 @@ test("moveNode rejects moving the root", () => {
 test("moveNode rejects a missing node", () => {
   const { state, rootId } = build();
   assert.deepEqual(moveNode(state, "does-not-exist", rootId), { ok: false, reason: "missing-node" });
+});
+
+test("getValidMoveDestinations excludes self, descendants and the current parent", () => {
+  const { state, rootId, folderAlpha, folderAlphaOne, folderBravo, file } = build();
+
+  // Il file è nella root: destinazioni valide = le cartelle, non la root (parent attuale).
+  const fileDestinations = getValidMoveDestinations(state, file).map((destination) => destination.id);
+  assert.ok(!fileDestinations.includes(rootId));
+  assert.ok(fileDestinations.includes(folderAlpha));
+  assert.ok(fileDestinations.includes(folderAlphaOne));
+  assert.ok(fileDestinations.includes(folderBravo));
+
+  // La cartella Alpha (in root): valida solo Bravo — non root (già lì), non sé stessa né i discendenti.
+  const alphaDestinations = getValidMoveDestinations(state, folderAlpha).map((destination) => destination.id);
+  assert.deepEqual(alphaDestinations, [folderBravo]);
 });
 
 test("moveNode expands and selects the destination in the view", () => {

@@ -33,6 +33,7 @@ interface ProjectExplorerProps {
   onRename: (nodeId: string, nextName?: string) => void | Promise<void>;
   onDelete: (nodeId: string) => void;
   onMove: (nodeId: string, targetParentId: string) => void;
+  onRequestMove: (nodeId: string) => void;
   onToggleFolder: (folderId: string) => void;
   onCollapseAll: () => void;
   onToggleOpen: () => void;
@@ -469,6 +470,9 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         onNewFolder={() => startInlineCreate("folder", contextMenu?.origin ?? "context-menu", { contextNodeId: contextMenu?.nodeId })}
         onRename={() => {
           if (contextNode) props.onRename(contextNode.id);
+        }}
+        onMove={() => {
+          if (contextNode) props.onRequestMove(contextNode.id);
         }}
         onDelete={() => {
           if (contextNode) props.onDelete(contextNode.id);

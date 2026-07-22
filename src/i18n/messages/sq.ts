@@ -493,8 +493,15 @@ export const sq: DeepPartialMessages = {
       newFolder: "Dosje e re",
       open: "Hap",
       rename: "Riemerto",
+      moveTo: "Zhvendos te…",
       delete: "Fshi",
       rootActions: "Veprime root",
+    },
+    moveDialog: {
+      title: "Zhvendos \"{{name}}\"",
+      destinationLabel: "Dosja e destinacionit",
+      confirm: "Zhvendos",
+      noDestinations: "Asnjë dosje destinacioni e vlefshme.",
     },
     selectedFolderAria: "Dosja e zgjedhur",
     defaults: {

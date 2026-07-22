@@ -493,8 +493,15 @@ export const en: DeepPartialMessages = {
       newFolder: "New folder",
       open: "Open",
       rename: "Rename",
+      moveTo: "Move to…",
       delete: "Delete",
       rootActions: "Root actions",
+    },
+    moveDialog: {
+      title: "Move \"{{name}}\"",
+      destinationLabel: "Destination folder",
+      confirm: "Move",
+      noDestinations: "No valid destination folder.",
     },
     selectedFolderAria: "Selected folder",
     defaults: {

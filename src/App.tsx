@@ -17,6 +17,7 @@ import {
 } from "./components/project/ProjectActivityPanel";
 import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { MoveToDialog } from "./components/project/MoveToDialog";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
@@ -252,6 +253,7 @@ import {
   deleteProjectNode,
   ensureProjectFileExtension,
   getUniqueProjectNodeName,
+  getValidMoveDestinations,
   moveNode,
   normalizeProjectNodeName,
   renameProjectNode,
@@ -977,6 +979,7 @@ export default function App() {
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moveDialogNodeId, setMoveDialogNodeId] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
   const {
@@ -7549,6 +7552,7 @@ export default function App() {
           onRename={handleProjectExplorerRename}
           onDelete={handleProjectExplorerDelete}
           onMove={handleProjectExplorerMove}
+          onRequestMove={setMoveDialogNodeId}
           onToggleFolder={handleProjectExplorerToggleFolder}
           onCollapseAll={handleProjectExplorerCollapseAll}
           onToggleOpen={handleToggleActivityPanelOpen}
@@ -8449,6 +8453,18 @@ export default function App() {
           openReleaseCenter();
         }}
       />
+      {moveDialogNodeId ? (
+        <MoveToDialog
+          open
+          nodeName={projectExplorer.project.fileTree.find((candidate) => candidate.id === moveDialogNodeId)?.name ?? ""}
+          destinations={getValidMoveDestinations(projectExplorer, moveDialogNodeId)}
+          onMove={(targetParentId) => {
+            handleProjectExplorerMove(moveDialogNodeId, targetParentId);
+            setMoveDialogNodeId(null);
+          }}
+          onClose={() => setMoveDialogNodeId(null)}
+        />
+      ) : null}
 
       {confirmDialog ? (
         <Modal

@@ -436,3 +436,45 @@ magico; le dimensioni strutturali (larghezza modale/nav) seguono la prassi dei c
 Verifica: `tests/e2e/settings.spec.ts` — apertura con Ctrl+, e ingranaggio, cambio sezione, **axe
 pulito**, cambio lingua che **persiste dopo reload**, toggle minimap **sincronizzato col canvas** e
 persistente, toggle diagnostica **sincronizzato col pannello Errori**.
+
+## Creazione progetto + spostamento nell'Explorer (Fase J)
+
+### Nome del progetto alla creazione (J1)
+
+Creare un progetto non usa più un nome implicito: parte dal **prompt riusabile** `requestPromptDialog`
+(`hooks/useAppDialogs.ts`, shell `ui/Modal`). Titolo *"Nuovo progetto"*, campo *"Nome progetto"*
+pre-compilato col default (`workspace.newDiagramName`) e **testo pre-selezionato** per sovrascrivere
+subito. Invio conferma, Esc annulla e non crea nulla. La validazione è la stessa dell'albero (campo
+obbligatorio + `validate` che rifiuta `/` e `\`, messaggio `projectExplorer.errors.invalid-characters`)
+così le regole di naming restano in un unico posto. Il nome scelto alimenta sia il diagramma
+(`createEmptyDiagram`) sia lo stato Explorer (`createEmptyProjectExplorerState`). Verifica:
+`tests/e2e/project-name.spec.ts`.
+
+### Spostamento nell'albero: drag & drop + "Sposta in…" (J2)
+
+**Modello: reparenting, non riordino manuale.** L'albero è **sempre ordinato** (cartelle prima, poi
+alfabetico — `sortProjectExplorerNodes`), esattamente come VS Code. Quindi lo spostamento cambia solo
+il **genitore** di un nodo; non esistono "linee di inserimento" tra le righe. Il cuore è la funzione
+**pura** `moveNode(state, nodeId, targetParentId)` (`utils/projectExplorer.ts`): non muta l'input
+(spostamento reversibile in un singolo passo), rifiuta destinazione non-cartella (`missing-parent`),
+nodo dentro sé stesso o un discendente e la root (`invalid-move`), nome duplicato nella destinazione
+(`duplicate-name`, niente overwrite né auto-rename), ed è no-op se il nodo è già lì. Applicata via
+`applyProjectExplorerState` (stessa unità di create/rinomina/elimina).
+
+- **Drag & drop (J2.b)** — HTML5 nativo, **nessuna libreria esterna**. Contesto React
+  `projectExplorerDnd.ts` (`begin/hoverNode/dropOnNode/end`); ogni riga è `draggable`. Trascinando su
+  una **cartella** la si evidenzia come bersaglio; su un **file** si risolve al suo genitore; sull'area
+  vuota si torna alla root. **Un solo evidenziato per volta** (`is-drop-target`: `inset box-shadow`
+  con `--color-accent` + sfondo `--color-bg-selected`); l'origine è `is-dragging` (opacità). Le
+  destinazioni non valide non ricevono evidenziazione e il cursore è `dropEffect = "none"`.
+  Auto-espansione al passaggio prolungato (600 ms) su cartella collassata.
+- **Alternativa da tastiera / a11y (J2.c)** — il DnD nativo non è operabile senza mouse, quindi il
+  percorso **completo senza mouse** è *"Sposta in…"* nel menu contestuale (raggiungibile con
+  **Shift+F10 / ContextMenu**). Apre `MoveToDialog` (`ui/Modal` size `sm`): una `select` con **solo le
+  destinazioni valide** (`getValidMoveDestinations`, rientrate per profondità); se non ce ne sono
+  mostra `moveDialog.noDestinations` e il pulsante *Sposta* è disabilitato. Invio conferma, Esc chiude.
+  L'esito è **annunciato** dalla status bar `aria-live="polite"` (`status.moved`), come rinomina/elimina.
+
+Verifica: `test/project-explorer-move.test.ts` (regole di `moveNode` + `getValidMoveDestinations`,
+immutabilità dell'input) e `tests/e2e/explorer-move.spec.ts` (menu da tastiera → dialog → reparenting
+con annuncio; `draggable="true"` sulle righe; destinazioni non valide mai offerte).
