@@ -3,11 +3,12 @@ import type {
   Bounds,
   DiagramDocument,
   DiagramEdge,
+  DiagramNode,
   EntityNode,
   Point,
   RelationshipNode,
 } from "../types/diagram";
-import { getMultivaluedAttributeSize } from "./diagram";
+import { canAttributeBecomeComposite, createEdge, createNode, getMultivaluedAttributeSize } from "./diagram";
 import { buildAttributeLabelBounds } from "./edgeLabelLayout";
 import {
   GRID_SIZE,
@@ -652,4 +653,38 @@ export function distributeAttributesAroundHost<T extends AttributeNode>(
   );
 
   return attributes.map((attribute) => (positionedById.get(attribute.id) ?? attribute) as T);
+}
+
+/**
+ * Crea un attributo di default collegato a un host (entita / relazione / attributo componibile)
+ * e lo posiziona accanto ad esso. Funzione PURA: restituisce il nuovo documento e l'id
+ * dell'attributo creato, oppure `null` se l'host non e valido. Condivisa tra il comando toolbar
+ * "Aggiungi attributo alla selezione" e l'auto-fix "Aggiungi attributo" del pannello Errori.
+ */
+export function createAttributeForHost(
+  diagram: DiagramDocument,
+  hostId: string,
+): { diagram: DiagramDocument; attributeId: string } | null {
+  const hostNode = diagram.nodes.find((node) => node.id === hostId);
+  if (!hostNode || (hostNode.type !== "entity" && hostNode.type !== "relationship" && hostNode.type !== "attribute")) {
+    return null;
+  }
+  if (hostNode.type === "attribute" && !canAttributeBecomeComposite(diagram, hostNode)) {
+    return null;
+  }
+
+  const draftAttribute = createNode("attribute", { x: 0, y: 0 }, diagram) as Extract<
+    DiagramNode,
+    { type: "attribute" }
+  >;
+  const nextEdge = createEdge("attribute", draftAttribute.id, hostNode.id, diagram);
+  const nextDiagramBase: DiagramDocument = {
+    ...diagram,
+    nodes: [...diagram.nodes, draftAttribute],
+    edges: [...diagram.edges, nextEdge],
+  };
+  return {
+    diagram: layoutIncrementallyConnectedAttribute(nextDiagramBase, nextEdge.id),
+    attributeId: draftAttribute.id,
+  };
 }

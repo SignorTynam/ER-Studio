@@ -930,6 +930,7 @@ export const it = {
       linkRemoved: "Collegamento rimosso.",
       attributeRemoved: "Attributo rimosso.",
       cardinalityRemoved: "Cardinalità rimossa.",
+      attributeAdded: "Attributo aggiunto.",
     },
     focusModeOn: "Modalità focus attiva: il canvas diventa protagonista.",
     focusModeOff: "Modalità focus disattivata.",

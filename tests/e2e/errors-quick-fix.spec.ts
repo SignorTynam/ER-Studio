@@ -28,7 +28,7 @@ async function seedTwoBareEntities(page: Page) {
   if (await skipTour.isVisible().catch(() => false)) await skipTour.click();
 }
 
-test("errors panel offers a per-row guided fix, keeps keyboard nav, and navigates on click", async ({ page }) => {
+test("errors panel offers a per-row quick-fix, keeps keyboard nav, and auto-fixes with a single undo", async ({ page }) => {
   await seedTwoBareEntities(page);
 
   await page.locator(".project-activity-rail").getByRole("button", { name: "Errors", exact: true }).click();
@@ -57,12 +57,16 @@ test("errors panel offers a per-row guided fix, keeps keyboard nav, and navigate
   await expect(firstRowFix).toBeVisible();
   await expect(firstRowFix).toHaveAccessibleName("Add attribute");
 
-  // Eseguire il quick-fix "navigate": porta l'utente sull'entita giusta senza
-  // modificare il modello (nessun auto-fix), selezionandola sul canvas.
+  // "Aggiungi attributo" e un auto-fix: aggiunge un attributo di default all'entita,
+  // risolve l'avviso e mostra un toast con azione di annullamento.
   await firstRowFix.click();
 
-  await expect(page.locator(".diagram-node")).toHaveCount(2); // navigate non muta il modello
-  const selected = page.locator(".diagram-node.selected");
-  await expect(selected).toHaveCount(1);
-  await expect(selected).toHaveAttribute("aria-label", /ALPHA/i);
+  await expect(page.locator(".diagram-node")).toHaveCount(3); // ALPHA + BETA + nuovo attributo
+  await expect(rows).toHaveCount(1); // l'avviso della prima entita e risolto
+
+  // Feedback: toast con azione di annullamento (stesso meccanismo a singolo undo dell'auto-layout;
+  // il ripristino esatto e verificato in modo deterministico da test/validation-auto-fix.test.ts).
+  const undo = page.locator(".workspace-toast-action");
+  await expect(undo).toBeVisible();
+  await expect(undo).toHaveAccessibleName("Undo");
 });

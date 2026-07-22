@@ -932,6 +932,7 @@ export const en: DeepPartialMessages = {
       linkRemoved: "Link removed.",
       attributeRemoved: "Attribute removed.",
       cardinalityRemoved: "Cardinality removed.",
+      attributeAdded: "Attribute added.",
     },
     focusModeOn: "Focus mode on: the canvas takes center stage.",
     focusModeOff: "Focus mode off.",

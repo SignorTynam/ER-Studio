@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { DiagramDocument, DiagramEdge, DiagramNode, ValidationIssue } from "../src/types/diagram.ts";
 import { createEmptyDiagram, validateDiagram } from "../src/utils/diagram.ts";
+import { createAttributeForHost } from "../src/utils/attributeLayout.ts";
 import { computeValidationAutoFix } from "../src/utils/validationAutoFix.ts";
 import type { ValidationIssueActionType } from "../src/utils/validationIssuePresentation.ts";
 
@@ -75,6 +76,35 @@ test("clear-attribute-cardinality azzera la cardinalita del solo attributo bersa
   const untouched = (next as DiagramDocument).nodes.find((node) => node.id === "A2");
   assert.equal(fixedTarget?.type === "attribute" ? fixedTarget.cardinality : "unset", undefined, "il bersaglio non deve piu avere cardinalita");
   assert.equal(untouched?.type === "attribute" ? untouched.cardinality : "unset", "(0,N)", "gli altri attributi restano invariati");
+});
+
+test("create-attribute aggiunge un attributo e risolve entity-no-attributes (error -> valido)", () => {
+  const entity: DiagramNode = { id: "E1", type: "entity", label: "Cliente", x: 20, y: 30, width: 140, height: 64 };
+  const diagram = diagramWith([entity]);
+  assert.ok(issueIds(diagram).some((id) => id.startsWith("entity-no-attributes-")), "prima deve esistere l'avviso");
+  const snapshot = JSON.stringify(diagram);
+
+  const result = createAttributeForHost(diagram, "E1");
+  assert.ok(result, "deve creare l'attributo");
+  assert.equal(JSON.stringify(diagram), snapshot, "l'input non deve essere mutato (undo affidabile)");
+
+  assert.ok(
+    !issueIds(result!.diagram).some((id) => id.startsWith("entity-no-attributes-")),
+    "dopo, l'avviso deve sparire",
+  );
+  const attribute = result!.diagram.nodes.find((node) => node.id === result!.attributeId);
+  assert.equal(attribute?.type, "attribute", "il nuovo nodo deve essere un attributo");
+  assert.ok(
+    result!.diagram.edges.some(
+      (edge) => edge.type === "attribute" && (edge.sourceId === result!.attributeId || edge.targetId === result!.attributeId),
+    ),
+    "il nuovo attributo deve essere collegato all'host",
+  );
+});
+
+test("createAttributeForHost rifiuta un host inesistente", () => {
+  const diagram = diagramWith([{ id: "E1", type: "entity", label: "X", x: 0, y: 0, width: 140, height: 64 }]);
+  assert.equal(createAttributeForHost(diagram, "GHOST"), null);
 });
 
 test("computeValidationAutoFix ignora le azioni non-auto (navigate)", () => {

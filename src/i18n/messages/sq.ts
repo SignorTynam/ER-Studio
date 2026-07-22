@@ -932,6 +932,7 @@ export const sq: DeepPartialMessages = {
       linkRemoved: "Lidhja u hoq.",
       attributeRemoved: "Atributi u hoq.",
       cardinalityRemoved: "Kardinaliteti u hoq.",
+      attributeAdded: "Atributi u shtua.",
     },
     focusModeOn: "Modaliteti fokus aktiv: kanavaca merr qendrën.",
     focusModeOff: "Modaliteti fokus joaktiv.",

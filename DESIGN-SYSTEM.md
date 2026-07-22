@@ -368,15 +368,19 @@ Ogni problema di validazione porta con sé un'**azione suggerita**, calcolata in
 `getValidationIssueActions` (`utils/validationIssuePresentation.ts`) secondo il catalogo H2.
 Due categorie:
 
-- **`auto`** — correzione non ambigua che l'app può applicare da sola (elimina collegamento
-  invalido/mancante/duplicato, elimina attributo orfano, azzera cardinalità non ammessa). Passa da
-  `computeValidationAutoFix` → `commitDiagram(next, prev)`, quindi è **un singolo undo**, e mostra un
-  toast con azione **Annulla** (stesso pattern dell'auto-layout, `showSuccessNotice` +
-  `handleUndoAction`).
-- **`navigate`** — dove la scelta è **semantica** l'app non decide al posto dell'utente: seleziona
-  l'elemento, centra il viewport (`selectIssueTarget`) e apre il posto giusto (inspector, modale
-  cardinalità, o innesca lo strumento attributo). Regola non negoziabile: *meglio nessuna quick fix
-  che una che indovina*.
+- **`auto`** — correzione non ambigua che l'app può applicare da sola: elimina collegamento
+  invalido/mancante/duplicato, elimina attributo orfano, azzera cardinalità non ammessa, **aggiungi
+  attributo** (crea un attributo di default su un'entità/sottotipo senza attributi, che l'utente poi
+  rinomina). Le rimozioni/reset passano da `computeValidationAutoFix`, l'aggiunta da
+  `createAttributeForHost` (condivisa col comando toolbar); tutte via `commitDiagram(next, prev)`,
+  quindi è **un singolo undo**, con toast **Annulla** (stesso pattern dell'auto-layout,
+  `showSuccessNotice` + `handleUndoAction`).
+- **`navigate`** — dove la scelta è **semantica senza default sensato** l'app non decide al posto
+  dell'utente: seleziona l'elemento, centra il viewport (`selectIssueTarget`) e apre il posto giusto
+  (inspector proprietà, modale cardinalità, sezione identificatore esterno, ruolo). Regola non
+  negoziabile: *meglio nessuna quick fix che una che indovina*. Nota: "aggiungi attributo" era
+  inizialmente `navigate` ma un attributo vuoto è uno scaffold, non un'ipotesi — l'etichetta prometteva
+  un'azione che non compiva, quindi è stata promossa ad `auto`.
 
 Nel pannello (`ErrorsPanel.tsx`) ogni riga è un `div[role="option"]` focusabile (roving tabindex,
 frecce/Home/End/Enter invariati). L'azione vive in uno **`span` sorella** con `PanelIconButton`
@@ -388,9 +392,10 @@ ma è raggiungibile da tastiera appena la riga riceve il focus. L'icona viene da
 Verifica: `test/validation-issue-actions.test.ts` (catalogo + ordine prefissi + invariante
 auto/navigate), `test/validation-auto-fix.test.ts` (per ogni auto: errore → modello valido, input
 non mutato quindi undo affidabile), `test/errors-panel.test.tsx` (un controllo per riga con azione),
-`tests/e2e/errors-quick-fix.spec.ts` (flusso navigate reale: azione per riga, navigazione a frecce
-preservata, axe pulito, click che seleziona l'entità senza mutare il modello). Nota: gli stati che
-attivano gli **auto-fix** non sono raggiungibili dalla UI normale (l'app impedisce attributi orfani
-e collegamenti incompatibili, e la cancellazione di un'entità fa cascata sugli attributi), perciò
-nascono solo da dati legacy/importati: la loro correttezza è verificata in modo **deterministico** a
-livello di modello anziché via e2e.
+`tests/e2e/errors-quick-fix.spec.ts` (flusso reale: azione per riga, navigazione a frecce preservata,
+axe pulito, **"Aggiungi attributo" aggiunge il nodo e risolve l'avviso** con toast Annulla). Nota:
+l'auto-fix "aggiungi attributo" è raggiungibile dalla UI (entità senza attributi) ed è verificato
+end-to-end; gli auto-fix di **rimozione** (collegamento/attributo/cardinalità) non sono raggiungibili
+dalla UI normale (l'app impedisce attributi orfani e collegamenti incompatibili, e la cancellazione di
+un'entità fa cascata sugli attributi), nascono solo da dati legacy/importati, quindi la loro
+correttezza è verificata in modo **deterministico** a livello di modello.

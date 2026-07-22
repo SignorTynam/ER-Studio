@@ -124,9 +124,9 @@ export function getValidationIssueActions(
   if (issue.id.startsWith("loop-role-duplicate-"))
     return [make("focus-role", "navigate", "validationIssues.actions.setRole", "role")];
   if (issue.id.startsWith("entity-no-attributes-"))
-    return [make("create-attribute", "navigate", "validationIssues.actions.addAttribute", "attribute")];
+    return [make("create-attribute", "auto", "validationIssues.actions.addAttribute", "attribute")];
   if (issue.id.startsWith("subtype-no-attributes-"))
-    return [make("create-attribute", "navigate", "validationIssues.actions.addAttribute", "attribute")];
+    return [make("create-attribute", "auto", "validationIssues.actions.addAttribute", "attribute")];
   if (issue.id.startsWith("supertype-no-relationship-")) return [];
   if (issue.id.startsWith("weak-entity-"))
     return [make("open-external-identifier", "navigate", "validationIssues.actions.addExternalIdentifier", "externalId")];

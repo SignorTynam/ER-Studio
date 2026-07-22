@@ -184,6 +184,7 @@ import {
 } from "./utils/geometry";
 import {
   buildAttributeLayoutOptionsForHost,
+  createAttributeForHost,
   distributeAttributesAroundHost,
   findDirectHostedAttributes,
   layoutIncrementallyConnectedAttribute,
@@ -2042,13 +2043,25 @@ export default function App() {
     handleIssueNotice(issue);
     if (action.type === "open-cardinality") {
       handleOpenCardinalityControl(issue.targetId);
-    } else if (action.type === "create-attribute") {
-      handleToolChange("attribute");
     }
   }
 
   function applyValidationAutoFix(issue: ValidationIssue, action: ValidationIssueAction) {
     const previousDiagram = history.present;
+
+    if (action.type === "create-attribute") {
+      // Aggiunge un attributo di default all'entita/host: risolve il problema e resta un singolo undo.
+      const result = createAttributeForHost(previousDiagram, issue.targetId);
+      if (!result) {
+        return;
+      }
+      commitDiagram(result.diagram, previousDiagram);
+      setSelection({ nodeIds: [result.attributeId], edgeIds: [] });
+      setTool("select");
+      notifyValidationAutoFix("workspace.validationFix.attributeAdded");
+      return;
+    }
+
     const nextDiagram = computeValidationAutoFix(previousDiagram, issue, action.type);
     if (!nextDiagram) {
       return;
@@ -2072,7 +2085,8 @@ export default function App() {
     messageKey:
       | "workspace.validationFix.linkRemoved"
       | "workspace.validationFix.attributeRemoved"
-      | "workspace.validationFix.cardinalityRemoved",
+      | "workspace.validationFix.cardinalityRemoved"
+      | "workspace.validationFix.attributeAdded",
   ) {
     const message = t(messageKey);
     setStatus(message);
@@ -5733,19 +5747,15 @@ export default function App() {
       return;
     }
 
-    const draftAttribute = createNode("attribute", { x: 0, y: 0 }, history.present) as Extract<
-      DiagramNode,
-      { type: "attribute" }
-    >;
-    const nextEdge = createEdge("attribute", draftAttribute.id, hostNode.id, history.present);
-    const nextDiagramBase: DiagramDocument = {
-      ...history.present,
-      nodes: [...history.present.nodes, draftAttribute],
-      edges: [...history.present.edges, nextEdge],
-    };
-    const nextDiagram = layoutIncrementallyConnectedAttribute(nextDiagramBase, nextEdge.id);
+    const result = createAttributeForHost(history.present, hostNode.id);
+    if (!result) {
+      setStatusWarning(t("workspace.selectValidAttributeHost"), {
+        title: t("workspace.noticeTitles.attributeNotApplicable"),
+      });
+      return;
+    }
 
-    commitDiagram(nextDiagram);
+    commitDiagram(result.diagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
     setTool("select");
     setStatus(t("workspace.attributeLinkedToHost", { host: hostNode.label }));

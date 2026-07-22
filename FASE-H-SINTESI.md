@@ -14,15 +14,20 @@ mai decidere la semantica al posto dell'utente. *Meglio nessuna quick fix che un
 
 ## Catalogo azioni (H2, confermato)
 
-15 tipi di problema → **5 auto** / **8 navigate** / **2 senza azione**.
+15 tipi di problema → **7 auto** / **6 navigate** / **2 senza azione**.
 
 - **auto** (correzione non ambigua, singolo undo, toast Annulla): elimina collegamento
   `missing-`/`invalid-`/`duplicate-`, elimina attributo orfano `attribute-`, azzera cardinalità
-  non ammessa `attribute-invalid-cardinality-`.
-- **navigate** (porta nel posto giusto, l'utente decide): `attribute-conflict-` e
-  `relationship-identifier-` → proprietà; `loop-role-*` → ruolo; `entity-no-attributes-` /
-  `subtype-no-attributes-` → aggiungi attributo; `weak-entity-` → identificatore esterno;
-  `cardinality-` → imposta cardinalità.
+  non ammessa `attribute-invalid-cardinality-`, **aggiungi attributo** `entity-no-attributes-` /
+  `subtype-no-attributes-` (crea un attributo di default che l'utente rinomina).
+- **navigate** (porta nel posto giusto, l'utente decide, nessun default sensato):
+  `attribute-conflict-` e `relationship-identifier-` → proprietà; `loop-role-*` → ruolo;
+  `weak-entity-` → identificatore esterno; `cardinality-` → imposta cardinalità.
+
+> **Correzione post-feedback:** `entity-no-attributes-` / `subtype-no-attributes-` erano `navigate`,
+> ma l'etichetta "Aggiungi attributo" prometteva di *aggiungere* mentre si limitava a navigare (il
+> warning restava). Un attributo vuoto è uno scaffold — non un'ipotesi semantica — e l'app ha già il
+> comando "aggiungi attributo alla selezione": promosso quindi ad `auto` (riusa `createAttributeForHost`).
 - **nessuna azione** (dichiarata esplicitamente): `relationship-` (relazione senza entità),
   `supertype-no-relationship-`.
 
@@ -38,22 +43,24 @@ mai decidere la semantica al posto dell'utente. *Meglio nessuna quick fix che un
 ## Verifica (tool usati)
 
 - **`npm run build`** (`tsc -b && vite build`) — verde.
-- **`npm test`** — 725 pass / 0 fail / 2 skip. Nuovi: `test/validation-issue-actions.test.ts`
+- **`npm test`** — 727 pass / 0 fail / 2 skip. Nuovi: `test/validation-issue-actions.test.ts`
   (catalogo + ordine prefissi + invariante auto/navigate), `test/validation-auto-fix.test.ts`
-  (per ogni auto: **errore → modello valido**, input non mutato ⇒ undo affidabile).
-- **Playwright** `tests/e2e/errors-quick-fix.spec.ts` — flusso *navigate* reale: azione per riga,
-  navigazione a frecce preservata, **axe pulito** sul pannello, click che seleziona l'entità senza
-  mutare il modello.
+  (per ogni auto: **errore → modello valido**, input non mutato ⇒ undo affidabile, inclusa l'aggiunta
+  attributo via `createAttributeForHost`).
+- **Playwright** `tests/e2e/errors-quick-fix.spec.ts` — flusso reale: azione per riga, navigazione a
+  frecce preservata, **axe pulito** sul pannello, **"Aggiungi attributo" aggiunge il nodo e risolve
+  l'avviso** (2→1) con toast Annulla.
 - **i18n** `test/i18n.test.ts` — parità en/it/sq delle nuove chiavi (`validationIssues.actions.*`,
   `workspace.validationFix.*`).
 
 ## Nota onesta sulla raggiungibilità degli auto-fix
 
-Gli stati che attivano gli auto-fix **non sono raggiungibili dalla UI normale**: l'app impedisce di
-creare attributi orfani (lo strumento attributo richiede un host) e collegamenti incompatibili, e la
-cancellazione di un'entità fa cascata sui suoi attributi. Nascono quindi solo da **dati
-legacy/importati** o reverse engineering. Per questo la correttezza degli auto-fix (errore → modello
-valido, singolo undo) è verificata in modo **deterministico a livello di modello**
-(`test/validation-auto-fix.test.ts`) anziché tramite e2e, mentre l'e2e copre il flusso *navigate*
-effettivamente raggiungibile e il contratto del pannello. Il meccanismo toast+Annulla è lo stesso
-dell'auto-layout (Fase G5), già coperto da e2e.
+L'auto-fix **"aggiungi attributo"** è pienamente raggiungibile dalla UI (basta un'entità senza
+attributi) ed è verificato end-to-end. Gli auto-fix di **rimozione** (collegamento invalido/mancante/
+duplicato, attributo orfano, cardinalità non ammessa) invece **non** sono raggiungibili dalla UI
+normale: l'app impedisce di creare attributi orfani (lo strumento attributo richiede un host) e
+collegamenti incompatibili, e la cancellazione di un'entità fa cascata sui suoi attributi. Nascono
+quindi solo da **dati legacy/importati** o reverse engineering, perciò la loro correttezza (errore →
+modello valido, singolo undo) è verificata in modo **deterministico a livello di modello**
+(`test/validation-auto-fix.test.ts`). Il meccanismo toast+Annulla è lo stesso dell'auto-layout
+(Fase G5), già coperto da e2e.

@@ -32,8 +32,8 @@ const CATALOG: Array<{
   { id: "relationship-1", type: null, kind: null },
   { id: "loop-role-missing-1", type: "focus-role", kind: "navigate", labelKey: "validationIssues.actions.setRole" },
   { id: "loop-role-duplicate-1", type: "focus-role", kind: "navigate" },
-  { id: "entity-no-attributes-1", type: "create-attribute", kind: "navigate", labelKey: "validationIssues.actions.addAttribute" },
-  { id: "subtype-no-attributes-1", type: "create-attribute", kind: "navigate" },
+  { id: "entity-no-attributes-1", type: "create-attribute", kind: "auto", labelKey: "validationIssues.actions.addAttribute" },
+  { id: "subtype-no-attributes-1", type: "create-attribute", kind: "auto" },
   { id: "supertype-no-relationship-1", type: null, kind: null },
   { id: "weak-entity-1", type: "open-external-identifier", kind: "navigate", labelKey: "validationIssues.actions.addExternalIdentifier" },
   { id: "missing-1", targetType: "edge", type: "delete-edge", kind: "auto", labelKey: "validationIssues.actions.deleteLink" },
@@ -65,11 +65,12 @@ test("ordine dei prefissi: i piu specifici vincono sui catch-all", () => {
   assert.equal(actionsFor("relationship-identifier-9")[0]?.type, "open-properties");
 });
 
-test("solo delete/clear sono auto, tutto il resto e navigate", () => {
+test("auto = rimozioni + aggiunta attributo; tutto il resto e navigate", () => {
   const autoTypes = new Set<ValidationIssueAction["type"]>([
     "delete-edge",
     "delete-attribute",
     "clear-attribute-cardinality",
+    "create-attribute",
   ]);
   for (const entry of CATALOG) {
     for (const action of actionsFor(entry.id, entry.targetType)) {
