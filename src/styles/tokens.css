@@ -110,6 +110,8 @@
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;
+  /* Durata piu lunga per l'evidenziazione temporanea "salta alla riga" (Fase K3). */
+  --motion-reveal: 900ms;
   --focus-ring: 0 0 0 2px #fbfcfb, 0 0 0 4px rgba(47, 111, 98, 0.72);
 
   /* Canonical tokens also feed the legacy workspace surfaces. */

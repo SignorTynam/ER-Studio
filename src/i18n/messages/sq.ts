@@ -465,6 +465,7 @@ export const sq: DeepPartialMessages = {
       title: "Te paimportuara",
       intro: "Reverse engineering lexon vetem CREATE TABLE. Keto instruksione nuk jane tabela, prandaj nuk mund te hyjne ne diagram — asgje nuk u hoq ne heshtje. Ja secila dhe pse.",
       lineLabel: "rreshti {{line}}",
+      goToLine: "Shko te rreshti {{line}}",
       kinds: {
         "alter-table": "ALTER TABLE",
         "create-index": "CREATE INDEX",
@@ -952,6 +953,7 @@ export const sq: DeepPartialMessages = {
       warning: "Paralajmerim",
       errorAtLine: "Gabim ne rreshtin {{line}}",
       warningAtLine: "Paralajmerim ne rreshtin {{line}}",
+      goToLine: "Shko te rreshti {{line}}",
       popupLabel: "Detajet e diagnostikes se editorit",
       close: "Mbyll diagnostiken",
       previous: "Diagnostika e meparshme",

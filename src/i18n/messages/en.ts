@@ -465,6 +465,7 @@ export const en: DeepPartialMessages = {
       title: "Not imported",
       intro: "The reverse engineer reads CREATE TABLE only. These statements aren't tables, so they can't become part of the diagram — nothing was dropped silently. Here's each one and why.",
       lineLabel: "line {{line}}",
+      goToLine: "Go to line {{line}}",
       kinds: {
         "alter-table": "ALTER TABLE",
         "create-index": "CREATE INDEX",
@@ -952,6 +953,7 @@ export const en: DeepPartialMessages = {
       warning: "Warning",
       errorAtLine: "Error at line {{line}}",
       warningAtLine: "Warning at line {{line}}",
+      goToLine: "Go to line {{line}}",
       popupLabel: "Editor diagnostic details",
       close: "Close diagnostic",
       previous: "Previous diagnostic",

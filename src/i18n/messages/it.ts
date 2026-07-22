@@ -463,6 +463,7 @@ export const it = {
       title: "Non importati",
       intro: "Il reverse engineering legge solo CREATE TABLE. Queste istruzioni non sono tabelle, quindi non possono entrare nel diagramma — niente e stato scartato in silenzio. Ecco ognuna e il perche.",
       lineLabel: "riga {{line}}",
+      goToLine: "Vai alla riga {{line}}",
       kinds: {
         "alter-table": "ALTER TABLE",
         "create-index": "CREATE INDEX",
@@ -950,6 +951,7 @@ export const it = {
       warning: "Avviso",
       errorAtLine: "Errore alla riga {{line}}",
       warningAtLine: "Avviso alla riga {{line}}",
+      goToLine: "Vai alla riga {{line}}",
       popupLabel: "Dettaglio diagnostica editor",
       close: "Chiudi diagnostica",
       previous: "Diagnostica precedente",

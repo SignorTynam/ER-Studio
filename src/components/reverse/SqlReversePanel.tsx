@@ -4,7 +4,7 @@ import type { EditorDiagnostic } from "../../types/editor";
 import type { SqlReverseDialect, SqlReverseIssue, SqlUnsupportedStatement } from "../../types/sqlReverse";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
-import { CodeEditorSurface } from "../editor/CodeEditorSurface";
+import { CodeEditorSurface, type CodeEditorSurfaceHandle } from "../editor/CodeEditorSurface";
 import { Badge, Tooltip } from "../ui";
 import { PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 import { SQL_REVERSE_DIALECTS } from "../../utils/sqlReverseDialectPreference";
@@ -86,6 +86,7 @@ export function SqlReversePanel({
 }: SqlReversePanelProps) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editorHandleRef = useRef<CodeEditorSurfaceHandle | null>(null);
   const dialectSelectId = useId();
   const unsupportedListId = useId();
   const [unsupportedOpen, setUnsupportedOpen] = useState(false);
@@ -146,6 +147,7 @@ export function SqlReversePanel({
 
       <div className="sql-reverse-panel__editor-surface">
         <CodeEditorSurface
+          ref={editorHandleRef}
           value={sql}
           language="sql"
           readOnly={false}
@@ -190,9 +192,14 @@ export function SqlReversePanel({
                   <div className="sql-reverse-panel__unsupported-head">
                     <Badge tone="warning">{t(`sqlReversePanel.unsupportedList.kinds.${statement.kind}`)}</Badge>
                     {line ? (
-                      <span className="sql-reverse-panel__unsupported-line">
+                      <button
+                        type="button"
+                        className="sql-reverse-panel__unsupported-line"
+                        onClick={() => editorHandleRef.current?.revealLine(line)}
+                        aria-label={t("sqlReversePanel.unsupportedList.goToLine", { line })}
+                      >
                         {t("sqlReversePanel.unsupportedList.lineLabel", { line })}
-                      </span>
+                      </button>
                     ) : null}
                   </div>
                   <code className="sql-reverse-panel__unsupported-fragment">{statement.raw}</code>

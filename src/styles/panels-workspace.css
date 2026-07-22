@@ -260,9 +260,25 @@
 }
 
 .sql-reverse-panel__unsupported-line {
-  color: var(--color-text-muted);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
   font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.sql-reverse-panel__unsupported-line:hover {
+  text-decoration: underline;
+}
+
+.sql-reverse-panel__unsupported-line:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--focus-ring);
 }
 
 .sql-reverse-panel__unsupported-fragment {
