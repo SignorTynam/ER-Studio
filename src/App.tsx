@@ -7548,6 +7548,7 @@ export default function App() {
           onCreateFolder={handleProjectExplorerCreateFolder}
           onRename={handleProjectExplorerRename}
           onDelete={handleProjectExplorerDelete}
+          onMove={handleProjectExplorerMove}
           onToggleFolder={handleProjectExplorerToggleFolder}
           onCollapseAll={handleProjectExplorerCollapseAll}
           onToggleOpen={handleToggleActivityPanelOpen}

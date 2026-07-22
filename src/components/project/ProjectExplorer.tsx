@@ -7,10 +7,11 @@ import type {
   ProjectWorkspaceFile,
 } from "../../types/projectExplorer";
 import { useI18n } from "../../i18n/useI18n";
-import { resolveExplorerCreationParent, sortProjectExplorerNodes } from "../../utils/projectExplorer";
+import { canMoveNode, resolveExplorerCreationParent, sortProjectExplorerNodes } from "../../utils/projectExplorer";
 import { StudioIcon } from "../icons/StudioIcon";
 import { PanelIconButton, PanelMenu, PanelMenuItem } from "../workspace/WorkspacePanel";
 import { ProjectExplorerContextMenu } from "./ProjectExplorerContextMenu";
+import { ProjectExplorerDndProvider, type ProjectExplorerDnd } from "./projectExplorerDnd";
 import {
   ProjectExplorerCreateRow,
   ProjectExplorerTreeItem,
@@ -31,6 +32,7 @@ interface ProjectExplorerProps {
   onCreateFolder: (parentId: string, name?: string) => void | Promise<void>;
   onRename: (nodeId: string, nextName?: string) => void | Promise<void>;
   onDelete: (nodeId: string) => void;
+  onMove: (nodeId: string, targetParentId: string) => void;
   onToggleFolder: (folderId: string) => void;
   onCollapseAll: () => void;
   onToggleOpen: () => void;
@@ -50,6 +52,9 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
   const [contextMenu, setContextMenu] = useState<ExplorerMenuState | null>(null);
   const [newFileMenuOpen, setNewFileMenuOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<ProjectExplorerCreateDraft | null>(null);
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
+  const draggingRef = useRef<string | null>(null);
   const headerMenusRef = useRef<HTMLDivElement | null>(null);
   const nodesById = useMemo(
     () => new Map(props.project.fileTree.map((node) => [node.id, node])),
@@ -95,6 +100,58 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
       file: t("workspaceChrome.fileTypes.file"),
     },
   };
+
+  const explorerState = { project: props.project, files: props.files, view: props.view };
+  function resolveDropTargetFolderId(hoveredNodeId: string): string {
+    const node = nodesById.get(hoveredNodeId);
+    if (!node) return props.project.rootId;
+    return node.kind === "folder" ? node.id : node.parentId ?? props.project.rootId;
+  }
+  const explorerDnd: ProjectExplorerDnd = {
+    draggingNodeId,
+    dropTargetFolderId,
+    begin: (nodeId) => {
+      draggingRef.current = nodeId;
+      setDraggingNodeId(nodeId);
+      setDropTargetFolderId(null);
+    },
+    end: () => {
+      draggingRef.current = null;
+      setDraggingNodeId(null);
+      setDropTargetFolderId(null);
+    },
+    hoverNode: (hoveredNodeId) => {
+      const dragging = draggingRef.current;
+      if (!dragging) return "none";
+      const target = resolveDropTargetFolderId(hoveredNodeId);
+      if (canMoveNode(explorerState, dragging, target)) {
+        setDropTargetFolderId(target);
+        return "move";
+      }
+      setDropTargetFolderId(null);
+      return "none";
+    },
+    dropOnNode: (hoveredNodeId) => {
+      const dragging = draggingRef.current;
+      if (dragging) {
+        props.onMove(dragging, resolveDropTargetFolderId(hoveredNodeId));
+      }
+      draggingRef.current = null;
+      setDraggingNodeId(null);
+      setDropTargetFolderId(null);
+    },
+  };
+
+  // Hover-to-expand: sostando su una cartella chiusa durante il drag, la si apre dopo un attimo.
+  useEffect(() => {
+    const target = dropTargetFolderId;
+    if (!target || target === props.project.rootId || expandedFolderIds.has(target)) {
+      return undefined;
+    }
+    const timer = window.setTimeout(() => props.onToggleFolder(target), 600);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onToggleFolder è stabile
+  }, [dropTargetFolderId, expandedFolderIds, props.project.rootId]);
 
   useEffect(() => {
     if (!newFileMenuOpen) return undefined;
@@ -281,11 +338,29 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
         </header>
       </div>
 
+      <ProjectExplorerDndProvider value={explorerDnd}>
       <div
-        className="project-explorer-tree"
+        className={`project-explorer-tree${dropTargetFolderId === props.project.rootId ? " is-drop-target" : ""}`}
         onContextMenu={(event) => {
           event.preventDefault();
           setContextMenu({ x: event.clientX, y: event.clientY, nodeId: null, origin: "context-menu" });
+        }}
+        onDragOver={(event) => {
+          if (!draggingRef.current) return;
+          event.preventDefault();
+          if (canMoveNode(explorerState, draggingRef.current, props.project.rootId)) {
+            setDropTargetFolderId(props.project.rootId);
+            event.dataTransfer.dropEffect = "move";
+          } else {
+            setDropTargetFolderId(null);
+            event.dataTransfer.dropEffect = "none";
+          }
+        }}
+        onDrop={(event) => {
+          if (!draggingRef.current) return;
+          event.preventDefault();
+          props.onMove(draggingRef.current, props.project.rootId);
+          explorerDnd.end();
         }}
       >
         {root && (rootChildren.length > 0 || createDraft?.parentId === props.project.rootId) ? (
@@ -367,6 +442,7 @@ export function ProjectExplorer(props: ProjectExplorerProps) {
           </div>
         )}
       </div>
+      </ProjectExplorerDndProvider>
 
       {!props.embedded ? (
         <div

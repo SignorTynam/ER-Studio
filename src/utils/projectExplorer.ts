@@ -664,6 +664,29 @@ function collectDescendantNodeIds(project: ProjectExplorerProject, nodeId: strin
  * alfabetico), come in VS Code: non esiste un ordine manuale. `position` incide solo sull'array
  * `children` (irrilevante a video) ed è mantenuto per compatibilità d'API.
  */
+/**
+ * Predicato PURO ed economico: `true` se `moveNode(state, nodeId, targetParentId)` avrebbe successo
+ * con un cambiamento reale. Usato dalla UI durante il dragover per evidenziare solo le destinazioni
+ * valide e impostare il cursore "non consentito" sulle altre (no-op inclusi → falso).
+ */
+export function canMoveNode(state: ProjectExplorerState, nodeId: string, targetParentId: string): boolean {
+  const node = findProjectNode(state.project, nodeId);
+  if (!node || node.parentId === null) {
+    return false;
+  }
+  const target = findProjectNode(state.project, targetParentId);
+  if (!target || target.kind !== "folder") {
+    return false;
+  }
+  if (collectDescendantNodeIds(state.project, nodeId).includes(targetParentId)) {
+    return false;
+  }
+  if (node.parentId === targetParentId) {
+    return false;
+  }
+  return !hasDuplicateProjectNodeName(state.project, targetParentId, node.name, nodeId);
+}
+
 export function moveNode(
   state: ProjectExplorerState,
   nodeId: string,
