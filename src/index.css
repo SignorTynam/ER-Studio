@@ -12947,7 +12947,7 @@ summary:focus-visible,
   position: fixed;
   top: 86px;
   right: 18px;
-  z-index: 72;
+  z-index: var(--z-workspace-toast);
   width: min(380px, calc(100vw - 36px));
   pointer-events: none;
 }

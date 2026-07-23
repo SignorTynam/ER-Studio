@@ -890,7 +890,7 @@ body {
 
 body > .code-editor-diagnostic-popover {
   position: fixed;
-  z-index: 73;
+  z-index: var(--z-editor-diagnostic-popover);
   top: 86px;
   right: 18px;
   width: min(380px, calc(100vw - 36px));
