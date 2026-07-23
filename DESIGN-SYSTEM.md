@@ -478,3 +478,86 @@ nodo dentro sé stesso o un discendente e la root (`invalid-move`), nome duplica
 Verifica: `test/project-explorer-move.test.ts` (regole di `moveNode` + `getValidMoveDestinations`,
 immutabilità dell'input) e `tests/e2e/explorer-move.spec.ts` (menu da tastiera → dialog → reparenting
 con annuncio; `draggable="true"` sulle righe; destinazioni non valide mai offerte).
+
+## Reverse engineering SQL — rendere visibile ciò che il motore sa (Fase K)
+
+Il parser era già ricco (5 dialetti, 17 codici di problema tipizzati, span sorgente, statement non
+supportati strutturati); l'interfaccia ne mostrava una frazione. Questa fase **espone dati esistenti**,
+non cambia il comportamento di analisi.
+
+**Dialetto (K1).** `select` a token (`.settings-select`) in una riga dedicata sotto l'header, con
+`Tooltip` esplicativo. Default `generic` invariato. Il valore scelto arriva al parser passando per
+`validateSqlReverseBetaSource` **e** `reverseSqlToDiagram`. È ricordato tra le sessioni
+(localStorage). **Al cambio dialetto**: se un'analisi è già stata eseguita si ri-analizza subito,
+altrimenti si memorizza soltanto la scelta per il successivo *Analizza*.
+
+**Due disclosure nella meta-riga**, stessa meccanica (`.sql-reverse-panel__meta-toggle`, bottone
+nativo con `aria-expanded`/`aria-controls`, freccia che ruota):
+
+- **Statement non importabili (K2)** — elenco di `unsupportedStatements`, prima solo contati e
+  scartati. Per ciascuno: badge del tipo, frammento SQL monospace, riga e una spiegazione di cosa
+  comporta per il diagramma. Nota importante: il motore è in **beta gated su CREATE TABLE**, quindi
+  questi statement **bloccano** l'import invece di essere ignorati; la copy dice "non importabili",
+  non "ignorati".
+- **Diagnostiche spiegate (K4)** — il cuore della fase. `sqlReverseIssueCatalog.ts` mappa in modo
+  **puro** i 17 `SqlReverseIssueCode` a tre categorie, e i testi vivono in i18n:
+
+  | categoria | badge | significato |
+  |---|---|---|
+  | `sql-error` | `danger` | c'è un problema nel **tuo** SQL, va corretto |
+  | `tool-limit` | `neutral` | costrutto valido ma senza equivalente ER: ignorato, entità/attributo restano |
+  | `parser-recovery` | `warning` | il parser ha saltato una parte per continuare |
+
+  Ogni voce mostra badge + titolo comprensibile + spiegazione che dice **cosa comporta per il
+  diagramma** (non solo cosa non è stato letto) + `rawFragment` + riga cliccabile. Il codice grezzo
+  non arriva mai a schermo.
+
+**Salto alla riga (K3).** `CodeEditorSurface` espone `revealLine(line)` via handle imperativo: porta
+il focus nell'editor, seleziona la riga, scrolla e la fa pulsare (`--motion-reveal`, disattivata con
+`prefers-reduced-motion`). Richiamabile dal popover diagnostico ("Vai alla riga N") e da entrambe le
+liste. Usa gli span già prodotti dal parser; per gli statement non supportati la riga è calcolata
+dall'offset.
+
+Verifica: `test/sql-reverse-issue-catalog.test.ts` (copertura dei 17 codici, 3 categorie) e
+`tests/e2e/sql-reverse-panel.spec.ts` (dialetto→parser, elenco con frammento e riga, salto verificato
+su `selectionStart`, categorie/titoli/spiegazioni senza codici grezzi).
+
+## Toast affidabili e accessibili (Fase L)
+
+Principio: **un toast con un'azione è una promessa.** Se scade prima che l'utente la raggiunga — col
+mouse o con la tastiera — la promessa è rotta.
+
+**Pausa e ripresa (L1).** `useWorkspaceNotices` tiene il **tempo residuo** di ogni toast, non solo
+l'id del timeout, ed espone `pauseNoticeTimers`/`resumeNoticeTimers`. La pausa vale per **tutta la
+pila** (comportamento tipo Sonner/Radix) e la ripresa riparte dal residuo, non da zero; un toast che
+nasce mentre la pila è in pausa nasce già in pausa. Gli sticky sono invariati per costruzione: senza
+durata non esiste timer. Il viewport è `pointer-events: none`, quindi si usano **mouseover/mouseout**
+(che risalgono dai toast, `pointer-events: auto`) e non mouseenter/mouseleave, che non scatterebbero.
+
+**Countdown (L4).** Barra di 2px (`--space-0-5`) sul bordo inferiore, colorata dal tono. È
+un'**animazione CSS**, quindi la pausa è `animation-play-state: paused` e riprende dallo stesso punto:
+la stessa semantica del residuo lato timer, senza riscriverla in JS. La durata arriva da
+`notice.durationMs`, cioè quella **reale**, non dedotta dal tono. Con `prefers-reduced-motion` la barra
+sparisce: una barra ferma suggerirebbe un toast che non scade mai.
+
+**Live region (L3).** La parte visiva **non annuncia più**: niente `aria-live` sul viewport, niente
+`role="alert"/"status"` sui toast (le live region annidate producono doppi annunci o nessuno). A
+parlare è `WorkspaceToastAnnouncer`: due region sempre montate e vuote, **assertive** per gli errori e
+**polite** per il resto; il toast più recente scrive in una sola. Le region preesistono nel DOM perché
+cambiare contenuto è più affidabile che inserire un `role="alert"`. Anche la status bar ha perso
+`aria-live`: prima l'intero footer era una live region e leggeva ad alta voce pure zoom e nome file.
+
+**Z-index (L5).** Toast e popover diagnostico condividono lo stesso angolo e sono ora a token
+(`--z-workspace-toast: 72`, `--z-editor-diagnostic-popover: 73`), con la scala degli overlay a livello
+finestra documentata in `tokens.css` accanto a quella locale del canvas (10/20).
+
+Verifica: `tests/e2e/workspace-toasts.spec.ts` (auto-dismiss, pausa su hover e su focus con ripresa,
+countdown con durata reale che si ferma col timer, annuncio singolo dalla region giusta) e
+`test/use-history.test.ts`.
+
+> ⚠️ **Trappola trovata qui, da ricordare.** `useHistory.undo()/redo()` leggevano lo stato dalla
+> closure del proprio render. Un `undo` **catturato** — come l'azione "Annulla" di un toast, creata
+> insieme al commit e cliccata secondi dopo — ripristinava una baseline vecchia: dopo un auto-layout
+> svuotava il diagramma invece di riportarlo indietro. Ora `past`/`present`/`future` passano da ref
+> riallineate a ogni render. **Regola: qualsiasi callback consegnato a un toast va scritto per essere
+> invocato molti render dopo la sua creazione.**
