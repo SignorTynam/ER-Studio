@@ -462,8 +462,8 @@ export const sq: DeepPartialMessages = {
     tables: "{{count}} tabela",
     unsupported: "{{count}} instruksione te pambeshtetura",
     unsupportedList: {
-      title: "Te paimportuara",
-      intro: "Reverse engineering lexon vetem CREATE TABLE. Keto instruksione nuk jane tabela, prandaj nuk mund te hyjne ne diagram — asgje nuk u hoq ne heshtje. Ja secila dhe pse.",
+      title: "Të paimportuara",
+      intro: "Reverse engineering lexon vetëm CREATE TABLE. Këto instruksione nuk janë tabela, prandaj nuk mund të hyjnë në diagram — asgjë nuk u hoq në heshtje. Ja secila dhe pse.",
       lineLabel: "rreshti {{line}}",
       goToLine: "Shko te rreshti {{line}}",
       kinds: {
@@ -478,15 +478,94 @@ export const sq: DeepPartialMessages = {
         other: "Instruksion",
       },
       reasons: {
-        "alter-table": "Ndryshimet me ALTER nuk lexohen: kolonat ose celesat qe shton nuk arrijne ne diagram.",
-        "create-index": "Indekset nuk ndryshojne entitete ose marredhenie, prandaj mbeten jashte diagramit.",
-        "create-view": "Nje pamje eshte nje query e ruajtur, jo tabele: nuk behet entitet.",
-        "create-trigger": "Trigger-at jane logjike procedurale, s'kane vend ne nje diagram ER.",
-        insert: "Te dhenat e rreshtave nuk percaktojne skemen, prandaj anashkalohen.",
-        update: "Ndryshimet e rreshtave nuk percaktojne skemen, prandaj anashkalohen.",
-        delete: "Fshirjet e rreshtave nuk percaktojne skemen, prandaj anashkalohen.",
-        drop: "DROP heq objekte dhe nuk zbatohet gjate reverse engineering.",
-        other: "Reverse engineering nuk e kupton ende kete instruksion, prandaj mbetet jashte.",
+        "alter-table": "Ndryshimet me ALTER nuk lexohen: kolonat ose çelësat që shton nuk arrijnë në diagram.",
+        "create-index": "Indekset nuk ndryshojnë entitete ose marrëdhënie, prandaj mbeten jashtë diagramit.",
+        "create-view": "Një pamje është një query e ruajtur, jo tabelë: nuk bëhet entitet.",
+        "create-trigger": "Trigger-at janë logjikë procedurale, s'kanë vend në një diagram ER.",
+        insert: "Të dhënat e rreshtave nuk përcaktojnë skemën, prandaj anashkalohen.",
+        update: "Ndryshimet e rreshtave nuk përcaktojnë skemën, prandaj anashkalohen.",
+        delete: "Fshirjet e rreshtave nuk përcaktojnë skemën, prandaj anashkalohen.",
+        drop: "DROP heq objekte dhe nuk zbatohet gjatë reverse engineering.",
+        other: "Reverse engineering nuk e kupton ende këtë instruksion, prandaj mbetet jashtë.",
+      },
+    },
+    issueList: {
+      toggle: "{{count}} diagnostikime",
+      title: "Diagnostikime",
+      categories: {
+        "sql-error": "SQL për të korrigjuar",
+        "tool-limit": "Pa ekuivalent ER",
+        "parser-recovery": "Rikuperuar",
+      },
+      codes: {
+        UNSUPPORTED_STATEMENT: {
+          title: "Instruksion i paimportuar",
+          explanation: "Nuk është përkufizim tabele, prandaj mbetet jashtë diagramit.",
+        },
+        UNSUPPORTED_TABLE_OPTION: {
+          title: "Opsion tabele i injoruar",
+          explanation: "Opsionet e ruajtjes (ENGINE, CHARSET…) s'kanë kuptim në ER, prandaj injorohen — entiteti krijohet gjithsesi.",
+        },
+        UNSUPPORTED_COLUMN_CONSTRAINT: {
+          title: "Rregull kolone i injoruar",
+          explanation: "Rregulla si CHECK ose COLLATE s'kanë ekuivalent ER, prandaj bien — atributi krijohet gjithsesi.",
+        },
+        UNSUPPORTED_TABLE_CONSTRAINT: {
+          title: "Rregull tabele i injoruar",
+          explanation: "Një rregull në nivel tabele (p.sh. CHECK) s'ka ekuivalent ER, prandaj bie — entiteti krijohet gjithsesi.",
+        },
+        DUPLICATE_TABLE_NAME: {
+          title: "Emër tabele i dyfishuar",
+          explanation: "Dy tabela kanë të njëjtin emër, prandaj krijohet vetëm një entitet. Riemërto njërën.",
+        },
+        DUPLICATE_COLUMN_NAME: {
+          title: "Emër kolone i dyfishuar",
+          explanation: "Kjo tabelë përsërit një emër kolone, prandaj atributi i dyfishtë hiqet. Mbaj njërin.",
+        },
+        MISSING_TABLE_NAME: {
+          title: "Tabelë pa emër",
+          explanation: "Ky CREATE TABLE s'ka emër, prandaj s'mund të ndërtohet asnjë entitet.",
+        },
+        MISSING_COLUMN_NAME: {
+          title: "Kolonë pa emër",
+          explanation: "Kjo kolonë s'ka emër, prandaj s'mund të bëhet atribut.",
+        },
+        MISSING_COLUMN_TYPE: {
+          title: "Kolonë pa tip",
+          explanation: "Kjo kolonë s'ka tip të dhëne, prandaj atributi i saj krijohet pa të.",
+        },
+        INVALID_CREATE_TABLE: {
+          title: "Tabela s'lexohet",
+          explanation: "Ky CREATE TABLE s'interpretohet, prandaj s'ndërtohet asnjë entitet.",
+        },
+        INVALID_PRIMARY_KEY: {
+          title: "Çelësi primar s'lexohet",
+          explanation: "Çelësi primar s'interpretohet, prandaj entiteti s'merr identifikues prej tij.",
+        },
+        INVALID_FOREIGN_KEY: {
+          title: "Çelësi i huaj s'lexohet",
+          explanation: "Ky çelës i huaj s'interpretohet, prandaj s'vizatohet asnjë marrëdhënie.",
+        },
+        INVALID_UNIQUE_CONSTRAINT: {
+          title: "Rregulli UNIQUE s'lexohet",
+          explanation: "Ky kufizim UNIQUE s'interpretohet, prandaj s'aplikohet te entiteti.",
+        },
+        UNRESOLVED_REFERENCE: {
+          title: "Referenca s'u gjet",
+          explanation: "Çelësi i huaj tregon një tabelë ose kolonë që s'është në skemë, prandaj s'vizatohet asnjë marrëdhënie.",
+        },
+        UNSUPPORTED_ALTER_TABLE: {
+          title: "ALTER TABLE i pazbatuar",
+          explanation: "Ndryshimet me ALTER nuk lexohen, prandaj çfarë shtojnë s'shfaqet në diagram.",
+        },
+        UNSUPPORTED_INDEX: {
+          title: "Indeks i injoruar",
+          explanation: "Indekset s'ndikojnë entitete apo marrëdhënie, prandaj mbeten jashtë.",
+        },
+        PARSER_RECOVERY: {
+          title: "U anashkalua për të vazhduar",
+          explanation: "Një pjesë e SQL s'ishte e lexueshme dhe u anashkalua që pjesa tjetër të importohej. Kontrollo atë pjesë.",
+        },
       },
     },
     previewReady: "Preview gati",

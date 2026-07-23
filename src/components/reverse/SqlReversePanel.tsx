@@ -5,9 +5,20 @@ import type { SqlReverseDialect, SqlReverseIssue, SqlUnsupportedStatement } from
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
 import { CodeEditorSurface, type CodeEditorSurfaceHandle } from "../editor/CodeEditorSurface";
-import { Badge, Tooltip } from "../ui";
+import { Badge, Tooltip, type BadgeTone } from "../ui";
 import { PanelIconButton, WorkspacePanel, WorkspacePanelHeader } from "../workspace/WorkspacePanel";
 import { SQL_REVERSE_DIALECTS } from "../../utils/sqlReverseDialectPreference";
+import { getSqlReverseIssueCategory, type SqlReverseIssueCategory } from "../../utils/sqlReverseIssueCatalog";
+
+/**
+ * Fase K4 — il tono del badge rende visibile la distinzione chiave: rosso = problema nel TUO SQL,
+ * neutro = costrutto senza equivalente ER (ignorato), giallo = il parser ha recuperato.
+ */
+const ISSUE_CATEGORY_TONE: Record<SqlReverseIssueCategory, BadgeTone> = {
+  "sql-error": "danger",
+  "tool-limit": "neutral",
+  "parser-recovery": "warning",
+};
 
 interface SqlReversePanelProps {
   sql: string;
@@ -16,7 +27,8 @@ interface SqlReversePanelProps {
   logicalIssues: LogicalIssue[];
   tableCount: number;
   unsupportedStatementCount: number;
-  unsupportedStatements: SqlUnsupportedStatement[];
+  /** Opzionale: assente equivale a "nessuno" (stessa prassi di `diagnostics` in CodeEditorSurface). */
+  unsupportedStatements?: SqlUnsupportedStatement[];
   isPreviewReady: boolean;
   sourceFileName?: string;
   dialect: SqlReverseDialect;
@@ -72,7 +84,7 @@ export function SqlReversePanel({
   logicalIssues,
   tableCount,
   unsupportedStatementCount,
-  unsupportedStatements,
+  unsupportedStatements = [],
   isPreviewReady,
   sourceFileName,
   dialect,
@@ -89,7 +101,9 @@ export function SqlReversePanel({
   const editorHandleRef = useRef<CodeEditorSurfaceHandle | null>(null);
   const dialectSelectId = useId();
   const unsupportedListId = useId();
+  const issueListId = useId();
   const [unsupportedOpen, setUnsupportedOpen] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
   const diagnostics = buildDiagnostics(errorMessage, issues, logicalIssues);
   const lineCount = Math.max(1, sql.split(/\r?\n/).length);
   const hasUnsupported = unsupportedStatements.length > 0;
@@ -165,7 +179,7 @@ export function SqlReversePanel({
         {hasUnsupported ? (
           <button
             type="button"
-            className={unsupportedOpen ? "sql-reverse-panel__unsupported-toggle is-open" : "sql-reverse-panel__unsupported-toggle"}
+            className={unsupportedOpen ? "sql-reverse-panel__meta-toggle is-open" : "sql-reverse-panel__meta-toggle"}
             aria-expanded={unsupportedOpen}
             aria-controls={unsupportedListId}
             onClick={() => setUnsupportedOpen((open) => !open)}
@@ -174,7 +188,20 @@ export function SqlReversePanel({
             <span>{t("sqlReversePanel.unsupported", { count: unsupportedStatements.length })}</span>
           </button>
         ) : null}
-        {diagnostics.length > 0 ? <span>{t("codeEditor.diagnostic.count", { count: diagnostics.length })}</span> : null}
+        {issues.length > 0 ? (
+          <button
+            type="button"
+            className={issuesOpen ? "sql-reverse-panel__meta-toggle is-open" : "sql-reverse-panel__meta-toggle"}
+            aria-expanded={issuesOpen}
+            aria-controls={issueListId}
+            onClick={() => setIssuesOpen((open) => !open)}
+          >
+            <StudioIcon name="arrowRight" aria-hidden="true" />
+            <span>{t("sqlReversePanel.issueList.toggle", { count: issues.length })}</span>
+          </button>
+        ) : diagnostics.length > 0 ? (
+          <span>{t("codeEditor.diagnostic.count", { count: diagnostics.length })}</span>
+        ) : null}
       </div>
 
       {hasUnsupported && unsupportedOpen ? (
@@ -194,7 +221,7 @@ export function SqlReversePanel({
                     {line ? (
                       <button
                         type="button"
-                        className="sql-reverse-panel__unsupported-line"
+                        className="sql-reverse-panel__jump-line"
                         onClick={() => editorHandleRef.current?.revealLine(line)}
                         aria-label={t("sqlReversePanel.unsupportedList.goToLine", { line })}
                       >
@@ -202,10 +229,53 @@ export function SqlReversePanel({
                       </button>
                     ) : null}
                   </div>
-                  <code className="sql-reverse-panel__unsupported-fragment">{statement.raw}</code>
+                  <code className="sql-reverse-panel__fragment">{statement.raw}</code>
                   <p className="sql-reverse-panel__unsupported-reason">
                     {t(`sqlReversePanel.unsupportedList.reasons.${statement.kind}`)}
                   </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {issues.length > 0 && issuesOpen ? (
+        <section
+          id={issueListId}
+          className="sql-reverse-panel__issues"
+          aria-label={t("sqlReversePanel.issueList.title")}
+        >
+          <ul className="sql-reverse-panel__issue-list">
+            {issues.map((issue) => {
+              const category = getSqlReverseIssueCategory(issue.code);
+              const line = issue.sourceSpan?.line ?? sqlLineForOffset(sql, issue.sourceSpan?.start);
+              return (
+                <li key={issue.id} className="sql-reverse-panel__issue-item">
+                  <div className="sql-reverse-panel__issue-head">
+                    <Badge tone={ISSUE_CATEGORY_TONE[category]}>
+                      {t(`sqlReversePanel.issueList.categories.${category}`)}
+                    </Badge>
+                    {line ? (
+                      <button
+                        type="button"
+                        className="sql-reverse-panel__jump-line"
+                        onClick={() => editorHandleRef.current?.revealLine(line)}
+                        aria-label={t("sqlReversePanel.unsupportedList.goToLine", { line })}
+                      >
+                        {t("sqlReversePanel.unsupportedList.lineLabel", { line })}
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="sql-reverse-panel__issue-title">
+                    {t(`sqlReversePanel.issueList.codes.${issue.code}.title`)}
+                  </p>
+                  <p className="sql-reverse-panel__issue-explanation">
+                    {t(`sqlReversePanel.issueList.codes.${issue.code}.explanation`)}
+                  </p>
+                  {issue.rawFragment ? (
+                    <code className="sql-reverse-panel__fragment">{issue.rawFragment}</code>
+                  ) : null}
                 </li>
               );
             })}

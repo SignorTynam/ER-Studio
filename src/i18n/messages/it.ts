@@ -461,7 +461,7 @@ export const it = {
     unsupported: "{{count}} istruzioni non supportate",
     unsupportedList: {
       title: "Non importati",
-      intro: "Il reverse engineering legge solo CREATE TABLE. Queste istruzioni non sono tabelle, quindi non possono entrare nel diagramma — niente e stato scartato in silenzio. Ecco ognuna e il perche.",
+      intro: "Il reverse engineering legge solo CREATE TABLE. Queste istruzioni non sono tabelle, quindi non possono entrare nel diagramma — niente è stato scartato in silenzio. Ecco ognuna e il perché.",
       lineLabel: "riga {{line}}",
       goToLine: "Vai alla riga {{line}}",
       kinds: {
@@ -477,14 +477,93 @@ export const it = {
       },
       reasons: {
         "alter-table": "Le modifiche fatte con ALTER non vengono lette: colonne o chiavi che aggiunge non arrivano nel diagramma.",
-        "create-index": "Gli indici non cambiano entita o relazioni, quindi restano fuori dal diagramma.",
-        "create-view": "Una vista e una query salvata, non una tabella: non diventa un'entita.",
+        "create-index": "Gli indici non cambiano entità o relazioni, quindi restano fuori dal diagramma.",
+        "create-view": "Una vista è una query salvata, non una tabella: non diventa un'entità.",
         "create-trigger": "I trigger sono logica procedurale, non hanno posto in un diagramma ER.",
         insert: "I dati delle righe non definiscono lo schema, quindi vengono ignorati.",
         update: "Le modifiche alle righe non definiscono lo schema, quindi vengono ignorate.",
         delete: "Le cancellazioni di righe non definiscono lo schema, quindi vengono ignorate.",
         drop: "DROP rimuove oggetti e non viene applicato durante il reverse engineering.",
         other: "Il reverse engineering non comprende ancora questa istruzione, quindi resta fuori.",
+      },
+    },
+    issueList: {
+      toggle: "{{count}} diagnostiche",
+      title: "Diagnostiche",
+      categories: {
+        "sql-error": "SQL da correggere",
+        "tool-limit": "Nessun equivalente ER",
+        "parser-recovery": "Recuperato",
+      },
+      codes: {
+        UNSUPPORTED_STATEMENT: {
+          title: "Istruzione non importata",
+          explanation: "Non è una definizione di tabella, quindi resta fuori dal diagramma.",
+        },
+        UNSUPPORTED_TABLE_OPTION: {
+          title: "Opzione di tabella ignorata",
+          explanation: "Le opzioni di storage (ENGINE, CHARSET…) non hanno senso in ER, quindi vengono ignorate — l'entità viene creata comunque.",
+        },
+        UNSUPPORTED_COLUMN_CONSTRAINT: {
+          title: "Regola di colonna ignorata",
+          explanation: "Regole come CHECK o COLLATE non hanno equivalente ER, quindi cadono — l'attributo viene creato comunque.",
+        },
+        UNSUPPORTED_TABLE_CONSTRAINT: {
+          title: "Regola di tabella ignorata",
+          explanation: "Una regola a livello di tabella (es. CHECK) non ha equivalente ER, quindi cade — l'entità viene creata comunque.",
+        },
+        DUPLICATE_TABLE_NAME: {
+          title: "Nome tabella duplicato",
+          explanation: "Due tabelle hanno lo stesso nome, quindi viene creata una sola entità. Rinominane una.",
+        },
+        DUPLICATE_COLUMN_NAME: {
+          title: "Nome colonna duplicato",
+          explanation: "Questa tabella ripete un nome di colonna, quindi l'attributo duplicato viene scartato. Tienine uno.",
+        },
+        MISSING_TABLE_NAME: {
+          title: "Tabella senza nome",
+          explanation: "Questo CREATE TABLE non ha nome, quindi non se ne può costruire un'entità.",
+        },
+        MISSING_COLUMN_NAME: {
+          title: "Colonna senza nome",
+          explanation: "Questa colonna non ha nome, quindi non può diventare un attributo.",
+        },
+        MISSING_COLUMN_TYPE: {
+          title: "Colonna senza tipo",
+          explanation: "Questa colonna non ha un tipo di dato, quindi il suo attributo viene creato senza.",
+        },
+        INVALID_CREATE_TABLE: {
+          title: "Tabella illeggibile",
+          explanation: "Questo CREATE TABLE non è interpretabile, quindi non se ne costruisce nessuna entità.",
+        },
+        INVALID_PRIMARY_KEY: {
+          title: "Chiave primaria illeggibile",
+          explanation: "La chiave primaria non è interpretabile, quindi l'entità non ne ricava un identificatore.",
+        },
+        INVALID_FOREIGN_KEY: {
+          title: "Chiave esterna illeggibile",
+          explanation: "Questa chiave esterna non è interpretabile, quindi non viene disegnata nessuna relazione.",
+        },
+        INVALID_UNIQUE_CONSTRAINT: {
+          title: "Vincolo UNIQUE illeggibile",
+          explanation: "Questo vincolo UNIQUE non è interpretabile, quindi non viene applicato all'entità.",
+        },
+        UNRESOLVED_REFERENCE: {
+          title: "Riferimento non trovato",
+          explanation: "La chiave esterna punta a una tabella o colonna che non è nello schema, quindi non viene disegnata nessuna relazione.",
+        },
+        UNSUPPORTED_ALTER_TABLE: {
+          title: "ALTER TABLE non applicato",
+          explanation: "Le modifiche con ALTER non vengono lette, quindi ciò che aggiungono non compare nel diagramma.",
+        },
+        UNSUPPORTED_INDEX: {
+          title: "Indice ignorato",
+          explanation: "Gli indici non influenzano entità o relazioni, quindi restano fuori.",
+        },
+        PARSER_RECOVERY: {
+          title: "Saltato per continuare",
+          explanation: "Una parte del SQL non era leggibile ed è stata saltata per importare il resto. Controlla quel punto.",
+        },
       },
     },
     previewReady: "Preview pronta",

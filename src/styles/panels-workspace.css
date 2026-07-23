@@ -178,8 +178,8 @@
   justify-content: space-between;
 }
 
-/* Fase K2 — disclosure "cosa non riesco a importare" nella meta-riga. */
-.sql-reverse-panel__unsupported-toggle {
+/* Fasi K2/K4 — disclosure nella meta-riga (statement non importabili, diagnostiche spiegate). */
+.sql-reverse-panel__meta-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -192,29 +192,30 @@
   cursor: pointer;
 }
 
-.sql-reverse-panel__unsupported-toggle:hover {
+.sql-reverse-panel__meta-toggle:hover {
   color: var(--color-text-primary);
   text-decoration: underline;
 }
 
-.sql-reverse-panel__unsupported-toggle:focus-visible {
+.sql-reverse-panel__meta-toggle:focus-visible {
   outline: none;
   border-radius: var(--radius-control);
   box-shadow: var(--focus-ring);
 }
 
-.sql-reverse-panel__unsupported-toggle svg {
+.sql-reverse-panel__meta-toggle svg {
   width: var(--space-3);
   height: var(--space-3);
   transition: transform var(--motion-fast);
 }
 
-.sql-reverse-panel__unsupported-toggle.is-open svg {
+.sql-reverse-panel__meta-toggle.is-open svg {
   transform: rotate(90deg);
 }
 
-/* Fase K2 — elenco degli statement non importabili. */
-.sql-reverse-panel__unsupported {
+/* Contenitori dei due elenchi: statement non importabili (K2) e diagnostiche spiegate (K4). */
+.sql-reverse-panel__unsupported,
+.sql-reverse-panel__issues {
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
@@ -233,7 +234,8 @@
   line-height: var(--line-height-snug);
 }
 
-.sql-reverse-panel__unsupported-list {
+.sql-reverse-panel__unsupported-list,
+.sql-reverse-panel__issue-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -242,7 +244,8 @@
   list-style: none;
 }
 
-.sql-reverse-panel__unsupported-item {
+.sql-reverse-panel__unsupported-item,
+.sql-reverse-panel__issue-item {
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
@@ -252,14 +255,16 @@
   background: var(--color-bg-elevated);
 }
 
-.sql-reverse-panel__unsupported-head {
+.sql-reverse-panel__unsupported-head,
+.sql-reverse-panel__issue-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
 }
 
-.sql-reverse-panel__unsupported-line {
+/* Fase K3 — "vai alla riga" dalle liste. */
+.sql-reverse-panel__jump-line {
   margin: 0;
   padding: 0;
   border: 0;
@@ -271,17 +276,17 @@
   cursor: pointer;
 }
 
-.sql-reverse-panel__unsupported-line:hover {
+.sql-reverse-panel__jump-line:hover {
   text-decoration: underline;
 }
 
-.sql-reverse-panel__unsupported-line:focus-visible {
+.sql-reverse-panel__jump-line:focus-visible {
   outline: none;
   border-radius: var(--radius-control);
   box-shadow: var(--focus-ring);
 }
 
-.sql-reverse-panel__unsupported-fragment {
+.sql-reverse-panel__fragment {
   overflow-x: auto;
   max-width: 100%;
   padding: var(--space-1-5) var(--space-2);
@@ -293,10 +298,20 @@
   white-space: pre;
 }
 
-.sql-reverse-panel__unsupported-reason {
+.sql-reverse-panel__unsupported-reason,
+.sql-reverse-panel__issue-explanation {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+/* Fase K4 — titolo comprensibile della diagnostica, sopra la spiegazione. */
+.sql-reverse-panel__issue-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-snug);
 }
 

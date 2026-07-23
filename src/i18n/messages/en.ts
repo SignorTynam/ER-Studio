@@ -489,6 +489,85 @@ export const en: DeepPartialMessages = {
         other: "The reverse engineer doesn't understand this statement yet, so it's left out.",
       },
     },
+    issueList: {
+      toggle: "{{count}} diagnostics",
+      title: "Diagnostics",
+      categories: {
+        "sql-error": "SQL to fix",
+        "tool-limit": "No ER equivalent",
+        "parser-recovery": "Recovered",
+      },
+      codes: {
+        UNSUPPORTED_STATEMENT: {
+          title: "Statement not imported",
+          explanation: "Not a table definition, so it's left out of the diagram.",
+        },
+        UNSUPPORTED_TABLE_OPTION: {
+          title: "Table option ignored",
+          explanation: "Storage options (ENGINE, CHARSET…) have no ER meaning, so they're ignored — the entity is still created.",
+        },
+        UNSUPPORTED_COLUMN_CONSTRAINT: {
+          title: "Column rule ignored",
+          explanation: "Rules like CHECK or COLLATE have no ER equivalent, so they're dropped — the attribute is still created.",
+        },
+        UNSUPPORTED_TABLE_CONSTRAINT: {
+          title: "Table rule ignored",
+          explanation: "A table-level rule (e.g. CHECK) has no ER equivalent, so it's dropped — the entity is still created.",
+        },
+        DUPLICATE_TABLE_NAME: {
+          title: "Duplicate table name",
+          explanation: "Two tables share this name, so only one entity is created. Rename one.",
+        },
+        DUPLICATE_COLUMN_NAME: {
+          title: "Duplicate column name",
+          explanation: "This table repeats a column name, so the duplicate attribute is dropped. Keep one.",
+        },
+        MISSING_TABLE_NAME: {
+          title: "Table has no name",
+          explanation: "This CREATE TABLE has no name, so no entity can be built from it.",
+        },
+        MISSING_COLUMN_NAME: {
+          title: "Column has no name",
+          explanation: "This column has no name, so it can't become an attribute.",
+        },
+        MISSING_COLUMN_TYPE: {
+          title: "Column has no type",
+          explanation: "This column has no data type, so its attribute is created without one.",
+        },
+        INVALID_CREATE_TABLE: {
+          title: "Table can't be read",
+          explanation: "This CREATE TABLE can't be parsed, so no entity is built from it.",
+        },
+        INVALID_PRIMARY_KEY: {
+          title: "Primary key can't be read",
+          explanation: "The primary key can't be parsed, so the entity gets no identifier from it.",
+        },
+        INVALID_FOREIGN_KEY: {
+          title: "Foreign key can't be read",
+          explanation: "This foreign key can't be parsed, so no relationship is drawn for it.",
+        },
+        INVALID_UNIQUE_CONSTRAINT: {
+          title: "Unique rule can't be read",
+          explanation: "This UNIQUE constraint can't be parsed, so it isn't applied to the entity.",
+        },
+        UNRESOLVED_REFERENCE: {
+          title: "Reference not found",
+          explanation: "The foreign key points to a table or column that isn't in the schema, so no relationship is drawn.",
+        },
+        UNSUPPORTED_ALTER_TABLE: {
+          title: "ALTER TABLE not applied",
+          explanation: "ALTER changes aren't read, so anything they add won't appear in the diagram.",
+        },
+        UNSUPPORTED_INDEX: {
+          title: "Index ignored",
+          explanation: "Indexes don't affect entities or relationships, so they're left out.",
+        },
+        PARSER_RECOVERY: {
+          title: "Skipped to continue",
+          explanation: "Part of the SQL couldn't be read and was skipped so the rest could import. Check that section.",
+        },
+      },
+    },
     previewReady: "Preview ready",
   },
   workspaceToasts: {
