@@ -195,7 +195,9 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
 
   function setStatusWarning(message: string, options?: WorkspaceNoticeOptions) {
     setStatusMessage(message);
-    showWarningNotice(message, { ...options, title: options?.title ?? "Operazione non valida" });
+    // Nessun titolo di default qui: senza `title` la toast stack usa la chiave
+    // localizzata `workspaceToasts.defaultTitles.<tone>` (en/it/sq).
+    showWarningNotice(message, options);
   }
 
   function setStatusSuccess(message: string) {
@@ -205,7 +207,8 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
   function setStatusError(message: string, options?: WorkspaceNoticeOptions) {
     const normalizedError = formatErrorMessage(message);
     setStatusMessage(normalizedError);
-    showErrorNotice(normalizedError, { ...options, title: options?.title ?? "Errore" });
+    // Idem: il titolo di default arriva localizzato dalla toast stack.
+    showErrorNotice(normalizedError, options);
   }
 
   useEffect(() => {
