@@ -87,7 +87,11 @@ export function BottomStatusBar(props: BottomStatusBarProps) {
   const panelLabel = getPanelLabels(props, t);
 
   return (
-    <footer className="bottom-status-bar" aria-live="polite">
+    // L3: niente `aria-live` sul footer. Prima l'intera barra era una live region, quindi lo
+    // stesso messaggio del toast veniva annunciato una seconda volta e, peggio, ogni cambio di
+    // chrome (zoom, nome file, nome progetto) veniva letto ad alta voce. Gli annunci dei notice
+    // passano ora solo da WorkspaceToastAnnouncer; qui resta lo stato visibile.
+    <footer className="bottom-status-bar">
       <div className="bottom-status-left">
         {props.projectName ? (
           <div className="bottom-status-meta-item bottom-status-project" title={props.projectName}>

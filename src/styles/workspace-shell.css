@@ -136,7 +136,10 @@
 }
 
 /* Testo di stato solo per screen reader (Fase C1: il "modificato" visivo è il dot). */
-.visually-hidden-chrome-state {
+/* Testo riservato agli screen reader: fuori schermo ma leggibile dagli AT.
+   Valori di plumbing a11y (non design token): il pattern clip è quello standard. */
+.visually-hidden-chrome-state,
+.workspace-toast-announcer {
   position: absolute;
   width: 1px;
   height: 1px;

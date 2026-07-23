@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WorkspaceNotice } from "../hooks/useWorkspaceNotices";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
@@ -52,6 +52,68 @@ export function getNoticeRelativeTime(createdAt: number, now = Date.now()): Noti
   return { key: "workspaceToasts.relativeTime.minutesAgo", count: Math.floor(elapsedSeconds / 60) };
 }
 
+/**
+ * Fase L3 — annuncio per screen reader separato dalla parte visiva.
+ *
+ * Perché non basta `role="alert"` sul toast: quel nodo viene *inserito* nel DOM, e inserire una
+ * live region è molto meno affidabile che cambiare il contenuto di una live region già presente.
+ * In più, annidare `role="alert"`/`role="status"` dentro un contenitore `aria-live` produce
+ * doppi annunci (o nessuno) a seconda dello screen reader.
+ *
+ * Qui le due region esistono SEMPRE, vuote, e ricevono il testo del toast più recente. Solo una
+ * delle due lo riceve: l'annuncio avviene una volta sola e con l'urgenza giusta — assertivo per
+ * gli errori, polite per il resto.
+ */
+export function WorkspaceToastAnnouncer({ notices }: { notices: WorkspaceNotice[] }) {
+  const { t } = useI18n();
+  const [politeMessage, setPoliteMessage] = useState("");
+  const [assertiveMessage, setAssertiveMessage] = useState("");
+  const announcedRef = useRef(new Set<string>());
+
+  const latest = notices.reduce<WorkspaceNotice | null>(
+    (newest, candidate) => (newest === null || candidate.createdAt > newest.createdAt ? candidate : newest),
+    null,
+  );
+  const signature = latest ? `${latest.id}:${latest.createdAt}` : "";
+
+  useEffect(() => {
+    const announced = announcedRef.current;
+    // Dimentica i toast non più in pila: il set non cresce all'infinito e, soprattutto, quando il
+    // più recente scade non ri-annunciamo quello sotto (che era già stato annunciato).
+    const live = new Set(notices.map((item) => `${item.id}:${item.createdAt}`));
+    announced.forEach((item) => {
+      if (!live.has(item)) {
+        announced.delete(item);
+      }
+    });
+
+    if (latest === null || announced.has(signature)) {
+      return;
+    }
+
+    announced.add(signature);
+    const title = latest.title ?? t(getDefaultNoticeTitleKey(latest.tone));
+    const announcement = `${title}. ${latest.message}`;
+    const apply = latest.tone === "error" ? setAssertiveMessage : setPoliteMessage;
+    // Svuota e riempie al frame successivo: così anche due messaggi identici di fila restano
+    // una mutazione osservabile e vengono ri-annunciati.
+    apply("");
+    const frame = window.requestAnimationFrame(() => apply(announcement));
+    return () => window.cancelAnimationFrame(frame);
+  }, [notices, latest, signature, t]);
+
+  return (
+    <>
+      <div className="workspace-toast-announcer" aria-live="assertive" aria-atomic="true">
+        {assertiveMessage}
+      </div>
+      <div className="workspace-toast-announcer" aria-live="polite" aria-atomic="true">
+        {politeMessage}
+      </div>
+    </>
+  );
+}
+
 export function getVisibleWorkspaceToasts(notices: WorkspaceNotice[]): WorkspaceNotice[] {
   return [...notices]
     .sort((left, right) => right.createdAt - left.createdAt)
@@ -84,7 +146,9 @@ export function WorkspaceToastStack({
   return (
     <section
       className="workspace-toast-viewport"
-      aria-live="polite"
+      // L3: niente `aria-live` qui. La parte visiva non è più una live region (evita
+      // l'annidamento con i ruoli dei singoli toast); a parlare è WorkspaceToastAnnouncer.
+      // L'`aria-label` resta: la pila deve restare identificabile e raggiungibile.
       aria-label={t("workspaceToasts.stackAria")}
       // Il viewport è `pointer-events: none` (lascia passare i click al canvas): mouseenter/leave
       // non scatterebbero mai. mouseover/mouseout invece risalgono dai singoli toast, che sono
@@ -117,12 +181,12 @@ export function WorkspaceToastStack({
         {visibleNotices.map((notice) => {
           const title = notice.title ?? t(getDefaultNoticeTitleKey(notice.tone));
           const relativeTime = getNoticeRelativeTime(notice.createdAt);
-          const role = notice.tone === "error" ? "alert" : "status";
           return (
+            // Nessun role="alert"/"status": l'annuncio passa dall'announcer (L3). Resta
+            // `aria-labelledby` così il toast è comprensibile quando ci si arriva navigando.
             <article
               key={notice.id}
               className={`workspace-toast tone-${notice.tone}`}
-              role={role}
               aria-labelledby={`workspace-toast-title-${notice.id}`}
             >
               <header className="workspace-toast-head">
@@ -165,6 +229,7 @@ export function WorkspaceToastStack({
           );
         })}
       </div>
+      <WorkspaceToastAnnouncer notices={notices} />
     </section>
   );
 }
