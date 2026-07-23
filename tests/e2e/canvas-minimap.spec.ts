@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function createDiagram(page: Page, nodeCount = 24) {
   await page.addInitScript(() => {
@@ -15,6 +16,7 @@ async function createDiagram(page: Page, nodeCount = 24) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await page
     .getByRole("complementary", { name: "Explorer" })
     .getByRole("button", { name: "Crea schema" })

@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function bootItalianProject(page: Page) {
   await page.addInitScript(() => {
@@ -12,6 +13,7 @@ async function bootItalianProject(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
 }
 

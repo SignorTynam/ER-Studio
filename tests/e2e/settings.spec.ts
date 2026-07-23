@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 // Pulisce lo storage e forza l'inglese SOLO al primo caricamento del contesto: così un
 // reload non azzera le preferenze, e i test di persistenza restano deterministici.
@@ -15,6 +16,7 @@ async function seed(page: Page) {
   await page.goto("/");
   await expect(page.locator(".app-shell")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /Create new project/i }).click();
+  await confirmNewProjectDialog(page);
   await page.getByRole("complementary", { name: "Explorer" }).getByRole("button", { name: "Create schema" }).click();
   const rename = page.locator(".project-explorer-item__rename");
   await rename.fill("Settings QA");

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 // F1 — Fit-to-screen / zoom-to-selection on the concept canvas.
 // Verifies the new HUD and command-menu entries, including fit-selection's
@@ -20,6 +21,7 @@ async function createDiagram(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await page
     .getByRole("complementary", { name: "Explorer" })
     .getByRole("button", { name: "Crea schema" })

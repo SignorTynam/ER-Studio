@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function bootItalianWorkspace(page: Page) {
   await page.addInitScript(() => {
@@ -14,6 +15,7 @@ async function createProject(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
 }
 

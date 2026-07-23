@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 /**
  * Fase D2: verifica responsive assertiva (niente snapshot pixel, che sarebbero
@@ -26,6 +27,7 @@ async function bootWithProject(page: Page) {
   const createButton = page.getByRole("button", { name: /Create new project/i });
   if (await createButton.count()) {
     await createButton.first().click();
+    await confirmNewProjectDialog(page);
   }
   await expect(page.locator(".workspace-welcome-page")).toBeVisible();
 }
