@@ -11,6 +11,12 @@ export interface WorkspaceNotice {
   createdAt: number;
   actionLabel?: string;
   onAction?: () => void;
+  /**
+   * Durata effettiva dell'auto-dismiss in ms; assente per i toast sticky. Fase L4: alimenta il
+   * countdown, così la barra mostra la durata REALE anche se il chiamante ne passa una diversa
+   * da quella di default del tono.
+   */
+  durationMs?: number;
 }
 
 export const NOTICE_DURATION_MS = {
@@ -185,6 +191,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
           ...notice,
           id,
           createdAt,
+          durationMs: duration ?? undefined,
         };
         return [updated, ...current.filter((item) => item.id !== id)];
       }
@@ -197,7 +204,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
           !retained.some((kept) => kept.id === item.id),
       );
       removed.forEach((item) => clearNoticeTimer(item.id));
-      return [{ id, createdAt, ...notice }, ...retained];
+      return [{ id, createdAt, ...notice, durationMs: duration ?? undefined }, ...retained];
     });
 
     if (duration !== null) {

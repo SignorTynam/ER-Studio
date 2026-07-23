@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { WorkspaceNotice } from "../hooks/useWorkspaceNotices";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
@@ -130,13 +131,17 @@ export function WorkspaceToastStack({
   const visibleNotices = getVisibleWorkspaceToasts(notices);
   const hoveringRef = useRef(false);
   const focusedRef = useRef(false);
+  /** Stato (non solo ref) perché il countdown di L4 deve potersi fermare visivamente. */
+  const [interacting, setInteracting] = useState(false);
 
   /**
    * Fase L1 — l'auto-dismiss resta fermo finché il puntatore è su un toast OPPURE il focus è
    * dentro la pila, e riparte (dal tempo residuo) solo quando entrambi sono usciti.
    */
   function syncTimersWithInteraction() {
-    if (hoveringRef.current || focusedRef.current) {
+    const active = hoveringRef.current || focusedRef.current;
+    setInteracting(active);
+    if (active) {
       onPauseTimers?.();
     } else {
       onResumeTimers?.();
@@ -181,6 +186,8 @@ export function WorkspaceToastStack({
         {visibleNotices.map((notice) => {
           const title = notice.title ?? t(getDefaultNoticeTitleKey(notice.tone));
           const relativeTime = getNoticeRelativeTime(notice.createdAt);
+          // L4 — countdown solo per i toast che scadono davvero: gli sticky non hanno durata.
+          const countdownMs = notice.sticky ? null : notice.durationMs ?? null;
           return (
             // Nessun role="alert"/"status": l'annuncio passa dall'announcer (L3). Resta
             // `aria-labelledby` così il toast è comprensibile quando ci si arriva navigando.
@@ -188,6 +195,7 @@ export function WorkspaceToastStack({
               key={notice.id}
               className={`workspace-toast tone-${notice.tone}`}
               aria-labelledby={`workspace-toast-title-${notice.id}`}
+              data-paused={interacting ? "true" : undefined}
             >
               <header className="workspace-toast-head">
                 <span className="workspace-toast-icon" aria-hidden="true">
@@ -225,6 +233,13 @@ export function WorkspaceToastStack({
                   </button>
                 ) : null}
               </div>
+              {countdownMs !== null ? (
+                <div
+                  className="workspace-toast-countdown"
+                  aria-hidden="true"
+                  style={{ "--workspace-toast-duration": `${countdownMs}ms` } as CSSProperties}
+                />
+              ) : null}
             </article>
           );
         })}
