@@ -44,6 +44,24 @@ export function getWorkspaceNoticeDeduplicationKey(
   ].join("\u001f");
 }
 
+/**
+ * Fase L1 — stato dell'auto-dismiss di un singolo toast. Tracciamo il tempo RESIDUO (non solo
+ * l'id del timeout) così hover e focus possono mettere in pausa il conto alla rovescia e, uscendo,
+ * riprenderlo da dove si era fermato invece che da zero.
+ *
+ * Perché serve: un toast con azione ("Annulla" dell'auto-layout o degli auto-fix) è una promessa;
+ * se scade mentre l'utente lo legge o ci sta arrivando col mouse — o prima che riesca a tabularci
+ * sopra — la promessa è rotta.
+ */
+interface NoticeTimerState {
+  /** Millisecondi ancora da attendere prima della chiusura automatica. */
+  remaining: number;
+  /** Quando è (ri)partita l'attesa corrente; `null` quando il timer è in pausa. */
+  startedAt: number | null;
+  /** Timeout attivo; `null` quando il timer è in pausa. */
+  timeoutId: number | null;
+}
+
 interface UseWorkspaceNoticesOptions {
   formatErrorMessage: (message: string) => string;
 }
@@ -52,16 +70,75 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
   const [statusMessage, setStatusMessage] = useState("");
   const [notices, setNotices] = useState<WorkspaceNotice[]>([]);
   const nextNoticeIdRef = useRef(1);
-  const noticeTimeoutsRef = useRef(new Map<number, number>());
+  const noticeTimersRef = useRef(new Map<number, NoticeTimerState>());
+  /** Vero mentre il puntatore è sulla pila o il focus è dentro un toast (L1). */
+  const timersPausedRef = useRef(false);
 
   function clearNoticeTimer(noticeId: number) {
-    const timeoutId = noticeTimeoutsRef.current.get(noticeId);
-    if (timeoutId === undefined) {
+    const timer = noticeTimersRef.current.get(noticeId);
+    if (timer === undefined) {
       return;
     }
 
-    window.clearTimeout(timeoutId);
-    noticeTimeoutsRef.current.delete(noticeId);
+    if (timer.timeoutId !== null) {
+      window.clearTimeout(timer.timeoutId);
+    }
+    noticeTimersRef.current.delete(noticeId);
+  }
+
+  /** Avvia (o riavvia) l'attesa di `remaining` ms. In pausa registra solo il residuo. */
+  function startNoticeTimer(noticeId: number, remaining: number) {
+    if (timersPausedRef.current) {
+      noticeTimersRef.current.set(noticeId, { remaining, startedAt: null, timeoutId: null });
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      noticeTimersRef.current.delete(noticeId);
+      removeNotice(noticeId);
+    }, remaining);
+    noticeTimersRef.current.set(noticeId, { remaining, startedAt: Date.now(), timeoutId });
+  }
+
+  /**
+   * Ferma l'auto-dismiss di TUTTA la pila (comportamento tipo Sonner/Radix): mentre l'utente
+   * interagisce con un toast non devono sparire nemmeno gli altri.
+   */
+  function pauseNoticeTimers() {
+    if (timersPausedRef.current) {
+      return;
+    }
+
+    timersPausedRef.current = true;
+    noticeTimersRef.current.forEach((timer, noticeId) => {
+      if (timer.timeoutId === null || timer.startedAt === null) {
+        return;
+      }
+
+      window.clearTimeout(timer.timeoutId);
+      const elapsed = Date.now() - timer.startedAt;
+      noticeTimersRef.current.set(noticeId, {
+        remaining: Math.max(0, timer.remaining - elapsed),
+        startedAt: null,
+        timeoutId: null,
+      });
+    });
+  }
+
+  /** Riprende il conto alla rovescia dal tempo residuo, non da zero. */
+  function resumeNoticeTimers() {
+    if (!timersPausedRef.current) {
+      return;
+    }
+
+    timersPausedRef.current = false;
+    [...noticeTimersRef.current.entries()].forEach(([noticeId, timer]) => {
+      if (timer.timeoutId !== null) {
+        return;
+      }
+
+      startNoticeTimer(noticeId, timer.remaining);
+    });
   }
 
   function removeNotice(noticeId: number) {
@@ -70,8 +147,12 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
   }
 
   function clearNotices() {
-    noticeTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-    noticeTimeoutsRef.current.clear();
+    noticeTimersRef.current.forEach((timer) => {
+      if (timer.timeoutId !== null) {
+        window.clearTimeout(timer.timeoutId);
+      }
+    });
+    noticeTimersRef.current.clear();
     setNotices([]);
   }
 
@@ -120,10 +201,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     });
 
     if (duration !== null) {
-      const timeoutId = window.setTimeout(() => {
-        removeNotice(id);
-      }, duration);
-      noticeTimeoutsRef.current.set(id, timeoutId);
+      startNoticeTimer(id, duration);
     }
   }
 
@@ -224,11 +302,14 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
   }, [statusMessage]);
 
   useEffect(() => {
+    const timers = noticeTimersRef.current;
     return () => {
-      noticeTimeoutsRef.current.forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
+      timers.forEach((timer) => {
+        if (timer.timeoutId !== null) {
+          window.clearTimeout(timer.timeoutId);
+        }
       });
-      noticeTimeoutsRef.current.clear();
+      timers.clear();
     };
   }, []);
 
@@ -248,5 +329,7 @@ export function useWorkspaceNotices({ formatErrorMessage }: UseWorkspaceNoticesO
     removeNotice,
     clearNotices,
     dismissStickyNotices,
+    pauseNoticeTimers,
+    resumeNoticeTimers,
   };
 }

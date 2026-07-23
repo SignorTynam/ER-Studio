@@ -977,6 +977,8 @@ export default function App() {
     showWarningNotice,
     showSuccessNotice,
     removeNotice: dismissNotice,
+    pauseNoticeTimers,
+    resumeNoticeTimers,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [versionCompareSession, setVersionCompareSession] = useState<VersionCompareSession | null>(null);
@@ -7831,7 +7833,12 @@ export default function App() {
           onExitCompareMode={() => setVersionCompareSession(null)}
         />
 
-        <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+        <WorkspaceToastStack
+          notices={notices}
+          onDismissNotice={dismissNotice}
+          onPauseTimers={pauseNoticeTimers}
+          onResumeTimers={resumeNoticeTimers}
+        />
       </>
     );
   }
@@ -7899,7 +7906,12 @@ export default function App() {
           }}
         />
 
-      <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+      <WorkspaceToastStack
+          notices={notices}
+          onDismissNotice={dismissNotice}
+          onPauseTimers={pauseNoticeTimers}
+          onResumeTimers={resumeNoticeTimers}
+        />
 
       <div className={workspaceRegionClassName}>
         {hasWorkspaceShell ? (

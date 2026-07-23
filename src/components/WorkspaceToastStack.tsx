@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { WorkspaceNotice } from "../hooks/useWorkspaceNotices";
 import { useI18n } from "../i18n/useI18n";
 import { StudioIcon, type StudioIconName } from "./icons/StudioIcon";
@@ -7,6 +8,9 @@ export const MAX_VISIBLE_WORKSPACE_TOASTS = 4;
 interface WorkspaceToastStackProps {
   notices: WorkspaceNotice[];
   onDismissNotice: (noticeId: number) => void;
+  /** Fase L1 — sospende/riprende l'auto-dismiss dell'intera pila durante l'interazione. */
+  onPauseTimers?: () => void;
+  onResumeTimers?: () => void;
 }
 
 function getNoticeIcon(tone: WorkspaceNotice["tone"]): StudioIconName {
@@ -54,12 +58,61 @@ export function getVisibleWorkspaceToasts(notices: WorkspaceNotice[]): Workspace
     .slice(0, MAX_VISIBLE_WORKSPACE_TOASTS);
 }
 
-export function WorkspaceToastStack({ notices, onDismissNotice }: WorkspaceToastStackProps) {
+export function WorkspaceToastStack({
+  notices,
+  onDismissNotice,
+  onPauseTimers,
+  onResumeTimers,
+}: WorkspaceToastStackProps) {
   const { t } = useI18n();
   const visibleNotices = getVisibleWorkspaceToasts(notices);
+  const hoveringRef = useRef(false);
+  const focusedRef = useRef(false);
+
+  /**
+   * Fase L1 — l'auto-dismiss resta fermo finché il puntatore è su un toast OPPURE il focus è
+   * dentro la pila, e riparte (dal tempo residuo) solo quando entrambi sono usciti.
+   */
+  function syncTimersWithInteraction() {
+    if (hoveringRef.current || focusedRef.current) {
+      onPauseTimers?.();
+    } else {
+      onResumeTimers?.();
+    }
+  }
 
   return (
-    <section className="workspace-toast-viewport" aria-live="polite" aria-label={t("workspaceToasts.stackAria")}>
+    <section
+      className="workspace-toast-viewport"
+      aria-live="polite"
+      aria-label={t("workspaceToasts.stackAria")}
+      // Il viewport è `pointer-events: none` (lascia passare i click al canvas): mouseenter/leave
+      // non scatterebbero mai. mouseover/mouseout invece risalgono dai singoli toast, che sono
+      // `pointer-events: auto`.
+      onMouseOver={() => {
+        hoveringRef.current = true;
+        syncTimersWithInteraction();
+      }}
+      onMouseOut={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          return;
+        }
+        hoveringRef.current = false;
+        syncTimersWithInteraction();
+      }}
+      onFocusCapture={() => {
+        focusedRef.current = true;
+        syncTimersWithInteraction();
+      }}
+      onBlurCapture={(event) => {
+        // Spostarsi tra elementi dello stesso toast non deve far ripartire il conto.
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          return;
+        }
+        focusedRef.current = false;
+        syncTimersWithInteraction();
+      }}
+    >
       <div className="workspace-toast-stack">
         {visibleNotices.map((notice) => {
           const title = notice.title ?? t(getDefaultNoticeTitleKey(notice.tone));
