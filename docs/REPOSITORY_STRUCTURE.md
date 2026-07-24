@@ -1,17 +1,23 @@
 # Struttura del repository buildER
 
-Questo documento definisce come mantenere ordinato il repository e dove collocare le nuove modifiche.
+Questo documento definisce dove collocare codice, documentazione e controlli
+operativi. Le istruzioni dettagliate per gli agenti sono indicizzate da
+[`docs/agents/INDEX.md`](agents/INDEX.md).
 
 ## Albero principale
 
-```txt
+```text
 buildER/
-  .github/                 Template issue e pull request
-  docs/                    Documentazione tecnica e guide per Codex/Cursor
-  src/                     Codice sorgente dell'applicazione React + TypeScript
-  test/                    Test unitari e di integrazione su logica, parser e layout
+  .github/                 Template Issue/PR e workflow
+  config/                  Policy machine-readable del repository
+  docs/                    Documentazione tecnica e operativa
+    agents/                Regole canoniche condivise Codex/Claude
+  scripts/                 Release tooling e validatori repository
+  src/                     Applicazione React + TypeScript
+  test/                    Test unitari e di integrazione
   tests/e2e/               Test end-to-end Playwright
-  index.html               Entry HTML Vite
+  AGENTS.md                Entrypoint automatico Codex
+  CLAUDE.md                Entrypoint automatico Claude Code
   package.json             Script npm e dipendenze
   playwright.config.ts     Configurazione E2E
   tsconfig*.json           Configurazione TypeScript
@@ -22,39 +28,38 @@ buildER/
 
 | Area | Dove va | Cosa contiene |
 | --- | --- | --- |
-| UI condivisa | `src/components` | Header, modali, pannelli, componenti riutilizzabili |
-| Explorer progetto | `src/components/project` | File Explorer, tree item e azioni progetto multi-file |
-| Canvas ER | `src/canvas` | Rendering SVG, nodi, edge e interazioni del diagramma |
-| Inspector | `src/inspector` | Sezioni di editing per entità, attributi e relazioni |
+| UI condivisa | `src/components` | Header, modali, pannelli e componenti riutilizzabili |
+| Explorer progetto | `src/components/project` | File tree e azioni progetto multi-file |
+| Canvas ER | `src/canvas` | Rendering SVG, nodi, edge e interazioni |
+| Inspector | `src/inspector` | Editing di entità, attributi e relazioni |
 | Toolbar | `src/toolbar` | Strumenti e controlli del canvas |
-| Traduzione logica | `src/logical`, `src/translation` | Workspace e flussi di trasformazione |
-| Feature verticali | `src/features` | UI, orchestrazione e adapter isolati per funzionalità complete come SQL Playground |
-| Database SQLite importati | `src/features/database-workspace` | Validazione file, workspace, lifecycle e reverse da metadata |
-| Internazionalizzazione | `src/i18n` | Provider, hook, dizionari e chiavi testuali |
+| Traduzione | `src/translation`, `src/logical` | Trasformazioni concettuali, logiche e relazionali |
+| Feature verticali | `src/features` | UI, orchestrazione e adapter isolati |
+| Internazionalizzazione | `src/i18n` | Provider, hook e dizionari `it`, `en`, `sq` |
 | Tipi condivisi | `src/types` | Tipi TypeScript di dominio e DTO interni |
 | Logica pura | `src/utils` | Parser, serializzazione, layout, validazione, export |
-| Asset | `src/image` | Logo, favicon e immagini statiche dell'app |
-| Documentazione | `docs` | Architettura, stile UI, reverse engineering SQL, note operative |
-
-## Regole operative
-
-1. Non committare output generati: `dist/`, `coverage/`, `playwright-report/`, `*.tsbuildinfo`.
-2. Non introdurre logica di dominio dentro componenti React quando può stare in `src/utils`.
-3. Non aggiungere CSS locale isolato se esiste già un pattern o token condiviso.
-4. Ogni nuova feature deve avere almeno una verifica: test unitario, test di integrazione, test E2E o checklist manuale documentata nella PR.
-5. I file di compatibilità progetto `.ersp` e le funzioni di parsing/serializzazione vanno trattati come API interne stabili.
+| Catalogo release | `src/releases` | Definizioni e localizzazione delle release |
+| Design token | `src/styles/tokens.css` | Fonte canonica di token visuali |
+| Istruzioni agent | `docs/agents` | Indice e regole specialistiche condivise |
+| Policy eseguibile | `config/repository-policy.json` | Branch, commit, viewport, lingue e SemVer |
+| Script policy | `scripts/check-*.ts` | Validazione locale e CI |
 
 ## Formati progetto
 
-`src/utils/projectFile.ts` gestisce `.ersp` come progetto multi-file dalla versione 6. `src/utils/projectSchemaFile.ts` gestisce `.erschema` per esportare/importare un singolo schema. `src/utils/projectExplorer.ts` contiene la logica pura per file tree, nomi, cartelle, rename, delete e fallback dello schema attivo. Il formato `.ers` resta il sorgente testuale ERS esistente.
+`src/utils/projectFile.ts` gestisce `.ersp` come progetto multi-file e le
+migrazioni legacy. `src/utils/projectSchemaFile.ts` gestisce `.erschema` per un
+singolo schema. `src/utils/ers.ts` gestisce il sorgente `.ers`. Questi formati
+sono API interne stabili e richiedono test di compatibilità e round-trip.
 
-## Debito tecnico da gestire con calma
+## Regole operative
 
-Le feature `src/features/sql-playground` e `src/features/database-workspace` condividono manager, worker, protocollo, risultati e SQL Explorer. La seconda aggiunge il lifecycle dei file importati e l'adapter reverse; i byte SQLite e le query restano fuori da `App.tsx` e dalla serializzazione progetto.
-
-`src/App.tsx` resta il principale orchestratore dell'app. Per evitare refactor rischiosi, non va spezzato in modo massivo senza test. Le future estrazioni devono essere progressive, per esempio:
-
-- stato e comandi del canvas in hook dedicati;
-- gestione modali in hook dedicati;
-- azioni di import/export in moduli separati;
-- coordinamento delle viste in un layer `workspace`.
+1. Non committare `dist/`, coverage, report Playwright, risultati test,
+   `*.tsbuildinfo`, log o file temporanei.
+2. Tenere la logica di dominio fuori dai componenti quando può vivere in
+   `src/utils`.
+3. Riutilizzare token e pattern condivisi prima di aggiungere CSS locale.
+4. Ogni feature o correzione deve avere una verifica proporzionata.
+5. Non creare entrypoint agent annidati o policy concorrenti senza aggiornare
+   l'indice e la policy machine-readable.
+6. `src/App.tsx` resta un orchestratore ad alto rischio: le estrazioni devono
+   essere progressive e coperte da test.

@@ -1,80 +1,81 @@
 # Guida sviluppo buildER
 
-Questa guida descrive il flusso minimo da seguire per modifiche pulite e verificabili.
+Questa guida riassume il flusso pubblico. Le regole canoniche per agenti sono
+instradate da [`docs/agents/INDEX.md`](agents/INDEX.md).
 
-## Requisiti
+## Setup e comandi
 
-- Node.js 20 LTS consigliato.
-- npm 10 o superiore consigliato.
-- Git aggiornato.
-
-## Setup locale
+Richiede Node.js 20 LTS, npm 10 o superiore e Git.
 
 ```bash
 npm install
 npm run dev
-```
-
-L'app viene avviata tramite Vite. La preview di produzione si prova con:
-
-```bash
 npm run build
-npm run preview
+npm test
+npm run test:e2e
 ```
 
-## Comandi principali
+Controlli repository:
 
 ```bash
-npm run dev        # ambiente di sviluppo
-npm run build      # typecheck TypeScript e build Vite
-npm test           # test unitari e di integrazione configurati nel package
-npm run test:e2e   # test end-to-end Playwright
+npm run agents:check
+npm run repo:check-branch
+npm run repo:check-commits
+npm run test:policy
 ```
 
 ## Branch e commit
 
-Usa branch brevi in kebab-case:
+La convenzione completa e in
+[`docs/agents/WORKFLOW.md`](agents/WORKFLOW.md). Parti da `main` aggiornata e
+usa uno dei prefissi:
 
-```txt
-feat/<nome-feature>
-fix/<nome-bug>
-refactor/<area>
-docs/<argomento>
-chore/<attivita>
+```text
+feat/<description>
+fix/<description>
+refactor/<description>
+test/<description>
+docs/<description>
+chore/<description>
+release/<X.Y.Z>
 ```
 
-Per i commit usa messaggi piccoli e leggibili, preferibilmente in stile Conventional Commits:
+Usa Conventional Commits in inglese, minuscoli e imperativi:
 
-```txt
+```text
 feat(canvas): add stable attribute placement
-fix(edges): prevent relationship connector drag
-chore(repo): ignore generated TypeScript build info
+fix(edges): preserve relationship cardinality
 docs(readme): clarify development workflow
 ```
 
-## Checklist prima di una PR
+## Checklist Pull Request
 
-- [ ] La modifica è limitata a uno scope chiaro.
-- [ ] `npm run build` passa localmente.
-- [ ] `npm test` passa localmente.
-- [ ] `npm run test:e2e` passa se la modifica tocca UI, layout, responsive o flussi utente.
-- [ ] README, changelog o documentazione sono aggiornati quando necessario.
-- [ ] Non sono stati committati file generati o cache locali.
-- [ ] La PR contiene screenshot/GIF se modifica canvas, layout o UI.
+- [ ] Scope limitato e Issue collegata.
+- [ ] Branch e commit conformi.
+- [ ] `npm run build` e suite pertinente superati.
+- [ ] `npm run test:e2e` eseguito per UI, layout, responsive o flussi utente.
+- [ ] Test non eseguiti dichiarati.
+- [ ] Documentazione aggiornata.
+- [ ] Nessun output generato, cache, log, segreto o database reale.
+- [ ] Screenshot prima/dopo per modifiche visive.
 
-## Regole per modifiche UI
+## UI e dominio
 
-La fonte di verità per lo stile visivo è `docs/CODEX_UI_STYLE_GUIDE.md`.
+Per modifiche UI usa `src/styles/tokens.css`, i componenti condivisi,
+[`docs/CODEX_UI_STYLE_GUIDE.md`](CODEX_UI_STYLE_GUIDE.md) e
+[`docs/agents/RESPONSIVE_UI.md`](agents/RESPONSIVE_UI.md).
 
-Prima di introdurre nuovi componenti o classi CSS, verifica se esistono già pattern condivisi come pannelli, card, tab, warning, stati vuoti, modali o token `--studio-*` / `--editor-*`.
+Parser, reverse engineering, layout, trasformazioni e formati richiedono test
+di regressione. Le invarianti sono in
+[`docs/agents/ER_DOMAIN.md`](agents/ER_DOMAIN.md); le aree piu sensibili
+includono:
 
-## Regole per reverse engineering SQL e layout
-
-Le modifiche a SQL Reverse, parser, layout automatici e attributi devono avere test di regressione. Le aree più sensibili sono:
-
+- `src/utils/ers.ts`
+- `src/utils/projectFile.ts`
+- `src/utils/projectSchemaFile.ts`
+- `src/utils/erTranslation.ts`
+- `src/utils/logicalTranslation.ts`
 - `src/utils/sqlReverseParser.ts`
 - `src/utils/sqlReverseDiagram.ts`
 - `src/utils/sqlReverseLayout.ts`
-- `src/utils/sqlReverseAttributeLayout.ts`
-- `src/utils/attributeLayout.ts`
 - `src/utils/diagram.ts`

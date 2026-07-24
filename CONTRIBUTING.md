@@ -1,105 +1,90 @@
 # Contributing Guide
 
-Grazie per voler contribuire a buildER.
-Questo documento descrive il flusso consigliato per contribuire in modo chiaro e consistente.
+Grazie per contribuire a buildER. Questa e la guida pubblica per persone e contributor; gli agenti usano anche [`docs/agents/INDEX.md`](docs/agents/INDEX.md).
 
-## Prerequisiti
+## Setup
 
-- Node.js 20 LTS o superiore
-- npm 10 o superiore
-- Git
-
-## Setup Locale
-
-1. Clona il repository.
-2. Installa le dipendenze:
+Richiede Node.js 20 LTS o superiore, npm 10 o superiore e Git.
 
 ```bash
 npm install
-```
-
-3. Avvia l'app in sviluppo:
-
-```bash
 npm run dev
 ```
 
-4. Verifica la build prima di aprire una PR:
+Usa `npm ci` per verificare un'installazione pulita come in CI.
+
+## Branch
+
+Parti sempre da `main` aggiornata e non lavorare direttamente su `main`. Usa una descrizione breve, inglese, minuscola e kebab-case:
+
+- `feat/<description>`
+- `fix/<description>`
+- `refactor/<description>`
+- `test/<description>`
+- `docs/<description>`
+- `chore/<description>`
+- `release/<X.Y.Z>`
+
+Non usare underscore, accenti, spazi o slash aggiuntivi. `release/` richiede SemVer completo. Valida con:
 
 ```bash
+npm run repo:check-branch
+```
+
+I branch di lavoro sono temporanei e vanno eliminati dopo il merge.
+
+## Commit
+
+Usa commit piccoli e atomici nel formato:
+
+```text
+type(scope): imperative description
+```
+
+I tipi ammessi sono `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf` e `release`. La descrizione e inglese, minuscola, imperativa e senza punto finale.
+
+```text
+feat(canvas): add alignment guides
+fix(files): preserve project metadata
+docs(agents): clarify testing policy
+```
+
+Controlla il diff prima dello staging e non includere modifiche non correlate o file generati. Valida con `npm run repo:check-commits`.
+
+## Test
+
+Esegui test proporzionati al rischio e riporta anche quelli non eseguiti:
+
+```bash
+npm test
 npm run build
 ```
 
-5. (Opzionale) Avvia la preview della build:
+- UI, layout, responsive e flussi utente richiedono Playwright pertinente e
+  screenshot prima/dopo.
+- i18n richiede chiavi allineate in italiano, inglese e albanese.
+- parser, serializzazione, trasformazioni ER e compatibilita file richiedono
+  un test di regressione e round-trip quando pertinente.
+- dipendenze richiedono `npm ci`, suite pertinente e build.
+- policy repository richiede `npm run agents:check` e `npm run test:policy`.
 
-```bash
-npm run preview
-```
+## UI, accessibilita e formati
 
-## Branch Naming
+Usa `src/styles/tokens.css` e i componenti condivisi. Preserva focus visibile, tastiera, ARIA, contrasto WCAG AA, touch, `prefers-reduced-motion` e layout desktop/tablet/mobile. Segui
+[`docs/agents/RESPONSIVE_UI.md`](docs/agents/RESPONSIVE_UI.md).
 
-Crea sempre i branch partendo da `main` aggiornata.
-Usa nomi in kebab-case con prefisso per tipo:
-
-- `feat/<breve-descrizione>`
-- `fix/<breve-descrizione>`
-- `chore/<breve-descrizione>`
-- `docs/<breve-descrizione>`
-- `refactor/<breve-descrizione>`
-
-Esempi:
-
-- `feat/add-logical-inspector-shortcuts`
-- `fix/edge-selection-hitbox`
-
-## Commit Message
-
-Preferisci commit piccoli e atomici.
-Formato consigliato (Conventional Commits):
-
-- `feat(canvas): add snap-to-grid for nodes`
-- `fix(inspector): preserve nullability on save`
-- `docs(readme): clarify setup steps`
+`.ersp`, `.erschema` e `.ers` sono API interne compatibili: non eliminare migrazioni legacy ne perdere campi silenziosamente. Le regole di dominio sono in [`docs/agents/ER_DOMAIN.md`](docs/agents/ER_DOMAIN.md).
 
 ## Pull Request
 
-Ogni PR dovrebbe:
+Ogni PR:
 
-1. Avere uno scope limitato (una modifica coerente).
-2. Includere una descrizione chiara del problema e della soluzione.
-3. Includere screenshot o GIF se modifica UI/UX.
-4. Indicare eventuali breaking changes.
-5. Passare la build locale (`npm run build`).
-6. Aggiornare documentazione se necessario.
+1. collega l'Issue;
+2. descrive problema, soluzione, impatto e rischi;
+3. elenca test eseguiti e non eseguiti;
+4. include screenshot e viewport per modifiche visive;
+5. documenta i18n, accessibilita, responsive e compatibilita file quando pertinenti;
+6. aggiorna la documentazione interessata;
+7. non contiene output generati, database reali, segreti o log.
 
-Checklist rapida PR:
-
-- [ ] Branch aggiornato con `main`
-- [ ] Codice review-ready
-- [ ] Nessun warning/error bloccante in build
-- [ ] Documentazione aggiornata
-
-## Standard Di Codice
-
-- Usa TypeScript in modo esplicito (evita `any` se non necessario).
-- Mantieni componenti React piccoli e focalizzati.
-- Sposta logica condivisa in `src/utils` o `src/hooks`.
-- Mantieni nomi chiari per file, funzioni e tipi.
-- Evita modifiche non correlate nella stessa PR.
-- Preserva lo stile esistente del progetto.
-
-## Struttura Del Progetto (Riferimento Rapido)
-
-Per la struttura completa vedere `docs/REPOSITORY_STRUCTURE.md`.
-
-- `src/components`: componenti UI
-- `src/canvas`: rendering e interazioni canvas
-- `src/inspector`: pannelli di ispezione
-- `src/logical`: viste/logica del modello logico
-- `src/utils`: funzioni di supporto e serializzazione
-- `src/types`: tipi TypeScript condivisi
-
-## Sicurezza
-
-Per segnalazioni di sicurezza, segui le indicazioni in `SECURITY.md`.
-Non aprire issue pubbliche per vulnerabilita sensibili.
+Non fare merge, force-push o pubblicazione release automatica durante la preparazione. Per segnalazioni di sicurezza segui `security.md` senza aprire Issue pubbliche contenenti dettagli sensibili.
