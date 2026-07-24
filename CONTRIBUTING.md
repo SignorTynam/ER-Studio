@@ -41,7 +41,10 @@ Usa commit piccoli e atomici nel formato:
 type(scope): imperative description
 ```
 
-I tipi ammessi sono `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`, `ci`, `perf` e `release`. La descrizione e inglese, minuscola, imperativa e senza punto finale.
+I tipi ammessi sono `feat`, `fix`, `refactor`, `test`, `docs`, `chore`,
+`build`, `ci`, `perf` e `release`. La descrizione e inglese, imperativa,
+inizia in minuscolo ed e senza punto finale; i nomi propri mantengono la grafia
+ufficiale.
 
 ```text
 feat(canvas): add alignment guides

@@ -45,6 +45,7 @@ const VALID_COMMITS = [
   "fix(translation): preserve multivalued subtype cardinality",
   "feat(canvas): add alignment guides",
   "docs(agents): document responsive policy",
+  "docs(agents): add shared Codex and Claude architecture",
 ];
 
 const INVALID_COMMITS = ["update files", "Fix bug", "feat: Added Feature.", "changes"];
