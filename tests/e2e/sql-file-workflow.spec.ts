@@ -31,35 +31,51 @@ async function bootSqlFileProject(
   await expect(page.locator(".project-file-tab.active")).toContainText("query.sql");
 }
 
-test("a workspace SQL file seeds one Playground session without auto-executing", async ({ page }) => {
+test("a workspace SQL file asks for a missing name and creates one Playground database", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await bootSqlFileProject(page);
 
   const sourceEditor = page.getByRole("textbox", { name: "Editor SQL per query.sql" });
-  const currentSql = `SELECT name
-FROM "STUDENT"
-WHERE id > 10;`;
+  const currentSql = "CREATE TABLE CurrentSource (id INTEGER PRIMARY KEY, name TEXT NOT NULL);";
   await expect(page.locator(".workspace-text-editor--sql .designer-code-line-numbers")).toBeVisible();
   await expect(page.locator(".workspace-text-editor--sql .sql-token-keyword").first()).toBeVisible();
   await sourceEditor.fill(currentSql);
   await expect(page.locator(".project-file-tab.active")).toHaveClass(/dirty/);
+  await expect(page.locator(".app-project-context__name")).toHaveText("Playground project");
+  await expect(page.locator(".app-project-context__file")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Apri nel Playground", exact: true }).click();
+  const nameDialog = page.getByRole("dialog", { name: "Nome del nuovo database" });
+  await expect(nameDialog).toBeVisible();
+  const databaseName = nameDialog.getByRole("textbox", { name: "Nome database" });
+  await databaseName.fill("campus");
+  await nameDialog.getByRole("button", { name: "Crea database", exact: true }).click();
   await expect(page.locator(".sql-playground-workspace")).toBeVisible();
+  await expect(page.locator(".sql-playground-command-bar__metadata strong")).toHaveText("campus");
+  await expect(page.getByRole("button", { name: "Ricrea database", exact: true })).toBeVisible();
   const playgroundEditor = page.getByRole("textbox", { name: "Editor query SQL" });
   await expect(playgroundEditor).toHaveValue(currentSql);
   await expect(page.getByText("Crea il database ed esegui una query per vedere i risultati.", { exact: true })).toBeVisible();
   await expect(page.locator(".project-file-tab", { hasText: "Playground" })).toHaveCount(1);
+  await expect(page.locator(".project-file-tab", { hasText: "Playground" })).toContainText("query.sql");
+  await playgroundEditor.fill("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name;");
+  await page.getByRole("button", { name: "Esegui", exact: true }).click();
+  await expect(page.getByRole("cell", { name: "CurrentSource", exact: true })).toBeVisible();
 
-  await page.locator(".project-file-tab", { hasText: "query.sql" }).click();
+  await page.locator(".project-file-tab", { hasText: /^query\.sql$/ }).click();
   await expect(sourceEditor).toHaveValue(currentSql);
+  const declaredSql = `CREATE DATABASE declared_campus;\n${currentSql}`;
+  await sourceEditor.fill(declaredSql);
   await page.getByRole("button", { name: "Apri nel Playground", exact: true }).click();
+  await expect(nameDialog).toHaveCount(0);
   await expect(page.locator(".project-file-tab", { hasText: "Playground" })).toHaveCount(1);
-  await expect(playgroundEditor).toHaveValue(currentSql);
+  await expect(page.locator(".sql-playground-command-bar__metadata strong")).toHaveText("declared_campus");
+  await expect(page.getByRole("button", { name: "Ricrea database", exact: true })).toBeVisible();
+  await expect(playgroundEditor).toHaveValue(declaredSql);
 });
 
-test("Reverse Engineering binds and edits the same SQL file without importing or analyzing", async ({ page }) => {
+test("Reverse Engineering analyzes the current SQL file immediately without opening its panel", async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await bootSqlFileProject(page);
@@ -69,19 +85,12 @@ test("Reverse Engineering binds and edits the same SQL file without importing or
   await sourceEditor.fill(currentSql);
   await page.getByRole("button", { name: "Avvia Reverse Engineering", exact: true }).click();
 
-  const reversePanel = page.locator(".sql-reverse-panel");
-  await expect(reversePanel).toBeVisible();
-  await expect(reversePanel).toContainText("query.sql");
-  const reverseEditor = reversePanel.getByRole("textbox", { name: "Editor SQL Reverse" });
-  await expect(reverseEditor).toHaveValue(currentSql);
-  await expect(page.locator(".sql-reverse-preview-shell")).toHaveCount(0);
-
-  const updatedSql = `${currentSql}\nCREATE INDEX idx_current ON CurrentSource(id);`;
-  await reverseEditor.fill(updatedSql);
-  await page.locator(".project-file-tab", { hasText: "query.sql" }).click();
-  await expect(sourceEditor).toHaveValue(updatedSql);
+  await expect(page.locator(".sql-reverse-panel")).toHaveCount(0);
+  await expect(page.locator(".sql-reverse-preview-shell-logical")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Preview logica" })).toBeVisible();
+  await page.getByRole("button", { name: "Annulla import", exact: true }).click();
+  await expect(sourceEditor).toHaveValue(currentSql);
   await expect(page.locator(".project-file-tab", { hasText: "query.sql" })).toHaveCount(1);
-  await expect(page.getByRole("complementary", { name: "Explorer" }).getByText("query", { exact: true })).toHaveCount(1);
 });
 
 test("ambiguous schemas keep the source untouched and require an explicit schema choice", async ({ page }) => {

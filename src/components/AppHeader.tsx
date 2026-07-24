@@ -12,7 +12,6 @@ interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
   projectName?: string;
-  activeFileName?: string;
   saveState?: "saved" | "modified" | "saving" | "error";
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
@@ -225,12 +224,6 @@ export function AppHeader(props: AppHeaderProps) {
           <span className="app-project-context__name">
             {props.hasProject ? props.projectName ?? t("workspaceChrome.untitledProject") : t("workspaceChrome.noProject")}
           </span>
-          {props.activeFileName ? (
-            <>
-              <span className="app-project-context__separator" aria-hidden="true">/</span>
-              <span className="app-project-context__file">{props.activeFileName}</span>
-            </>
-          ) : null}
           {props.hasProject ? (
             <span
               className={`app-project-context__state is-${props.saveState ?? (props.hasUncommittedChanges ? "modified" : "saved")}`}

@@ -25,20 +25,29 @@ chiudibile e non viene serializzata nel progetto.
 I file `.sql` usano `CodeEditorSurface` direttamente sul contenuto canonico del
 file: gutter, highlighting, selezione, focus, stato dirty e salvataggio non
 introducono una seconda bozza locale. L'azione contestuale trasferisce il
-contenuto in memoria corrente, incluse le modifiche non ancora salvate, nella
-sessione Playground dello schema risolto.
+contenuto in memoria corrente, incluse le modifiche non ancora salvate, in una
+sessione Playground dedicata.
 
-La risoluzione è deterministica: schema della sessione Playground attiva,
-ultimo schema Playground valido, quindi unico schema del progetto. Se non
-esistono schemi o ne esistono più di uno senza un contesto precedente,
-l'operazione resta sul file sorgente e chiede di creare o aprire esplicitamente
-lo schema. Non viene mai scelto il primo elemento di un oggetto.
+Se il file contiene `CREATE TABLE`, la pipeline Reverse esistente converte le
+tabelle e i vincoli in SQL SQLite e il database viene creato direttamente da
+quel DDL. `CREATE DATABASE`, `USE` e `ATTACH ... AS` servono a ricavare il nome
+ma vengono esclusi dallo schema eseguito perché non sono istruzioni valide per
+il database SQLite in memoria. Per un file di sole query resta attiva la
+risoluzione deterministica dello schema ER: sessione Playground attiva, ultimo
+schema valido, quindi unico schema del progetto. Se non esiste un contesto
+univoco, l'operazione resta sul file sorgente e chiede di aprire esplicitamente
+lo schema; non viene mai scelto il primo elemento di un oggetto.
 
 La query viene salvata nel `SqlPlaygroundManager` prima di aprire la tab. In
 questo modo resta disponibile anche quando il Playground è temporaneamente
-bloccato da un modello logico mancante o non aggiornato. L'apertura usa sempre
-`execute: false`: non crea il database e non esegue SQL automaticamente.
-Richiamare l'azione riusa la stessa sessione e la stessa tab tecnica.
+bloccato da un modello logico mancante o non aggiornato. L'azione contestuale
+ricrea subito il database SQLite dal DDL del file oppure, per file di query,
+dallo schema logico risolto. Mantiene `execute: false`, quindi il contenuto del
+file resta pronto nell'editor senza essere eseguito automaticamente. Il nome
+viene letto da `CREATE DATABASE`,
+`USE`, `ATTACH ... AS` o da un oggetto qualificato; se il SQL non dichiara un
+database, viene richiesto all'utente. Richiamare l'azione riusa la stessa tab
+tecnica ma crea nuovamente il database, eliminando i dati temporanei precedenti.
 
 ## Architettura
 

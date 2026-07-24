@@ -20,7 +20,11 @@ import {
   normalizeSqlPlaygroundError,
 } from "../src/utils/sqlPlayground.ts";
 import { createSchemaWorkspaceFile, createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
-import { resolveSqlPlaygroundSchema } from "../src/utils/sqlFileWorkspace.ts";
+import {
+  resolveSqlFileDatabaseName,
+  resolveSqlPlaygroundSchema,
+  stripSqlFileDatabaseContext,
+} from "../src/utils/sqlFileWorkspace.ts";
 
 function column(id: string, name: string, overrides: Partial<LogicalColumn> = {}): LogicalColumn {
   return {
@@ -68,7 +72,19 @@ test("SQL file schema resolution is deterministic and never selects the first of
   }), { status: "missing" });
 });
 
-test("App seeds the existing generated Playground session without executing the SQL file", () => {
+test("SQL file database names are resolved from declarations and qualified objects", () => {
+  assert.equal(resolveSqlFileDatabaseName("CREATE DATABASE IF NOT EXISTS `student portal`;"), "student portal");
+  assert.equal(resolveSqlFileDatabaseName('USE "analytics";\nSELECT 1;'), "analytics");
+  assert.equal(resolveSqlFileDatabaseName("ATTACH DATABASE 'cache.sqlite' AS [cache];"), "cache");
+  assert.equal(resolveSqlFileDatabaseName("SELECT * FROM reporting.events;"), "reporting");
+  assert.equal(resolveSqlFileDatabaseName("-- USE ignored\nSELECT 1;"), null);
+  assert.equal(
+    stripSqlFileDatabaseContext("CREATE DATABASE demo;\nUSE demo;\nCREATE TABLE Person (id INTEGER);"),
+    "CREATE TABLE Person (id INTEGER);",
+  );
+});
+
+test("App names and creates a generated Playground database without executing the SQL file", () => {
   const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const handlerStart = source.indexOf("function handleOpenSqlFileInPlayground");
   const handlerEnd = source.indexOf("function activateSqlPlayground", handlerStart);
@@ -78,6 +94,11 @@ test("App seeds the existing generated Playground session without executing the 
   const helper = source.slice(helperStart, helperEnd);
 
   assert.match(handler, /resolveSqlPlaygroundSchema/);
+  assert.match(handler, /resolveSqlFileDatabaseName/);
+  assert.match(handler, /reverseSqlToDiagram/);
+  assert.match(handler, /generateLogicalSql/);
+  assert.match(handler, /requestPromptDialog/);
+  assert.match(handler, /createDatabase:\s*true/);
   assert.match(handler, /file\.content,\s*false/);
   assert.match(handler, /noSchemaWarning/);
   assert.match(handler, /ambiguousSchemaWarning/);
