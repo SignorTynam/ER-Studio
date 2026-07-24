@@ -1,6 +1,10 @@
-# buildER — Guida stile UI per Codex/Cursor
+# buildER — Guida stile UI condivisa
 
 Questa guida definisce lo stile UI da usare in tutto il progetto buildER. Deve essere considerata la fonte di verità per ogni futura modifica grafica, refactor di componenti o nuova feature UI.
+
+Questa guida si applica a persone, Codex, Claude Code e altri strumenti. Per
+viewport, accessibilita, i18n e coordinate canvas si applica anche
+[`docs/agents/RESPONSIVE_UI.md`](agents/RESPONSIVE_UI.md).
 
 ## Obiettivo
 
@@ -93,7 +97,7 @@ src/styles/
 
 Strategia accettabile: mantenere i file attuali ma ripulirli, evitando token duplicati e blocchi finali di override che riscrivono mezzo tema.
 
-## Piano operativo per Codex/Cursor
+## Piano operativo per modifiche UI
 
 1. Crea un branch dedicato partendo da `main` aggiornata.
 2. Esegui un audit dei file CSS e dei componenti UI.

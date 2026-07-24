@@ -2,6 +2,26 @@
 
 buildER usa `package.json` come fonte ufficiale della versione e il catalogo strutturato delle release per generare changelog e note. Versione, catalogo, traduzioni e changelog devono quindi essere preparati e portati su `main` prima della pubblicazione.
 
+## Preparazione e pubblicazione sono separate
+
+La preparazione avviene su `release/<X.Y.Z>` e aggiorna metadati, catalogo,
+traduzioni e changelog. Non crea tag, non pubblica GitHub Release, non fa merge
+e non effettua deployment. La pubblicazione avviene solo dopo il merge in
+`main`.
+
+Determina automaticamente il bump con:
+
+```bash
+npm run release:next-version
+npm run release:prepare -- --auto
+```
+
+Breaking change, feature compatibile e fix/miglioramento compatibile producono
+rispettivamente MAJOR, MINOR e PATCH. Modifiche esclusivamente interne a
+documentazione, test, CI, build o manutenzione non producono bump automatico.
+La logica e le baseline sono documentate in
+[`docs/agents/RELEASES.md`](agents/RELEASES.md).
+
 ## Procedura consigliata: GitHub Actions
 
 1. Prepara la nuova versione in `package.json` e `package-lock.json`, la relativa voce nel catalogo, le traduzioni italiane, inglesi e albanesi e il changelog generato.

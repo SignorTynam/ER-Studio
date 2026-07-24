@@ -1,0 +1,137 @@
+{
+  "policyVersion": "1.0.0",
+  "canonicalIndex": "docs/agents/INDEX.md",
+  "permanentBranch": "main",
+  "branch": {
+    "allowedPrefixes": [
+      "feat",
+      "fix",
+      "refactor",
+      "test",
+      "docs",
+      "chore",
+      "release"
+    ],
+    "pattern": "^(?:main|(?:feat|fix|refactor|test|docs|chore)/[a-z0-9]+(?:-[a-z0-9]+)*|release/[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?)$",
+    "releasePattern": "^release/[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+  },
+  "commit": {
+    "allowedTypes": [
+      "feat",
+      "fix",
+      "refactor",
+      "test",
+      "docs",
+      "chore",
+      "build",
+      "ci",
+      "perf",
+      "release"
+    ],
+    "pattern": "^(?:feat|fix|refactor|test|docs|chore|build|ci|perf|release)(?:\\([a-z0-9][a-z0-9-]*\\))?!?: [a-z0-9][A-Za-z0-9 ./ '-]*[A-Za-z0-9)]$",
+    "subjectMustStartLowercase": true,
+    "forbidFinalPeriod": true
+  },
+  "requiredViewports": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "compact-desktop",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "name": "portrait-tablet",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "name": "narrow-mobile",
+      "width": 360,
+      "height": 800
+    }
+  ],
+  "requiredLocales": [
+    "it",
+    "en",
+    "sq"
+  ],
+  "minimumVerificationScripts": [
+    "agents:check",
+    "repo:check-branch",
+    "repo:check-commits",
+    "test:policy",
+    "test",
+    "build"
+  ],
+  "agentDocuments": {
+    "entrypoints": [
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "required": [
+      "docs/agents/INDEX.md",
+      "docs/agents/PROJECT_CONTEXT.md",
+      "docs/agents/WORKFLOW.md",
+      "docs/agents/RELEASES.md",
+      "docs/agents/RESPONSIVE_UI.md",
+      "docs/agents/TESTING.md",
+      "docs/agents/ER_DOMAIN.md"
+    ],
+    "allowedInstructionFiles": [
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "requiredTriggers": [
+      "release",
+      "branch",
+      "commit",
+      "responsive"
+    ]
+  },
+  "semver": {
+    "breaking": "major",
+    "feature": "minor",
+    "compatible": "patch",
+    "internalOnly": "none",
+    "breakingMarkers": [
+      "BREAKING CHANGE:",
+      "BREAKING-CHANGE:"
+    ],
+    "featureTypes": [
+      "feat"
+    ],
+    "compatibleTypes": [
+      "fix",
+      "perf",
+      "refactor"
+    ],
+    "internalTypes": [
+      "docs",
+      "test",
+      "ci",
+      "chore",
+      "build",
+      "release"
+    ]
+  },
+  "repositoryHygiene": {
+    "forbiddenTrackedPatterns": [
+      "dist/",
+      "coverage/",
+      "playwright-report/",
+      "test-results/",
+      "blob-report/",
+      "*.tsbuildinfo",
+      "*.log"
+    ]
+  }
+}
