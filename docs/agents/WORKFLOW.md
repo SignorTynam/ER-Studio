@@ -58,10 +58,11 @@ Allowed types are `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `build`,
 `ci`, `perf`, and `release`. A breaking change may use `!` and must explain the
 break in the body with `BREAKING CHANGE:`.
 
-The description is English, lowercase, imperative, and has no final period.
-The optional scope is short, lowercase, and pertinent. One commit represents
-one logical unit; implementation and its tests may share a commit. Valid
-examples:
+The description is English, imperative, starts with lowercase text, and has no
+final period. Established proper names such as Codex, Claude, TypeScript, or
+SQLite retain their official casing. The optional scope is short, lowercase,
+and pertinent. One commit represents one logical unit; implementation and its
+tests may share a commit. Valid examples:
 
 ```text
 fix(translation): preserve multivalued subtype cardinality
