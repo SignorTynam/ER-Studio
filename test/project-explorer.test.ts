@@ -37,6 +37,15 @@ test("createEmptyProjectExplorerState crea root folder senza file attivo", () =>
   assert.deepEqual(state.view.expandedFolderIds, [state.project.rootId]);
 });
 
+test("i nuovi id di progetto usano UUID crittograficamente sicuri", () => {
+  const state = createState();
+  const uuidSuffix = /^[a-z]+-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  assert.match(state.project.id, uuidSuffix);
+  assert.match(state.project.rootId, uuidSuffix);
+  assert.match(state.project.activeFileId ?? "", uuidSuffix);
+});
+
 test("getUniqueProjectNodeName gestisce duplicati nella stessa cartella", () => {
   const state = createState();
   const rootId = state.project.rootId;
