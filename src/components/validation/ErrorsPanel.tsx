@@ -112,8 +112,14 @@ export function ErrorsPanel({
       {filteredIssues.length === 0 ? (
         <PanelEmptyState
           className="errors-panel__empty"
-          icon="success"
-          title={filter === "all" ? t("errors.empty") : t("errors.panel.emptyFilter")}
+          variant="card"
+          tone={filter === "all" ? "success" : "neutral"}
+          icon={filter === "all" ? "success" : "info"}
+          title={filter === "all" ? t("errors.panel.validTitle") : t("errors.panel.emptyFilterTitle")}
+          description={filter === "all"
+            ? t("errors.panel.validDescription")
+            : t("errors.panel.emptyFilterDescription")}
+          role="status"
         />
       ) : (
         <div className="errors-panel__list" role="listbox" aria-label={t("errors.panel.listLabel")}>

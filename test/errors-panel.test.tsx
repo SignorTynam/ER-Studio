@@ -38,6 +38,9 @@ test("ErrorsPanel hides the numeric badge at zero and shows a compact empty stat
   const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={[]} showIndicators={false} onToggleIndicators={() => undefined} onSelectIssue={() => undefined} onIssueAction={() => undefined} /></I18nProvider>);
   assert.doesNotMatch(markup, /workspace-panel__badge/);
   assert.match(markup, /workspace-panel__empty/);
+  assert.match(markup, /workspace-panel__empty--success/);
+  assert.match(markup, /Valid diagram/);
+  assert.match(markup, /No errors or warnings were found/);
 });
 
 test("validation issue sorting is stable by severity, title, and id", () => {
@@ -66,4 +69,13 @@ test("App mounts the extracted ErrorsPanel and removes the legacy errors modal",
   assert.match(source, /<ErrorsPanel/);
   assert.match(source, /getValidationActivityPresentation/);
   assert.doesNotMatch(source, /errors-modal|project-activity-issue-list/);
+});
+
+test("ErrorsPanel keeps neutral empty-filter copy separate from the positive all state", () => {
+  const source = readFileSync(new URL("../src/components/validation/ErrorsPanel.tsx", import.meta.url), "utf8");
+  assert.match(source, /filter === "all" \? "success" : "neutral"/);
+  assert.match(source, /errors\.panel\.emptyFilterTitle/);
+  assert.match(source, /errors\.panel\.emptyFilterDescription/);
+  assert.match(source, /onIssueAction\(issue, action\)/);
+  assert.match(source, /event\.stopPropagation\(\)/);
 });

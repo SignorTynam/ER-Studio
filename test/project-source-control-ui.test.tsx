@@ -60,6 +60,19 @@ test("Source Control persists disclosures and keeps Ctrl+Enter commit", () => {
   assert.match(source, /props\.onCommit\(\)/);
 });
 
+test("Source Control always stacks the full-width message above a dedicated submit row", () => {
+  const markup = renderPanel();
+  const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../src/styles/source-control-panel.css", import.meta.url), "utf8");
+  assert.match(markup, /source-control-commit-submit-row/);
+  assert.match(source, /aria-busy=\{props\.commitBusy \|\| undefined\}/);
+  assert.match(css, /\.source-control-commit-composer\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.source-control-commit-input\s*\{[^}]*width:\s*100%/);
+  assert.match(css, /\.source-control-commit-submit-row\s*\{[^}]*justify-content:\s*flex-end/);
+  assert.doesNotMatch(css, /\.source-control-commit-composer\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/);
+  assert.doesNotMatch(css, /@media \(max-width: 640px\)\s*\{\s*\.source-control-commit-composer/);
+});
+
 test("change presentation uses stable status ordering and file-specific compare modes", () => {
   const changes: ProjectFileChange[] = [
     { fileId: "d", name: "deleted.sql", kind: "sql", status: "deleted" },

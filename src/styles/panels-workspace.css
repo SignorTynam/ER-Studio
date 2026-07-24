@@ -95,6 +95,7 @@
 .workspace-panel__empty {
   display: grid;
   min-height: 180px;
+  min-width: 0;
   place-items: center;
   align-content: center;
   gap: var(--space-2);
@@ -103,9 +104,63 @@
   text-align: center;
 }
 
+.workspace-panel__empty-icon {
+  display: inline-flex;
+  width: var(--size-activity-rail);
+  height: var(--size-activity-rail);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.workspace-panel__empty-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
 .workspace-panel__empty strong {
   color: var(--color-text-primary);
   font-size: 0.82rem;
+}
+
+.workspace-panel__empty-copy > span {
+  max-width: 34ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.workspace-panel__empty-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.workspace-panel__empty--card {
+  width: auto;
+  min-height: 156px;
+  margin: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+}
+
+.workspace-panel__empty--success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.workspace-panel__empty--success .workspace-panel__empty-icon {
+  background: var(--editor-success-soft);
+  color: var(--color-success);
 }
 
 /* Fase C2: gli step del reverse sono una sequenza — striscia orizzontale singola. */

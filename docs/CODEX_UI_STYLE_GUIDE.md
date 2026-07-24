@@ -30,10 +30,15 @@ Ogni superficie UI deve usare, quando possibile:
 - `PanelCard` o `PanelStepCard` per card/azioni/selezioni;
 - `PanelTabs` per tab;
 - `WarningCard` per warning/error/info;
-- `EmptyStateCard` per stati vuoti;
+- `PanelEmptyState` da `components/workspace/WorkspacePanel` per gli stati vuoti dei pannelli workspace, usando `variant="card"` quando serve una card strutturata e `tone="success"` solo per esiti positivi reali;
 - `CommandOptionRow` per righe comando/menu.
 
 Se un componente usa ancora markup o classi custom per ricreare pannelli, card, tab o warning, deve essere migrato ai componenti condivisi oppure allineato esattamente allo stesso linguaggio CSS.
+
+`EmptyStateCard` esportato dal modulo legacy `components/panels` non deve essere
+usato per nuovi stati del workspace. Titolo, descrizione, icona, azioni, ruolo
+ARIA e tono devono essere dichiarati tramite `PanelEmptyState`, senza ricreare
+varianti locali nei singoli pannelli.
 
 ## Identità visiva
 

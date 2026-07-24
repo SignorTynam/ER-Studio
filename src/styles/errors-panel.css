@@ -161,12 +161,11 @@
 }
 
 .errors-panel__empty {
-  width: 100%;
+  width: auto;
   min-height: 0;
   min-width: 0;
   flex: 1 1 auto;
-  padding-inline: var(--space-2);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .errors-panel__empty strong {

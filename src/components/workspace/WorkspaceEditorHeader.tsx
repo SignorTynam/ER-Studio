@@ -2,6 +2,7 @@ import type { ProjectWorkspaceFile } from "../../types/projectExplorer";
 import type { WorkspaceView } from "../../types/translation";
 import { useI18n } from "../../i18n/useI18n";
 import { StudioIcon } from "../icons/StudioIcon";
+import { Tooltip } from "../ui/Tooltip";
 
 interface WorkspaceEditorHeaderProps {
   projectName: string;
@@ -10,6 +11,8 @@ interface WorkspaceEditorHeaderProps {
   view: WorkspaceView;
   onReveal: () => void;
   onViewChange: (view: WorkspaceView) => void;
+  onOpenSqlPlayground?: () => void;
+  onStartSqlReverse?: () => void;
 }
 
 export function WorkspaceEditorHeader({
@@ -19,6 +22,8 @@ export function WorkspaceEditorHeader({
   view,
   onReveal,
   onViewChange,
+  onOpenSqlPlayground,
+  onStartSqlReverse,
 }: WorkspaceEditorHeaderProps) {
   const { t } = useI18n();
   const pathSegments = path.split("/").filter(Boolean);
@@ -61,10 +66,52 @@ export function WorkspaceEditorHeader({
             ))}
           </div>
         ) : null}
-        <button type="button" className="editor-context-button" onClick={onReveal} title={t("workspaceChrome.revealInExplorer")}>
-          <StudioIcon name="panelLeft" size={15} aria-hidden="true" />
-          <span>{t("workspaceChrome.reveal")}</span>
-        </button>
+        {file.kind === "sql" && onOpenSqlPlayground ? (
+          <Tooltip label={t("workspaceChrome.sqlActions.openPlaygroundTooltip")} position="bottom">
+            {(aria) => (
+              <button
+                type="button"
+                className="editor-context-button editor-context-button--sql"
+                onClick={onOpenSqlPlayground}
+                aria-label={t("workspaceChrome.sqlActions.openPlayground")}
+                {...aria}
+              >
+                <StudioIcon name="database" size={15} aria-hidden="true" />
+                <span>{t("workspaceChrome.sqlActions.openPlayground")}</span>
+              </button>
+            )}
+          </Tooltip>
+        ) : null}
+        {file.kind === "sql" && onStartSqlReverse ? (
+          <Tooltip label={t("workspaceChrome.sqlActions.startReverseTooltip")} position="bottom">
+            {(aria) => (
+              <button
+                type="button"
+                className="editor-context-button editor-context-button--sql"
+                onClick={onStartSqlReverse}
+                aria-label={t("workspaceChrome.sqlActions.startReverse")}
+                {...aria}
+              >
+                <StudioIcon name="databaseReverse" size={15} aria-hidden="true" />
+                <span>{t("workspaceChrome.sqlActions.startReverse")}</span>
+              </button>
+            )}
+          </Tooltip>
+        ) : null}
+        <Tooltip label={t("workspaceChrome.revealInExplorer")} position="bottom">
+          {(aria) => (
+            <button
+              type="button"
+              className="editor-context-button"
+              onClick={onReveal}
+              aria-label={t("workspaceChrome.revealInExplorer")}
+              {...aria}
+            >
+              <StudioIcon name="panelLeft" size={15} aria-hidden="true" />
+              <span>{t("workspaceChrome.reveal")}</span>
+            </button>
+          )}
+        </Tooltip>
       </div>
     </div>
   );

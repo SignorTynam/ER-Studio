@@ -23,7 +23,7 @@ import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceEditorHeader } from "./components/workspace/WorkspaceEditorHeader";
-import { PanelIconButton } from "./components/workspace/WorkspacePanel";
+import { PanelEmptyState, PanelIconButton, WorkspacePanel } from "./components/workspace/WorkspacePanel";
 import { WorkspaceTextEditor } from "./components/workspace/WorkspaceTextEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { ErrorsPanel } from "./components/validation/ErrorsPanel";
@@ -100,10 +100,12 @@ import { SqlExplorerPanel } from "./features/sql-playground/SqlExplorerPanel";
 import {
   buildSqlPlaygroundSessionId,
   createImportedDatabaseSessionState,
+  createSqlPlaygroundSessionState,
   downloadImportedSqliteDatabase,
   markImportedDatabaseExported,
   markImportedDatabaseRestored,
 } from "./utils/sqlPlayground";
+import { resolveSqlPlaygroundSchema } from "./utils/sqlFileWorkspace";
 import { ImportedDatabaseWorkspace } from "./features/database-workspace/ImportedDatabaseWorkspace";
 import { DatabaseCloseDialog } from "./features/database-workspace/DatabaseCloseDialog";
 import { DatabaseReverseWizard } from "./features/database-workspace/reverse/DatabaseReverseWizard";
@@ -1170,11 +1172,14 @@ export default function App() {
     ? importedDatabaseSessions.find((session) => session.sessionId === databaseReverseSessionId) ?? null
     : null;
   const importedDatabaseActive = Boolean(activeImportedDatabaseSession);
-  const sqlExplorerSchemaId = activeSqlPlaygroundSchemaId
-    ?? activeSchemaFile?.id
-    ?? (lastSqlPlaygroundSchemaId && projectExplorer.files[lastSqlPlaygroundSchemaId]?.kind === "schema"
-      ? lastSqlPlaygroundSchemaId
-      : null);
+  const sqlExplorerSchemaResolution = resolveSqlPlaygroundSchema({
+    files: projectExplorer.files,
+    activePlaygroundSchemaId: activeSqlPlaygroundSchemaId ?? activeSchemaFile?.id ?? null,
+    lastPlaygroundSchemaId: lastSqlPlaygroundSchemaId,
+  });
+  const sqlExplorerSchemaId = sqlExplorerSchemaResolution.status === "resolved"
+    ? sqlExplorerSchemaResolution.schemaFileId
+    : null;
   const sqlExplorerSchema = sqlExplorerSchemaId ? projectExplorer.files[sqlExplorerSchemaId] : undefined;
   const generatedSqlExplorerSessionId = hasProject && sqlExplorerSchema?.kind === "schema"
     ? buildSqlPlaygroundSessionId(projectExplorer.project.id, sqlExplorerSchema.id)
@@ -2166,6 +2171,19 @@ export default function App() {
     }));
   }
 
+  function handleStartSqlReverseFromFile(file: ProjectWorkspaceFile) {
+    if (file.kind !== "sql") return;
+    setFocusMode(false);
+    closeTechnicalPanel();
+    setActiveActivityPanel("reverse");
+    setWorkspaceActivityOpen(true);
+    setSqlReverseWorkflow((current) => ({
+      ...createInitialSqlReverseWorkflowState(file.content, file.id, file.name, current.dialect),
+      step: "idle",
+    }));
+    setStatus(t("workspaceChrome.sqlActions.reverseStarted", { name: file.name }));
+  }
+
   function handleCancelSqlReverseWorkflow() {
     setSqlReverseWorkflow((current) => createInitialSqlReverseWorkflowState(
       current.sourceSql,
@@ -2687,27 +2705,59 @@ export default function App() {
     setLastSqlPlaygroundSchemaId(file.id);
   }
 
-  function handleOpenSqlExplorerQuery(sessionId: string, query: string, execute: boolean) {
-    const session = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
-    if (!session) return;
-    if (session.source.kind === "imported-sqlite") {
-      setActiveImportedDatabaseSessionId(sessionId);
-      setActiveSqlPlaygroundSchemaId(null);
-    } else {
-      const file = projectExplorer.files[session.source.schemaFileId];
-      if (file?.kind !== "schema") return;
-      openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
-      setOpenSqlPlaygroundSchemaIds((current) => current.includes(file.id) ? current : [...current, file.id]);
-      setActiveSqlPlaygroundSchemaId(file.id);
-      setActiveImportedDatabaseSessionId(null);
-      setLastSqlPlaygroundSchemaId(file.id);
+  function openGeneratedSqlPlaygroundQuery(
+    schemaFileId: string,
+    schemaName: string,
+    query: string,
+    execute: boolean,
+  ) {
+    const synced = syncActiveSchemaToProject();
+    if (activeSchemaFile?.id !== schemaFileId) {
+      openSchemaWorkspaceFile(schemaFileId, synced);
     }
+
+    const manager = getSqlPlaygroundManager();
+    const sessionId = buildSqlPlaygroundSessionId(projectExplorer.project.id, schemaFileId);
+    const existing = manager.getSessionState(sessionId);
+    const seeded = existing?.source.kind === "generated-schema"
+      ? { ...existing, query }
+      : {
+          ...createSqlPlaygroundSessionState({
+            sessionId,
+            projectId: projectExplorer.project.id,
+            schemaFileId,
+            schemaName,
+            currentGeneratedChecksum: "",
+          }),
+          query,
+        };
+    manager.setSessionState(seeded);
+    activateSqlPlayground(schemaFileId, schemaName);
     setSqlExplorerQueryRequest((current) => ({
       id: (current?.id ?? 0) + 1,
       sessionId,
       query,
       execute,
     }));
+  }
+
+  function handleOpenSqlExplorerQuery(sessionId: string, query: string, execute: boolean) {
+    const session = sqlPlaygroundManagerRef.current?.getSessionState(sessionId);
+    if (!session) return;
+    if (session.source.kind === "imported-sqlite") {
+      setActiveImportedDatabaseSessionId(sessionId);
+      setActiveSqlPlaygroundSchemaId(null);
+      setSqlExplorerQueryRequest((current) => ({
+        id: (current?.id ?? 0) + 1,
+        sessionId,
+        query,
+        execute,
+      }));
+    } else {
+      const file = projectExplorer.files[session.source.schemaFileId];
+      if (file?.kind !== "schema") return;
+      openGeneratedSqlPlaygroundQuery(file.id, file.name, query, execute);
+    }
   }
 
   function createSchemaFromDatabaseReverse(request: DatabaseReverseApplyRequest) {
@@ -2842,6 +2892,27 @@ export default function App() {
       return;
     }
     activateSqlPlayground(activeSchemaFile.id, activeSchemaFile.name);
+  }
+
+  function handleOpenSqlFileInPlayground(file: ProjectWorkspaceFile) {
+    if (file.kind !== "sql") return;
+    const resolution = resolveSqlPlaygroundSchema({
+      files: projectExplorer.files,
+      activePlaygroundSchemaId: activeSqlPlaygroundSchemaId,
+      lastPlaygroundSchemaId: lastSqlPlaygroundSchemaId,
+    });
+    if (resolution.status === "missing") {
+      setStatusWarning(t("workspaceChrome.sqlActions.noSchemaWarning"));
+      return;
+    }
+    if (resolution.status === "ambiguous") {
+      setStatusWarning(t("workspaceChrome.sqlActions.ambiguousSchemaWarning"));
+      return;
+    }
+    const schemaFile = projectExplorer.files[resolution.schemaFileId];
+    if (schemaFile?.kind !== "schema") return;
+    openGeneratedSqlPlaygroundQuery(schemaFile.id, schemaFile.name, file.content, false);
+    setStatus(t("workspaceChrome.sqlActions.playgroundSeeded", { name: file.name }));
   }
 
   function activateSqlPlayground(schemaFileId: string, schemaName: string) {
@@ -7694,10 +7765,33 @@ export default function App() {
           </div>
         </section>
       ) : (
-        <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
+        <WorkspacePanel className="project-activity-section" label={t("appHeader.menus.code")}>
           <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
-          <p className="project-activity-empty">{t("workspace.noSchemaCodeWarning")}</p>
-        </section>
+          <PanelEmptyState
+            className="code-panel__empty"
+            variant="card"
+            icon="code"
+            title={t("workspace.codeEmpty.title")}
+            description={t("workspace.codeEmpty.description")}
+          >
+            <Button
+              size="sm"
+              variant="primary"
+              iconLeft="schema"
+              onClick={() => void handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+            >
+              {t("workspace.codeEmpty.createSchema")}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft="panelLeft"
+              onClick={() => handleSelectActivityPanel("file")}
+            >
+              {t("workspace.codeEmpty.openExplorer")}
+            </Button>
+          </PanelEmptyState>
+        </WorkspacePanel>
       )
     ) : activeActivityPanel === "reverse" ? (
       <SqlReversePanel
@@ -7972,6 +8066,12 @@ export default function App() {
               view={diagramView}
               onReveal={() => handleRevealProjectFile(activeProjectFile.id)}
               onViewChange={handleDiagramViewChange}
+              onOpenSqlPlayground={activeProjectFile.kind === "sql"
+                ? () => handleOpenSqlFileInPlayground(activeProjectFile)
+                : undefined}
+              onStartSqlReverse={activeProjectFile.kind === "sql"
+                ? () => handleStartSqlReverseFromFile(activeProjectFile)
+                : undefined}
             />
           ) : null}
           <div className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>

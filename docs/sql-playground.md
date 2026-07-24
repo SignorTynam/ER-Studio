@@ -15,7 +15,30 @@ Schema attivo
   → export dei byte SQLite
 ```
 
-Il Playground si apre dal pulsante `Prova SQL` della vista SQL logica o dal comando `Apri SQL Playground`. La tab tecnica usa la shell esistente, è chiudibile e non viene serializzata nel progetto.
+Il Playground si apre dal pulsante `Prova SQL` della vista SQL logica, dal
+comando `Apri SQL Playground` o dall'azione `Apri nel Playground` disponibile
+nella toolbar di un file `.sql`. La tab tecnica usa la shell esistente, è
+chiudibile e non viene serializzata nel progetto.
+
+### File `.sql` del workspace
+
+I file `.sql` usano `CodeEditorSurface` direttamente sul contenuto canonico del
+file: gutter, highlighting, selezione, focus, stato dirty e salvataggio non
+introducono una seconda bozza locale. L'azione contestuale trasferisce il
+contenuto in memoria corrente, incluse le modifiche non ancora salvate, nella
+sessione Playground dello schema risolto.
+
+La risoluzione è deterministica: schema della sessione Playground attiva,
+ultimo schema Playground valido, quindi unico schema del progetto. Se non
+esistono schemi o ne esistono più di uno senza un contesto precedente,
+l'operazione resta sul file sorgente e chiede di creare o aprire esplicitamente
+lo schema. Non viene mai scelto il primo elemento di un oggetto.
+
+La query viene salvata nel `SqlPlaygroundManager` prima di aprire la tab. In
+questo modo resta disponibile anche quando il Playground è temporaneamente
+bloccato da un modello logico mancante o non aggiornato. L'apertura usa sempre
+`execute: false`: non crea il database e non esegue SQL automaticamente.
+Richiamare l'azione riusa la stessa sessione e la stessa tab tecnica.
 
 ## Architettura
 
@@ -82,11 +105,12 @@ In `dist` devono essere presenti il worker e il file `.wasm`; i riferimenti devo
 
 ## Test
 
-- `test/sql-playground.test.ts`: checksum, valori, limiti, errori, export e SQL SQLite reale.
+- `test/sql-playground.test.ts`: checksum, valori, limiti, errori, export, risoluzione deterministica dello schema e SQL SQLite reale.
 - `test/sql-playground-components.test.tsx`: command bar, editor condiviso, risultati, row header e collapsed state.
 - `test/sql-explorer.test.ts`: introspezione SQLite reale, database collegati, metadata e firme schema.
 - `test/sql-explorer-components.test.tsx`: empty state, splitter e tree ARIA.
 - `tests/e2e/sql-playground.spec.ts`: worker/WASM reale, splitter, collapse, SQL Explorer, refresh DDL, responsive e Axe.
+- `tests/e2e/sql-file-workflow.spec.ts`: file SQL dedicato, passaggio senza esecuzione, riuso sessione, ambiguità schema, Reverse contestuale, stati pannello e viewport stretti.
 
 ## Troubleshooting
 

@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  type AriaRole,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
@@ -131,15 +132,39 @@ interface PanelEmptyStateProps {
   description?: string;
   children?: ReactNode;
   className?: string;
+  variant?: "compact" | "card";
+  tone?: "neutral" | "success";
+  role?: AriaRole;
 }
 
-export function PanelEmptyState({ icon, title, description, children, className = "" }: PanelEmptyStateProps) {
+export function PanelEmptyState({
+  icon,
+  title,
+  description,
+  children,
+  className = "",
+  variant = "compact",
+  tone = "neutral",
+  role,
+}: PanelEmptyStateProps) {
   return (
-    <div className={["workspace-panel__empty", className].filter(Boolean).join(" ")}>
-      <StudioIcon name={icon} aria-hidden="true" />
-      <strong>{title}</strong>
-      {description ? <span>{description}</span> : null}
-      {children}
+    <div
+      className={[
+        "workspace-panel__empty",
+        `workspace-panel__empty--${variant}`,
+        `workspace-panel__empty--${tone}`,
+        className,
+      ].filter(Boolean).join(" ")}
+      role={role}
+    >
+      <span className="workspace-panel__empty-icon" aria-hidden="true">
+        <StudioIcon name={icon} />
+      </span>
+      <span className="workspace-panel__empty-copy">
+        <strong>{title}</strong>
+        {description ? <span>{description}</span> : null}
+      </span>
+      {children ? <span className="workspace-panel__empty-actions">{children}</span> : null}
     </div>
   );
 }

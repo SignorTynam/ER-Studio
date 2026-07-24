@@ -86,3 +86,13 @@ test("Reverse upload avoids ensureFileTabOpen and Clear does not mutate project 
   assert.match(upload, /importSqlReverseSourceFile/);
   assert.doesNotMatch(clear, /setProjectExplorer|updateSqlReverseSourceFile/);
 });
+
+test("contextual SQL Reverse starts from the same file without upload or automatic analysis", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("function handleStartSqlReverseFromFile");
+  const end = source.indexOf("function handleCancelSqlReverseWorkflow", start);
+  const handler = source.slice(start, end);
+  assert.match(handler, /file\.content,\s*file\.id,\s*file\.name,\s*current\.dialect/);
+  assert.match(handler, /setActiveActivityPanel\("reverse"\)/);
+  assert.doesNotMatch(handler, /handleAnalyzeSqlReverseWorkflow|importSqlReverseSourceFile|createTextWorkspaceFile/);
+});
