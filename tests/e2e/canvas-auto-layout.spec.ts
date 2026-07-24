@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function createDiagram(page: Page) {
   await page.addInitScript(() => {
@@ -13,6 +14,7 @@ async function createDiagram(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await page
     .getByRole("complementary", { name: "Explorer" })
     .getByRole("button", { name: "Crea schema" })
@@ -98,6 +100,11 @@ test("conceptual auto-layout confirms, fits, and is reverted by one undo", async
   expect(after.map(({ label }) => label)).toEqual(before.map(({ label }) => label));
 
   // The whole positional change is one history entry.
-  await page.getByRole("button", { name: "Annulla", exact: true }).click();
+  // "Annulla" esiste in due posti legittimi: la toolbar (undo) e il toast dell'auto-layout
+  // (Fase G5). Qui serve quello della toolbar, altrimenti il locator è ambiguo.
+  await page
+    .locator(".designer-context-toolbar")
+    .getByRole("button", { name: "Annulla", exact: true })
+    .click();
   await expect.poll(() => nodeSnapshot(page)).toEqual(before);
 });

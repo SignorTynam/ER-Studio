@@ -3,6 +3,7 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as 
 import type { ProjectExplorerNode, ProjectWorkspaceFile } from "../../types/projectExplorer";
 import { sortProjectExplorerNodes } from "../../utils/projectExplorer";
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
+import { useProjectExplorerDnd } from "./projectExplorerDnd";
 
 export type ProjectExplorerCreateKind = "schema" | "sql" | "text" | "folder";
 
@@ -166,12 +167,15 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
   const displayName = hasVisibleExtension && extensionMatch
     ? props.node.name.slice(0, extensionMatch.index)
     : props.node.name;
+  const dnd = useProjectExplorerDnd();
   const rowClassName = [
     "project-explorer-item",
     isFolder ? "folder" : "file",
     isActive ? "active" : "",
     isSelected ? "selected" : "",
     isDirty ? "dirty" : "",
+    dnd?.draggingNodeId === props.node.id ? "is-dragging" : "",
+    dnd?.dropTargetFolderId === props.node.id ? "is-drop-target" : "",
   ].filter(Boolean).join(" ");
 
   function stopAndRun(event: ReactMouseEvent, action: () => void) {
@@ -319,10 +323,30 @@ export function ProjectExplorerTreeItem(props: ProjectExplorerTreeItemProps) {
         aria-selected={isSelected}
         aria-current={isActive ? "page" : undefined}
         aria-label={`${props.node.name}, ${props.labels.fileKinds[props.node.kind] ?? props.labels.fileKinds.file}`}
+        draggable={dnd != null && !renaming}
         onContextMenu={(event) => props.onContextMenu(props.node, event)}
         onKeyDown={handleKeyDown}
         onClick={() => props.onSelectNode(props.node.id)}
         onDoubleClick={activateNode}
+        onDragStart={(event) => {
+          if (!dnd) return;
+          dnd.begin(props.node.id);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", props.node.id);
+        }}
+        onDragOver={(event) => {
+          if (!dnd?.draggingNodeId) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = dnd.hoverNode(props.node.id);
+        }}
+        onDrop={(event) => {
+          if (!dnd?.draggingNodeId) return;
+          event.preventDefault();
+          event.stopPropagation();
+          dnd.dropOnNode(props.node.id);
+        }}
+        onDragEnd={() => dnd?.end()}
       >
         <div className="project-explorer-item__main">
           {isFolder ? (

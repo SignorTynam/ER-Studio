@@ -110,6 +110,8 @@
 
   --motion-fast: 120ms;
   --motion-normal: 180ms;
+  /* Durata piu lunga per l'evidenziazione temporanea "salta alla riga" (Fase K3). */
+  --motion-reveal: 900ms;
   --focus-ring: 0 0 0 2px #fbfcfb, 0 0 0 4px rgba(47, 111, 98, 0.72);
 
   /* Canonical tokens also feed the legacy workspace surfaces. */
@@ -236,6 +238,18 @@
   --diagram-version-removed: #c44536;
 
   /* Canvas overlay stacking — coherent local scale, all below app modals (z 1200). */
+  /* Scala z-index DENTRO il canvas (stacking context locale, Fase G3). */
   --z-canvas-overlay-info: 10;
   --z-canvas-overlay-controls: 20;
+  /* Scala z-index degli overlay a LIVELLO FINESTRA (position: fixed, fuori dallo stacking
+     context del canvas), dal basso verso l'alto — Fase L5:
+       32  onboarding guide      (non ancora tokenizzato)
+       40  backdrop modali minori (non ancora tokenizzato)
+       72  toast di workspace     <- --z-workspace-toast
+       73  popover diagnostico    <- --z-editor-diagnostic-popover
+      120  backdrop modali        (non ancora tokenizzato)
+     Nota: toast e popover condividono lo stesso angolo (top/right), quindi il popover
+     copre i toast quando sono entrambi visibili. */
+  --z-workspace-toast: 72;
+  --z-editor-diagnostic-popover: 73;
 }

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 test("welcome, empty actions, and compact header stay balanced", async ({ page }) => {
   await page.addInitScript(() => {
@@ -14,6 +15,7 @@ test("welcome, empty actions, and compact header stay balanced", async ({ page }
   );
   await expect(createProject).toHaveCount(1);
   await createProject.click();
+  await confirmNewProjectDialog(page);
 
   await expect(page.locator(".workspace-welcome-page")).toBeVisible();
   await expect(page.locator(".workspace-welcome-workflow")).toHaveCount(0);

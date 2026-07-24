@@ -32,6 +32,7 @@ function renderExplorer() {
           onCreateFolder={() => undefined}
           onRename={() => undefined}
           onDelete={() => undefined}
+          onMove={() => undefined}
           onSelectNode={() => undefined}
           onToggleFolder={() => undefined}
           onCollapseAll={() => undefined}
@@ -73,6 +74,7 @@ test("ProjectExplorer distingue active file e selected folder nel tree", () => {
         onCreateFolder={() => undefined}
         onRename={() => undefined}
         onDelete={() => undefined}
+          onMove={() => undefined}
         onSelectNode={() => undefined}
         onToggleFolder={() => undefined}
         onCollapseAll={() => undefined}

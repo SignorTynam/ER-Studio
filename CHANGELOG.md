@@ -9,6 +9,17 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.1.0] - 2026-07-25
+
+### Added
+- Aggiunti il workflow dedicato per i file SQL, la creazione di database Playground dal DDL, il Reverse Engineering diretto, il selettore del dialetto, le spiegazioni per gli statement non supportati, la schermata Impostazioni, lo spostamento dei file nell'Explorer e i quick fix nel pannello Errori.
+
+### Changed
+- Migliorati topbar, Source Control, stati vuoti, minimappa, auto-layout e navigazione del canvas, diagnostica dell'editor, responsive design, localizzazione italiana/inglese/albanese, accessibilità dei toast e documentazione tecnica.
+
+### Fixed
+- Corretti la cronologia undo/redo con stato obsoleto, gli annunci duplicati dei toast, il timer durante hover e focus, alcune azioni di correzione guidata e la generazione degli identificatori progetto, ora basata su UUID sicuri; aggiunti anche controlli repository per branch, commit e SemVer.
+
 ## [7.0.0] - 2026-07-21
 
 ### Added

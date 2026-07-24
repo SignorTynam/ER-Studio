@@ -5,7 +5,11 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { ProjectTextFileModal } from "../src/components/project/ProjectTextFileModal.tsx";
+import { WorkspaceEditorHeader } from "../src/components/workspace/WorkspaceEditorHeader.tsx";
+import { PanelEmptyState } from "../src/components/workspace/WorkspacePanel.tsx";
+import { WorkspaceTextEditor } from "../src/components/workspace/WorkspaceTextEditor.tsx";
 import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
+import { createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
 import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
@@ -46,4 +50,108 @@ test("App apre txt e SQL nel WorkspaceTextEditor principale", () => {
   assert.doesNotMatch(source, /<ProjectTextFileModal/);
   assert.doesNotMatch(source, /<ProjectTextFilePanel/);
   assert.doesNotMatch(source, /note-file-panel/);
+});
+
+test("WorkspaceTextEditor usa CodeEditorSurface per SQL e conserva il footer controllato", () => {
+  const sqlFile = createTextWorkspaceFile("query.sql", "sql", "SELECT 1;\nFROM sample;");
+  const markup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceTextEditor file={sqlFile} editable onChange={() => undefined} />
+    </I18nProvider>,
+  );
+
+  assert.match(markup, /workspace-text-editor--sql/);
+  assert.match(markup, /designer-code-line-numbers/);
+  assert.match(markup, /designer-code-highlight/);
+  assert.match(markup, /sql-token-keyword/);
+  assert.match(markup, /spellcheck="false"/i);
+  assert.match(markup, /SQL editor for query\.sql/);
+  assert.match(markup, /2 lines/);
+  assert.match(markup, />SQL</);
+  assert.match(markup, />Editable</);
+});
+
+test("WorkspaceTextEditor lascia invariato il textarea dei file TXT e supporta SQL vuoto read-only", () => {
+  const textMarkup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceTextEditor
+        file={createTextWorkspaceFile("notes.txt", "text", "Project note")}
+        editable
+        onChange={() => undefined}
+      />
+    </I18nProvider>,
+  );
+  assert.match(textMarkup, /workspace-text-editor__input/);
+  assert.doesNotMatch(textMarkup, /designer-code-editor/);
+
+  const sqlMarkup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceTextEditor
+        file={createTextWorkspaceFile("empty.sql", "sql", "")}
+        editable={false}
+        onChange={() => undefined}
+      />
+    </I18nProvider>,
+  );
+  assert.match(sqlMarkup, /Write or paste SQL/);
+  assert.match(sqlMarkup, /readOnly=""/i);
+  assert.match(sqlMarkup, /1 line/);
+  assert.match(sqlMarkup, />Read only</);
+});
+
+test("WorkspaceEditorHeader espone azioni accessibili solo per i file SQL e preserva Reveal", () => {
+  const sqlFile = createTextWorkspaceFile("query.sql", "sql", "SELECT 1;");
+  const sqlMarkup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceEditorHeader
+        projectName="ER Studio"
+        file={sqlFile}
+        path="queries/query.sql"
+        view="er"
+        onReveal={() => undefined}
+        onViewChange={() => undefined}
+        onOpenSqlPlayground={() => undefined}
+        onStartSqlReverse={() => undefined}
+      />
+    </I18nProvider>,
+  );
+  assert.match(sqlMarkup, /aria-label="Open in Playground"/);
+  assert.match(sqlMarkup, /aria-label="Start Reverse Engineering"/);
+  assert.match(sqlMarkup, /aria-label="Reveal in Explorer"/);
+  assert.match(sqlMarkup, /role="tooltip"/);
+
+  const textMarkup = renderInEnglish(
+    <I18nProvider>
+      <WorkspaceEditorHeader
+        projectName="ER Studio"
+        file={createTextWorkspaceFile("notes.txt", "text", "")}
+        path="notes.txt"
+        view="er"
+        onReveal={() => undefined}
+        onViewChange={() => undefined}
+      />
+    </I18nProvider>,
+  );
+  assert.doesNotMatch(textMarkup, /Open in Playground/);
+  assert.doesNotMatch(textMarkup, /Start Reverse Engineering/);
+  assert.match(textMarkup, /Reveal in Explorer/);
+});
+
+test("PanelEmptyState offre la variante card e il tone positivo canonici", () => {
+  const markup = renderInEnglish(
+    <PanelEmptyState
+      variant="card"
+      tone="success"
+      icon="success"
+      title="Valid diagram"
+      description="No issues."
+      role="status"
+    />,
+  );
+  assert.match(markup, /workspace-panel__empty--card/);
+  assert.match(markup, /workspace-panel__empty--success/);
+  assert.match(markup, /workspace-panel__empty-icon/);
+  assert.match(markup, /Valid diagram/);
+  assert.match(markup, /No issues/);
+  assert.match(markup, /role="status"/);
 });

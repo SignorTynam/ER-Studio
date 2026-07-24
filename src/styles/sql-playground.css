@@ -500,7 +500,6 @@
   overflow: auto;
 }
 
-.sql-explorer-empty,
 .sql-explorer-error,
 .sql-explorer-loading {
   display: flex;
@@ -513,7 +512,6 @@
   line-height: var(--line-height-normal);
 }
 
-.sql-explorer-empty p,
 .sql-explorer-error p {
   margin: 0;
 }

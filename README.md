@@ -72,11 +72,23 @@ npm run test:e2e
 npm run preview
 ```
 
+I controlli di policy del repository sono:
+
+```bash
+npm run agents:check
+npm run repo:check-branch
+npm run repo:check-commits
+npm run test:policy
+```
+
 ## Struttura del repository
 
 ```txt
 buildER/
+  config/                  Policy machine-readable del repository
   docs/                    Documentazione tecnica e guide operative
+    agents/                Istruzioni condivise per coding agent
+  scripts/                 Tooling release e controlli repository
   src/                     Codice sorgente React + TypeScript
   test/                    Test unitari e di integrazione
   tests/e2e/               Test end-to-end Playwright
@@ -91,6 +103,8 @@ Per la struttura dettagliata vedere `docs/REPOSITORY_STRUCTURE.md`.
 
 ## Documentazione utile
 
+- [`docs/agents/INDEX.md`](docs/agents/INDEX.md) - indice canonico delle
+  istruzioni condivise da Codex e Claude Code.
 - [Guida alla pubblicazione delle release](docs/RELEASING.md) — procedura consigliata da GitHub Actions e alternativa tramite tag locale.
 - `docs/ARCHITECTURE.md` — panoramica tecnica dei moduli e del flusso dati.
 - `docs/DEVELOPMENT.md` — setup, branch, commit, checklist PR e regole operative.
@@ -109,3 +123,4 @@ Per la struttura dettagliata vedere `docs/REPOSITORY_STRUCTURE.md`.
 - Evitare CSS locale duplicato quando esistono token o componenti condivisi.
 - Aggiornare test e documentazione quando una modifica tocca parser, layout, serializzazione, UI o flussi utente.
 - Aprire branch piccoli e focalizzati partendo da `main`.
+- Validare branch, commit e parita delle istruzioni con gli script di policy prima della Pull Request.

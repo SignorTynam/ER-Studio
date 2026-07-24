@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 test("switches app chrome and command menu across Italian, English, and Albanian", async ({ page }) => {
   const consoleErrors: string[] = [];
@@ -27,6 +28,7 @@ test("switches app chrome and command menu across Italian, English, and Albanian
 
   await expect(page.locator(".workspace-welcome-page")).toBeVisible();
   await page.getByRole("main", { name: "Apri o crea un progetto" }).getByRole("button", { name: /Crea nuovo progetto/ }).click();
+  await confirmNewProjectDialog(page);
   await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
   await page.getByRole("main", { name: "buildER" }).getByRole("button", { name: "Nuovo schema" }).click();
   await expect(page.locator(".action-modal")).toBeVisible();

@@ -160,6 +160,12 @@
 @keyframes release-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 760px) {
+  .designer-topbar-actions .release-center-button {
+    width: var(--size-input) !important;
+    min-width: var(--size-input);
+    padding-inline: 0 !important;
+  }
+
   .release-center-button__label { display: none; }
   .release-announcement__hero { grid-template-columns: 1fr; }
   .release-announcement__version { min-height: 110px; }

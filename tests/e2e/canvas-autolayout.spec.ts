@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 // G5 — after an auto-layout, a success toast offers a one-click "Annulla" (undo)
 // instead of requiring Ctrl+Z. The toast reuses the existing notice action support.
@@ -15,6 +16,7 @@ async function createDiagram(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await page
     .getByRole("complementary", { name: "Explorer" })
     .getByRole("button", { name: "Crea schema" })

@@ -72,7 +72,7 @@
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
@@ -142,13 +142,30 @@
   -webkit-line-clamp: 2;
 }
 
+/* Fase H — azione di correzione guidata per riga.
+   Rivelata su hover/focus-within/selezione: cosi resta fuori dal tab order
+   quando la riga non e attiva (visibility:hidden) e la navigazione a frecce
+   tra le righe non viene alterata. */
+.errors-panel__row-actions {
+  display: flex;
+  align-self: center;
+  align-items: center;
+  gap: var(--space-1);
+  visibility: hidden;
+}
+
+.errors-panel__row:hover .errors-panel__row-actions,
+.errors-panel__row:focus-within .errors-panel__row-actions,
+.errors-panel__row.is-selected .errors-panel__row-actions {
+  visibility: visible;
+}
+
 .errors-panel__empty {
-  width: 100%;
+  width: auto;
   min-height: 0;
   min-width: 0;
   flex: 1 1 auto;
-  padding-inline: var(--space-2);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .errors-panel__empty strong {

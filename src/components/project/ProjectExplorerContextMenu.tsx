@@ -16,6 +16,7 @@ interface ProjectExplorerContextMenuProps {
   onNewSqlFile: () => void;
   onNewFolder: () => void;
   onRename: () => void;
+  onMove: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -33,6 +34,7 @@ export function ProjectExplorerContextMenu({
   onNewSqlFile,
   onNewFolder,
   onRename,
+  onMove,
   onDelete,
   onClose,
 }: ProjectExplorerContextMenuProps) {
@@ -162,6 +164,10 @@ export function ProjectExplorerContextMenu({
             <StudioIcon name="rename" aria-hidden="true" />
             <span>{t("projectExplorer.contextMenu.rename")}</span>
             <span className="project-explorer-context-menu__shortcut">F2</span>
+          </button>
+          <button type="button" className="project-explorer-context-menu__item" role="menuitem" disabled={!canDelete} onClick={() => run(onMove)}>
+            <StudioIcon name="move" aria-hidden="true" />
+            <span>{t("projectExplorer.contextMenu.moveTo")}</span>
           </button>
           <button
             type="button"

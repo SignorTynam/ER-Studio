@@ -29,8 +29,11 @@ test("SqlReversePanel usa header ed editor condivisi senza progress bar", () => 
         logicalIssues={[]}
         tableCount={1}
         unsupportedStatementCount={0}
+        unsupportedStatements={[]}
         isPreviewReady={false}
         sourceFileName="course.sql"
+        dialect="generic"
+        onDialectChange={() => undefined}
         onSqlChange={() => undefined}
         onAnalyze={() => undefined}
         onLoadFile={() => undefined}
@@ -54,6 +57,12 @@ test("SqlReversePanel usa header ed editor condivisi senza progress bar", () => 
   assert.match(markup, /Clear/);
   assert.doesNotMatch(markup, /sql-reverse-progress/);
   assert.doesNotMatch(markup, />Validate</);
+  // K1: selettore del dialetto con "generic" come default.
+  assert.match(markup, /SQL dialect/);
+  assert.match(markup, /<option value="generic" selected=""/);
+  // K4: la meta-riga espone il disclosure delle diagnostiche, chiuso di default.
+  assert.match(markup, /sql-reverse-panel__meta-toggle/);
+  assert.match(markup, /aria-expanded="false"/);
   assert.doesNotMatch(markup, /sql-reverse-panel__issues/);
   assert.doesNotMatch(markup, /sql-reverse-panel__error/);
   assert.doesNotMatch(markup, /Open SQL Reverse workflow/);

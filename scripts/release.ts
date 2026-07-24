@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { generateReleaseNotes } from "./generate-release-notes";
+import { determineNextVersion } from "./determine-next-version";
 import { assertGitRepository, bumpVersion, readPackageVersion, type ReleaseBump } from "./releaseUtils";
 
 const RELEASE_TYPES = new Set<ReleaseBump>(["patch", "minor", "major"]);
@@ -56,6 +57,16 @@ export function prepareRelease(bump: ReleaseBump, root = process.cwd()): string 
   return next;
 }
 
+export function prepareReleaseAutomatically(root = process.cwd()): string {
+  assertGitRepository(root, true);
+  const result = determineNextVersion({ root });
+  if (result.requiredBump === "none" || !result.nextVersion) {
+    throw new Error(`release: automatic preparation found no required SemVer bump. ${result.reason}`);
+  }
+  console.log(`Automatic SemVer decision: ${result.requiredBump} -> ${result.nextVersion}. ${result.reason}`);
+  return prepareRelease(result.requiredBump, root);
+}
+
 function runNpm(script: string, root: string): void {
   execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", script], { cwd: root, stdio: "inherit" });
 }
@@ -72,9 +83,8 @@ export function finalizeRelease(options: { commit: boolean }, root = process.cwd
   console.log(`buildER ${version} validated on branch ${branch}. Notes: ${notesPath}`);
   if (options.commit) {
     execFileSync("git", ["add", "package.json", "package-lock.json", "src/releases", "src/i18n/messages", "CHANGELOG.md", "release-notes.md"], { cwd: root, stdio: "inherit" });
-    execFileSync("git", ["commit", "-m", `chore(release): buildER ${version}`], { cwd: root, stdio: "inherit" });
-    execFileSync("git", ["tag", "-a", `v${version}`, "-m", `buildER v${version}`], { cwd: root, stdio: "inherit" });
-    console.log(`Created local commit and annotated tag v${version}. Nothing was pushed.`);
+    execFileSync("git", ["commit", "-m", `release(app): prepare version ${version}`], { cwd: root, stdio: "inherit" });
+    console.log(`Created the local preparation commit for buildER ${version}. No tag was created or pushed.`);
   }
 }
 
@@ -83,6 +93,7 @@ if (invokedDirectly) {
   try {
     const args = process.argv.slice(2);
     if (args.includes("--finalize")) finalizeRelease({ commit: args.includes("--commit") });
+    else if (args.includes("--auto")) prepareReleaseAutomatically();
     else prepareRelease(args.find((arg) => !arg.startsWith("--")) as ReleaseBump);
   } catch (error) { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; }
 }

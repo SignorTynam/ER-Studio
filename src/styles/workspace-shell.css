@@ -136,7 +136,10 @@
 }
 
 /* Testo di stato solo per screen reader (Fase C1: il "modificato" visivo è il dot). */
-.visually-hidden-chrome-state {
+/* Testo riservato agli screen reader: fuori schermo ma leggibile dagli AT.
+   Valori di plumbing a11y (non design token): il pattern clip è quello standard. */
+.visually-hidden-chrome-state,
+.workspace-toast-announcer {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -207,6 +210,11 @@
   gap: var(--space-1);
 }
 
+.editor-context-actions > .ui-tooltip-anchor {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
 .editor-context-button,
 .editor-view-switcher button {
   display: inline-flex;
@@ -265,6 +273,23 @@
   color: var(--color-text-primary);
   font: 13px/1.65 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   tab-size: 2;
+}
+
+.workspace-text-editor__surface {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-text-editor__surface:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.workspace-text-editor__surface .designer-code-editor {
+  --code-editor-padding-y: 18px;
+  width: 100%;
+  height: 100%;
 }
 
 .workspace-text-editor__footer {

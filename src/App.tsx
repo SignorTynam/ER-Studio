@@ -17,12 +17,13 @@ import {
 } from "./components/project/ProjectActivityPanel";
 import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { MoveToDialog } from "./components/project/MoveToDialog";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
 import { NoProjectWelcomePage } from "./components/workspace/NoProjectWelcomePage";
 import { WorkspaceEmptyEditor } from "./components/workspace/WorkspaceEmptyEditor";
 import { WorkspaceEditorHeader } from "./components/workspace/WorkspaceEditorHeader";
-import { PanelIconButton } from "./components/workspace/WorkspacePanel";
+import { PanelEmptyState, PanelIconButton, WorkspacePanel } from "./components/workspace/WorkspacePanel";
 import { WorkspaceTextEditor } from "./components/workspace/WorkspaceTextEditor";
 import { WorkspaceWelcomePage } from "./components/workspace/WorkspaceWelcomePage";
 import { ErrorsPanel } from "./components/validation/ErrorsPanel";
@@ -35,6 +36,7 @@ import {
   type CardinalityDialogTarget,
 } from "./components/CardinalityModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
+import { SettingsModal } from "./components/settings/SettingsModal";
 import { NotesModal } from "./components/NotesModal";
 import { OnboardingGuide } from "./components/OnboardingGuide";
 import { SqlReverseErPreview } from "./components/SqlReverseErPreview";
@@ -98,10 +100,16 @@ import { SqlExplorerPanel } from "./features/sql-playground/SqlExplorerPanel";
 import {
   buildSqlPlaygroundSessionId,
   createImportedDatabaseSessionState,
+  createSqlPlaygroundSessionState,
   downloadImportedSqliteDatabase,
   markImportedDatabaseExported,
   markImportedDatabaseRestored,
 } from "./utils/sqlPlayground";
+import {
+  resolveSqlFileDatabaseName,
+  resolveSqlPlaygroundSchema,
+  stripSqlFileDatabaseContext,
+} from "./utils/sqlFileWorkspace";
 import { ImportedDatabaseWorkspace } from "./features/database-workspace/ImportedDatabaseWorkspace";
 import { DatabaseCloseDialog } from "./features/database-workspace/DatabaseCloseDialog";
 import { DatabaseReverseWizard } from "./features/database-workspace/reverse/DatabaseReverseWizard";
@@ -116,7 +124,10 @@ import type {
   DatabaseReverseApplyReport,
   DatabaseReverseApplyRequest,
 } from "./features/database-workspace/databaseWorkspaceTypes";
-import type { ImportedSqlDatabaseSessionState } from "./features/sql-playground/sqlPlaygroundState";
+import type {
+  GeneratedSqlPlaygroundSessionState,
+  ImportedSqlDatabaseSessionState,
+} from "./features/sql-playground/sqlPlaygroundState";
 import { createReverseExtrasSql } from "./features/database-workspace/reverse/sqliteMetadataToSqlSchemaModel";
 import {
   DEFAULT_VIEWPORT,
@@ -184,6 +195,7 @@ import {
 } from "./utils/geometry";
 import {
   buildAttributeLayoutOptionsForHost,
+  createAttributeForHost,
   distributeAttributesAroundHost,
   findDirectHostedAttributes,
   layoutIncrementallyConnectedAttribute,
@@ -250,6 +262,8 @@ import {
   deleteProjectNode,
   ensureProjectFileExtension,
   getUniqueProjectNodeName,
+  getValidMoveDestinations,
+  moveNode,
   normalizeProjectNodeName,
   renameProjectNode,
   setProjectExplorerExpandedFolders,
@@ -288,7 +302,13 @@ import {
   presentValidationIssue,
   validationIssueTargetExists,
 } from "./utils/validationIssuePresentation";
-import type { SqlReverseIssue } from "./types/sqlReverse";
+import type { ValidationIssueAction } from "./utils/validationIssuePresentation";
+import { computeValidationAutoFix } from "./utils/validationAutoFix";
+import type { SqlReverseDialect, SqlReverseIssue, SqlUnsupportedStatement } from "./types/sqlReverse";
+import {
+  readSqlReverseDialectPreference,
+  writeSqlReverseDialectPreference,
+} from "./utils/sqlReverseDialectPreference";
 import {
   CONNECTOR_CARDINALITY_PRESETS,
   applyConnectorCardinalityToDiagram,
@@ -317,17 +337,20 @@ function createInitialSqlReverseWorkflowState(
   sourceSql = "",
   sourceFileId: string | null = null,
   sourceFileName?: string,
+  dialect: SqlReverseDialect = readSqlReverseDialectPreference(),
 ): SqlReverseWorkflowState {
   return {
     step: "idle",
     sourceSql,
     sourceFileId,
     sourceFileName,
+    dialect,
     result: null,
     issues: [],
     logicalIssues: [],
     tableCount: 0,
     unsupportedStatementCount: 0,
+    unsupportedStatements: [],
     errorMessage: "",
     logicalViewport: { ...DEFAULT_VIEWPORT },
     erViewport: { ...DEFAULT_VIEWPORT },
@@ -400,11 +423,13 @@ interface SqlReverseWorkflowState {
   sourceSql: string;
   sourceFileId: string | null;
   sourceFileName?: string;
+  dialect: SqlReverseDialect;
   result: SqlReverseDiagramResult | null;
   issues: SqlReverseIssue[];
   logicalIssues: LogicalIssue[];
   tableCount: number;
   unsupportedStatementCount: number;
+  unsupportedStatements: SqlUnsupportedStatement[];
   errorMessage: string;
   logicalViewport: Viewport;
   erViewport: Viewport;
@@ -961,6 +986,8 @@ export default function App() {
     showWarningNotice,
     showSuccessNotice,
     removeNotice: dismissNotice,
+    pauseNoticeTimers,
+    resumeNoticeTimers,
   } = useWorkspaceNotices({ formatErrorMessage: (message) => formatErrorFromRawMessage(message, t) });
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [versionCompareSession, setVersionCompareSession] = useState<VersionCompareSession | null>(null);
@@ -971,6 +998,8 @@ export default function App() {
   const [sourceControlCommitMessage, setSourceControlCommitMessage] = useState("");
   const [selectedSourceCommitId, setSelectedSourceCommitId] = useState<string | null>(null);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moveDialogNodeId, setMoveDialogNodeId] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [introOpen, setIntroOpen] = useState(false);
   const {
@@ -1045,6 +1074,10 @@ export default function App() {
   const [openSqlPlaygroundSchemaIds, setOpenSqlPlaygroundSchemaIds] = useState<string[]>([]);
   const [activeSqlPlaygroundSchemaId, setActiveSqlPlaygroundSchemaId] = useState<string | null>(null);
   const [lastSqlPlaygroundSchemaId, setLastSqlPlaygroundSchemaId] = useState<string | null>(null);
+  const [sqlFilePlaygroundConfigs, setSqlFilePlaygroundConfigs] = useState<Record<
+    string,
+    { databaseName: string; generatedSql: string }
+  >>({});
   const [openImportedDatabaseSessionIds, setOpenImportedDatabaseSessionIds] = useState<string[]>([]);
   const [activeImportedDatabaseSessionId, setActiveImportedDatabaseSessionId] = useState<string | null>(null);
   const [manualSqlExplorerSessionId, setManualSqlExplorerSessionId] = useState<string | null>(null);
@@ -1060,6 +1093,8 @@ export default function App() {
     sessionId: string;
     query: string;
     execute: boolean;
+    createDatabase?: boolean;
+    databaseName?: string;
   } | null>(null);
   const sqlPlaygroundManagerRef = useRef<SqlPlaygroundManager | null>(null);
   const sqlPlaygroundManagerUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -1124,10 +1159,11 @@ export default function App() {
   const activeProjectFileId = hasProject ? projectExplorer.project.activeFileId ?? projectExplorer.view.activeFileId : null;
   const activeProjectFile = activeProjectFileId ? projectExplorer.files[activeProjectFileId] : undefined;
   const activeSchemaFile = activeProjectFile?.kind === "schema" ? activeProjectFile : null;
-  const activeSqlPlaygroundSchema = activeSqlPlaygroundSchemaId
+  const activeSqlPlaygroundSourceFile = activeSqlPlaygroundSchemaId
     ? projectExplorer.files[activeSqlPlaygroundSchemaId]
     : undefined;
-  const sqlPlaygroundActive = activeSqlPlaygroundSchema?.kind === "schema";
+  const sqlPlaygroundActive = activeSqlPlaygroundSourceFile?.kind === "schema"
+    || activeSqlPlaygroundSourceFile?.kind === "sql";
   const importedDatabaseSessions = useMemo(() => {
     void databaseManagerRevision;
     const manager = sqlPlaygroundManagerRef.current;
@@ -1150,14 +1186,20 @@ export default function App() {
     ? importedDatabaseSessions.find((session) => session.sessionId === databaseReverseSessionId) ?? null
     : null;
   const importedDatabaseActive = Boolean(activeImportedDatabaseSession);
-  const sqlExplorerSchemaId = activeSqlPlaygroundSchemaId
-    ?? activeSchemaFile?.id
-    ?? (lastSqlPlaygroundSchemaId && projectExplorer.files[lastSqlPlaygroundSchemaId]?.kind === "schema"
-      ? lastSqlPlaygroundSchemaId
-      : null);
+  const sqlExplorerSchemaResolution = resolveSqlPlaygroundSchema({
+    files: projectExplorer.files,
+    activePlaygroundSchemaId: activeSqlPlaygroundSchemaId ?? activeSchemaFile?.id ?? null,
+    lastPlaygroundSchemaId: lastSqlPlaygroundSchemaId,
+  });
+  const sqlExplorerSchemaId = sqlExplorerSchemaResolution.status === "resolved"
+    ? sqlExplorerSchemaResolution.schemaFileId
+    : null;
   const sqlExplorerSchema = sqlExplorerSchemaId ? projectExplorer.files[sqlExplorerSchemaId] : undefined;
-  const generatedSqlExplorerSessionId = hasProject && sqlExplorerSchema?.kind === "schema"
-    ? buildSqlPlaygroundSessionId(projectExplorer.project.id, sqlExplorerSchema.id)
+  const generatedSqlExplorerSourceFile = sqlPlaygroundActive
+    ? activeSqlPlaygroundSourceFile
+    : sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema : undefined;
+  const generatedSqlExplorerSessionId = hasProject && generatedSqlExplorerSourceFile
+    ? buildSqlPlaygroundSessionId(projectExplorer.project.id, generatedSqlExplorerSourceFile.id)
     : null;
   const availableSqlExplorerSessions = sqlPlaygroundManagerRef.current?.getSessionStates() ?? [];
   const sqlExplorerSessionId = activeImportedDatabaseSessionId
@@ -1172,7 +1214,9 @@ export default function App() {
     : undefined;
   const sqlExplorerDisplayName = sqlExplorerSessionState?.source.kind === "imported-sqlite"
     ? sqlExplorerSessionState.source.fileName
-    : sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema.name : null;
+    : sqlExplorerSessionState?.source.kind === "generated-schema"
+      ? sqlExplorerSessionState.source.schemaName
+      : sqlExplorerSchema?.kind === "schema" ? sqlExplorerSchema.name : null;
   const hasOpenSchema = Boolean(activeSchemaFile);
   const activeProjectTab = hasProject && projectExplorer.view.activeTabId
     ? projectExplorer.view.openTabs.find((tab) => tab.id === projectExplorer.view.activeTabId)
@@ -1445,6 +1489,7 @@ export default function App() {
   const releaseAnnouncementBlocked =
     commandMenuOpen ||
     keyboardShortcutsOpen ||
+    settingsOpen ||
     aboutOpen ||
     appReleases.releaseCenterOpen ||
     introOpen ||
@@ -1482,7 +1527,7 @@ export default function App() {
     }
 
     restoredSessionNoticeShownRef.current = true;
-    setStatusMessage("Sessione precedente ripristinata automaticamente.");
+    setStatusMessage(t("workspace.restoredSession"));
   }, [sessionBootstrap.restored]);
 
   useEffect(() => {
@@ -1639,7 +1684,7 @@ export default function App() {
         setStatusWarning(access.reason ?? "La vista logica non e piu disponibile finche la traduzione non viene completata.");
       }
     } else if (diagramView === "translation") {
-      setStatus("Vista Traduzione riallineata al modello ER.");
+      setStatus(t("workspace.translationRealigned"));
     }
   }, [currentErSignature, diagramView, history.present, translationHistory]);
 
@@ -1666,7 +1711,7 @@ export default function App() {
     logicalHistory.setPresent(refreshedWorkspace);
 
     if (diagramView === "logical") {
-      setStatus("Vista logica riallineata all'ER tradotto.");
+      setStatus(t("workspace.logicalRealigned"));
     }
   }, [currentTranslatedSignature, diagramView, logicalGenerated, logicalHistory, translationHistory]);
 
@@ -1750,7 +1795,7 @@ export default function App() {
     });
     onboardingPreviousSnapshotRef.current = createOnboardingSnapshot(history.present);
     setOnboardingOpen(true);
-    setStatusMessage("Tour guidato attivo: completa i 4 step nel canvas.");
+    setStatusMessage(t("workspace.tourActive"));
   }, [diagramView, hasProject, onboardingOpen, sessionBootstrap.restored]);
 
   useEffect(() => {
@@ -1813,7 +1858,7 @@ export default function App() {
     markOnboardingCompleted();
     setOnboardingOpen(false);
     onboardingPreviousSnapshotRef.current = null;
-    setStatus("Tour chiuso. Ora puoi modellare liberamente.");
+    setStatus(t("workspace.tourClosed"));
   }, [onboardingOpen, onboardingProgress.allCompleted]);
 
   function markDocumentBaseline(
@@ -1935,24 +1980,24 @@ export default function App() {
   function handleOnboardingStepAction(stepId: OnboardingStepId) {
     if (stepId === "create-entity") {
       setTool("entity");
-      setStatus("Step 1: crea una nuova entita con un click nel canvas.");
+      setStatus(t("workspace.tourStep1"));
       return;
     }
 
     if (stepId === "create-relationship") {
       setTool("relationship");
-      setStatus("Step 2: crea una nuova associazione nel canvas.");
+      setStatus(t("workspace.tourStep2"));
       return;
     }
 
     if (stepId === "create-connection") {
       setTool("connector");
-      setStatus("Step 3: collega entita e associazione trascinando tra i nodi.");
+      setStatus(t("workspace.tourStep3"));
       return;
     }
 
     setTool("select");
-    setStatus("Step 4: fai doppio click su un nodo e rinominalo.");
+    setStatus(t("workspace.tourStep4"));
   }
 
   function handleCanvasStatusMessage(message: string) {
@@ -2028,10 +2073,75 @@ export default function App() {
     return true;
   }
 
+  // Fase H — esecuzione delle azioni di correzione guidata. La presentazione (validationIssuePresentation)
+  // e' pura e dice *quale* azione offrire; qui la si esegue. Auto-fix = singolo undo via commitDiagram.
+  function handleValidationIssueAction(issue: ValidationIssue, action: ValidationIssueAction) {
+    if (action.kind === "auto") {
+      applyValidationAutoFix(issue, action);
+      return;
+    }
+
+    // navigate: porta l'utente nel posto giusto senza decidere la semantica al suo posto.
+    handleIssueNotice(issue);
+    if (action.type === "open-cardinality") {
+      handleOpenCardinalityControl(issue.targetId);
+    }
+  }
+
+  function applyValidationAutoFix(issue: ValidationIssue, action: ValidationIssueAction) {
+    const previousDiagram = history.present;
+
+    if (action.type === "create-attribute") {
+      // Aggiunge un attributo di default all'entita/host: risolve il problema e resta un singolo undo.
+      const result = createAttributeForHost(previousDiagram, issue.targetId);
+      if (!result) {
+        return;
+      }
+      commitDiagram(result.diagram, previousDiagram);
+      setSelection({ nodeIds: [result.attributeId], edgeIds: [] });
+      setTool("select");
+      notifyValidationAutoFix("workspace.validationFix.attributeAdded");
+      return;
+    }
+
+    const nextDiagram = computeValidationAutoFix(previousDiagram, issue, action.type);
+    if (!nextDiagram) {
+      return;
+    }
+
+    commitDiagram(nextDiagram, previousDiagram);
+
+    if (action.type === "delete-edge") {
+      setSelection({ nodeIds: [], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.linkRemoved");
+    } else if (action.type === "delete-attribute") {
+      setSelection({ nodeIds: [], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.attributeRemoved");
+    } else if (action.type === "clear-attribute-cardinality") {
+      setSelection({ nodeIds: [issue.targetId], edgeIds: [] });
+      notifyValidationAutoFix("workspace.validationFix.cardinalityRemoved");
+    }
+  }
+
+  function notifyValidationAutoFix(
+    messageKey:
+      | "workspace.validationFix.linkRemoved"
+      | "workspace.validationFix.attributeRemoved"
+      | "workspace.validationFix.cardinalityRemoved"
+      | "workspace.validationFix.attributeAdded",
+  ) {
+    const message = t(messageKey);
+    setStatus(message);
+    showSuccessNotice(message, {
+      actionLabel: t("canvas.autoLayout.undoAction"),
+      onAction: handleUndoAction,
+    });
+  }
+
   function handleToggleFocusMode() {
     setFocusMode((current) => {
       const next = !current;
-      setStatus(next ? "Modalita focus attiva: il canvas diventa protagonista." : "Modalita focus disattivata.");
+      setStatus(next ? t("workspace.focusModeOn") : t("workspace.focusModeOff"));
       return next;
     });
   }
@@ -2089,8 +2199,13 @@ export default function App() {
     setStatusWarning(t("sqlReverse.app.importCancelled"));
   }
 
-  function handleAnalyzeSqlReverseWorkflow() {
-    const validation = validateSqlReverseBetaSource(sqlReverseWorkflow.sourceSql);
+  function analyzeSqlReverseSource(
+    sourceSql: string,
+    dialect: SqlReverseDialect,
+    sourceFileId: string | null,
+    sourceFileName?: string,
+  ) {
+    const validation = validateSqlReverseBetaSource(sourceSql, { dialect });
     const validationMessage = validation.errorCode === "empty-source"
       ? t("sqlReverse.app.emptyFile")
       : validation.errorCode === "missing-create-table"
@@ -2098,21 +2213,25 @@ export default function App() {
         : validation.errorCode === "unsupported-statement"
           ? t("sqlReverse.app.betaCreateTableOnly")
           : "";
-    if (validation.normalizedSql && validation.normalizedSql !== sqlReverseWorkflow.sourceSql) {
+    if (validation.normalizedSql && validation.normalizedSql !== sourceSql) {
       setProjectExplorer((current) => {
-        const sourceFileId = sqlReverseWorkflow.sourceFileId;
         return updateSqlReverseSourceFile(current, sourceFileId, validation.normalizedSql);
       });
     }
     if (!validation.ok) {
-      setSqlReverseWorkflow((current) => ({
-        ...current,
-        sourceSql: validation.normalizedSql || current.sourceSql,
+      setSqlReverseWorkflow(() => ({
+        ...createInitialSqlReverseWorkflowState(
+          validation.normalizedSql || sourceSql,
+          sourceFileId,
+          sourceFileName,
+          dialect,
+        ),
         result: null,
         issues: validation.issues,
         logicalIssues: [],
         tableCount: 0,
         unsupportedStatementCount: validation.unsupportedStatementCount,
+        unsupportedStatements: validation.unsupportedStatements,
         errorMessage: validationMessage,
         isPreviewReady: false,
       }));
@@ -2121,20 +2240,26 @@ export default function App() {
     }
 
     try {
-      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: t("sqlReverse.input.title") });
+      const result = reverseSqlToDiagram(validation.normalizedSql, { sourceName: t("sqlReverse.input.title"), dialect });
       const hasSqlErrors = result.issues.some((issue) => issue.level === "error");
       const hasValidDiagram = result.diagram.nodes.length > 0;
 
       if (result.sqlModel.unsupportedStatements.length > 0) {
         const message = t("sqlReverse.app.betaCreateTableOnly");
-        setSqlReverseWorkflow((current) => ({
-          ...current,
+        setSqlReverseWorkflow(() => ({
+          ...createInitialSqlReverseWorkflowState(
+            validation.normalizedSql,
+            sourceFileId,
+            sourceFileName,
+            dialect,
+          ),
           sourceSql: validation.normalizedSql,
           result: null,
           issues: result.issues,
           logicalIssues: result.logicalIssues,
           tableCount: result.sqlModel.tables.length,
           unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          unsupportedStatements: result.sqlModel.unsupportedStatements,
           errorMessage: message,
           isPreviewReady: false,
         }));
@@ -2143,14 +2268,20 @@ export default function App() {
       }
 
       if (hasSqlErrors || !hasValidDiagram) {
-        setSqlReverseWorkflow((current) => ({
-          ...current,
+        setSqlReverseWorkflow(() => ({
+          ...createInitialSqlReverseWorkflowState(
+            validation.normalizedSql,
+            sourceFileId,
+            sourceFileName,
+            dialect,
+          ),
           sourceSql: validation.normalizedSql,
           result: null,
           issues: result.issues,
           logicalIssues: result.logicalIssues,
           tableCount: result.sqlModel.tables.length,
           unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+          unsupportedStatements: result.sqlModel.unsupportedStatements,
           errorMessage: t("sqlReverse.app.sqlNotImportable"),
           isPreviewReady: true,
         }));
@@ -2159,7 +2290,12 @@ export default function App() {
       }
 
       setSqlReverseWorkflow((current) => ({
-        ...current,
+        ...createInitialSqlReverseWorkflowState(
+          validation.normalizedSql,
+          sourceFileId,
+          sourceFileName,
+          dialect,
+        ),
         step: "logical-preview",
         sourceSql: validation.normalizedSql,
         result,
@@ -2167,6 +2303,7 @@ export default function App() {
         logicalIssues: result.logicalIssues,
         tableCount: result.sqlModel.tables.length,
         unsupportedStatementCount: result.sqlModel.unsupportedStatements.length,
+        unsupportedStatements: result.sqlModel.unsupportedStatements,
         errorMessage: "",
         logicalViewport: { ...DEFAULT_VIEWPORT },
         erViewport: { ...DEFAULT_VIEWPORT },
@@ -2188,17 +2325,53 @@ export default function App() {
         code: "PARSER_RECOVERY",
         message,
       };
-      setSqlReverseWorkflow((current) => ({
-        ...current,
+      setSqlReverseWorkflow(() => ({
+        ...createInitialSqlReverseWorkflowState(sourceSql, sourceFileId, sourceFileName, dialect),
         result: null,
         issues: [parseIssue],
         logicalIssues: [],
         tableCount: 0,
         unsupportedStatementCount: 0,
+        unsupportedStatements: [],
         errorMessage: message,
         isPreviewReady: true,
       }));
       setStatusError(t("sqlReverse.app.sqlNotImportable"));
+    }
+  }
+
+  function handleAnalyzeSqlReverseWorkflow(dialectOverride?: SqlReverseDialect) {
+    analyzeSqlReverseSource(
+      sqlReverseWorkflow.sourceSql,
+      dialectOverride ?? sqlReverseWorkflow.dialect,
+      sqlReverseWorkflow.sourceFileId,
+      sqlReverseWorkflow.sourceFileName,
+    );
+  }
+
+  function handleStartSqlReverseFromFile(file: ProjectWorkspaceFile) {
+    if (file.kind !== "sql") return;
+    setFocusMode(false);
+    closeTechnicalPanel();
+    setWorkspaceActivityOpen(false);
+    analyzeSqlReverseSource(file.content, sqlReverseWorkflow.dialect, file.id, file.name);
+  }
+
+  function handleSqlReverseDialectChange(dialect: SqlReverseDialect) {
+    if (dialect === sqlReverseWorkflow.dialect) {
+      return;
+    }
+    writeSqlReverseDialectPreference(dialect);
+    setSqlReverseWorkflow((current) => ({ ...current, dialect }));
+    // Se un'analisi è già stata eseguita, ri-analizzo subito col nuovo dialetto; altrimenti
+    // memorizzo solo la scelta (verrà usata al prossimo "Analizza").
+    const alreadyAnalyzed =
+      sqlReverseWorkflow.isPreviewReady
+      || sqlReverseWorkflow.result != null
+      || sqlReverseWorkflow.issues.length > 0
+      || sqlReverseWorkflow.errorMessage.length > 0;
+    if (alreadyAnalyzed && sqlReverseWorkflow.sourceSql.trim().length > 0) {
+      handleAnalyzeSqlReverseWorkflow(dialect);
     }
   }
 
@@ -2569,12 +2742,55 @@ export default function App() {
       return;
     }
     const file = projectExplorer.files[session.source.schemaFileId];
-    if (file?.kind !== "schema") return;
-    openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
+    if (file?.kind === "schema") {
+      openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
+      setLastSqlPlaygroundSchemaId(file.id);
+    } else if (file?.kind === "sql") {
+      setProjectExplorer(ensureFileTabOpen(syncActiveSchemaToProject(), file.id));
+    } else {
+      return;
+    }
     setOpenSqlPlaygroundSchemaIds((current) => current.includes(file.id) ? current : [...current, file.id]);
     setActiveSqlPlaygroundSchemaId(file.id);
     setActiveImportedDatabaseSessionId(null);
-    setLastSqlPlaygroundSchemaId(file.id);
+  }
+
+  function openGeneratedSqlPlaygroundQuery(
+    schemaFileId: string,
+    schemaName: string,
+    query: string,
+    execute: boolean,
+    options: { createDatabase?: boolean; databaseName?: string } = {},
+  ) {
+    const synced = syncActiveSchemaToProject();
+    if (activeSchemaFile?.id !== schemaFileId) {
+      openSchemaWorkspaceFile(schemaFileId, synced);
+    }
+
+    const manager = getSqlPlaygroundManager();
+    const sessionId = buildSqlPlaygroundSessionId(projectExplorer.project.id, schemaFileId);
+    const existing = manager.getSessionState(sessionId);
+    const seeded = existing?.source.kind === "generated-schema"
+      ? { ...existing, query }
+      : {
+          ...createSqlPlaygroundSessionState({
+            sessionId,
+            projectId: projectExplorer.project.id,
+            schemaFileId,
+            schemaName,
+            currentGeneratedChecksum: "",
+          }),
+          query,
+        };
+    manager.setSessionState(seeded);
+    activateSqlPlayground(schemaFileId, schemaName);
+    setSqlExplorerQueryRequest((current) => ({
+      id: (current?.id ?? 0) + 1,
+      sessionId,
+      query,
+      execute,
+      ...options,
+    }));
   }
 
   function handleOpenSqlExplorerQuery(sessionId: string, query: string, execute: boolean) {
@@ -2583,21 +2799,17 @@ export default function App() {
     if (session.source.kind === "imported-sqlite") {
       setActiveImportedDatabaseSessionId(sessionId);
       setActiveSqlPlaygroundSchemaId(null);
+      setSqlExplorerQueryRequest((current) => ({
+        id: (current?.id ?? 0) + 1,
+        sessionId,
+        query,
+        execute,
+      }));
     } else {
       const file = projectExplorer.files[session.source.schemaFileId];
       if (file?.kind !== "schema") return;
-      openSchemaWorkspaceFile(file.id, syncActiveSchemaToProject());
-      setOpenSqlPlaygroundSchemaIds((current) => current.includes(file.id) ? current : [...current, file.id]);
-      setActiveSqlPlaygroundSchemaId(file.id);
-      setActiveImportedDatabaseSessionId(null);
-      setLastSqlPlaygroundSchemaId(file.id);
+      openGeneratedSqlPlaygroundQuery(file.id, file.name, query, execute);
     }
-    setSqlExplorerQueryRequest((current) => ({
-      id: (current?.id ?? 0) + 1,
-      sessionId,
-      query,
-      execute,
-    }));
   }
 
   function createSchemaFromDatabaseReverse(request: DatabaseReverseApplyRequest) {
@@ -2732,6 +2944,107 @@ export default function App() {
       return;
     }
     activateSqlPlayground(activeSchemaFile.id, activeSchemaFile.name);
+  }
+
+  async function handleOpenSqlFileInPlayground(file: ProjectWorkspaceFile) {
+    if (file.kind !== "sql") return;
+    const sqlWithoutDatabaseContext = stripSqlFileDatabaseContext(file.content);
+    let directSchemaSql: string | null = null;
+    try {
+      const reverseResult = reverseSqlToDiagram(sqlWithoutDatabaseContext, {
+        sourceName: file.name,
+        dialect: sqlReverseWorkflow.dialect,
+      });
+      if (
+        reverseResult.sqlModel.tables.length > 0
+        && !reverseResult.issues.some((issue) => issue.level === "error")
+      ) {
+        directSchemaSql = generateLogicalSql(reverseResult.logicalModel, {
+          dialect: "sqlite",
+          quoteIdentifiers: true,
+        });
+      }
+    } catch {
+      directSchemaSql = null;
+    }
+
+    let schemaFile: Extract<ProjectWorkspaceFile, { kind: "schema" }> | null = null;
+    if (!directSchemaSql) {
+      const resolution = resolveSqlPlaygroundSchema({
+        files: projectExplorer.files,
+        activePlaygroundSchemaId: activeSqlPlaygroundSchemaId,
+        lastPlaygroundSchemaId: lastSqlPlaygroundSchemaId,
+      });
+      if (resolution.status === "missing") {
+        setStatusWarning(t("workspaceChrome.sqlActions.noSchemaWarning"));
+        return;
+      }
+      if (resolution.status === "ambiguous") {
+        setStatusWarning(t("workspaceChrome.sqlActions.ambiguousSchemaWarning"));
+        return;
+      }
+      const resolvedFile = projectExplorer.files[resolution.schemaFileId];
+      if (resolvedFile?.kind !== "schema") return;
+      schemaFile = resolvedFile;
+    }
+
+    const declaredDatabaseName = resolveSqlFileDatabaseName(file.content);
+    const databaseName = declaredDatabaseName ?? await requestPromptDialog({
+      title: t("workspaceChrome.sqlActions.databaseNameTitle"),
+      label: t("workspaceChrome.sqlActions.databaseNameLabel"),
+      initialValue: file.name.replace(/\.sql$/i, ""),
+      placeholder: t("workspaceChrome.sqlActions.databaseNamePlaceholder"),
+      confirmLabel: t("workspaceChrome.sqlActions.createDatabase"),
+      required: true,
+      requiredMessage: t("workspaceChrome.sqlActions.databaseNameRequired"),
+    });
+    if (!databaseName) return;
+    if (directSchemaSql) {
+      const manager = getSqlPlaygroundManager();
+      const sessionId = buildSqlPlaygroundSessionId(projectExplorer.project.id, file.id);
+      const existing = manager.getSessionState(sessionId);
+      const generatedExisting = existing?.source.kind === "generated-schema"
+        ? existing as GeneratedSqlPlaygroundSessionState
+        : null;
+      if (generatedExisting) {
+        manager.setSessionState({
+          ...generatedExisting,
+          query: file.content,
+          schemaName: databaseName,
+          source: { ...generatedExisting.source, schemaName: databaseName },
+        });
+      } else {
+        manager.setSessionState({
+          ...createSqlPlaygroundSessionState({
+            sessionId,
+            projectId: projectExplorer.project.id,
+            schemaFileId: file.id,
+            schemaName: databaseName,
+            currentGeneratedChecksum: "",
+          }),
+          query: file.content,
+        });
+      }
+      setSqlFilePlaygroundConfigs((current) => ({
+        ...current,
+        [file.id]: { databaseName, generatedSql: directSchemaSql },
+      }));
+      activateSqlPlayground(file.id, databaseName);
+      setSqlExplorerQueryRequest((current) => ({
+        id: (current?.id ?? 0) + 1,
+        sessionId,
+        query: file.content,
+        execute: false,
+        createDatabase: true,
+        databaseName,
+      }));
+    } else if (schemaFile) {
+      openGeneratedSqlPlaygroundQuery(schemaFile.id, schemaFile.name, file.content, false, {
+        createDatabase: true,
+        databaseName,
+      });
+    }
+    setStatus(t("workspaceChrome.sqlActions.playgroundDatabaseCreating", { name: databaseName }));
   }
 
   function activateSqlPlayground(schemaFileId: string, schemaName: string) {
@@ -3080,6 +3393,10 @@ export default function App() {
         setActiveSqlPlaygroundSchemaId(playgroundSchemaId);
         setActiveImportedDatabaseSessionId(null);
         setLastSqlPlaygroundSchemaId(playgroundSchemaId);
+      } else if (file?.kind === "sql") {
+        setProjectExplorer(ensureFileTabOpen(synced, file.id));
+        setActiveSqlPlaygroundSchemaId(playgroundSchemaId);
+        setActiveImportedDatabaseSessionId(null);
       }
       return;
     }
@@ -3412,6 +3729,23 @@ export default function App() {
     setStatus(t("projectExplorer.status.renamed", { name: renamedNode?.name ?? requestedName }));
   }
 
+  function handleProjectExplorerMove(nodeId: string, targetParentId: string) {
+    const source = syncActiveSchemaToProject();
+    const result = moveNode(source, nodeId, targetParentId);
+    if (!result.ok) {
+      setStatusWarning(t(`projectExplorer.errors.${result.reason}`));
+      return;
+    }
+    if (result.state === source) {
+      return; // no-op: niente cambiamento, niente step di undo
+    }
+
+    applyProjectExplorerState(result.state);
+    const movedNode = result.state.project.fileTree.find((candidate) => candidate.id === nodeId);
+    const targetNode = result.state.project.fileTree.find((candidate) => candidate.id === targetParentId);
+    setStatus(t("projectExplorer.status.moved", { name: movedNode?.name ?? "", folder: targetNode?.name ?? "" }));
+  }
+
   async function handleProjectExplorerDelete(nodeId: string) {
     const node = projectExplorer.project.fileTree.find((candidate) => candidate.id === nodeId);
     if (!node) {
@@ -3737,6 +4071,12 @@ export default function App() {
         return;
       }
 
+      if ((event.ctrlKey || event.metaKey) && event.key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
+
       const isEditingField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
@@ -3837,7 +4177,7 @@ export default function App() {
         if (nextTool) {
           event.preventDefault();
           handleToolChange(nextTool);
-          setStatus(`Strumento attivo: ${getToolLabel(nextTool)}.`);
+          setStatus(t("workspace.toolActive", { tool: getToolLabel(nextTool) }));
           return;
         }
       }
@@ -3881,6 +4221,11 @@ export default function App() {
           return;
         }
 
+        if (settingsOpen) {
+          setSettingsOpen(false);
+          return;
+        }
+
         if (keyboardShortcutsOpen) {
           setKeyboardShortcutsOpen(false);
           return;
@@ -3899,7 +4244,7 @@ export default function App() {
         if (diagramView === "er") {
           if (tool === "entity" || tool === "relationship") {
             setTool("select");
-            setStatus("Posizionamento annullato.");
+            setStatus(t("canvas.status.placementCancelled"));
             return;
           }
           setSelection({ nodeIds: [], edgeIds: [] });
@@ -4049,7 +4394,7 @@ export default function App() {
     }
 
     setTool("select");
-    setStatus("Workspace di traduzione ER->ER resettato.");
+    setStatus(t("workspace.translationWorkspaceReset"));
   }
 
   function regenerateLogicalWorkspace(options?: {
@@ -4079,7 +4424,7 @@ export default function App() {
 
     setTool("select");
     if (options?.resetDecisions) {
-      setStatus("Workflow logico manuale resettato.");
+      setStatus(t("workspace.logicalManualReset"));
       return;
     }
 
@@ -4129,7 +4474,7 @@ export default function App() {
           logicalHistory.present,
         );
         logicalHistory.setPresent(refreshedWorkspace);
-        setStatus("Vista logica riallineata all'ER tradotto senza conversione automatica completa.");
+        setStatus(t("workspace.logicalRealignedNoAutoConvert"));
       }
 
       if (diagramView === "translation") {
@@ -4146,7 +4491,7 @@ export default function App() {
     setLogicalTypeMode(false);
     setTranslationSelection({ nodeIds: [], edgeIds: [] });
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
-    setStatus("Vista ER attiva.");
+    setStatus(t("workspace.erViewActive"));
   }
 
   function handleGenerateLogicalModel() {
@@ -4178,7 +4523,7 @@ export default function App() {
       logicalHistory.present.translation.decisions.length > 0 ||
       logicalHistory.present.model.tables.length > 0 ||
       logicalHistory.present.model.foreignKeys.length > 0;
-    if (hasAppliedWork && !window.confirm("Vuoi cancellare tutte le modifiche della traduzione logica?")) {
+    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
       return;
     }
 
@@ -4192,7 +4537,7 @@ export default function App() {
     setLogicalSelection(EMPTY_LOGICAL_SELECTION);
     setLogicalViewport(DEFAULT_VIEWPORT);
     setDiagramView("logical");
-    setStatus("Traduzione logica resettata.");
+    setStatus(t("workspace.logicalReset"));
   }
 
   function showLogicalStageAfterFix(
@@ -4518,13 +4863,27 @@ export default function App() {
       return;
     }
 
+    const requestedName = await requestPromptDialog({
+      title: t("projectExplorer.dialogs.newProjectTitle"),
+      label: t("projectExplorer.dialogs.projectNameLabel"),
+      initialValue: t("workspace.newDiagramName"),
+      confirmLabel: t("projectExplorer.dialogs.createAction"),
+      required: true,
+      validate: (value) => (/[\\/]/.test(value) ? t("projectExplorer.errors.invalid-characters") : null),
+    });
+    if (requestedName == null) {
+      return;
+    }
+    const projectName = requestedName;
+
     await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
     setOpenSqlPlaygroundSchemaIds([]);
+    setSqlFilePlaygroundConfigs({});
     setActiveSqlPlaygroundSchemaId(null);
     setLastSqlPlaygroundSchemaId(null);
     setActiveImportedDatabaseSessionId(null);
 
-    const newDiagram = createEmptyDiagram(t("workspace.newDiagramName"));
+    const newDiagram = createEmptyDiagram(projectName);
     const translationWorkspace = createEmptyErTranslationWorkspace(newDiagram);
     const logicalWorkspace = createEmptyLogicalWorkspace(translationWorkspace.translatedDiagram);
     const schema = createSchemaDocumentFromProjectState({
@@ -4548,7 +4907,7 @@ export default function App() {
       },
       versioning: createEmptyProjectVersioningState(),
     });
-    const nextProject = createEmptyProjectExplorerState(t("workspace.newDiagramName"));
+    const nextProject = createEmptyProjectExplorerState(projectName);
     setHasProject(true);
     setProjectExplorer(nextProject);
     applyWorkspaceDocument(
@@ -4594,6 +4953,7 @@ export default function App() {
 
     await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
     setOpenSqlPlaygroundSchemaIds([]);
+    setSqlFilePlaygroundConfigs({});
     setActiveSqlPlaygroundSchemaId(null);
     setLastSqlPlaygroundSchemaId(null);
     setActiveImportedDatabaseSessionId((current) => current ?? openImportedDatabaseSessionIds[openImportedDatabaseSessionIds.length - 1] ?? null);
@@ -5070,7 +5430,7 @@ export default function App() {
       );
       commitDiagram(nextDiagram, cardinalityDialog.previousDiagramBeforeTemporary);
       setSelection({ nodeIds: [], edgeIds: [] });
-      setStatus("Creazione collegamento annullata.");
+      setStatus(t("canvas.status.connectionCreationCancelled"));
     }
 
     setCardinalityDialog(null);
@@ -5554,7 +5914,7 @@ export default function App() {
       const nextDiagram = removeSelection(history.present, { nodeIds: [], edgeIds: [dialog.edgeId] });
       commitDiagram(nextDiagram);
       setSelection({ nodeIds: [], edgeIds: [] });
-      setStatus("Creazione gerarchia ISA annullata.");
+      setStatus(t("workspace.isaCreationCancelled"));
     }
   }
 
@@ -5679,19 +6039,15 @@ export default function App() {
       return;
     }
 
-    const draftAttribute = createNode("attribute", { x: 0, y: 0 }, history.present) as Extract<
-      DiagramNode,
-      { type: "attribute" }
-    >;
-    const nextEdge = createEdge("attribute", draftAttribute.id, hostNode.id, history.present);
-    const nextDiagramBase: DiagramDocument = {
-      ...history.present,
-      nodes: [...history.present.nodes, draftAttribute],
-      edges: [...history.present.edges, nextEdge],
-    };
-    const nextDiagram = layoutIncrementallyConnectedAttribute(nextDiagramBase, nextEdge.id);
+    const result = createAttributeForHost(history.present, hostNode.id);
+    if (!result) {
+      setStatusWarning(t("workspace.selectValidAttributeHost"), {
+        title: t("workspace.noticeTitles.attributeNotApplicable"),
+      });
+      return;
+    }
 
-    commitDiagram(nextDiagram);
+    commitDiagram(result.diagram);
     setSelection({ nodeIds: [hostNode.id], edgeIds: [] });
     setTool("select");
     setStatus(t("workspace.attributeLinkedToHost", { host: hostNode.label }));
@@ -5743,7 +6099,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus("Identificatori interni aggiornati.");
+    setStatus(t("workspace.internalIdentifiersUpdated"));
   }
 
   function handleEntityExternalIdentifiersChange(entityId: string, patch: Partial<EntityNode>) {
@@ -5785,7 +6141,7 @@ export default function App() {
 
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [entityId], edgeIds: [] });
-    setStatus("Identificatori esterni aggiornati.");
+    setStatus(t("workspace.externalIdentifiersUpdated"));
   }
 
   function handleNodeChange(nodeId: string, patch: Partial<DiagramNode>) {
@@ -5915,7 +6271,7 @@ export default function App() {
       if (Object.prototype.hasOwnProperty.call(attributePatch, "cardinality")) {
         const normalizedCardinality = normalizeSupportedCardinality(attributePatch.cardinality);
         if (normalizedCardinality !== undefined && !canAttributeHaveCardinality(workingDiagram, currentNode)) {
-          setStatusWarning("La cardinalita non e assegnabile ad attributi usati come identificatori.");
+          setStatusWarning(t("workspace.cardinalityNotAssignableToIdentifiers"));
           return;
         }
 
@@ -6083,7 +6439,7 @@ export default function App() {
         });
 
         if (targetIds.length !== nodeIds.length) {
-          setStatusWarning("La cardinalita non e stata applicata agli attributi usati come identificatori.");
+          setStatusWarning(t("workspace.cardinalityNotAppliedToIdentifiers"));
         }
       }
     }
@@ -6216,7 +6572,7 @@ export default function App() {
       }
 
       handleRenameNode(selectedNode.id, nextLabel);
-      setStatus("Elemento rinominato.");
+      setStatus(t("workspace.nodeRenamed"));
       return;
     }
 
@@ -6265,7 +6621,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, selection);
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus("Selezione eliminata.");
+    setStatus(t("workspace.selectionDeleted"));
   }
 
   function handleRemoveSelectedEntityFromHierarchy() {
@@ -6290,7 +6646,7 @@ export default function App() {
     const nextDiagram = removeSelection(history.present, { nodeIds: [nodeId], edgeIds: [] });
     commitDiagram(nextDiagram);
     setSelection({ nodeIds: [], edgeIds: [] });
-    setStatus("Elemento eliminato.");
+    setStatus(t("workspace.nodeDeleted"));
   }
 
   function handleDeleteEdgeById(edgeId: string) {
@@ -6987,6 +7343,7 @@ export default function App() {
           : t("workspace.projectLoaded");
       await sqlPlaygroundManagerRef.current?.closeGeneratedSessions(projectExplorer.project.id);
       setOpenSqlPlaygroundSchemaIds([]);
+      setSqlFilePlaygroundConfigs({});
       setActiveSqlPlaygroundSchemaId(null);
       setLastSqlPlaygroundSchemaId(null);
       setActiveImportedDatabaseSessionId(null);
@@ -7391,7 +7748,7 @@ export default function App() {
     ...(hasProject ? applyProjectTabDirtyFileIds(projectExplorer.view.openTabs, dirtyProjectFileIds) : []),
     ...(hasProject ? openSqlPlaygroundSchemaIds.flatMap((schemaFileId) => {
       const file = projectExplorer.files[schemaFileId];
-      return file?.kind === "schema"
+      return file?.kind === "schema" || file?.kind === "sql"
         ? [{
             id: `sql-playground:${schemaFileId}`,
             kind: "sql-playground" as const,
@@ -7439,6 +7796,8 @@ export default function App() {
           onCreateFolder={handleProjectExplorerCreateFolder}
           onRename={handleProjectExplorerRename}
           onDelete={handleProjectExplorerDelete}
+          onMove={handleProjectExplorerMove}
+          onRequestMove={setMoveDialogNodeId}
           onToggleFolder={handleProjectExplorerToggleFolder}
           onCollapseAll={handleProjectExplorerCollapseAll}
           onToggleOpen={handleToggleActivityPanelOpen}
@@ -7545,10 +7904,33 @@ export default function App() {
           </div>
         </section>
       ) : (
-        <section className="project-activity-section" aria-label={t("appHeader.menus.code")}>
+        <WorkspacePanel className="project-activity-section" label={t("appHeader.menus.code")}>
           <ProjectActivityPanelHeader title={t("codePanel.title")} closeLabel={t("workspaceActivity.closePanel")} onClose={handleToggleActivityPanelOpen} />
-          <p className="project-activity-empty">{t("workspace.noSchemaCodeWarning")}</p>
-        </section>
+          <PanelEmptyState
+            className="code-panel__empty"
+            variant="card"
+            icon="code"
+            title={t("workspace.codeEmpty.title")}
+            description={t("workspace.codeEmpty.description")}
+          >
+            <Button
+              size="sm"
+              variant="primary"
+              iconLeft="schema"
+              onClick={() => void handleProjectExplorerCreateSchema(projectExplorer.project.rootId)}
+            >
+              {t("workspace.codeEmpty.createSchema")}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft="panelLeft"
+              onClick={() => handleSelectActivityPanel("file")}
+            >
+              {t("workspace.codeEmpty.openExplorer")}
+            </Button>
+          </PanelEmptyState>
+        </WorkspacePanel>
       )
     ) : activeActivityPanel === "reverse" ? (
       <SqlReversePanel
@@ -7558,8 +7940,11 @@ export default function App() {
         logicalIssues={sqlReverseWorkflow.logicalIssues}
         tableCount={sqlReverseWorkflow.tableCount}
         unsupportedStatementCount={sqlReverseWorkflow.unsupportedStatementCount}
+        unsupportedStatements={sqlReverseWorkflow.unsupportedStatements}
         isPreviewReady={sqlReverseWorkflow.isPreviewReady}
         sourceFileName={sqlReverseWorkflow.sourceFileName}
+        dialect={sqlReverseWorkflow.dialect}
+        onDialectChange={handleSqlReverseDialectChange}
         onSqlChange={handleSqlReverseSourceChange}
         onAnalyze={handleAnalyzeSqlReverseWorkflow}
         onLoadFile={handleLoadSqlReverseFile}
@@ -7576,6 +7961,7 @@ export default function App() {
           const issue = visibleActivityIssues.find((candidate) => candidate.id === issueId);
           if (issue) handleIssueNotice(issue);
         }}
+        onIssueAction={(issue, action) => handleValidationIssueAction(issue, action)}
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />
@@ -7680,7 +8066,12 @@ export default function App() {
           onExitCompareMode={() => setVersionCompareSession(null)}
         />
 
-        <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+        <WorkspaceToastStack
+          notices={notices}
+          onDismissNotice={dismissNotice}
+          onPauseTimers={pauseNoticeTimers}
+          onResumeTimers={resumeNoticeTimers}
+        />
       </>
     );
   }
@@ -7691,7 +8082,6 @@ export default function App() {
           appTitle={APP_TITLE}
           appVersion={APP_VERSION}
           projectName={hasProject ? projectExplorer.project.name : undefined}
-          activeFileName={activeProjectFile?.name}
           saveState={hasVersioningUncommittedChanges ? "modified" : "saved"}
           diagramView={diagramView}
         logicalSqlOpen={logicalPanelMode === "sql"}
@@ -7737,6 +8127,7 @@ export default function App() {
         onExportSql={handleSaveLogicalSql}
         onOpenCommandMenu={openCommandMenu}
         onOpenShortcuts={openKeyboardShortcuts}
+        onOpenSettings={() => setSettingsOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         onOpenReleaseCenter={openReleaseCenter}
         unreadReleaseCount={appReleases.unreadCount}
@@ -7747,7 +8138,12 @@ export default function App() {
           }}
         />
 
-      <WorkspaceToastStack notices={notices} onDismissNotice={dismissNotice} />
+      <WorkspaceToastStack
+          notices={notices}
+          onDismissNotice={dismissNotice}
+          onPauseTimers={pauseNoticeTimers}
+          onResumeTimers={resumeNoticeTimers}
+        />
 
       <div className={workspaceRegionClassName}>
         {hasWorkspaceShell ? (
@@ -7808,6 +8204,12 @@ export default function App() {
               view={diagramView}
               onReveal={() => handleRevealProjectFile(activeProjectFile.id)}
               onViewChange={handleDiagramViewChange}
+              onOpenSqlPlayground={activeProjectFile.kind === "sql"
+                ? () => void handleOpenSqlFileInPlayground(activeProjectFile)
+                : undefined}
+              onStartSqlReverse={activeProjectFile.kind === "sql"
+                ? () => handleStartSqlReverseFromFile(activeProjectFile)
+                : undefined}
             />
           ) : null}
           <div className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
@@ -7819,17 +8221,24 @@ export default function App() {
                 onReverse={handleStartDatabaseReverse}
                 queryRequest={sqlExplorerQueryRequest?.sessionId === activeImportedDatabaseSessionId ? sqlExplorerQueryRequest : null}
               />
-            ) : sqlPlaygroundActive && activeSchemaFile ? (
+            ) : sqlPlaygroundActive && activeSqlPlaygroundSourceFile ? (
               <SqlPlaygroundWorkspace
-                key={`${projectExplorer.project.id}:${activeSchemaFile.id}`}
+                key={`${projectExplorer.project.id}:${activeSqlPlaygroundSourceFile.id}`}
                 manager={getSqlPlaygroundManager()}
                 projectId={projectExplorer.project.id}
-                schemaFileId={activeSchemaFile.id}
-                schemaName={activeSchemaFile.name}
-                generatedSql={sqlPlaygroundSchemaCode}
-                hasLogicalModel={logicalGenerated && logicalHistory.present.model.tables.length > 0}
-                logicalOutOfDate={logicalOutOfDate}
-                queryRequest={sqlExplorerQueryRequest?.sessionId === buildSqlPlaygroundSessionId(projectExplorer.project.id, activeSchemaFile.id) ? sqlExplorerQueryRequest : null}
+                schemaFileId={activeSqlPlaygroundSourceFile.id}
+                schemaName={sqlFilePlaygroundConfigs[activeSqlPlaygroundSourceFile.id]?.databaseName
+                  ?? activeSqlPlaygroundSourceFile.name}
+                generatedSql={sqlFilePlaygroundConfigs[activeSqlPlaygroundSourceFile.id]?.generatedSql
+                  ?? sqlPlaygroundSchemaCode}
+                hasLogicalModel={activeSqlPlaygroundSourceFile.kind === "sql"
+                  ? Boolean(sqlFilePlaygroundConfigs[activeSqlPlaygroundSourceFile.id])
+                  : logicalGenerated && logicalHistory.present.model.tables.length > 0}
+                logicalOutOfDate={activeSqlPlaygroundSourceFile.kind === "schema" && logicalOutOfDate}
+                queryRequest={sqlExplorerQueryRequest?.sessionId === buildSqlPlaygroundSessionId(
+                  projectExplorer.project.id,
+                  activeSqlPlaygroundSourceFile.id,
+                ) ? sqlExplorerQueryRequest : null}
                 onGenerateLogicalModel={() => {
                   setActiveSqlPlaygroundSchemaId(null);
                   handleGenerateLogicalModel();
@@ -8230,6 +8639,7 @@ export default function App() {
           onClose={closeCommandMenu}
           onOpenProjectFile={handleProjectExplorerOpenFile}
           onOpenShortcuts={openKeyboardShortcuts}
+          onOpenSettings={() => setSettingsOpen(true)}
           onDiagramViewChange={handleDiagramViewChange}
           onOpenSql={handleOpenSqlStage}
           onOpenSqlPlayground={handleOpenSqlPlayground}
@@ -8322,6 +8732,32 @@ export default function App() {
       ) : null}
 
       {keyboardShortcutsOpen ? <KeyboardShortcutsModal onClose={() => setKeyboardShortcutsOpen(false)} /> : null}
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        showDiagnostics={showDiagnostics}
+        onShowDiagnosticsChange={setShowDiagnostics}
+        onOpenShortcuts={() => {
+          setSettingsOpen(false);
+          openKeyboardShortcuts();
+        }}
+        onOpenReleaseCenter={() => {
+          setSettingsOpen(false);
+          openReleaseCenter();
+        }}
+      />
+      {moveDialogNodeId ? (
+        <MoveToDialog
+          open
+          nodeName={projectExplorer.project.fileTree.find((candidate) => candidate.id === moveDialogNodeId)?.name ?? ""}
+          destinations={getValidMoveDestinations(projectExplorer, moveDialogNodeId)}
+          onMove={(targetParentId) => {
+            handleProjectExplorerMove(moveDialogNodeId, targetParentId);
+            setMoveDialogNodeId(null);
+          }}
+          onClose={() => setMoveDialogNodeId(null)}
+        />
+      ) : null}
 
       {confirmDialog ? (
         <Modal

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function openEditableCodePanel(page: Page) {
   await page.addInitScript(() => {
@@ -12,6 +13,7 @@ async function openEditableCodePanel(page: Page) {
     .getByRole("main", { name: "Apri o crea un progetto" })
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
+  await confirmNewProjectDialog(page);
   await page
     .getByRole("complementary", { name: "Explorer" })
     .getByRole("button", { name: "Crea schema" })

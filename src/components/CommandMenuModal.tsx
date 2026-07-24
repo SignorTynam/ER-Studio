@@ -39,6 +39,7 @@ interface CommandMenuModalProps {
   onClose: (restoreFocus?: boolean) => void;
   onOpenProjectFile: (fileId: string) => void;
   onOpenShortcuts: () => void;
+  onOpenSettings: () => void;
   onDiagramViewChange: (view: WorkspaceView) => void;
   onOpenSql: () => void;
   onOpenSqlPlayground: () => void;
@@ -489,6 +490,11 @@ export function CommandMenuModal(props: CommandMenuModalProps) {
       id: "command-help-shortcuts", kind: "command", categoryId: "help", category: categoryLabels.help,
       label: t("commandMenu.commands.helpShortcuts.label"), detail: t("commandMenu.commands.helpShortcuts.detail"),
       icon: "keyboard", order: 400, action: props.onOpenShortcuts,
+    },
+    {
+      id: "command-open-settings", kind: "command", categoryId: "workspace", category: categoryLabels.workspace,
+      label: t("settings.title"), detail: t("settings.subtitle"),
+      icon: "settings", order: 100, action: props.onOpenSettings,
     },
     {
       id: "command-help-whats-new", kind: "command", categoryId: "help", category: categoryLabels.help,

@@ -106,7 +106,14 @@ test("rejects a renamed text file without creating a database tab", async ({ pag
     mimeType: "application/octet-stream",
     buffer: Buffer.from("plain text"),
   });
-  await expect(page.getByRole("alert").filter({ hasText: /non contiene un database SQLite valido/i })).toBeVisible();
+  // Fase L3: il toast non e' piu' role="alert" (niente live region annidate dentro aria-live).
+  // L'errore resta visibile nel toast ed e' annunciato dalla region assertiva dedicata.
+  await expect(
+    page.locator(".workspace-toast").filter({ hasText: /non contiene un database SQLite valido/i }),
+  ).toBeVisible();
+  await expect(page.locator('.workspace-toast-announcer[aria-live="assertive"]')).toContainText(
+    /non contiene un database SQLite valido/i,
+  );
   await expect(page.locator(".database-workspace")).toHaveCount(0);
 });
 

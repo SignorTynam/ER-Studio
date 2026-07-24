@@ -91,6 +91,7 @@ export function useSqlPlayground({
     updateSession((current) => ({
       ...current,
       schemaName,
+      source: { ...current.source, schemaName },
       currentGeneratedChecksum,
       status:
         current.status === "creating-database" || current.status === "running" || current.status === "loading-engine"

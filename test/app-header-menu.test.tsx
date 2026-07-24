@@ -16,6 +16,7 @@ function renderHeader() {
       <AppHeader
         appTitle="buildER"
         appVersion="6.3.0"
+        projectName="Project only"
         diagramView="er"
         logicalSqlOpen={false}
         codePanelOpen={false}
@@ -55,6 +56,7 @@ function renderHeader() {
         onExportSql={() => undefined}
         onOpenCommandMenu={() => undefined}
         onOpenShortcuts={() => undefined}
+        onOpenSettings={() => undefined}
         onOpenAbout={() => undefined}
         onOpenReleaseCenter={() => undefined}
         unreadReleaseCount={3}
@@ -82,6 +84,8 @@ test("AppHeader mostra File e Importa/Esporta ma non le tab activity nella topba
   assert.doesNotMatch(markup, />Version</);
   assert.doesNotMatch(markup, /data-project-name-input/);
   assert.doesNotMatch(markup, /designer-project-name/);
+  assert.match(markup, /app-project-context__name[^>]*>Project only</);
+  assert.doesNotMatch(markup, /app-project-context__file|app-project-context__separator/);
   assert.match(markup, /class="app-command-search"/);
   assert.match(markup, /Ctrl K/);
 });

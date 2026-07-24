@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 async function createProjectWithSchema(page: Page) {
   await page.addInitScript(() => {
@@ -8,6 +9,7 @@ async function createProjectWithSchema(page: Page) {
   await page.goto("/");
   await expect(page.locator(".app-shell")).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /Create new project/i }).click();
+  await confirmNewProjectDialog(page);
   await page.getByRole("complementary", { name: "Explorer" }).getByRole("button", { name: "Create schema" }).click();
   const rename = page.locator(".project-explorer-item__rename");
   await rename.fill("Panel QA");

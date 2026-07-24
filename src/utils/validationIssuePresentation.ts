@@ -4,6 +4,36 @@ import type { StudioIconName } from "../components/icons/StudioIcon";
 
 export type ValidationIssueTranslator = (key: MessageKey, params?: TranslationParams) => string;
 
+/**
+ * Categoria di azione suggerita per un problema di validazione.
+ * - `auto`: l'app puo applicare la correzione senza scegliere semantica al posto dell'utente
+ *   (rimozioni non ambigue: collegamento invalido, attributo orfano, cardinalita fuori posto).
+ * - `navigate`: l'app porta l'utente nel posto giusto (inspector/modale) e lascia decidere lui.
+ */
+export type ValidationIssueActionKind = "auto" | "navigate";
+
+/**
+ * Tipo semantico dell'azione: l'esecuzione concreta vive in App.tsx.
+ * La presentazione resta pura e descrive solo *quale* azione offrire, non la esegue.
+ */
+export type ValidationIssueActionType =
+  | "delete-edge"
+  | "delete-attribute"
+  | "clear-attribute-cardinality"
+  | "open-cardinality"
+  | "create-attribute"
+  | "open-external-identifier"
+  | "focus-role"
+  | "open-properties";
+
+export interface ValidationIssueAction {
+  id: string;
+  type: ValidationIssueActionType;
+  kind: ValidationIssueActionKind;
+  label: string;
+  icon?: StudioIconName;
+}
+
 export interface ValidationIssuePresentation {
   id: string;
   level: ValidationIssue["level"];
@@ -12,6 +42,7 @@ export interface ValidationIssuePresentation {
   title: string;
   targetKind: string;
   message: string;
+  actions: ValidationIssueAction[];
 }
 
 function getNodeKindLabel(node: DiagramNode, t: ValidationIssueTranslator): string {
@@ -62,6 +93,54 @@ export function localizeValidationIssue(
   return issue.message;
 }
 
+/**
+ * Mappa PURA problema -> azione suggerita (catalogo Fase H2).
+ * Regola non negoziabile: dove la scelta e semantica NON si indovina, si apre il posto giusto (navigate).
+ * Restituisce [] quando nessuna azione sensata esiste (es. relazione senza entita, supertipo senza gerarchia).
+ * L'ordine dei prefissi rispecchia `localizeValidationIssue` (il primo match vince).
+ */
+export function getValidationIssueActions(
+  issue: ValidationIssue,
+  t: ValidationIssueTranslator,
+): ValidationIssueAction[] {
+  const make = (
+    type: ValidationIssueActionType,
+    kind: ValidationIssueActionKind,
+    labelKey: MessageKey,
+    icon?: StudioIconName,
+  ): ValidationIssueAction => ({ id: `${issue.id}::${type}`, type, kind, label: t(labelKey), icon });
+
+  if (issue.id.startsWith("attribute-conflict-"))
+    return [make("open-properties", "navigate", "validationIssues.actions.openProperties", "info")];
+  if (issue.id.startsWith("attribute-invalid-cardinality-"))
+    return [make("clear-attribute-cardinality", "auto", "validationIssues.actions.removeCardinality", "cardinality")];
+  if (issue.id.startsWith("attribute-"))
+    return [make("delete-attribute", "auto", "validationIssues.actions.deleteAttribute", "delete")];
+  if (issue.id.startsWith("relationship-identifier-"))
+    return [make("open-properties", "navigate", "validationIssues.actions.openProperties", "info")];
+  if (issue.id.startsWith("relationship-")) return [];
+  if (issue.id.startsWith("loop-role-missing-"))
+    return [make("focus-role", "navigate", "validationIssues.actions.setRole", "role")];
+  if (issue.id.startsWith("loop-role-duplicate-"))
+    return [make("focus-role", "navigate", "validationIssues.actions.setRole", "role")];
+  if (issue.id.startsWith("entity-no-attributes-"))
+    return [make("create-attribute", "auto", "validationIssues.actions.addAttribute", "attribute")];
+  if (issue.id.startsWith("subtype-no-attributes-"))
+    return [make("create-attribute", "auto", "validationIssues.actions.addAttribute", "attribute")];
+  if (issue.id.startsWith("supertype-no-relationship-")) return [];
+  if (issue.id.startsWith("weak-entity-"))
+    return [make("open-external-identifier", "navigate", "validationIssues.actions.addExternalIdentifier", "externalId")];
+  if (issue.id.startsWith("missing-"))
+    return [make("delete-edge", "auto", "validationIssues.actions.deleteLink", "delete")];
+  if (issue.id.startsWith("invalid-"))
+    return [make("delete-edge", "auto", "validationIssues.actions.deleteLink", "delete")];
+  if (issue.id.startsWith("duplicate-"))
+    return [make("delete-edge", "auto", "validationIssues.actions.removeDuplicate", "delete")];
+  if (issue.id.startsWith("cardinality-"))
+    return [make("open-cardinality", "navigate", "validationIssues.actions.setCardinality", "cardinality")];
+  return [];
+}
+
 export function validationIssueTargetExists(diagram: DiagramDocument, issue: ValidationIssue): boolean {
   return issue.targetType === "node"
     ? diagram.nodes.some((node) => node.id === issue.targetId)
@@ -80,6 +159,7 @@ export function presentValidationIssue(
       title: node?.label ?? issue.targetId,
       targetKind: node ? getNodeKindLabel(node, t) : t("common.entities.element"),
       message: localizeValidationIssue(issue, diagram, t),
+      actions: getValidationIssueActions(issue, t),
     };
   }
 
@@ -90,6 +170,7 @@ export function presentValidationIssue(
     title: edge ? `${labels.source} → ${labels.target}` : issue.targetId,
     targetKind: t("errors.panel.connection"),
     message: localizeValidationIssue(issue, diagram, t),
+    actions: getValidationIssueActions(issue, t),
   };
 }
 

@@ -805,6 +805,27 @@ body {
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
 }
 
+/* Fase K3 — pulsazione temporanea sulla riga raggiunta col "salta alla riga". */
+.code-editor-line--flash {
+  animation: code-editor-line-flash var(--motion-reveal) ease-out;
+}
+
+@keyframes code-editor-line-flash {
+  from {
+    background: color-mix(in srgb, var(--color-accent) 34%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-editor-line--flash {
+    animation: none;
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+}
+
 .code-editor-gutter-line--error,
 .code-editor-gutter-line--warning {
   font-weight: var(--font-weight-bold);
@@ -869,7 +890,7 @@ body {
 
 body > .code-editor-diagnostic-popover {
   position: fixed;
-  z-index: 73;
+  z-index: var(--z-editor-diagnostic-popover);
   top: 86px;
   right: 18px;
   width: min(380px, calc(100vw - 36px));
@@ -918,6 +939,39 @@ body > .code-editor-diagnostic-popover {
   font-size: var(--font-size-xs);
   line-height: var(--line-height-normal);
   white-space: normal;
+}
+
+/* Fase K3 — "salta alla riga" dal popover diagnostico. */
+.code-editor-diagnostic-popover__goto {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 12px 10px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.code-editor-diagnostic-popover__goto svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.code-editor-diagnostic-popover__goto:hover,
+.code-editor-diagnostic-popover__goto:focus-visible {
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.code-editor-diagnostic-popover__goto:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .code-editor-diagnostic-popover footer {

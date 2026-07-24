@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 for (const viewport of [
   { name: "desktop", width: 1295, height: 861 },
@@ -17,6 +18,7 @@ for (const viewport of [
       .getByRole("main", { name: "Apri o crea un progetto" })
       .getByRole("button", { name: /Crea nuovo progetto/ })
       .click();
+    await confirmNewProjectDialog(page);
     await page
       .getByRole("complementary", { name: "Explorer" })
       .getByRole("button", { name: "Crea schema" })
