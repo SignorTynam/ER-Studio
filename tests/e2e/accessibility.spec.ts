@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { confirmNewProjectDialog } from "./utils/newProject";
 
 /**
  * Fase D1: scansione WCAG 2.1 A/AA automatica sulle superfici raggiungibili.
@@ -40,6 +41,7 @@ async function createProject(page: Page) {
   const createButton = page.getByRole("button", { name: /Create new project/i });
   if (await createButton.count()) {
     await createButton.first().click();
+    await confirmNewProjectDialog(page);
   }
   await expect(page.locator(".project-explorer")).toBeVisible();
 }

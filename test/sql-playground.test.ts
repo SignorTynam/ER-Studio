@@ -19,6 +19,12 @@ import {
   limitSqlRows,
   normalizeSqlPlaygroundError,
 } from "../src/utils/sqlPlayground.ts";
+import { createSchemaWorkspaceFile, createTextWorkspaceFile } from "../src/utils/projectExplorer.ts";
+import {
+  resolveSqlFileDatabaseName,
+  resolveSqlPlaygroundSchema,
+  stripSqlFileDatabaseContext,
+} from "../src/utils/sqlFileWorkspace.ts";
 
 function column(id: string, name: string, overrides: Partial<LogicalColumn> = {}): LogicalColumn {
   return {
@@ -32,6 +38,76 @@ function column(id: string, name: string, overrides: Partial<LogicalColumn> = {}
     ...overrides,
   };
 }
+
+test("SQL file schema resolution is deterministic and never selects the first of many", () => {
+  const first = createSchemaWorkspaceFile("First.erschema");
+  const second = createSchemaWorkspaceFile("Second.erschema");
+  const sql = createTextWorkspaceFile("query.sql", "sql", "SELECT 1;");
+  const files = { [second.id]: second, [sql.id]: sql, [first.id]: first };
+
+  assert.deepEqual(resolveSqlPlaygroundSchema({
+    files,
+    activePlaygroundSchemaId: first.id,
+    lastPlaygroundSchemaId: second.id,
+  }), { status: "resolved", schemaFileId: first.id });
+  assert.deepEqual(resolveSqlPlaygroundSchema({
+    files,
+    activePlaygroundSchemaId: "deleted",
+    lastPlaygroundSchemaId: second.id,
+  }), { status: "resolved", schemaFileId: second.id });
+  assert.deepEqual(resolveSqlPlaygroundSchema({
+    files,
+    activePlaygroundSchemaId: null,
+    lastPlaygroundSchemaId: null,
+  }), { status: "ambiguous" });
+  assert.deepEqual(resolveSqlPlaygroundSchema({
+    files: { [sql.id]: sql, [first.id]: first },
+    activePlaygroundSchemaId: null,
+    lastPlaygroundSchemaId: null,
+  }), { status: "resolved", schemaFileId: first.id });
+  assert.deepEqual(resolveSqlPlaygroundSchema({
+    files: { [sql.id]: sql },
+    activePlaygroundSchemaId: null,
+    lastPlaygroundSchemaId: null,
+  }), { status: "missing" });
+});
+
+test("SQL file database names are resolved from declarations and qualified objects", () => {
+  assert.equal(resolveSqlFileDatabaseName("CREATE DATABASE IF NOT EXISTS `student portal`;"), "student portal");
+  assert.equal(resolveSqlFileDatabaseName('USE "analytics";\nSELECT 1;'), "analytics");
+  assert.equal(resolveSqlFileDatabaseName("ATTACH DATABASE 'cache.sqlite' AS [cache];"), "cache");
+  assert.equal(resolveSqlFileDatabaseName("SELECT * FROM reporting.events;"), "reporting");
+  assert.equal(resolveSqlFileDatabaseName("-- USE ignored\nSELECT 1;"), null);
+  assert.equal(
+    stripSqlFileDatabaseContext("CREATE DATABASE demo;\nUSE demo;\nCREATE TABLE Person (id INTEGER);"),
+    "CREATE TABLE Person (id INTEGER);",
+  );
+});
+
+test("App names and creates a generated Playground database without executing the SQL file", () => {
+  const source = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const handlerStart = source.indexOf("function handleOpenSqlFileInPlayground");
+  const handlerEnd = source.indexOf("function activateSqlPlayground", handlerStart);
+  const handler = source.slice(handlerStart, handlerEnd);
+  const helperStart = source.indexOf("function openGeneratedSqlPlaygroundQuery");
+  const helperEnd = source.indexOf("function handleOpenSqlExplorerQuery", helperStart);
+  const helper = source.slice(helperStart, helperEnd);
+
+  assert.match(handler, /resolveSqlPlaygroundSchema/);
+  assert.match(handler, /resolveSqlFileDatabaseName/);
+  assert.match(handler, /reverseSqlToDiagram/);
+  assert.match(handler, /generateLogicalSql/);
+  assert.match(handler, /requestPromptDialog/);
+  assert.match(handler, /createDatabase:\s*true/);
+  assert.match(handler, /file\.content,\s*false/);
+  assert.match(handler, /noSchemaWarning/);
+  assert.match(handler, /ambiguousSchemaWarning/);
+  assert.doesNotMatch(handler, /Object\.values\([^)]*\)\[0\]|Object\.keys\([^)]*\)\[0\]/);
+  assert.match(helper, /createSqlPlaygroundSessionState/);
+  assert.match(helper, /manager\.setSessionState\(seeded\)/);
+  assert.match(helper, /activateSqlPlayground/);
+  assert.match(helper, /execute/);
+});
 
 function table(id: string, name: string, columns: LogicalColumn[]): LogicalTable {
   return { id, name, kind: "entity", columns, x: 0, y: 0, width: 220, height: 120 };

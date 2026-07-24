@@ -1,0 +1,74 @@
+name: Repository policy
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate shared agent instructions and repository hygiene
+        run: npm run agents:check
+
+      - name: Validate branch name
+        run: npm run repo:check-branch
+
+      - name: Validate Pull Request commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npm run repo:check-commits -- --base "$BASE_SHA" --head "$HEAD_SHA"
+
+      - name: Test repository policy scripts
+        run: npm run test:policy
+
+      - name: Run unit and integration tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Detect release-file changes
+        id: release-files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if git diff --name-only "${BASE_SHA}...${HEAD_SHA}" |
+            grep -Eq '^(package(-lock)?\.json|CHANGELOG\.md|src/releases/|src/i18n/messages/)'; then
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Validate release metadata
+        if: steps.release-files.outputs.changed == 'true'
+        run: |
+          npm run release:check
+          npm run changelog:check
+          npm run release:notes

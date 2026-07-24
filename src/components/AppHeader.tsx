@@ -12,7 +12,6 @@ interface AppHeaderProps {
   appTitle: string;
   appVersion: string;
   projectName?: string;
-  activeFileName?: string;
   saveState?: "saved" | "modified" | "saving" | "error";
   diagramView: WorkspaceView;
   logicalSqlOpen: boolean;
@@ -55,6 +54,7 @@ interface AppHeaderProps {
   onExportSql: () => void;
   onOpenCommandMenu: () => void;
   onOpenShortcuts: () => void;
+  onOpenSettings: () => void;
   onOpenAbout: () => void;
   onOpenReleaseCenter: () => void;
   unreadReleaseCount: number;
@@ -224,12 +224,6 @@ export function AppHeader(props: AppHeaderProps) {
           <span className="app-project-context__name">
             {props.hasProject ? props.projectName ?? t("workspaceChrome.untitledProject") : t("workspaceChrome.noProject")}
           </span>
-          {props.activeFileName ? (
-            <>
-              <span className="app-project-context__separator" aria-hidden="true">/</span>
-              <span className="app-project-context__file">{props.activeFileName}</span>
-            </>
-          ) : null}
           {props.hasProject ? (
             <span
               className={`app-project-context__state is-${props.saveState ?? (props.hasUncommittedChanges ? "modified" : "saved")}`}
@@ -285,6 +279,17 @@ export function AppHeader(props: AppHeaderProps) {
                 {props.unreadReleaseCount > 9 ? "9+" : props.unreadReleaseCount}
               </span>
             ) : null}
+          </button>
+        </Tooltip>
+        <Tooltip position="bottom" label={t("settings.open")}>
+          <button
+            type="button"
+            className="designer-icon-button"
+            onClick={props.onOpenSettings}
+            aria-label={t("settings.open")}
+            data-testid="app-header-settings"
+          >
+            <StudioIcon name="settings" aria-hidden="true" />
           </button>
         </Tooltip>
         <div className="app-topbar-menu app-topbar-menu--help" ref={helpMenuRef}>

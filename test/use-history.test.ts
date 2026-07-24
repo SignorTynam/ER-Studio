@@ -56,6 +56,48 @@ test("cloneHistoryValue creates an independent nested copy", () => {
   assert.equal(cloned.nested.value, 2);
 });
 
+/** Corpo di una funzione dichiarata nel sorgente, bilanciando le graffe. */
+function getFunctionBody(source: string, functionName: string): string {
+  const signatureIndex = source.indexOf(`function ${functionName}(`);
+  assert.notEqual(signatureIndex, -1, `${functionName} deve esistere`);
+
+  const bodyStart = source.indexOf("{", signatureIndex);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(bodyStart + 1, index);
+    }
+  }
+
+  assert.fail(`${functionName} deve avere un corpo chiuso`);
+}
+
+test("undo e redo leggono dalle ref, non dalla closure del render", () => {
+  // Regressione (Fase L): `undo` puo' essere CATTURATO in una closure e invocato molti render
+  // dopo — e' il caso dell'azione "Annulla" di un toast, creata insieme al commit e cliccata
+  // secondi piu' tardi. Leggendo `past`/`present` dal render di cattura, l'undo ripristinava una
+  // baseline vecchia: dopo un auto-layout riportava al diagramma VUOTO invece che allo stato
+  // pre-layout, perdendo il lavoro con un solo click.
+  const source = readFileSync(new URL("../src/hooks/useHistory.ts", import.meta.url), "utf8");
+  const undoBody = getFunctionBody(source, "undo");
+  const redoBody = getFunctionBody(source, "redo");
+
+  assert.match(undoBody, /pastRef\.current/);
+  assert.match(undoBody, /presentRef\.current/);
+  assert.match(redoBody, /futureRef\.current/);
+  assert.match(redoBody, /presentRef\.current/);
+
+  // Nessuna lettura diretta dello stato del render dentro undo/redo.
+  assert.doesNotMatch(undoBody, /\bpast\.length\b/);
+  assert.doesNotMatch(undoBody, /\bpast\[/);
+  assert.doesNotMatch(undoBody, /clone\(present\)/);
+  assert.doesNotMatch(redoBody, /\bfuture\.length\b/);
+  assert.doesNotMatch(redoBody, /\[next, \.\.\.remaining\] = future\b/);
+  assert.doesNotMatch(redoBody, /clone\(present\)/);
+});
+
 test("useHistory source keeps history bounded", () => {
   const source = readFileSync(new URL("../src/hooks/useHistory.ts", import.meta.url), "utf8");
 

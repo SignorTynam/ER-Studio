@@ -7,6 +7,8 @@ import { I18nProvider } from "../src/i18n/I18nProvider.tsx";
 import { SqlExplorerPanel } from "../src/features/sql-playground/SqlExplorerPanel.tsx";
 import { SqlExplorerTree } from "../src/features/sql-playground/SqlExplorerTree.tsx";
 import { SqlPlaygroundSplitter } from "../src/features/sql-playground/SqlPlaygroundSplitter.tsx";
+import { SqlPlaygroundManager } from "../src/features/sql-playground/SqlPlaygroundManager.ts";
+import { createSqlPlaygroundSessionState } from "../src/utils/sqlPlayground.ts";
 import type { SqlExplorerMetadata } from "../src/features/sql-playground/sqlExplorerTypes.ts";
 import { withTestLocale } from "./utils/i18nTestUtils.ts";
 
@@ -62,6 +64,72 @@ test("SQL Explorer empty states expose real navigation actions", () => {
   assert.match(markup, /SQL Explorer/);
   assert.match(markup, /Aggiungi database|Add database/);
   assert.match(markup, /sql-explorer-panel__toolbar/);
+});
+
+test("SQL Explorer distinguishes no project, no database, closed Playground, and missing database", () => {
+  const noProject = render(
+    <SqlExplorerPanel
+      manager={null}
+      sessionId={null}
+      schemaName={null}
+      hasProject={false}
+      hasSchema={false}
+      onOpenPlayground={() => undefined}
+      onClose={() => undefined}
+    />,
+  );
+  assert.match(noProject, /No project available/);
+  assert.match(noProject, /Create or open a project to use SQL Explorer/);
+
+  const noDatabase = render(
+    <SqlExplorerPanel
+      manager={null}
+      sessionId={null}
+      schemaName="main.erschema"
+      hasProject
+      hasSchema
+      onOpenPlayground={() => undefined}
+      onClose={() => undefined}
+    />,
+  );
+  assert.match(noDatabase, /No database to explore/);
+  assert.match(noDatabase, /Open in Playground|Open SQL Playground/);
+  assert.match(noDatabase, /Add database/);
+
+  const closed = render(
+    <SqlExplorerPanel
+      manager={null}
+      sessionId="project:schema"
+      schemaName="main.erschema"
+      hasProject
+      hasSchema
+      onOpenPlayground={() => undefined}
+      onClose={() => undefined}
+    />,
+  );
+  assert.match(closed, /SQL Playground is not open/);
+
+  const manager = new SqlPlaygroundManager();
+  manager.setSessionState(createSqlPlaygroundSessionState({
+    sessionId: "project:schema",
+    projectId: "project",
+    schemaFileId: "schema",
+    schemaName: "main.erschema",
+    currentGeneratedChecksum: "checksum",
+  }));
+  const missing = render(
+    <SqlExplorerPanel
+      manager={manager}
+      sessionId="project:schema"
+      schemaName="main.erschema"
+      hasProject
+      hasSchema
+      onOpenPlayground={() => undefined}
+      onClose={() => undefined}
+    />,
+  );
+  assert.match(missing, /Database not available yet/);
+  assert.match(missing, /Create the database in Playground/);
 });
 
 test("results splitter exposes horizontal ARIA values and keyboard-sized bounds", () => {

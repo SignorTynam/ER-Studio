@@ -10,6 +10,14 @@ Per un database SQLite esistente è disponibile anche un ingresso basato sui met
 
 Aprire il pannello SQL Reverse Engineering, incollare uno schema con istruzioni `CREATE TABLE` e avviare l'importazione. Il risultato viene validato in tre passaggi: parsing SQL, modello logico e diagramma ER.
 
+Un file `.sql` aperto nel workspace espone anche l'azione contestuale `Avvia
+Reverse Engineering`. L'azione passa il contenuto corrente in memoria alla
+stessa funzione usata da `Analizza codice`, conserva l'identità del file (`id` e
+nome) e avvia subito parsing e analisi con il dialetto selezionato. Se il
+contenuto è valido apre direttamente l'anteprima logica, senza mostrare prima
+il pannello Reverse, senza creare duplicati e senza simulare un upload. Errori e
+warning continuano a usare la validazione e le notifiche condivise.
+
 Per test o integrazioni di codice si possono usare direttamente:
 
 ```ts

@@ -25,6 +25,8 @@ export interface CodeEditorSurfaceHandle {
   getSelectedText: () => string;
   getValue: () => string;
   focus: () => void;
+  /** Fase K3 — porta cursore e vista alla riga 1-based, con evidenziazione temporanea. */
+  revealLine: (line: number) => void;
 }
 
 function escapeHtml(value: string): string {
@@ -183,7 +185,34 @@ export const CodeEditorSurface = forwardRef<CodeEditorSurfaceHandle, CodeEditorS
   const highlightRef = useRef<HTMLPreElement | null>(null);
   const lineNumberRef = useRef<HTMLDivElement | null>(null);
   const announcedDiagnosticRef = useRef("");
+  const flashTimerRef = useRef<number | null>(null);
   const [activeDiagnosticIndex, setActiveDiagnosticIndex] = useState<number | null>(diagnostics.length ? 0 : null);
+  const [flashLine, setFlashLine] = useState<number | null>(null);
+
+  function offsetRangeForLine(source: string, line: number): { start: number; end: number } {
+    const lines = source.split(/\r?\n/);
+    const clamped = Math.max(1, Math.min(line, lines.length));
+    let start = 0;
+    for (let index = 0; index < clamped - 1; index += 1) {
+      start += lines[index].length + 1; // +1 per il ritorno a capo (textarea normalizza a \n)
+    }
+    return { start, end: start + (lines[clamped - 1]?.length ?? 0) };
+  }
+
+  function revealLine(line: number) {
+    const editor = editorRef.current;
+    if (!editor || !Number.isFinite(line) || line < 1) return;
+    const { start, end } = offsetRangeForLine(value, line);
+    editor.focus();
+    editor.setSelectionRange(start, end);
+    const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 21;
+    editor.scrollTop = Math.max(0, (line - 2) * lineHeight);
+    syncScroll();
+    setFlashLine(line);
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashLine(null), 1200);
+  }
+
   useImperativeHandle(forwardedRef, () => ({
     getSelectionStart: () => editorRef.current?.selectionStart ?? 0,
     getSelectionEnd: () => editorRef.current?.selectionEnd ?? 0,
@@ -193,7 +222,12 @@ export const CodeEditorSurface = forwardRef<CodeEditorSurfaceHandle, CodeEditorS
     },
     getValue: () => value,
     focus: () => editorRef.current?.focus(),
+    revealLine,
   }), [value]);
+
+  useEffect(() => () => {
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+  }, []);
   const lineNumbers = buildLineNumbers(value);
   const diagnosticByLine = useMemo(() => {
     const result = new Map<number, EditorDiagnostic>();
@@ -218,7 +252,8 @@ export const CodeEditorSurface = forwardRef<CodeEditorSurfaceHandle, CodeEditorS
     } else {
       highlightedLine = highlightEditorLine(line, language);
     }
-    return `<span class="code-editor-line${diagnosticClass(diagnostic)}" data-line="${index + 1}">${highlightedLine || "&#8203;"}</span>`;
+    const flashClass = flashLine === index + 1 ? " code-editor-line--flash" : "";
+    return `<span class="code-editor-line${diagnosticClass(diagnostic)}${flashClass}" data-line="${index + 1}">${highlightedLine || "&#8203;"}</span>`;
   }).join("");
 
   function syncScroll() {
@@ -322,6 +357,16 @@ export const CodeEditorSurface = forwardRef<CodeEditorSurfaceHandle, CodeEditorS
         </button>
       </div>
       <p>{activeDiagnostic.message}</p>
+      {activeDiagnostic.line ? (
+        <button
+          type="button"
+          className="code-editor-diagnostic-popover__goto"
+          onClick={() => revealLine(activeDiagnostic.line as number)}
+        >
+          <StudioIcon name="arrowRight" aria-hidden="true" />
+          <span>{t("codeEditor.diagnostic.goToLine", { line: activeDiagnostic.line })}</span>
+        </button>
+      ) : null}
       {orderedDiagnostics.length > 1 ? (
         <footer>
           <button type="button" onClick={() => setActiveDiagnosticIndex((current) => current === null ? 0 : (current - 1 + orderedDiagnostics.length) % orderedDiagnostics.length)} aria-label={t("codeEditor.diagnostic.previous")}>

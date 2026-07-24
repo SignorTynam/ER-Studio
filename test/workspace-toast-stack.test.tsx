@@ -62,7 +62,24 @@ test("workspace toast stack renders title, message, close button and tone class"
   assert.match(markup, /Sintassi ERS non valida\./);
   assert.match(markup, /workspace-toast tone-error/);
   assert.match(markup, /aria-label="(?:Dismiss notification|Chiudi notifica|Mbyll njoftimin)"/);
-  assert.match(markup, /role="alert"/);
+});
+
+test("toasts are not nested live regions: announcements go through two dedicated regions", () => {
+  const markup = renderToastStack([
+    notice({ id: 3, tone: "error", title: "Errore", message: "Sintassi ERS non valida." }),
+  ]);
+
+  // L3 — le due region esistono sempre nel DOM, con l'urgenza giusta per tono.
+  assert.match(markup, /workspace-toast-announcer/);
+  assert.match(markup, /aria-live="assertive"/);
+  assert.match(markup, /aria-live="polite"/);
+
+  // Esattamente due live region in tutta la pila: niente doppio annuncio.
+  assert.equal((markup.match(/aria-live="/g) ?? []).length, 2);
+
+  // La parte visiva non annuncia più da sé: nessun ruolo-live annidato sui toast.
+  assert.doesNotMatch(markup, /role="alert"/);
+  assert.doesNotMatch(markup, /role="status"/);
 });
 
 test("workspace toast stack limits visible notices to the newest four", () => {

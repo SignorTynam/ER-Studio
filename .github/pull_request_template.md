@@ -1,57 +1,55 @@
 # Pull Request
 
-## Descrizione
+Closes #
 
-Descrivi in modo chiaro cosa cambia e perché.
+## Cosa cambia e perche
 
-## Tipo di modifica
+Descrivi problema, soluzione e impatto per utenti o contributor.
 
-Seleziona le voci pertinenti:
+## Tipo e area
 
-- [ ] Bug fix
-- [ ] Nuova funzionalità
-- [ ] Refactor / miglioramento tecnico
-- [ ] Miglioramento UI/UX
-- [ ] Documentazione
-- [ ] Test
-- [ ] Configurazione / tooling
+- [ ] Feature
+- [ ] Fix
+- [ ] Refactor
+- [ ] Test o documentazione
+- [ ] Tooling, policy o release
 
-## Area interessata
+Area:
 
-Seleziona le aree coinvolte:
+- [ ] Canvas / dominio ER / trasformazioni
+- [ ] Parser / import / export / compatibilita file
+- [ ] SQL Reverse / SQLite
+- [ ] UI / responsive / i18n / accessibilita
+- [ ] Build / test / repository
 
-- [ ] Canvas / editor ER
-- [ ] Reverse engineering SQL
-- [ ] Layout attributi / entità / relazioni
-- [ ] Cardinalità / collegamenti
-- [ ] Import / export progetto
-- [ ] UI responsive / mobile
-- [ ] Build / test / configurazione
-- [ ] Altro
+## Verifica
 
-## Come è stato testato
-
-Descrivi i test eseguiti:
-
-- [ ] `npm run build`
-- [ ] `npm run test`
-- [ ] Test manuale nel browser
-- [ ] Test responsive/mobile, se pertinente
-
-Dettagli:
+Test eseguiti:
 
 ```text
-Inserisci qui browser, scenario, branch di partenza, dati SQL usati o altri dettagli utili.
+Comandi, scenari e viewport con relativo esito.
 ```
 
-## Screenshot o video
+Test non eseguiti e motivazione:
 
-Aggiungi screenshot, GIF o video se la modifica riguarda UI, canvas, layout, mobile o flussi visivi.
+```text
+Nessuno, oppure controlli saltati e motivo.
+```
 
-## Checklist finale
+## Evidenze e rischi
 
-- [ ] Il codice è coerente con lo stile del progetto.
-- [ ] Non sono stati introdotti log/debug temporanei inutili.
-- [ ] Le modifiche non rompono i flussi principali dell'applicazione.
-- [ ] La documentazione è stata aggiornata se necessario.
-- [ ] La PR è piccola e focalizzata, oppure spiega chiaramente perché contiene più modifiche.
+- Screenshot prima/dopo, se visivo:
+- Rischi o limitazioni:
+- Compatibilita `.ersp` / `.erschema` / `.ers`, se pertinente:
+
+## Checklist
+
+- [ ] Issue collegata e branch conforme.
+- [ ] Diff focalizzato; nessun file generato, temporaneo o segreto.
+- [ ] Build e suite pertinente superate.
+- [ ] Test non eseguiti dichiarati.
+- [ ] i18n `it` / `en` / `sq` verificata, se pertinente.
+- [ ] Desktop, tablet, mobile e screenshot verificati, se pertinente.
+- [ ] Tastiera, focus, ARIA, contrasto e touch verificati, se pertinente.
+- [ ] Compatibilita file e round-trip verificati, se pertinente.
+- [ ] Rischi e documentazione aggiornati.

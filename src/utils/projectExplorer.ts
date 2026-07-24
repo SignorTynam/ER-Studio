@@ -38,14 +38,10 @@ export interface ProjectExplorerState {
 
 export type ProjectExplorerOperationResult =
   | { ok: true; state: ProjectExplorerState; nodeId?: string; fileId?: string }
-  | { ok: false; reason: "empty-name" | "duplicate-name" | "missing-parent" | "missing-node" | "root-delete" };
+  | { ok: false; reason: "empty-name" | "duplicate-name" | "missing-parent" | "missing-node" | "root-delete" | "invalid-move" };
 
 function createId(prefix: string): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`;
-  }
-
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}-${globalThis.crypto.randomUUID()}`;
 }
 
 export function normalizeProjectNodeName(name: string): string {
@@ -647,6 +643,135 @@ function collectDescendantNodeIds(project: ProjectExplorerProject, nodeId: strin
     nodeId,
     ...(node.children ?? []).flatMap((childId) => collectDescendantNodeIds(project, childId)),
   ];
+}
+
+/**
+ * Sposta un nodo (file o cartella) dentro una cartella di destinazione. Funzione PURA:
+ * restituisce il nuovo stato o un rifiuto tipizzato, senza mai eseguire a metà.
+ *
+ * Regole (Fase J2.a):
+ * - la destinazione deve essere una cartella (la root è una cartella);
+ * - la root non è spostabile;
+ * - una cartella non può finire dentro sé stessa o un proprio discendente;
+ * - nessun duplicato di nome nella destinazione (rifiuto pulito: non sovrascrive né rinomina);
+ * - no-op se il nodo è già nella cartella di destinazione.
+ *
+ * L'albero è mostrato **sempre ordinato** (`sortProjectExplorerNodes`: cartelle prima, poi
+ * alfabetico), come in VS Code: non esiste un ordine manuale. `position` incide solo sull'array
+ * `children` (irrilevante a video) ed è mantenuto per compatibilità d'API.
+ */
+/**
+ * Predicato PURO ed economico: `true` se `moveNode(state, nodeId, targetParentId)` avrebbe successo
+ * con un cambiamento reale. Usato dalla UI durante il dragover per evidenziare solo le destinazioni
+ * valide e impostare il cursore "non consentito" sulle altre (no-op inclusi → falso).
+ */
+export function canMoveNode(state: ProjectExplorerState, nodeId: string, targetParentId: string): boolean {
+  const node = findProjectNode(state.project, nodeId);
+  if (!node || node.parentId === null) {
+    return false;
+  }
+  const target = findProjectNode(state.project, targetParentId);
+  if (!target || target.kind !== "folder") {
+    return false;
+  }
+  if (collectDescendantNodeIds(state.project, nodeId).includes(targetParentId)) {
+    return false;
+  }
+  if (node.parentId === targetParentId) {
+    return false;
+  }
+  return !hasDuplicateProjectNodeName(state.project, targetParentId, node.name, nodeId);
+}
+
+export interface ProjectMoveDestination {
+  id: string;
+  name: string;
+  depth: number;
+}
+
+/**
+ * Elenco PURO delle cartelle di destinazione valide per spostare `nodeId` (root incluso, con il
+ * nome del progetto). Alimenta il dialog "Sposta in…" (alternativa da tastiera al drag & drop).
+ * Ordinato come l'albero (cartelle in ordine alfabetico), con `depth` per l'indentazione.
+ */
+export function getValidMoveDestinations(state: ProjectExplorerState, nodeId: string): ProjectMoveDestination[] {
+  const destinations: ProjectMoveDestination[] = [];
+  const visit = (folderId: string, depth: number, name: string) => {
+    if (canMoveNode(state, nodeId, folderId)) {
+      destinations.push({ id: folderId, name, depth });
+    }
+    const folder = findProjectNode(state.project, folderId);
+    const childFolders = (folder?.children ?? [])
+      .map((childId) => findProjectNode(state.project, childId))
+      .filter((child): child is ProjectExplorerNode => child?.kind === "folder");
+    sortProjectExplorerNodes(childFolders).forEach((child) => visit(child.id, depth + 1, child.name));
+  };
+  visit(state.project.rootId, 0, state.project.name);
+  return destinations;
+}
+
+export function moveNode(
+  state: ProjectExplorerState,
+  nodeId: string,
+  targetParentId: string,
+  position?: number,
+): ProjectExplorerOperationResult {
+  const node = findProjectNode(state.project, nodeId);
+  if (!node) {
+    return { ok: false, reason: "missing-node" };
+  }
+  if (node.parentId === null) {
+    return { ok: false, reason: "invalid-move" };
+  }
+
+  const target = findProjectNode(state.project, targetParentId);
+  if (!target || target.kind !== "folder") {
+    return { ok: false, reason: "missing-parent" };
+  }
+
+  // `collectDescendantNodeIds` include il nodo stesso: copre sia target === nodo sia i discendenti.
+  if (collectDescendantNodeIds(state.project, nodeId).includes(targetParentId)) {
+    return { ok: false, reason: "invalid-move" };
+  }
+
+  // Già nella cartella di destinazione: no-op (stesso riferimento di stato, niente undo).
+  if (node.parentId === targetParentId) {
+    return { ok: true, nodeId, state };
+  }
+
+  if (hasDuplicateProjectNodeName(state.project, targetParentId, node.name, nodeId)) {
+    return { ok: false, reason: "duplicate-name" };
+  }
+
+  const now = new Date().toISOString();
+  const oldParentId = node.parentId;
+
+  let project = updateNode(state.project, oldParentId, (current) => ({
+    ...current,
+    children: (current.children ?? []).filter((childId) => childId !== nodeId),
+    updatedAt: now,
+  }));
+  project = updateNode(project, targetParentId, (current) => {
+    const children = (current.children ?? []).filter((childId) => childId !== nodeId);
+    const index = position != null ? Math.max(0, Math.min(position, children.length)) : children.length;
+    children.splice(index, 0, nodeId);
+    return { ...current, children, updatedAt: now };
+  });
+  project = updateNode(project, nodeId, (current) => ({ ...current, parentId: targetParentId, updatedAt: now }));
+
+  return {
+    ok: true,
+    nodeId,
+    state: {
+      ...state,
+      project,
+      view: {
+        ...state.view,
+        expandedFolderIds: Array.from(new Set([...state.view.expandedFolderIds, targetParentId])),
+        selectedNodeId: nodeId,
+      },
+    },
+  };
 }
 
 export function deleteProjectNode(state: ProjectExplorerState, nodeId: string): ProjectExplorerOperationResult {

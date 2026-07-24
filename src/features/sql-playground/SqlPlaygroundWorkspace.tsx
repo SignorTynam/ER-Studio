@@ -22,7 +22,13 @@ interface SqlPlaygroundWorkspaceProps {
   hasLogicalModel: boolean;
   logicalOutOfDate: boolean;
   onGenerateLogicalModel: () => void;
-  queryRequest?: { id: number; query: string; execute: boolean } | null;
+  queryRequest?: {
+    id: number;
+    query: string;
+    execute: boolean;
+    createDatabase?: boolean;
+    databaseName?: string;
+  } | null;
 }
 
 function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
@@ -44,7 +50,7 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
     manager: props.manager,
     sessionId,
     schemaFileId: props.schemaFileId,
-    schemaName: props.schemaName,
+    schemaName: props.queryRequest?.databaseName ?? props.schemaName,
     generatedSql: props.generatedSql,
   });
   const busy = session.status === "loading-engine" || session.status === "creating-database" || session.status === "running";
@@ -65,7 +71,13 @@ function AvailableSqlPlaygroundWorkspace(props: SqlPlaygroundWorkspaceProps) {
   useEffect(() => {
     if (!props.queryRequest) return;
     setQuery(props.queryRequest.query);
-    if (props.queryRequest.execute) void execute(props.queryRequest.query);
+    if (props.queryRequest.createDatabase) {
+      void createDatabase(true).then(() => {
+        if (props.queryRequest?.execute) void execute(props.queryRequest.query);
+      });
+    } else if (props.queryRequest.execute) {
+      void execute(props.queryRequest.query);
+    }
     window.requestAnimationFrame(() => editorRef.current?.focus());
   }, [props.queryRequest?.id]);
 

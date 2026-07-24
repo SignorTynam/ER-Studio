@@ -1,5 +1,6 @@
 import { ProjectActivityPanelHeader } from "../../components/project/ProjectActivityPanelHeader";
 import { StudioIcon } from "../../components/icons/StudioIcon";
+import { PanelEmptyState } from "../../components/workspace/WorkspacePanel";
 import { Button, Modal, Tooltip } from "../../components/ui";
 import { useI18n } from "../../i18n/useI18n";
 import { useMemo, useState, type ReactNode } from "react";
@@ -50,25 +51,63 @@ export function SqlExplorerPanel({
   let content: ReactNode = null;
 
   if (!sessionId) {
-    content = (
-      <div className="sql-explorer-empty">
-        <p>{hasProject ? t("sqlExplorer.empty.noSchema") : t("sqlExplorer.empty.noProject")}</p>
-        {hasProject && hasSchema ? <Button size="sm" variant="secondary" onClick={onOpenPlayground}>{t("sqlExplorer.openPlayground")}</Button> : null}
-      </div>
+    content = hasProject ? (
+      <PanelEmptyState
+        className="sql-explorer-empty"
+        variant="card"
+        icon="database"
+        title={t("sqlExplorer.empty.noDatabaseTitle")}
+        description={t("sqlExplorer.empty.noDatabaseDescription")}
+        role="status"
+      >
+        {hasSchema ? (
+          <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenPlayground}>
+            {t("sqlExplorer.openPlayground")}
+          </Button>
+        ) : null}
+        <Button size="sm" variant="secondary" iconLeft="database" onClick={onOpenDatabase}>
+          {t("sqlExplorer.addDatabase")}
+        </Button>
+      </PanelEmptyState>
+    ) : (
+      <PanelEmptyState
+        className="sql-explorer-empty"
+        variant="card"
+        icon="database"
+        title={t("sqlExplorer.empty.noProjectTitle")}
+        description={t("sqlExplorer.empty.noProjectDescription")}
+        role="status"
+      />
     );
   } else if (!sessionExists || explorer.status === "idle") {
     content = (
-      <div className="sql-explorer-empty">
-        <p>{t("sqlExplorer.empty.playgroundClosed")}</p>
-        <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenPlayground}>{t("sqlExplorer.openPlayground")}</Button>
-      </div>
+      <PanelEmptyState
+        className="sql-explorer-empty"
+        variant="card"
+        icon="database"
+        title={t("sqlExplorer.empty.playgroundClosedTitle")}
+        description={t("sqlExplorer.empty.playgroundClosedDescription")}
+        role="status"
+      >
+        <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenPlayground}>
+          {t("sqlExplorer.openPlayground")}
+        </Button>
+      </PanelEmptyState>
     );
   } else if (explorer.status === "database-missing") {
     content = (
-      <div className="sql-explorer-empty">
-        <p>{t("sqlExplorer.empty.databaseMissing")}</p>
-        <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenPlayground}>{t("sqlExplorer.goToPlayground")}</Button>
-      </div>
+      <PanelEmptyState
+        className="sql-explorer-empty"
+        variant="card"
+        icon="database"
+        title={t("sqlExplorer.empty.databaseMissingTitle")}
+        description={t("sqlExplorer.empty.databaseMissingDescription")}
+        role="status"
+      >
+        <Button size="sm" variant="primary" iconLeft="database" onClick={onOpenPlayground}>
+          {t("sqlExplorer.goToPlayground")}
+        </Button>
+      </PanelEmptyState>
     );
   } else if (explorer.metadata) {
     content = (

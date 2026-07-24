@@ -13,13 +13,13 @@ import { withTestLocale } from "./utils/i18nTestUtils.ts";
 const renderInEnglish = (element: React.ReactElement): string =>
   withTestLocale("en", () => renderToStaticMarkup(element));
 const issues: ValidationIssuePresentation[] = [
-  { id: "warning-b", level: "warning", targetId: "b", targetType: "node", title: "Beta", targetKind: "Entity", message: "Warning" },
-  { id: "error-z", level: "error", targetId: "z", targetType: "node", title: "Zeta", targetKind: "Attribute", message: "Error Z" },
-  { id: "error-a", level: "error", targetId: "a", targetType: "edge", title: "Alpha", targetKind: "Connection", message: "Error A" },
+  { id: "warning-b", level: "warning", targetId: "b", targetType: "node", title: "Beta", targetKind: "Entity", message: "Warning", actions: [] },
+  { id: "error-z", level: "error", targetId: "z", targetType: "node", title: "Zeta", targetKind: "Attribute", message: "Error Z", actions: [{ id: "error-z::delete-attribute", type: "delete-attribute", kind: "auto", label: "Delete attribute", icon: "delete" }] },
+  { id: "error-a", level: "error", targetId: "a", targetType: "edge", title: "Alpha", targetKind: "Connection", message: "Error A", actions: [{ id: "error-a::delete-edge", type: "delete-edge", kind: "auto", label: "Delete link", icon: "delete" }] },
 ];
 
 test("ErrorsPanel uses shared primitives, filters, counts, and flat problem rows", () => {
-  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={issues} showIndicators onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
+  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={issues} showIndicators onToggleIndicators={() => undefined} onSelectIssue={() => undefined} onIssueAction={() => undefined} /></I18nProvider>);
   assert.match(markup, /role="tablist"/);
   assert.match(markup, /All|Tutti/);
   assert.match(markup, /role="listbox"/);
@@ -27,10 +27,20 @@ test("ErrorsPanel uses shared primitives, filters, counts, and flat problem rows
   assert.match(markup, /aria-pressed="true"/);
 });
 
+test("ErrorsPanel renders one quick-fix control per issue that has an action", () => {
+  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={issues} showIndicators onToggleIndicators={() => undefined} onSelectIssue={() => undefined} onIssueAction={() => undefined} /></I18nProvider>);
+  assert.equal((markup.match(/errors-panel__row-action"/g) ?? []).length, 2);
+  assert.match(markup, /aria-label="Delete link"/);
+  assert.match(markup, /aria-label="Delete attribute"/);
+});
+
 test("ErrorsPanel hides the numeric badge at zero and shows a compact empty state", () => {
-  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={[]} showIndicators={false} onToggleIndicators={() => undefined} onSelectIssue={() => undefined} /></I18nProvider>);
+  const markup = renderInEnglish(<I18nProvider><ErrorsPanel issues={[]} showIndicators={false} onToggleIndicators={() => undefined} onSelectIssue={() => undefined} onIssueAction={() => undefined} /></I18nProvider>);
   assert.doesNotMatch(markup, /workspace-panel__badge/);
   assert.match(markup, /workspace-panel__empty/);
+  assert.match(markup, /workspace-panel__empty--success/);
+  assert.match(markup, /Valid diagram/);
+  assert.match(markup, /No errors or warnings were found/);
 });
 
 test("validation issue sorting is stable by severity, title, and id", () => {
@@ -59,4 +69,13 @@ test("App mounts the extracted ErrorsPanel and removes the legacy errors modal",
   assert.match(source, /<ErrorsPanel/);
   assert.match(source, /getValidationActivityPresentation/);
   assert.doesNotMatch(source, /errors-modal|project-activity-issue-list/);
+});
+
+test("ErrorsPanel keeps neutral empty-filter copy separate from the positive all state", () => {
+  const source = readFileSync(new URL("../src/components/validation/ErrorsPanel.tsx", import.meta.url), "utf8");
+  assert.match(source, /filter === "all" \? "success" : "neutral"/);
+  assert.match(source, /errors\.panel\.emptyFilterTitle/);
+  assert.match(source, /errors\.panel\.emptyFilterDescription/);
+  assert.match(source, /onIssueAction\(issue, action\)/);
+  assert.match(source, /event\.stopPropagation\(\)/);
 });

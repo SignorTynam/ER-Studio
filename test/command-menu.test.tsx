@@ -52,6 +52,7 @@ function renderPalette() {
         onClose={noop}
         onOpenProjectFile={noop}
         onOpenShortcuts={noop}
+        onOpenSettings={noop}
         onDiagramViewChange={noop}
         onOpenSql={noop}
         onOpenSqlPlayground={noop}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useI18n } from "../../i18n/useI18n";
 import {
   sortValidationIssuePresentations,
+  type ValidationIssueAction,
   type ValidationIssuePresentation,
 } from "../../utils/validationIssuePresentation";
 import { StudioIcon } from "../icons/StudioIcon";
@@ -14,6 +15,8 @@ interface ErrorsPanelProps {
   showIndicators: boolean;
   onToggleIndicators: () => void;
   onSelectIssue: (issueId: string) => void;
+  /** Fase H: esegue l'azione di correzione guidata offerta dalla riga (auto-fix o navigazione). */
+  onIssueAction: (issue: ValidationIssuePresentation, action: ValidationIssueAction) => void;
   onClose?: () => void;
   closeLabel?: string;
 }
@@ -23,13 +26,14 @@ export function ErrorsPanel({
   showIndicators,
   onToggleIndicators,
   onSelectIssue,
+  onIssueAction,
   onClose,
   closeLabel,
 }: ErrorsPanelProps) {
   const { t } = useI18n();
   const [filter, setFilter] = useState<IssueFilter>("all");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
-  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const sortedIssues = useMemo(() => sortValidationIssuePresentations(issues), [issues]);
   const errorCount = sortedIssues.filter((issue) => issue.level === "error").length;
   const warningCount = sortedIssues.length - errorCount;
@@ -46,7 +50,7 @@ export function ErrorsPanel({
     onSelectIssue(issue.id);
   }
 
-  function handleRowKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+  function handleRowKeyDown(event: KeyboardEvent<HTMLDivElement>, index: number) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       selectIssue(filteredIssues[index]);
@@ -108,14 +112,19 @@ export function ErrorsPanel({
       {filteredIssues.length === 0 ? (
         <PanelEmptyState
           className="errors-panel__empty"
-          icon="success"
-          title={filter === "all" ? t("errors.empty") : t("errors.panel.emptyFilter")}
+          variant="card"
+          tone={filter === "all" ? "success" : "neutral"}
+          icon={filter === "all" ? "success" : "info"}
+          title={filter === "all" ? t("errors.panel.validTitle") : t("errors.panel.emptyFilterTitle")}
+          description={filter === "all"
+            ? t("errors.panel.validDescription")
+            : t("errors.panel.emptyFilterDescription")}
+          role="status"
         />
       ) : (
         <div className="errors-panel__list" role="listbox" aria-label={t("errors.panel.listLabel")}>
           {filteredIssues.map((issue, index) => (
-            <button
-              type="button"
+            <div
               role="option"
               key={issue.id}
               ref={(element) => {
@@ -140,7 +149,24 @@ export function ErrorsPanel({
                 </span>
                 <span className="errors-panel__row-message">{issue.message}</span>
               </span>
-            </button>
+              {issue.actions.length > 0 ? (
+                <span className="errors-panel__row-actions">
+                  {issue.actions.map((action) => (
+                    <PanelIconButton
+                      key={action.id}
+                      className="errors-panel__row-action"
+                      icon={action.icon ?? "info"}
+                      label={action.label}
+                      tooltipPosition="top"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onIssueAction(issue, action);
+                      }}
+                    />
+                  ))}
+                </span>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

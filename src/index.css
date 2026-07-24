@@ -12947,7 +12947,7 @@ summary:focus-visible,
   position: fixed;
   top: 86px;
   right: 18px;
-  z-index: 72;
+  z-index: var(--z-workspace-toast);
   width: min(380px, calc(100vw - 36px));
   pointer-events: none;
 }
@@ -13057,6 +13057,54 @@ summary:focus-visible,
   color: var(--panel-border-strong, var(--studio-accent));
   font-size: 0.74rem;
   font-weight: 850;
+}
+
+/* Fase L4 — countdown della scadenza: mostra quanto resta prima dell'auto-dismiss.
+   È un'animazione CSS, così la pausa di L1 diventa `animation-play-state: paused` e riprende
+   esattamente dal punto in cui si era fermata: stessa semantica del tempo residuo lato timer. */
+.workspace-toast-viewport .workspace-toast-countdown {
+  height: var(--space-0-5);
+  background: var(--color-accent);
+  transform-origin: left center;
+  animation: workspace-toast-countdown var(--workspace-toast-duration, 4000ms) linear forwards;
+}
+
+.workspace-toast-viewport .workspace-toast.tone-success .workspace-toast-countdown {
+  background: var(--color-success);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-warning .workspace-toast-countdown {
+  background: var(--color-warning);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-error .workspace-toast-countdown {
+  background: var(--color-danger);
+}
+
+.workspace-toast-viewport .workspace-toast.tone-info .workspace-toast-countdown {
+  background: var(--color-info);
+}
+
+.workspace-toast-viewport .workspace-toast[data-paused="true"] .workspace-toast-countdown {
+  animation-play-state: paused;
+}
+
+@keyframes workspace-toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Niente movimento continuo. Meglio nessun indicatore che una barra ferma: una barra immobile
+     suggerirebbe un toast che non scade mai. */
+  .workspace-toast-viewport .workspace-toast-countdown {
+    display: none;
+  }
 }
 
 .workspace-toast-viewport .workspace-toast.tone-success {

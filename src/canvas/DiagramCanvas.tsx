@@ -9,12 +9,8 @@ import type {
 } from "react";
 import { DiagramEdgeView, type EdgeLabelLayoutOverride } from "./DiagramEdge";
 import { DiagramNodeView, getAttributeLabelLayout } from "./DiagramNode";
-import {
-  CanvasMinimap,
-  DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY,
-  readCanvasMinimapVisibility,
-  writeCanvasMinimapVisibility,
-} from "./CanvasMinimap";
+import { CanvasMinimap, DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY } from "./CanvasMinimap";
+import { useCanvasMinimapVisibility } from "../hooks/useCanvasMinimapVisibility";
 import {
   DIAGRAM_IDENTIFIER_STROKE_WIDTH,
   DIAGRAM_IDENTIFIER_TERMINAL_MARKER_RADIUS,
@@ -1879,7 +1875,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   const pinchStateRef = useRef<PinchState | null>(null);
   const viewportAnimationRef = useRef<number | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({ kind: "idle" });
-  const [minimapVisible, setMinimapVisible] = useState(() => readCanvasMinimapVisibility(minimapStorageKey));
+  const [minimapVisible, setMinimapVisibleShared] = useCanvasMinimapVisibility(minimapStorageKey);
   const [pendingConnectionSource, setPendingConnectionSource] = useState<string | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<Point | null>(null);
   const [focusedTarget, setFocusedTarget] = useState<FocusTarget>(null);
@@ -2724,8 +2720,7 @@ export function DiagramCanvas(props: DiagramCanvasProps) {
   }
 
   function setMinimapVisibility(visible: boolean) {
-    setMinimapVisible(visible);
-    writeCanvasMinimapVisibility(minimapStorageKey, visible);
+    setMinimapVisibleShared(visible);
     props.onStatusMessageChange(t(visible ? "canvas.status.minimapShown" : "canvas.status.minimapHidden"));
   }
 

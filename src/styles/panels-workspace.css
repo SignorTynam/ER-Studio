@@ -95,6 +95,7 @@
 .workspace-panel__empty {
   display: grid;
   min-height: 180px;
+  min-width: 0;
   place-items: center;
   align-content: center;
   gap: var(--space-2);
@@ -103,15 +104,97 @@
   text-align: center;
 }
 
+.workspace-panel__empty-icon {
+  display: inline-flex;
+  width: var(--size-activity-rail);
+  height: var(--size-activity-rail);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.workspace-panel__empty-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
 .workspace-panel__empty strong {
   color: var(--color-text-primary);
   font-size: 0.82rem;
+}
+
+.workspace-panel__empty-copy > span {
+  max-width: 34ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  overflow-wrap: anywhere;
+}
+
+.workspace-panel__empty-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.workspace-panel__empty--card {
+  width: auto;
+  min-height: 156px;
+  margin: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-elevated);
+}
+
+.workspace-panel__empty--success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.workspace-panel__empty--success .workspace-panel__empty-icon {
+  background: var(--editor-success-soft);
+  color: var(--color-success);
 }
 
 /* Fase C2: gli step del reverse sono una sequenza — striscia orizzontale singola. */
 .sql-reverse-panel,
 .project-activity-section {
   background: var(--color-bg-sidebar);
+}
+
+/* Fase K1 — riga del dialetto SQL: "come interpreto il tuo SQL". */
+.sql-reverse-panel__toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2-5);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.sql-reverse-panel__dialect-label {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.sql-reverse-panel__dialect-tip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+
+.sql-reverse-panel__dialect-select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .sql-reverse-panel__editor-surface {
@@ -148,6 +231,143 @@
 
 .sql-reverse-panel__footer {
   justify-content: space-between;
+}
+
+/* Fasi K2/K4 — disclosure nella meta-riga (statement non importabili, diagnostiche spiegate). */
+.sql-reverse-panel__meta-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sql-reverse-panel__meta-toggle:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.sql-reverse-panel__meta-toggle:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--focus-ring);
+}
+
+.sql-reverse-panel__meta-toggle svg {
+  width: var(--space-3);
+  height: var(--space-3);
+  transition: transform var(--motion-fast);
+}
+
+.sql-reverse-panel__meta-toggle.is-open svg {
+  transform: rotate(90deg);
+}
+
+/* Contenitori dei due elenchi: statement non importabili (K2) e diagnostiche spiegate (K4). */
+.sql-reverse-panel__unsupported,
+.sql-reverse-panel__issues {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 38%;
+  overflow-y: auto;
+  padding: var(--space-2-5);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.sql-reverse-panel__unsupported-intro {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+.sql-reverse-panel__unsupported-list,
+.sql-reverse-panel__issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sql-reverse-panel__unsupported-item,
+.sql-reverse-panel__issue-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+}
+
+.sql-reverse-panel__unsupported-head,
+.sql-reverse-panel__issue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Fase K3 — "vai alla riga" dalle liste. */
+.sql-reverse-panel__jump-line {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.sql-reverse-panel__jump-line:hover {
+  text-decoration: underline;
+}
+
+.sql-reverse-panel__jump-line:focus-visible {
+  outline: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--focus-ring);
+}
+
+.sql-reverse-panel__fragment {
+  overflow-x: auto;
+  max-width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-editor);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-2xs);
+  white-space: pre;
+}
+
+.sql-reverse-panel__unsupported-reason,
+.sql-reverse-panel__issue-explanation {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+/* Fase K4 — titolo comprensibile della diagnostica, sopra la spiegazione. */
+.sql-reverse-panel__issue-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
 }
 
 .project-activity-action.primary {

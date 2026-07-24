@@ -31,6 +31,15 @@ Dirty state is computed by comparing the current working snapshot with HEAD and 
 
 The boolean dirty helper remains available for legacy callers, but new UI should prefer the structured dirty state.
 
+## Source Control composer
+
+The activity-panel composer always uses a vertical flow: the commit message
+textarea occupies the first row and the action row sits below it, aligned to the
+end. The layout is the same at desktop and narrow panel widths, so placeholder
+text and validation feedback retain usable space. `Ctrl+Enter` and `Cmd+Enter`
+submit through the same guarded commit handler as the button; disabled and busy
+states remain authoritative.
+
 ## Diff
 
 Version diff is implemented in `src/features/versioning/projectVersionDiff.ts` as pure logic. It compares normalized snapshots and returns sectioned results for ER, layout, logical model, code, and workspace changes. The UI only renders the computed result and does not own diff rules.

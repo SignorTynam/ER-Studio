@@ -133,10 +133,20 @@ export function SourceControlPanel(props: SourceControlPanelProps) {
           placeholder={t("sourceControl.commitPlaceholder", { project: props.projectName })}
           rows={2}
         />
-        <button type="button" className="source-control-primary-button" onClick={props.onCommit} disabled={!canCommit}>
-          <StudioIcon name="done" aria-hidden="true" />
-          <span>{props.commits.length === 0 ? t("sourceControl.createFirstCommit") : t("sourceControl.commit")}</span>
-        </button>
+        <div className="source-control-commit-submit-row">
+          <button
+            type="button"
+            className="source-control-primary-button"
+            onClick={props.onCommit}
+            disabled={!canCommit}
+            aria-busy={props.commitBusy || undefined}
+          >
+            {props.commitBusy
+              ? <span className="ui-button__spinner" aria-hidden="true" />
+              : <StudioIcon name="done" aria-hidden="true" />}
+            <span>{props.commits.length === 0 ? t("sourceControl.createFirstCommit") : t("sourceControl.commit")}</span>
+          </button>
+        </div>
       </div>
 
       <section className="source-control-section source-control-changes" aria-label={t("sourceControl.changes")}>

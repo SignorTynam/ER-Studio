@@ -1,6 +1,10 @@
-# buildER — Guida stile UI per Codex/Cursor
+# buildER — Guida stile UI condivisa
 
 Questa guida definisce lo stile UI da usare in tutto il progetto buildER. Deve essere considerata la fonte di verità per ogni futura modifica grafica, refactor di componenti o nuova feature UI.
+
+Questa guida si applica a persone, Codex, Claude Code e altri strumenti. Per
+viewport, accessibilita, i18n e coordinate canvas si applica anche
+[`docs/agents/RESPONSIVE_UI.md`](agents/RESPONSIVE_UI.md).
 
 ## Obiettivo
 
@@ -26,10 +30,15 @@ Ogni superficie UI deve usare, quando possibile:
 - `PanelCard` o `PanelStepCard` per card/azioni/selezioni;
 - `PanelTabs` per tab;
 - `WarningCard` per warning/error/info;
-- `EmptyStateCard` per stati vuoti;
+- `PanelEmptyState` da `components/workspace/WorkspacePanel` per gli stati vuoti dei pannelli workspace, usando `variant="card"` quando serve una card strutturata e `tone="success"` solo per esiti positivi reali;
 - `CommandOptionRow` per righe comando/menu.
 
 Se un componente usa ancora markup o classi custom per ricreare pannelli, card, tab o warning, deve essere migrato ai componenti condivisi oppure allineato esattamente allo stesso linguaggio CSS.
+
+`EmptyStateCard` esportato dal modulo legacy `components/panels` non deve essere
+usato per nuovi stati del workspace. Titolo, descrizione, icona, azioni, ruolo
+ARIA e tono devono essere dichiarati tramite `PanelEmptyState`, senza ricreare
+varianti locali nei singoli pannelli.
 
 ## Identità visiva
 
@@ -93,7 +102,7 @@ src/styles/
 
 Strategia accettabile: mantenere i file attuali ma ripulirli, evitando token duplicati e blocchi finali di override che riscrivono mezzo tema.
 
-## Piano operativo per Codex/Cursor
+## Piano operativo per modifiche UI
 
 1. Crea un branch dedicato partendo da `main` aggiornata.
 2. Esegui un audit dei file CSS e dei componenti UI.

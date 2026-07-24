@@ -57,6 +57,7 @@ export function KeyboardShortcutsModal(props: KeyboardShortcutsModalProps) {
         icon: "keyboard",
         items: [
           { keys: "Ctrl/Cmd K", action: t("keyboardShortcuts.actions.openCommandPalette") },
+          { keys: "Ctrl/Cmd ,", action: t("keyboardShortcuts.actions.openSettings") },
           { keys: "Ctrl/Cmd S", action: t("keyboardShortcuts.actions.saveProject") },
           { keys: "Ctrl/Cmd Z", action: t("keyboardShortcuts.actions.undo") },
           { keys: "Ctrl/Cmd Shift Z", action: t("keyboardShortcuts.actions.redo") },
