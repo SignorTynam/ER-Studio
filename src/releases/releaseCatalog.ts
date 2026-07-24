@@ -22,6 +22,9 @@ const detailed = (
 
 // builder:release-catalog:start
 export const RELEASE_CATALOG: readonly AppReleaseDefinition[] = [
+  { ...detailed("7.1.0", "2026-07-25", "minor", 3, ["code", "layout", "experience"], {
+    added: ["0"], changed: ["1"], fixed: ["2"],
+  }), managed: true },
   { ...detailed("7.0.0", "2026-07-21", "major", 14, ["database", "reverse", "releases"], {
     added: ["0", "1", "2", "3", "4", "5"],
     changed: ["6", "7", "8", "9", "10", "11"],

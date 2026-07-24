@@ -1537,6 +1537,21 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_1: {
+        headline: "Faster SQL workflows, a tidier workspace, and clearer feedback",
+        summary: "buildER 7.1 makes SQL files a first-class part of the workspace: create a Playground database from the current DDL, start Reverse Engineering immediately, and work with more useful diagnostics. Explorer, canvas, settings, errors, and notifications also receive a broad usability and accessibility update.",
+        hero: { eyebrow: "Workflow and quality", title: "buildER 7.1.0", subtitle: "Move from a SQL file to a database or logical model in one step, with a workspace that is easier to navigate and control." },
+        highlights: {
+          code: { title: "SQL files that get work done", description: "A shared editor, Playground database creation from DDL, a required name prompt when needed, and immediate Reverse Engineering of the current content.", tag: "SQL" },
+          layout: { title: "A workspace that is easier to organize", description: "Explorer move and drag-and-drop, centralized settings, improved minimap and canvas navigation, plus a cleaner top bar and Source Control panel.", tag: "Workspace" },
+          experience: { title: "More useful errors and notifications", description: "Guided quick fixes, navigable diagnostics, accessible localized toasts, consistent empty states, and refined responsive behavior.", tag: "Quality" },
+        },
+        updates: {
+          "0": "Added a dedicated SQL file workflow, Playground database creation from DDL, direct Reverse Engineering, SQL dialect selection, explanations for unsupported statements, the Settings screen, Explorer file moving, and row-level quick fixes in the Errors panel.",
+          "1": "Improved the top bar, Source Control, empty states, minimap, canvas auto-layout and navigation, editor diagnostics, responsive design, Italian/English/Albanian localization, toast accessibility, and technical documentation.",
+          "2": "Fixed stale-state undo/redo history, duplicate toast announcements, hover and focus timer behavior, selected guided fixes, and project identifier generation, which now uses secure UUIDs; repository checks for branches, commits, and SemVer were added as well.",
+        },
+      },
       v7_0: {
         headline: "buildER 7: real databases, a complete SQL workspace, and accessible release news",
         summary: "buildER 7 brings SQLite work directly into the browser: open real databases, explore them, run queries, create databases from the logical model, and turn them back into ER diagrams. The new What's New center also makes every update easier to understand and revisit.",

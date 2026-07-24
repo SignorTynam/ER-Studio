@@ -1537,6 +1537,21 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_1: {
+        headline: "Rrjedhë më e shpejtë SQL, hapësirë më e rregullt dhe sinjalizime më të qarta",
+        summary: "buildER 7.1 i bën skedarët SQL pjesë të plotë të hapësirës së punës: krijo një databazë në Playground nga DDL-ja aktuale, nis menjëherë Reverse Engineering dhe përdor diagnostikë më të dobishme. Explorer, kanavaca, cilësimet, gabimet dhe njoftimet marrin gjithashtu përmirësime të gjera në përdorshmëri dhe aksesueshmëri.",
+        hero: { eyebrow: "Rrjedha dhe cilësia", title: "buildER 7.1.0", subtitle: "Kalo nga skedari SQL te databaza ose modeli logjik në një hap, me një hapësirë pune më të lehtë për t'u lundruar dhe kontrolluar." },
+        highlights: {
+          code: { title: "Skedarë SQL vërtet funksionalë", description: "Editor i përbashkët, krijim databaze në Playground nga DDL-ja, kërkesë për emrin kur mungon dhe Reverse Engineering i menjëhershëm mbi përmbajtjen aktuale.", tag: "SQL" },
+          layout: { title: "Hapësirë pune më e lehtë për t'u organizuar", description: "Zhvendosje dhe drag-and-drop në Explorer, cilësime të centralizuara, minimapë dhe lundrim më i mirë në kanavacë, si dhe topbar e Source Control më të pastra.", tag: "Workspace" },
+          experience: { title: "Gabime dhe njoftime më të dobishme", description: "Quick fix të udhëzuara, diagnostikë e lundrueshme, toast-e të lokalizuara dhe të aksesueshme, gjendje boshe të njëtrajtshme dhe sjellje responsive e përmirësuar.", tag: "Cilësi" },
+        },
+        updates: {
+          "0": "U shtuan rrjedha e dedikuar për skedarët SQL, krijimi i databazës Playground nga DDL-ja, Reverse Engineering i drejtpërdrejtë, zgjedhësi i dialektit SQL, shpjegimet për deklaratat e pambështetura, ekrani i Cilësimeve, zhvendosja e skedarëve në Explorer dhe quick fix për çdo rresht në panelin e Gabimeve.",
+          "1": "U përmirësuan topbar-i, Source Control, gjendjet boshe, minimapa, auto-layout dhe lundrimi i kanavacës, diagnostika e editorit, dizajni responsive, lokalizimi italisht/anglisht/shqip, aksesueshmëria e toast-eve dhe dokumentacioni teknik.",
+          "2": "U korrigjuan historia undo/redo me gjendje të vjetruar, njoftimet e dyfishta të toast-eve, kohëmatësi gjatë hover dhe focus, disa korrigjime të udhëzuara dhe gjenerimi i identifikuesve të projektit, tani me UUID të sigurta; u shtuan edhe kontrollet e repository-t për branch, commit dhe SemVer.",
+        },
+      },
       v7_0: {
         headline: "buildER 7: databaza reale, hapësirë e plotë SQL dhe të reja gjithmonë të arritshme",
         summary: "buildER 7 sjell punën me SQLite drejtpërdrejt në shfletues: hap databaza reale, eksploroji, ekzekuto pyetje, krijo databaza nga modeli logjik dhe ktheji në diagrame ER. Qendra e re Të rejat e bën çdo përditësim më të qartë dhe të lehtë për t'u rishikuar.",

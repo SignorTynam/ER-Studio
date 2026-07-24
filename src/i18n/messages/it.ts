@@ -1535,6 +1535,21 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_1: {
+        headline: "SQL più diretto, workspace più ordinato e feedback più chiari",
+        summary: "buildER 7.1 rende i file SQL parte integrante del workspace: puoi creare un database nel Playground dal DDL corrente, avviare subito il Reverse Engineering e lavorare con diagnostica più utile. Explorer, canvas, impostazioni, errori e notifiche ricevono inoltre un ampio aggiornamento di usabilità e accessibilità.",
+        hero: { eyebrow: "Workflow e qualità", title: "buildER 7.1.0", subtitle: "Dal file SQL al database o al modello logico in un solo passaggio, con un workspace più semplice da navigare e controllare." },
+        highlights: {
+          code: { title: "File SQL davvero operativi", description: "Editor condiviso, Playground con creazione del database dal DDL, richiesta del nome quando manca e Reverse Engineering immediato sul contenuto corrente.", tag: "SQL" },
+          layout: { title: "Workspace più facile da organizzare", description: "Spostamento e drag-and-drop nell'Explorer, impostazioni centralizzate, minimappa e navigazione canvas migliorate, topbar e Source Control più puliti.", tag: "Workspace" },
+          experience: { title: "Errori e notifiche più utili", description: "Quick fix guidati, diagnostica navigabile, toast accessibili e localizzati, stati vuoti coerenti e comportamento responsive rifinito.", tag: "Qualità" },
+        },
+        updates: {
+          "0": "Aggiunti il workflow dedicato per i file SQL, la creazione di database Playground dal DDL, il Reverse Engineering diretto, il selettore del dialetto, le spiegazioni per gli statement non supportati, la schermata Impostazioni, lo spostamento dei file nell'Explorer e i quick fix nel pannello Errori.",
+          "1": "Migliorati topbar, Source Control, stati vuoti, minimappa, auto-layout e navigazione del canvas, diagnostica dell'editor, responsive design, localizzazione italiana/inglese/albanese, accessibilità dei toast e documentazione tecnica.",
+          "2": "Corretti la cronologia undo/redo con stato obsoleto, gli annunci duplicati dei toast, il timer durante hover e focus, alcune azioni di correzione guidata e la generazione degli identificatori progetto, ora basata su UUID sicuri; aggiunti anche controlli repository per branch, commit e SemVer.",
+        },
+      },
       v7_0: {
         headline: "buildER 7: database reali, SQL completo e novità sempre accessibili",
         summary: "buildER 7 porta il lavoro con SQLite direttamente nel browser: puoi aprire database reali, esplorarli, eseguire query, creare nuovi database dal modello logico e trasformarli in diagrammi ER. Il nuovo centro Novità rende inoltre ogni aggiornamento più chiaro e facile da consultare.",
