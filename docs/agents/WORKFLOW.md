@@ -89,6 +89,13 @@ npm run repo:check-commits -- --file .git/COMMIT_EDITMSG
 npm run repo:check-commits -- --base origin/main --head HEAD
 ```
 
+The machine-readable `commit.enforceAfter` SHA marks the last repository
+snapshot that predates enforcement. Range validation excludes that commit and
+all of its ancestors, so adopting the policy does not invalidate existing
+history. Every descendant commit remains subject to the current policy. Move
+this cutoff only through an explicit policy migration; never use it to exempt
+a newly created invalid commit.
+
 ## Pull Requests
 
 Keep the PR focused, link its Issue, explain behavior and risk, list exact

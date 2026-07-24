@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { validateAgentInstructions } from "../scripts/check-agent-instructions";
 import { validateBranchName } from "../scripts/check-branch-name";
-import { validateCommitMessage } from "../scripts/check-commit-message";
+import { runCommitCheck, validateCommitMessage } from "../scripts/check-commit-message";
 import {
   classifyVersionCommits,
   determineNextVersion,
@@ -54,6 +54,7 @@ test("repository policy JSON is valid and contains the canonical values", () => 
   const raw = JSON.parse(readFileSync(resolve(ROOT, "config/repository-policy.json"), "utf8"));
   assert.deepEqual(validateRepositoryPolicy(raw), []);
   assert.equal(policy.permanentBranch, "main");
+  assert.equal(policy.commit.enforceAfter, "06e5b10d38ebc004bcfe07d378d9464e794bc9f4");
   assert.deepEqual(policy.requiredLocales, ["it", "en", "sq"]);
   assert.equal(policy.requiredViewports.length, 5);
 });
@@ -91,6 +92,51 @@ test("breaking bang requires an explanatory marker", () => {
     ),
     [],
   );
+});
+
+test("commit range validation grandfathers history through the configured cutoff", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "builder-policy-commits-"));
+  try {
+    execFileSync("git", ["init", "-b", "main"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Policy Test"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "policy@example.invalid"], { cwd: root });
+    mkdirSync(resolve(root, "config"), { recursive: true });
+
+    const fixturePolicy = JSON.parse(
+      readFileSync(resolve(ROOT, "config/repository-policy.json"), "utf8"),
+    ) as { commit: { enforceAfter: string } };
+    fixturePolicy.commit.enforceAfter = "0".repeat(40);
+    writeFileSync(resolve(root, "config/repository-policy.json"), `${JSON.stringify(fixturePolicy, null, 2)}\n`);
+    writeFileSync(resolve(root, "fixture.txt"), "bootstrap\n");
+    execFileSync("git", ["add", "config/repository-policy.json", "fixture.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "chore(repo): create policy fixture"], { cwd: root });
+    const base = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+
+    writeFileSync(resolve(root, "fixture.txt"), "legacy\n");
+    execFileSync("git", ["add", "fixture.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "Legacy commit."], { cwd: root });
+    const cutoff = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+
+    fixturePolicy.commit.enforceAfter = cutoff;
+    writeFileSync(resolve(root, "config/repository-policy.json"), `${JSON.stringify(fixturePolicy, null, 2)}\n`);
+    execFileSync("git", ["add", "config/repository-policy.json"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "ci(repo): activate commit policy"], { cwd: root });
+    writeFileSync(resolve(root, "fixture.txt"), "current\n");
+    execFileSync("git", ["add", "fixture.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "fix(repo): preserve current history"], { cwd: root });
+
+    assert.doesNotThrow(() => runCommitCheck(["--base", base, "--head", "HEAD"], root));
+
+    writeFileSync(resolve(root, "fixture.txt"), "invalid\n");
+    execFileSync("git", ["add", "fixture.txt"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "Invalid new commit."], { cwd: root });
+    assert.throws(
+      () => runCommitCheck(["--base", base, "--head", "HEAD"], root),
+      /Invalid new commit\./,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("SemVer classification uses the highest detected change", () => {

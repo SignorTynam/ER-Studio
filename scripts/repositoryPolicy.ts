@@ -13,6 +13,7 @@ export interface RepositoryPolicy {
   commit: {
     allowedTypes: string[];
     pattern: string;
+    enforceAfter: string;
     subjectMustStartLowercase: boolean;
     forbidFinalPeriod: boolean;
   };
@@ -103,6 +104,7 @@ export function validateRepositoryPolicy(value: unknown): string[] {
   } else {
     const types = requireStringArray(commit, "allowedTypes", errors, "commit.");
     const pattern = requireString(commit, "pattern", errors, "commit.");
+    const enforceAfter = requireString(commit, "enforceAfter", errors, "commit.");
     if (pattern) {
       try {
         const regex = new RegExp(pattern);
@@ -114,6 +116,9 @@ export function validateRepositoryPolicy(value: unknown): string[] {
       } catch {
         errors.push("commit.pattern is not a valid regular expression.");
       }
+    }
+    if (enforceAfter && !/^[0-9a-f]{40}$/.test(enforceAfter)) {
+      errors.push("commit.enforceAfter must be a full lowercase Git commit SHA.");
     }
     if (typeof commit.subjectMustStartLowercase !== "boolean") {
       errors.push("commit.subjectMustStartLowercase must be boolean.");

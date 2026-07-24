@@ -57,8 +57,10 @@ function git(root: string, args: string[]): string {
   }
 }
 
-function commitsInRange(root: string, base: string, head: string): CommitRecord[] {
-  const output = git(root, ["log", "--reverse", "--format=%H%x1f%B%x1e", `${base}..${head}`]);
+function commitsInRange(root: string, base: string, head: string, excludeThrough?: string): CommitRecord[] {
+  const args = ["log", "--reverse", "--format=%H%x1f%B%x1e", `${base}..${head}`];
+  if (excludeThrough) args.push("--not", excludeThrough);
+  const output = git(root, args);
   if (!output) return [];
   return output
     .split("\x1e")
@@ -99,6 +101,7 @@ export function runCommitCheck(args = process.argv.slice(2), root = process.cwd(
   const positionalMessage = !file && !explicitMessage && args.length === 1 && !args[0].startsWith("--") ? args[0] : undefined;
 
   let commits: CommitRecord[];
+  let grandfatheredCount = 0;
   if (file) {
     const message = readFileSync(resolve(root, file), "utf8")
       .split(/\r?\n/)
@@ -115,9 +118,14 @@ export function runCommitCheck(args = process.argv.slice(2), root = process.cwd(
     const base = explicitBase ?? defaults?.base;
     const head = explicitHead ?? defaults?.head;
     if (!base || !head) throw new Error("Commit range requires both --base and --head.");
-    commits = commitsInRange(root, base, head);
+    const rangeCommits = commitsInRange(root, base, head);
+    commits = commitsInRange(root, base, head, policy.commit.enforceAfter);
+    grandfatheredCount = rangeCommits.length - commits.length;
     if (commits.length === 0) {
-      console.log(`No commits found in ${base}..${head}; nothing to validate.`);
+      const grandfathered = grandfatheredCount > 0
+        ? ` ${grandfatheredCount} historical commit(s) are grandfathered through ${policy.commit.enforceAfter.slice(0, 12)}.`
+        : "";
+      console.log(`No enforceable commits found in ${base}..${head}; nothing to validate.${grandfathered}`);
       return;
     }
   }
@@ -126,7 +134,10 @@ export function runCommitCheck(args = process.argv.slice(2), root = process.cwd(
     validateCommitMessage(commit.message, policy).map((error) => `${commit.hash.slice(0, 12)}: ${error}`),
   );
   if (failures.length > 0) throw new Error(`Commit policy failed:\n- ${failures.join("\n- ")}`);
-  console.log(`${commits.length} commit message(s) satisfy repository policy ${policy.policyVersion}.`);
+  const grandfathered = grandfatheredCount > 0
+    ? ` ${grandfatheredCount} historical commit(s) are grandfathered through ${policy.commit.enforceAfter.slice(0, 12)}.`
+    : "";
+  console.log(`${commits.length} commit message(s) satisfy repository policy ${policy.policyVersion}.${grandfathered}`);
 }
 
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;

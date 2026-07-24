@@ -29,6 +29,7 @@
       "release"
     ],
     "pattern": "^(?:feat|fix|refactor|test|docs|chore|build|ci|perf|release)(?:\\([a-z0-9][a-z0-9-]*\\))?!?: [a-z0-9][A-Za-z0-9 ./ '-]*[A-Za-z0-9)]$",
+    "enforceAfter": "06e5b10d38ebc004bcfe07d378d9464e794bc9f4",
     "subjectMustStartLowercase": true,
     "forbidFinalPeriod": true
   },
