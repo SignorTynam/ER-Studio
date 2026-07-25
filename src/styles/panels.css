@@ -3322,8 +3322,7 @@ textarea {
   touch-action: manipulation;
 }
 
-.app-shell,
-.landing-shell {
+.app-shell {
   min-width: 0;
   min-height: 100vh;
   min-height: 100dvh;
@@ -3379,42 +3378,6 @@ textarea {
 }
 
 @media (max-width: 899px) {
-.landing-main {
-    width: min(100%, calc(100vw - 28px));
-  }
-
-  .landing-hero,
-  .landing-process-section,
-  .landing-story-grid,
-  .landing-value-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-hero {
-    gap: 18px;
-  }
-
-  .landing-hero-copy {
-    padding-right: 0;
-  }
-
-  .landing-hero-copy h1 {
-    max-width: 100%;
-  }
-
-  .landing-stat-row {
-    grid-template-columns: 1fr;
-  }
-
-  .landing-final-cta {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .landing-final-cta .landing-primary-button {
-    width: 100%;
-  }
-
   .app-shell.app-shell-view-er,
   .app-shell.app-shell-view-translation,
   .app-shell.app-shell-view-logical {
@@ -3785,56 +3748,6 @@ textarea {
 }
 
 @media (max-width: 640px) {
-.landing-header {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 10px;
-    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
-  }
-
-  .landing-header-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  .landing-version-chip {
-    grid-column: 1 / -1;
-    min-height: 34px;
-    justify-content: center;
-  }
-
-  .landing-primary-button,
-  .landing-secondary-link {
-    width: 100%;
-    min-height: 44px;
-    padding-inline: 0.72rem;
-  }
-
-  .landing-main {
-    width: min(100%, calc(100vw - 20px));
-    padding: 22px 0 42px;
-    gap: 24px;
-  }
-
-  .landing-hero-copy h1 {
-    font-size: 3rem;
-    line-height: 1.02;
-  }
-
-  .landing-preview-stage {
-    min-height: 260px;
-  }
-
-  .preview-entity {
-    width: 112px;
-  }
-
-  .preview-relationship {
-    width: 90px;
-    height: 90px;
-  }
-
   .app-shell.app-shell-view-er,
   .app-shell.app-shell-view-translation,
   .app-shell.app-shell-view-logical {
@@ -4055,10 +3968,6 @@ textarea {
 }
 
 @media (max-width: 480px) {
-.landing-hero-copy h1 {
-    font-size: 2.55rem;
-  }
-
   .designer-toolbar-button {
     flex-basis: 54px;
     min-width: 54px;

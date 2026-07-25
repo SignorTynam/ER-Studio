@@ -123,7 +123,6 @@
   --studio-border: var(--color-border-default);
   --studio-border-strong: var(--color-border-strong);
   --studio-line: var(--color-border-default);
-  --studio-line-strong: var(--color-border-strong);
   --studio-ink: var(--color-text-primary);
   --studio-muted: var(--color-text-secondary);
   --studio-faint: var(--color-text-muted);
@@ -195,9 +194,7 @@
   --editor-warning-soft: var(--studio-warning-soft);
   --editor-error: var(--color-danger);
   --editor-error-soft: var(--studio-danger-soft);
-  --editor-success: var(--color-success);
   --editor-success-soft: var(--studio-success-soft);
-  --editor-danger: var(--color-danger);
 
   /* Stati interattivi dei controlli editor */
   --editor-interactive-hover-bg: var(--color-bg-hover);
@@ -235,6 +232,7 @@
   --diagram-error-fill: rgba(182, 66, 54, 0.12);
   --diagram-version-added: #2a8a5f;
   --diagram-version-modified: #b5850a;
+  --diagram-version-layout: var(--diagram-version-modified);
   --diagram-version-removed: #c44536;
 
   /* Canvas overlay stacking — coherent local scale, all below app modals (z 1200). */
