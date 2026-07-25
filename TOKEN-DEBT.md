@@ -197,7 +197,7 @@ Evidence used before deletion:
    final reachability and regression check recorded in the delivery report.
 
 Including the redundant root declarations and unused aliases, the edited CSS
-files contain 1,752 fewer physical lines than the starting SHA.
+files contain 1,754 fewer physical lines than the starting SHA.
 
 ## Intentional residuals
 
