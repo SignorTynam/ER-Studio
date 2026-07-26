@@ -379,14 +379,26 @@
 }
 
 .source-control-stats span,
-.source-control-tags span {
+.source-control-tags span,
+.source-control-tags button {
   display: inline-flex;
   gap: 3px;
   padding: 2px var(--space-1);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-bg-panel);
   color: var(--color-text-secondary);
+  font: inherit;
   font-size: var(--font-size-2xs);
+}
+
+.source-control-tags button {
+  cursor: pointer;
+}
+
+.source-control-tags button:hover,
+.source-control-tags button:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
 }
 
 .source-control-commit-actions {
@@ -417,8 +429,234 @@
   min-height: 82px;
 }
 
+.source-control-history-row__badges {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.source-control-history-row__badges i {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 1px 4px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-style: normal;
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-control-user-tags {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.source-control-user-tags__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.source-control-user-tags__header button,
+.source-control-settings button,
+.source-control-tag-dialog button,
+.source-control-retention-dialog button {
+  min-height: var(--size-control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+}
+
+.source-control-user-tags > small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-user-tags .source-control-tags {
+  margin: 0;
+}
+
+.source-control-settings {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.source-control-settings summary {
+  display: flex;
+  min-height: var(--size-control-sm);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  list-style: none;
+}
+
+.source-control-settings summary::-webkit-details-marker {
+  display: none;
+}
+
+.source-control-settings__body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+}
+
+.source-control-settings__body > label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.source-control-settings__inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1);
+}
+
+.source-control-settings input[type="number"],
+.source-control-tag-dialog input,
+.source-control-tag-dialog textarea {
+  min-width: 0;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.source-control-settings input[type="number"] {
+  width: 100%;
+}
+
+.source-control-settings__check {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.source-control-settings__check > span {
+  display: grid;
+  gap: 2px;
+}
+
+.source-control-settings__check small,
+.source-control-settings__body > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.source-control-tag-dialog,
+.source-control-retention-dialog {
+  width: min(440px, calc(100vw - (2 * var(--space-3))));
+}
+
+.source-control-tag-dialog__body,
+.source-control-retention-dialog__body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.source-control-tag-dialog__body label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.source-control-tag-dialog input,
+.source-control-tag-dialog textarea {
+  width: 100%;
+  padding: var(--space-2);
+}
+
+.source-control-tag-dialog textarea {
+  resize: vertical;
+}
+
+.source-control-tag-dialog__actions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+}
+
+.source-control-tag-dialog button.is-danger {
+  justify-self: start;
+  color: var(--color-danger);
+}
+
+.source-control-field-error {
+  margin: 0;
+  color: var(--color-danger) !important;
+  font-size: var(--font-size-xs) !important;
+}
+
+.source-control-retention-dialog dl {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.source-control-retention-dialog dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.source-control-retention-dialog dt {
+  color: var(--color-text-secondary);
+}
+
+.source-control-retention-dialog dd {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.source-control-retention-dialog__warning {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-bg-elevated));
+  color: var(--color-warning);
+}
+
+.source-control-danger-button {
+  border-color: var(--color-danger) !important;
+  background: var(--color-danger) !important;
+  color: var(--color-text-on-accent) !important;
+}
+
 @media (max-width: 640px) {
   .source-control-commit-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-control-tag-dialog__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .source-control-tag-dialog__actions .is-danger {
+    grid-column: 1 / -1;
   }
 }
