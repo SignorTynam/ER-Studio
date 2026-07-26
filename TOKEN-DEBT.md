@@ -11,8 +11,8 @@ checkout predating `50d1f19`.
 - Starting commit: `fix(ci): grandfather legacy commit history`
 - Audit date: 2026-07-25
 - Token source of truth: `src/styles/tokens.css`
-- CSS entry point: `src/main.tsx`, which imports `src/index.css`; that file
-  imports every stylesheet under `src/styles/`.
+- CSS entry point: src/main.tsx, which directly imports src/index.css
+  and the stylesheets required from src/styles/.
 
 The counts below describe the working tree produced from the starting SHA. The
 resulting commits are the durable Git record; rerun the command on any later

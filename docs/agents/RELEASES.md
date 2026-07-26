@@ -12,7 +12,6 @@ release. Existing scripts remain the implementation source of truth.
 Preparation means:
 
 - determine the next version from repository evidence;
-- create `release/<version>` from updated `main`;
 - update `package.json`, `package-lock.json`, the release catalog, Italian,
   English, and Albanian release content, and generated changelog;
 - generate release notes from real changes, complete all placeholders, and run

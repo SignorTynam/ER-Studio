@@ -27,7 +27,7 @@ npm run test:policy
 ## Branch e commit
 
 La convenzione completa e in
-[`docs/agents/WORKFLOW.md`](agents/WORKFLOW.md). Parti da `main` aggiornata e
+[`docs/agents/WORKFLOW.md`](agents/WORKFLOW.md). Parti da commit più recente del branch più aggiornato (se non viene specificato diversamente) e
 usa uno dei prefissi:
 
 ```text
