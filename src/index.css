@@ -8638,7 +8638,7 @@ body {
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  gap: var(--editor-space-4);
+  gap: var(--space-4);
   padding: 12px 16px;
   border-bottom: 1px solid rgba(27, 43, 65, 0.08);
   background: rgba(246, 249, 252, 0.92);
@@ -8650,7 +8650,7 @@ body {
 .header-utility-bar {
   display: flex;
   align-items: stretch;
-  gap: var(--editor-space-3);
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -8747,7 +8747,7 @@ body {
   padding: 10px 12px;
   border: 1px solid var(--editor-border);
   border-radius: 0;
-  background: var(--editor-surface-panel);
+  background: var(--editor-panel-strong);
   box-shadow: 0 4px 12px rgba(17, 31, 49, 0.04);
 }
 
@@ -8786,7 +8786,7 @@ body {
   padding: 0 12px;
   border: 1px solid var(--editor-border);
   border-radius: 0;
-  background: var(--editor-surface-muted);
+  background: var(--editor-panel-muted);
   color: var(--editor-text);
   font-size: 0.78rem;
   font-weight: 600;
@@ -8840,7 +8840,7 @@ body {
 .workspace-stage-utility-button.active {
   border-color: rgba(29, 79, 145, 0.2);
   background: var(--editor-accent-soft);
-  color: var(--editor-accent-strong);
+  color: var(--color-accent-hover);
 }
 
 .mode-switch-secondary {
@@ -8864,7 +8864,7 @@ body {
 
 .mode-button.active {
   background: #fff;
-  color: var(--editor-accent-strong);
+  color: var(--color-accent-hover);
   box-shadow: 0 6px 16px rgba(17, 31, 49, 0.08);
 }
 
@@ -8876,7 +8876,7 @@ body {
   padding: 0 14px;
   border: 1px solid var(--editor-border);
   border-radius: 0;
-  background: var(--editor-surface-muted);
+  background: var(--editor-panel-muted);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--editor-text);
@@ -8947,7 +8947,7 @@ body {
   padding: 12px 14px;
   border: 1px solid rgba(27, 43, 65, 0.1);
   border-radius: 0;
-  background: var(--editor-surface-panel);
+  background: var(--editor-panel-strong);
   color: var(--editor-text);
   text-align: left;
   box-shadow: 0 6px 16px rgba(17, 31, 49, 0.05);
@@ -8993,7 +8993,7 @@ body {
 
 .workspace-stage-card.active .workspace-stage-index {
   background: rgba(29, 79, 145, 0.14);
-  color: var(--editor-accent-strong);
+  color: var(--color-accent-hover);
 }
 
 .workspace-stage-title {
@@ -9021,8 +9021,8 @@ body {
 .workspace-side-panel {
   border: 1px solid var(--editor-border);
   border-radius: 0;
-  background: var(--editor-surface-panel);
-  box-shadow: var(--editor-shadow-soft);
+  background: var(--editor-panel-strong);
+  box-shadow: var(--studio-shadow-panel);
 }
 
 .toolbar-panel,
@@ -9066,7 +9066,7 @@ body {
   border: 1px solid rgba(27, 43, 65, 0.1);
   border-radius: 0;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.96) 0%, rgba(244, 248, 252, 0.98) 100%);
-  box-shadow: var(--editor-shadow-soft);
+  box-shadow: var(--studio-shadow-panel);
   overflow: hidden;
 }
 
@@ -9324,7 +9324,7 @@ body {
 .translation-reset-button.active {
   border-color: rgba(29, 79, 145, 0.22);
   background: var(--editor-accent-soft);
-  color: var(--editor-accent-strong);
+  color: var(--color-accent-hover);
 }
 
 .translation-warning-item.level-error {
@@ -9980,7 +9980,7 @@ body {
 }
 
 .workspace-stage-card.state-current .workspace-stage-title {
-  color: var(--editor-accent-strong);
+  color: var(--color-accent-hover);
 }
 
 .workspace-stage-index {

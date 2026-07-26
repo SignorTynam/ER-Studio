@@ -103,3 +103,22 @@ test("explorer stays usable and collapsible at 860px", async ({ page }, testInfo
   await page.locator(".project-activity-button").first().click();
   await expect(page.locator(".project-activity-panel--collapsed")).toBeVisible();
 });
+
+test("onboarding stays interactive above the open Explorer at 360px", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await bootWithProject(page);
+
+  const explorer = page.locator(".project-explorer");
+  const onboarding = page.getByRole("dialog", { name: "Guided onboarding" });
+  const skipTour = onboarding.getByRole("button", { name: "Skip tour" });
+
+  await expect(explorer).toBeVisible();
+  await expect(onboarding).toBeVisible();
+  await expect(skipTour).toBeVisible();
+
+  const screenshot = await page.screenshot();
+  await testInfo.attach("onboarding-explorer-360", { body: screenshot, contentType: "image/png" });
+
+  await skipTour.click();
+  await expect(onboarding).toBeHidden();
+});

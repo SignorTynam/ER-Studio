@@ -9,13 +9,15 @@ checkout predating `50d1f19`.
 - Branch: `feat/general-improvements`
 - Starting SHA: `ef0f93d9b5d478d3550974aa0a70427aad210507`
 - Starting commit: `fix(ci): grandfather legacy commit history`
-- Audit date: 2026-07-25
+- Last verified base SHA: `8013fd03bad7d019d79cadb2c119d06a08e702e6`
+- Audit date: 2026-07-26
 - Token source of truth: `src/styles/tokens.css`
 - CSS entry point: src/main.tsx, which directly imports src/index.css
   and the stylesheets required from src/styles/.
 
-The counts below describe the working tree produced from the starting SHA. The
-resulting commits are the durable Git record; rerun the command on any later
+The before counts retain the historical starting-SHA baseline. The after
+counts describe the current working tree based on the last verified SHA,
+including the strict-audit remediation. Rerun the command on any later
 checkout instead of treating these numbers as timeless.
 
 ## Reproducing the audit
@@ -71,11 +73,11 @@ runtime, test, and browser evidence.
 | --- | ---: | ---: | ---: |
 | Raw color literals, all CSS | 1,594 | 1,404 | -190 |
 | Raw color literals outside `tokens.css` | 1,533 | 1,343 | -190 |
-| `color-mix()` constructs | 212 | 212 | 0 |
+| `color-mix()` constructs | 212 | 214 | +2 |
 | CSS shadow declarations | 314 | 308 | -6 |
 | SVG/filter shadow references | 7 | 7 | 0 |
-| Spacing literals | 2,417 | 2,213 | -204 |
-| Dimension literals | 1,250 | 1,170 | -80 |
+| Spacing literals | 2,417 | 2,218 | -199 |
+| Dimension literals | 1,250 | 1,172 | -78 |
 | Radius literals | 7 | 7 | 0 |
 | Font-size literals | 791 | 732 | -59 |
 | Legacy alias declarations | 84 | 66 | -18 |
@@ -104,7 +106,7 @@ token-derived color operation, not equivalent to a raw color literal.
 | `src/styles/releases.css` | 8 | 2 |
 | `src/styles/responsive.css` | 1 | 0 |
 | `src/styles/settings.css` | 0 | 0 |
-| `src/styles/source-control-panel.css` | 0 | 0 |
+| `src/styles/source-control-panel.css` | 0 | 2 |
 | `src/styles/sql-playground.css` | 0 | 5 |
 | `src/styles/tokens.css` | 61 | 0 |
 | `src/styles/ui.css` | 0 | 12 |
@@ -113,26 +115,13 @@ token-derived color operation, not equivalent to a raw color literal.
 
 ### Missing custom-property references
 
-There are 51 references to 16 undeclared names; 25 references have no local
-fallback. The fallback-backed compatibility names are `--accent-soft`,
-`--accent-strong`, `--editor-accent-contrast`, `--editor-canvas-fill`,
-`--muted-text`, and `--surface-panel`.
+There are 23 references to 5 undeclared compatibility names, and every
+reference has an explicit local fallback. The names are `--accent-soft` (1),
+`--accent-strong` (1), `--editor-accent-contrast` (2), `--muted-text` (18),
+and `--surface-panel` (1).
 
-The references without fallbacks are:
-
-- `--color-bg-subtle` (1), `--color-surface-hover` (1), and
-  `--color-surface-subtle` (1);
-- `--editor-accent-strong` (5), `--editor-canvas-fill` (5 of 8),
-  `--editor-shadow-soft` (2), `--editor-space-3` (1),
-  `--editor-space-4` (1), `--editor-surface-muted` (2), and
-  `--editor-surface-panel` (3);
-- `--size-control-sm` (3).
-
-These references are retained as **FUORI SCOPE**. They occur in later legacy
-layers whose current computed behavior depends on an invalid declaration or
-on a stronger rule. Defining them globally would activate declarations and
-could change sizes, surfaces, or shadows. They need a surface-by-surface
-cascade migration with targeted screenshots, not a speculative global alias.
+There are no missing custom-property references without a fallback.
+`npm run styles:audit -- --strict` therefore exits successfully.
 
 ## Changes made
 
@@ -142,6 +131,21 @@ Three white-on-accent release declarations now use
 `var(--color-text-on-accent)`. The token has the same computed value and the
 role is unambiguous: release badge, dark announcement surface, and primary
 release action.
+
+The strict-audit follow-up migrates all 28 missing references without
+fallbacks to canonical tokens:
+
+- legacy editor spacing uses `--space-3` and `--space-4`;
+- strong accent text uses `--color-accent-hover`;
+- panel and muted surfaces use `--editor-panel-strong` and
+  `--editor-panel-muted`;
+- legacy canvas fills use `--diagram-canvas-fill` or retain their explicit
+  panel fallback where that was the existing computed behavior;
+- soft shadows use the shared `--studio-shadow-panel`;
+- diagnostic and SQL surfaces use `--color-bg-panel` and `--color-bg-hover`;
+- compact control heights use `--size-button-sm`;
+- the existing tag-chip reference is backed by the new semantic
+  `--radius-pill` token.
 
 ### ALIAS DA CONSOLIDARE
 
@@ -217,7 +221,8 @@ files contain 1,754 fewer physical lines than the starting SHA.
 
 ### FUORI SCOPE
 
-- Defining or migrating the 25 missing-variable references without fallbacks;
+- Optional consolidation of the 23 compatibility references that already
+  have explicit local fallbacks;
 - broad conversion of the remaining 1,343 raw colors without semantic review;
 - complete normalization of editor/panel spacing and typography;
 - removal of any of the 644 other automatically flagged selectors without
