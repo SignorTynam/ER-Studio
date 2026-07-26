@@ -14,8 +14,24 @@ import {
   type RestoreProjectCommitOptions,
   type RestoreProjectCommitResult,
 } from "./projectVersionRestore";
+import {
+  applyProjectVersioningRetention,
+  createProjectCommitTagInState,
+  deleteProjectCommitTagInState,
+  getVisibleProjectCommits,
+  renameProjectCommitTagInState,
+  updateProjectCommitTagInState,
+  updateProjectVersioningSettingsInState,
+  type CreateProjectCommitTagOptions,
+  type CreateProjectCommitTagResult,
+  type DeleteProjectCommitTagResult,
+  type ProjectCommitTagInput,
+  type UpdateProjectCommitTagResult,
+  type UpdateProjectVersioningSettingsResult,
+} from "./projectVersioningMetadata";
 import { createEmptyProjectVersioningState } from "../../utils/projectFile";
 import type { ProjectWorkspaceFile } from "../../types/projectExplorer";
+import type { ProjectVersioningSettings } from "./projectCommitSnapshot";
 
 export interface CreateProjectCommitInput {
   snapshot: ProjectCommitSnapshot;
@@ -488,11 +504,11 @@ export async function createProjectCommitInState(
     automatic: false,
     tags: [],
   });
-  const nextVersioning: ProjectVersioningState = applyProjectCommitLimit({
+  const nextVersioning = applyProjectVersioningRetention({
     ...versioning,
     headCommitId: commit.id,
     commits: [...versioning.commits, commit],
-  });
+  }).versioning;
 
   return {
     status: "created",
@@ -569,22 +585,6 @@ export function getProjectFileChanges(
   });
 }
 
-function getProtectedCommitIds(versioning: ProjectVersioningState): Set<string> {
-  const protectedIds = new Set<string>();
-  if (versioning.headCommitId) {
-    protectedIds.add(versioning.headCommitId);
-  }
-  if (versioning.settings.keepTaggedCommits !== false) {
-    versioning.tags.forEach((tag) => protectedIds.add(tag.commitId));
-    versioning.commits.forEach((commit) => {
-      if (commit.tags && commit.tags.length > 0) {
-        protectedIds.add(commit.id);
-      }
-    });
-  }
-  return protectedIds;
-}
-
 function reparentAfterRemovingCommit(commits: ProjectCommit[], removed: ProjectCommit): ProjectCommit[] {
   return commits.map((commit) =>
     commit.parentId === removed.id
@@ -594,38 +594,6 @@ function reparentAfterRemovingCommit(commits: ProjectCommit[], removed: ProjectC
         }
       : commit,
   );
-}
-
-function applyProjectCommitLimit(versioning: ProjectVersioningState): ProjectVersioningState {
-  const maxCommits = versioning.settings.maxCommits;
-  if (!maxCommits || versioning.commits.length <= maxCommits) {
-    return versioning;
-  }
-
-  let commits = [...versioning.commits];
-  const protectedIds = getProtectedCommitIds(versioning);
-  const oldestFirst = [...commits].sort((left, right) => {
-    const byDate = Date.parse(left.createdAt) - Date.parse(right.createdAt);
-    return byDate !== 0 ? byDate : left.id.localeCompare(right.id);
-  });
-
-  for (const candidate of oldestFirst) {
-    if (commits.length <= maxCommits) {
-      break;
-    }
-    if (protectedIds.has(candidate.id)) {
-      continue;
-    }
-    commits = reparentAfterRemovingCommit(commits.filter((commit) => commit.id !== candidate.id), candidate);
-  }
-
-  const commitIds = new Set(commits.map((commit) => commit.id));
-  return {
-    ...versioning,
-    commits,
-    headCommitId: versioning.headCommitId && commitIds.has(versioning.headCommitId) ? versioning.headCommitId : null,
-    tags: versioning.tags.filter((tag) => commitIds.has(tag.commitId)),
-  };
 }
 
 export function deleteProjectCommitInState(
@@ -671,6 +639,10 @@ export function useProjectVersioning(initialVersioning?: ProjectVersioningState)
     () => sortProjectCommitsNewestFirst(versioning.commits),
     [versioning.commits],
   );
+  const visibleCommitsNewestFirst = useMemo(
+    () => sortProjectCommitsNewestFirst(getVisibleProjectCommits(versioning)),
+    [versioning],
+  );
   const headCommit = useMemo(() => getProjectHeadCommit(versioning), [versioning]);
 
   async function createCommit(input: CreateProjectCommitInput): Promise<CreateProjectCommitResult> {
@@ -704,14 +676,66 @@ export function useProjectVersioning(initialVersioning?: ProjectVersioningState)
     return result;
   }
 
+  function createTag(
+    commitId: string,
+    input: ProjectCommitTagInput,
+    options?: CreateProjectCommitTagOptions,
+  ): CreateProjectCommitTagResult {
+    const result = createProjectCommitTagInState(versioning, commitId, input, options);
+    if (result.status === "created") {
+      setVersioning(result.versioning);
+    }
+    return result;
+  }
+
+  function updateTag(tagId: string, input: ProjectCommitTagInput): UpdateProjectCommitTagResult {
+    const result = updateProjectCommitTagInState(versioning, tagId, input);
+    if (result.status === "updated") {
+      setVersioning(result.versioning);
+    }
+    return result;
+  }
+
+  function renameTag(tagId: string, name: string): UpdateProjectCommitTagResult {
+    const result = renameProjectCommitTagInState(versioning, tagId, name);
+    if (result.status === "updated") {
+      setVersioning(result.versioning);
+    }
+    return result;
+  }
+
+  function deleteTag(tagId: string): DeleteProjectCommitTagResult {
+    const result = deleteProjectCommitTagInState(versioning, tagId);
+    if (result.status === "deleted") {
+      setVersioning(result.versioning);
+    }
+    return result;
+  }
+
+  function updateSettings(
+    patch: Partial<ProjectVersioningSettings>,
+  ): UpdateProjectVersioningSettingsResult {
+    const result = updateProjectVersioningSettingsInState(versioning, patch);
+    if (result.status === "updated") {
+      setVersioning(result.versioning);
+    }
+    return result;
+  }
+
   return {
     versioning,
     setVersioning,
     commitsNewestFirst,
+    visibleCommitsNewestFirst,
     headCommit,
     createCommit,
     restoreCommit,
     deleteCommit,
+    createTag,
+    renameTag,
+    updateTag,
+    deleteTag,
+    updateSettings,
     getHeadCommit: () => getProjectHeadCommit(versioning),
     getCommitById: (commitId: string | null) => getProjectCommitById(versioning, commitId),
   };

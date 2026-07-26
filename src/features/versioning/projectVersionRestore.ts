@@ -6,6 +6,7 @@ import {
   type ProjectCommitSnapshot,
   type ProjectVersioningState,
 } from "./projectCommitSnapshot";
+import { applyProjectVersioningRetention } from "./projectVersioningMetadata";
 
 export const PROJECT_RESTORE_BACKUP_TAG = "auto-backup";
 export const PROJECT_RESTORE_TAG = "auto-restore";
@@ -120,10 +121,10 @@ export async function restoreProjectCommitInState(
     targetCommit,
     backupCommit,
     restoreCommit,
-    versioning: {
+    versioning: applyProjectVersioningRetention({
       ...clonedVersioning,
       commits: [...clonedVersioning.commits, backupCommit, restoreCommit],
       headCommitId: restoreCommit.id,
-    },
+    }).versioning,
   };
 }
