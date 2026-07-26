@@ -1,23 +1,23 @@
-# buildER v7.1.0
+# buildER v7.2.0
 
-_2026-07-25_
+_2026-07-26_
 
-buildER 7.1 rende i file SQL parte integrante del workspace: puoi creare un database nel Playground dal DDL corrente, avviare subito il Reverse Engineering e lavorare con diagnostica più utile. Explorer, canvas, impostazioni, errori e notifiche ricevono inoltre un ampio aggiornamento di usabilità e accessibilità.
+buildER 7.2 aggiunge tag gestiti dall’utente e retention configurabile per la cronologia locale del progetto. Inoltre consolida il sistema dei token CSS e mantiene accessibili i controlli dell’onboarding sopra i pannelli mobile.
 
 ## Highlights
 
-- **File SQL davvero operativi** — Editor condiviso, Playground con creazione del database dal DDL, richiesta del nome quando manca e Reverse Engineering immediato sul contenuto corrente.
-- **Workspace più facile da organizzare** — Spostamento e drag-and-drop nell'Explorer, impostazioni centralizzate, minimappa e navigazione canvas migliorate, topbar e Source Control più puliti.
-- **Errori e notifiche più utili** — Quick fix guidati, diagnostica navigabile, toast accessibili e localizzati, stati vuoti coerenti e comportamento responsive rifinito.
+- **La cronologia sotto il tuo controllo** — Crea, rinomina, modifica ed elimina tag sui commit; configura la retention e scegli se mostrare i commit automatici senza indebolire le garanzie del ripristino.
+- **Un sistema di design token più chiaro** — Le superfici condivise usano ora token CSS canonici controllati da un audit riproducibile, riducendo alias legacy e rendendo coerenti le decisioni visuali.
+- **Onboarding mobile sempre raggiungibile** — Il tour guidato rimane sopra il Project Explorer aperto negli schermi stretti, con azioni visibili, cliccabili e senza overflow orizzontale.
 
 ## Added
 
-- Aggiunti il workflow dedicato per i file SQL, la creazione di database Playground dal DDL, il Reverse Engineering diretto, il selettore del dialetto, le spiegazioni per gli statement non supportati, la schermata Impostazioni, lo spostamento dei file nell'Explorer e i quick fix nel pannello Errori.
+- Aggiunti tag gestiti dall’utente per i commit locali, descrizioni, limiti configurabili della cronologia, protezione dei commit taggati, filtro dei commit automatici, anteprima della retention e persistenza .ersp compatibile.
 
 ## Changed
 
-- Migliorati topbar, Source Control, stati vuoti, minimappa, auto-layout e navigazione del canvas, diagnostica dell'editor, responsive design, localizzazione italiana/inglese/albanese, accessibilità dei toast e documentazione tecnica.
+- Consolidati alias CSS legacy e stili hardcoded attorno ai design token canonici, con un audit strict riproducibile e un inventario aggiornato del debito dei token.
 
 ## Fixed
 
-- Corretti la cronologia undo/redo con stato obsoleto, gli annunci duplicati dei toast, il timer durante hover e focus, alcune azioni di correzione guidata e la generazione degli identificatori progetto, ora basata su UUID sicuri; aggiunti anche controlli repository per branch, commit e SemVer.
+- Corretto il livello dell’onboarding mobile: Project Explorer non copre più il tour guidato e non intercetta le sue azioni nei viewport stretti.

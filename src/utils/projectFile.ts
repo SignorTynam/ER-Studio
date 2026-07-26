@@ -20,6 +20,18 @@ import type {
   ProjectVersioningSettings,
   ProjectVersioningState,
 } from "../features/versioning/projectCommitSnapshot";
+import {
+  DEFAULT_PROJECT_VERSIONING_MAX_COMMITS,
+  PROJECT_COMMIT_TAG_DESCRIPTION_MAX_LENGTH,
+  PROJECT_COMMIT_TAG_NAME_MAX_LENGTH,
+  getProjectCommitTagNameKey,
+  isReservedProjectCommitTagName,
+  isValidProjectCommitTagId,
+  normalizeProjectCommitTagColor,
+  normalizeProjectCommitTagDescription,
+  normalizeProjectCommitTagName,
+  normalizeProjectVersioningMaxCommits,
+} from "../features/versioning/projectVersioningMetadata";
 import { parseDiagram, serializeDiagram } from "./diagram";
 import { serializeDiagramToErs } from "./ers";
 import { createEmptyErTranslationWorkspace, refreshErTranslationWorkspace } from "./erTranslation";
@@ -50,7 +62,7 @@ export const PROJECT_FILE_MIME_TYPE = "application/json;charset=utf-8";
 export const PROJECT_FILE_ACCEPT = ".ersp,.json,application/json";
 export const CURRENT_PROJECT_FILE_VERSION = 6;
 export const PROJECT_VERSIONING_STATE_VERSION = 1;
-export const DEFAULT_PROJECT_VERSIONING_MAX_COMMITS = 200;
+export { DEFAULT_PROJECT_VERSIONING_MAX_COMMITS };
 
 export type ProjectFileWorkspaceView = WorkspaceView;
 export type ParsedProjectFileSource =
@@ -242,10 +254,6 @@ function sanitizeOptionalString(value: unknown): string | undefined {
 
 function sanitizeNonNegativeInteger(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
-}
-
-function sanitizePositiveInteger(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 function sanitizeStringList(value: unknown): string[] | undefined {
@@ -486,15 +494,34 @@ function sanitizeProjectCommit(value: unknown, fallbackViewport: Viewport): Proj
   };
 }
 
-function sanitizeProjectCommitTag(value: unknown, commitIds: Set<string>): ProjectCommitTag | null {
+function sanitizeProjectCommitTag(
+  value: unknown,
+  commitIds: Set<string>,
+  fallbackCreatedAt: string,
+): ProjectCommitTag | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const id = sanitizeOptionalString(value.id);
-  const name = sanitizeOptionalString(value.name);
+  const id = sanitizeOptionalString(value.id)?.trim();
+  const name = typeof value.name === "string" ? normalizeProjectCommitTagName(value.name) : "";
   const commitId = sanitizeOptionalString(value.commitId);
-  if (!id || !name || !commitId || !commitIds.has(commitId)) {
+  if (
+    !id
+    || !isValidProjectCommitTagId(id)
+    || !name
+    || name.length > PROJECT_COMMIT_TAG_NAME_MAX_LENGTH
+    || isReservedProjectCommitTagName(name)
+    || !commitId
+    || !commitIds.has(commitId)
+  ) {
+    return null;
+  }
+
+  const description = normalizeProjectCommitTagDescription(
+    typeof value.description === "string" ? value.description : undefined,
+  );
+  if (description && description.length > PROJECT_COMMIT_TAG_DESCRIPTION_MAX_LENGTH) {
     return null;
   }
 
@@ -502,9 +529,9 @@ function sanitizeProjectCommitTag(value: unknown, commitIds: Set<string>): Proje
     id,
     name,
     commitId,
-    createdAt: sanitizeNonEmptyString(value.createdAt, new Date().toISOString()),
-    description: sanitizeOptionalString(value.description),
-    color: sanitizeOptionalString(value.color),
+    createdAt: sanitizeNonEmptyString(value.createdAt, fallbackCreatedAt),
+    description,
+    color: normalizeProjectCommitTagColor(typeof value.color === "string" ? value.color : undefined),
   };
 }
 
@@ -515,7 +542,11 @@ function sanitizeProjectVersioningSettings(value: unknown): ProjectVersioningSet
   }
 
   return {
-    maxCommits: sanitizePositiveInteger(value.maxCommits) ?? fallback.maxCommits,
+    ...value,
+    maxCommits:
+      typeof value.maxCommits === "number" && Number.isFinite(value.maxCommits)
+        ? normalizeProjectVersioningMaxCommits(value.maxCommits)
+        : fallback.maxCommits,
     keepTaggedCommits:
       typeof value.keepTaggedCommits === "boolean" ? value.keepTaggedCommits : fallback.keepTaggedCommits,
     includeAutomaticCommits:
@@ -547,14 +578,28 @@ export function sanitizeProjectVersioningState(value: unknown, options?: ParsePr
     return true;
   });
   const commitIds = new Set(uniqueCommits.map((commit) => commit.id));
+  const commitCreatedAtById = new Map(uniqueCommits.map((commit) => [commit.id, commit.createdAt]));
   const commits = uniqueCommits.map((commit) => ({
     ...commit,
     parentId: commit.parentId && commitIds.has(commit.parentId) ? commit.parentId : null,
   }));
+  const seenTagIds = new Set<string>();
+  const seenTagNames = new Set<string>();
   const tags = Array.isArray(value.tags)
-    ? value.tags
-        .map((tag) => sanitizeProjectCommitTag(tag, commitIds))
-        .filter((tag): tag is ProjectCommitTag => tag !== null)
+    ? value.tags.flatMap((valueTag): ProjectCommitTag[] => {
+        const commitId = isRecord(valueTag) ? sanitizeOptionalString(valueTag.commitId) : undefined;
+        const tag = sanitizeProjectCommitTag(
+          valueTag,
+          commitIds,
+          (commitId && commitCreatedAtById.get(commitId)) || "1970-01-01T00:00:00.000Z",
+        );
+        if (!tag) return [];
+        const normalizedName = getProjectCommitTagNameKey(tag.name);
+        if (seenTagIds.has(tag.id) || seenTagNames.has(normalizedName)) return [];
+        seenTagIds.add(tag.id);
+        seenTagNames.add(normalizedName);
+        return [tag];
+      })
     : [];
   const requestedHeadCommitId = sanitizeOptionalString(value.headCommitId);
 

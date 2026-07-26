@@ -294,7 +294,11 @@ import {
   useProjectVersioning,
   type ProjectFileChange,
 } from "./features/versioning/useProjectVersioning";
-import { updateProjectSchemaFileIfContentChanged } from "./features/versioning/projectCommitSnapshot";
+import {
+  updateProjectSchemaFileIfContentChanged,
+  type ProjectVersioningSettings,
+} from "./features/versioning/projectCommitSnapshot";
+import type { ProjectCommitTagInput } from "./features/versioning/projectVersioningMetadata";
 import type { VersionCompareRef, VersionCompareScope } from "./features/versioning/projectVersionVisualDiff";
 import {
   getValidationActivityPresentation,
@@ -7305,6 +7309,58 @@ export default function App() {
     showSuccessNotice(message, { title: t("sourceControl.title") });
   }
 
+  function handleCreateProjectCommitTag(commitId: string, input: ProjectCommitTagInput) {
+    const result = projectVersioning.createTag(commitId, input);
+    if (result.status === "created") {
+      const message = t("sourceControl.tags.createdNotice", { name: result.tag.name });
+      setStatus(message);
+      showSuccessNotice(message, { title: t("sourceControl.tags.title") });
+    }
+    return result;
+  }
+
+  function handleUpdateProjectCommitTag(tagId: string, input: ProjectCommitTagInput) {
+    const result = projectVersioning.updateTag(tagId, input);
+    if (result.status === "updated") {
+      const message = t("sourceControl.tags.updatedNotice", { name: result.tag.name });
+      setStatus(message);
+      showSuccessNotice(message, { title: t("sourceControl.tags.title") });
+    }
+    return result;
+  }
+
+  function handleDeleteProjectCommitTag(tagId: string) {
+    const result = projectVersioning.deleteTag(tagId);
+    if (result.status === "deleted") {
+      const message = t("sourceControl.tags.deletedNotice", { name: result.deletedTag.name });
+      setStatus(message);
+      showSuccessNotice(message, { title: t("sourceControl.tags.title") });
+      if (
+        selectedSourceCommitId
+        && !result.versioning.commits.some((commit) => commit.id === selectedSourceCommitId)
+      ) {
+        setSelectedSourceCommitId(null);
+      }
+    }
+    return result;
+  }
+
+  function handleUpdateProjectVersioningSettings(patch: Partial<ProjectVersioningSettings>) {
+    const result = projectVersioning.updateSettings(patch);
+    if (result.status === "updated") {
+      const message = t("sourceControl.settings.updatedNotice");
+      setStatus(message);
+      showSuccessNotice(message, { title: t("sourceControl.settings.title") });
+      if (
+        selectedSourceCommitId
+        && !result.versioning.commits.some((commit) => commit.id === selectedSourceCommitId)
+      ) {
+        setSelectedSourceCommitId(null);
+      }
+    }
+    return result;
+  }
+
   async function handleLoadProjectRequest() {
     if (!(await confirmDiscardChanges(t("workspace.unsavedActions.loadProject")))) {
       return;
@@ -7973,8 +8029,9 @@ export default function App() {
         commitMessage={sourceControlCommitMessage}
         commitBusy={commitDialogBusy}
         changeState={versioningChangeState}
-        commits={projectVersioning.commitsNewestFirst}
-        headCommitId={projectVersioning.versioning.headCommitId}
+        versioning={projectVersioning.versioning}
+        commits={projectVersioning.visibleCommitsNewestFirst}
+        totalCommitCount={projectVersioning.commitsNewestFirst.length}
         selectedCommitId={selectedSourceCommitId}
         onCommitMessageChange={setSourceControlCommitMessage}
         onCommit={handleCreateSourceControlCommit}
@@ -7988,6 +8045,10 @@ export default function App() {
         onCompareWithParent={handleCompareCommitWithParent}
         onRestoreCommit={(commitId) => void handleConfirmRestoreCommit(commitId)}
         onDeleteCommit={(commitId) => void handleDeleteProjectCommit(commitId)}
+        onCreateTag={handleCreateProjectCommitTag}
+        onUpdateTag={handleUpdateProjectCommitTag}
+        onDeleteTag={handleDeleteProjectCommitTag}
+        onUpdateSettings={handleUpdateProjectVersioningSettings}
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />

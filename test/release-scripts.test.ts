@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildGeneratedChangelog, replaceGeneratedChangelog } from "../scripts/generate-changelog.ts";
+import { getNpmInvocation } from "../scripts/release.ts";
 import { bumpVersion, containsPlaceholder, tagMatchesVersion } from "../scripts/releaseUtils.ts";
 import { validateReleaseCatalog } from "../scripts/check-release.ts";
 import { RELEASE_CATALOG } from "../src/releases/releaseCatalog.ts";
@@ -17,6 +18,20 @@ test("tag validation is exact and placeholder detection is strict", () => {
   assert.equal(tagMatchesVersion("6.3.0", "6.3.0"), false);
   assert.equal(tagMatchesVersion("v6.3", "6.3.0"), false);
   assert.equal(containsPlaceholder("REPLACE_ME summary"), true);
+});
+
+test("release finalization invokes npm through the Windows command shell", () => {
+  assert.deepEqual(
+    getNpmInvocation(["run", "release:check"], "win32", "C:\\Windows\\System32\\cmd.exe"),
+    {
+      command: "C:\\Windows\\System32\\cmd.exe",
+      args: ["/d", "/s", "/c", "npm.cmd", "run", "release:check"],
+    },
+  );
+  assert.deepEqual(
+    getNpmInvocation(["test"], "linux"),
+    { command: "npm", args: ["test"] },
+  );
 });
 
 test("catalog validation catches a missing current release", () => {

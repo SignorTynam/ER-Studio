@@ -21,7 +21,7 @@
   place-items: center;
   padding-inline: 4px;
   background: var(--studio-warning);
-  color: #fff;
+  color: var(--color-text-on-accent);
   font-size: 0.62rem;
   font-weight: 850;
   line-height: 1;
@@ -86,7 +86,7 @@
 .release-center__eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--studio-accent-strong); font-size: 0.7rem; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; }
 .release-announcement__route,
 .release-announcement__skipped { display: inline-flex; margin: 4px 8px 0 0; padding: 5px 8px; border: 1px solid var(--studio-border); background: var(--studio-surface-muted); font-size: 0.74rem; font-weight: 750; }
-.release-announcement__version { display: grid; min-width: 190px; place-items: center; align-content: center; gap: 10px; padding: 18px; background: #1f332d; color: #fff; }
+.release-announcement__version { display: grid; min-width: 190px; place-items: center; align-content: center; gap: 10px; padding: 18px; background: #1f332d; color: var(--color-text-on-accent); }
 .release-announcement__version strong { font-size: clamp(1.7rem, 4vw, 3.3rem); }
 .release-announcement__highlights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .release-announcement__highlights article { min-width: 0; padding: 13px; border: 1px solid var(--studio-border); background: var(--studio-bg-elevated); }
@@ -97,7 +97,7 @@
 .release-announcement__changes ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--studio-muted); font-size: 0.8rem; }
 .release-announcement__actions { display: flex; justify-content: flex-end; gap: 8px; }
 .release-button { min-height: 38px; padding-inline: 14px; border: 1px solid var(--studio-border-strong); font: inherit; font-size: 0.8rem; font-weight: 800; }
-.release-button--primary { border-color: var(--studio-accent-strong); background: var(--studio-accent); color: #fff; }
+.release-button--primary { border-color: var(--studio-accent-strong); background: var(--studio-accent); color: var(--color-text-on-accent); }
 .release-button--secondary { background: var(--studio-surface); color: var(--studio-ink); }
 
 .critical-release-banner {

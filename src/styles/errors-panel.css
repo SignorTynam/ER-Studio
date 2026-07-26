@@ -24,7 +24,7 @@
 .errors-panel__filter {
   display: inline-flex;
   min-width: 0;
-  min-height: var(--size-control-sm);
+  min-height: var(--size-button-sm);
   align-items: center;
   justify-content: center;
   gap: var(--space-1);

@@ -17,15 +17,19 @@ const noop = () => undefined;
 
 function renderPanel() {
   const snapshot = createProjectWideSnapshotForTest();
-  const changeState = getProjectUncommittedChangeState(createEmptyProjectVersioningState(), snapshot);
+  const versioning = createEmptyProjectVersioningState();
+  const changeState = getProjectUncommittedChangeState(versioning, snapshot);
   return withTestLocale("en", () => renderToStaticMarkup(
     <I18nProvider>
       <SourceControlPanel
         projectName="ER Studio" projectFilePaths={{}} workingFileIds={Object.keys(snapshot.files ?? {})}
-        commitMessage="Initial snapshot" changeState={changeState} commits={[]} headCommitId={null} selectedCommitId={null}
+        commitMessage="Initial snapshot" changeState={changeState} versioning={versioning} commits={[]}
+        totalCommitCount={0} selectedCommitId={null}
         onCommitMessageChange={noop} onCommit={noop} onRefresh={noop} onReviewAllChanges={noop}
         onReviewFile={noop} onOpenFile={noop} onSelectCommit={noop} onCompareWithCurrent={noop}
         onCompareWithHead={noop} onCompareWithParent={noop} onRestoreCommit={noop} onDeleteCommit={noop}
+        onCreateTag={noop as never} onUpdateTag={noop as never} onDeleteTag={noop as never}
+        onUpdateSettings={noop as never}
       />
     </I18nProvider>,
   ));
@@ -105,6 +109,17 @@ test("history detail replaces the list and exposes real metadata", () => {
   assert.match(source, /selectedCommit\.automatic/);
   assert.match(source, /getCommitStats/);
   assert.doesNotMatch(source, /PendingAction|source-control-inline-confirm/);
+});
+
+test("Source Control exposes local history settings and never renders internal commit markers as user tags", () => {
+  const markup = renderPanel();
+  const source = readFileSync(new URL("../src/components/versioning/SourceControlPanel.tsx", import.meta.url), "utf8");
+  assert.match(markup, /History settings/);
+  assert.match(markup, /Maximum commits/);
+  assert.match(markup, /Show automatic commits/);
+  assert.match(source, /props\.versioning\.tags\.filter/);
+  assert.doesNotMatch(source, /selectedCommit\.tags\?\.length/);
+  assert.match(source, /source-control-retention-dialog/);
 });
 
 test("legacy Source Control CSS selectors were removed from shared styles", () => {

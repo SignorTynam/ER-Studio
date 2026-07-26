@@ -92,6 +92,10 @@
     background: rgba(7, 11, 9, 0.28);
   }
 
+  .workspace-region-has-onboarding .workspace-overlay-region {
+    z-index: var(--z-workspace-onboarding);
+  }
+
   .project-main-area {
     grid-column: 2;
   }

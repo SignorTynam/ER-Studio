@@ -76,6 +76,7 @@
   --radius-control: 4px;
   --radius-panel: 6px;
   --radius-dialog: 10px;
+  --radius-pill: 999px;
 
   --elevation-flat: none;
   --elevation-popover: 0 8px 24px rgba(19, 29, 24, 0.16);
@@ -123,7 +124,6 @@
   --studio-border: var(--color-border-default);
   --studio-border-strong: var(--color-border-strong);
   --studio-line: var(--color-border-default);
-  --studio-line-strong: var(--color-border-strong);
   --studio-ink: var(--color-text-primary);
   --studio-muted: var(--color-text-secondary);
   --studio-faint: var(--color-text-muted);
@@ -195,9 +195,7 @@
   --editor-warning-soft: var(--studio-warning-soft);
   --editor-error: var(--color-danger);
   --editor-error-soft: var(--studio-danger-soft);
-  --editor-success: var(--color-success);
   --editor-success-soft: var(--studio-success-soft);
-  --editor-danger: var(--color-danger);
 
   /* Stati interattivi dei controlli editor */
   --editor-interactive-hover-bg: var(--color-bg-hover);
@@ -235,6 +233,7 @@
   --diagram-error-fill: rgba(182, 66, 54, 0.12);
   --diagram-version-added: #2a8a5f;
   --diagram-version-modified: #b5850a;
+  --diagram-version-layout: var(--diagram-version-modified);
   --diagram-version-removed: #c44536;
 
   /* Canvas overlay stacking — coherent local scale, all below app modals (z 1200). */
@@ -243,13 +242,14 @@
   --z-canvas-overlay-controls: 20;
   /* Scala z-index degli overlay a LIVELLO FINESTRA (position: fixed, fuori dallo stacking
      context del canvas), dal basso verso l'alto — Fase L5:
-       32  onboarding guide      (non ancora tokenizzato)
        40  backdrop modali minori (non ancora tokenizzato)
+       61  onboarding guide      <- --z-workspace-onboarding
        72  toast di workspace     <- --z-workspace-toast
        73  popover diagnostico    <- --z-editor-diagnostic-popover
       120  backdrop modali        (non ancora tokenizzato)
      Nota: toast e popover condividono lo stesso angolo (top/right), quindi il popover
      copre i toast quando sono entrambi visibili. */
+  --z-workspace-onboarding: 61;
   --z-workspace-toast: 72;
   --z-editor-diagnostic-popover: 73;
 }

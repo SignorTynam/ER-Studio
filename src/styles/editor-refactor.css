@@ -907,7 +907,7 @@ body > .code-editor-diagnostic-popover {
 .code-editor-diagnostic-popover__heading {
   padding: 10px 10px 8px;
   border-bottom: 1px solid var(--color-border-default);
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-panel);
 }
 
 .code-editor-diagnostic-popover__heading button,
@@ -4832,18 +4832,6 @@ textarea:disabled {
   padding: 2px 6px;
 }
 
-.landing-shell {
-  background: var(--studio-bg);
-  color: var(--studio-ink);
-}
-
-.landing-header {
-  border-bottom: 1px solid var(--studio-border);
-  background: rgba(248, 250, 247, 0.92);
-}
-
-.landing-card,
-.landing-panel,
 .feature-card {
   border: 1px solid var(--studio-border);
   border-radius: 0;
