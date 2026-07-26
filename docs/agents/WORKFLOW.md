@@ -12,8 +12,8 @@ The machine-readable branch and commit values live in
    or stash it automatically.
 3. Inspect the relevant implementation, tests, documentation, and current
    repository conventions.
-4. Start from latest updated branch unless the user explicitly requests a different
-   base. Never implement directly on `main`.
+4. Start from the latest commit on the most recently updated branch,
+   unless the user explicitly requests a different base.
 
 ## Automatic branch creation
 
