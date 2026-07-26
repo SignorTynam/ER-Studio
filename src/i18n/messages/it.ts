@@ -1586,6 +1586,21 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_2: {
+        headline: "Una cronologia di progetto su misura, in un workspace più coerente",
+        summary: "buildER 7.2 aggiunge tag gestiti dall’utente e retention configurabile per la cronologia locale del progetto. Inoltre consolida il sistema dei token CSS e mantiene accessibili i controlli dell’onboarding sopra i pannelli mobile.",
+        hero: { eyebrow: "Versioning e qualità dell’interfaccia", title: "buildER 7.2.0", subtitle: "Organizza le tappe importanti del progetto, controlla quanta cronologia conservare e lavora in un’interfaccia responsive più coerente." },
+        highlights: {
+          code: { title: "La cronologia sotto il tuo controllo", description: "Crea, rinomina, modifica ed elimina tag sui commit; configura la retention e scegli se mostrare i commit automatici senza indebolire le garanzie del ripristino.", tag: "Versioning" },
+          layout: { title: "Un sistema di design token più chiaro", description: "Le superfici condivise usano ora token CSS canonici controllati da un audit riproducibile, riducendo alias legacy e rendendo coerenti le decisioni visuali.", tag: "Design system" },
+          experience: { title: "Onboarding mobile sempre raggiungibile", description: "Il tour guidato rimane sopra il Project Explorer aperto negli schermi stretti, con azioni visibili, cliccabili e senza overflow orizzontale.", tag: "Responsive" },
+        },
+        updates: {
+          "0": "Aggiunti tag gestiti dall’utente per i commit locali, descrizioni, limiti configurabili della cronologia, protezione dei commit taggati, filtro dei commit automatici, anteprima della retention e persistenza .ersp compatibile.",
+          "1": "Consolidati alias CSS legacy e stili hardcoded attorno ai design token canonici, con un audit strict riproducibile e un inventario aggiornato del debito dei token.",
+          "2": "Corretto il livello dell’onboarding mobile: Project Explorer non copre più il tour guidato e non intercetta le sue azioni nei viewport stretti.",
+        },
+      },
       v7_1: {
         headline: "SQL più diretto, workspace più ordinato e feedback più chiari",
         summary: "buildER 7.1 rende i file SQL parte integrante del workspace: puoi creare un database nel Playground dal DDL corrente, avviare subito il Reverse Engineering e lavorare con diagnostica più utile. Explorer, canvas, impostazioni, errori e notifiche ricevono inoltre un ampio aggiornamento di usabilità e accessibilità.",

@@ -1588,6 +1588,21 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_2: {
+        headline: "Project history you can shape, with a more consistent workspace",
+        summary: "buildER 7.2 adds user-managed commit tags and configurable retention for local project history. It also consolidates the CSS token system and keeps onboarding controls accessible above mobile workspace panels.",
+        hero: { eyebrow: "Versioning and interface quality", title: "buildER 7.2.0", subtitle: "Organize important project milestones, control how much history is retained, and work in a more consistent responsive interface." },
+        highlights: {
+          code: { title: "Version history under your control", description: "Create, rename, edit, and delete commit tags; configure retention; and choose whether automatic commits appear in the timeline without weakening restore safeguards.", tag: "Versioning" },
+          layout: { title: "One clearer design-token system", description: "Shared surfaces now rely on canonical CSS tokens backed by a reproducible audit, reducing legacy aliases and keeping visual decisions consistent.", tag: "Design system" },
+          experience: { title: "Mobile onboarding stays reachable", description: "The guided tour now remains above the open Project Explorer on narrow screens, so its actions stay visible, clickable, and free from horizontal overflow.", tag: "Responsive" },
+        },
+        updates: {
+          "0": "Added user-managed tags for local project commits, tag descriptions, configurable history limits, protected tagged commits, automatic-commit visibility settings, retention previews, and compatible .ersp persistence.",
+          "1": "Consolidated legacy CSS aliases and hardcoded styles around canonical design tokens, added a reproducible strict token audit, and refreshed the documented token-debt inventory.",
+          "2": "Fixed the mobile onboarding layer so Project Explorer no longer covers the guided tour or intercepts its actions on narrow viewports.",
+        },
+      },
       v7_1: {
         headline: "Faster SQL workflows, a tidier workspace, and clearer feedback",
         summary: "buildER 7.1 makes SQL files a first-class part of the workspace: create a Playground database from the current DDL, start Reverse Engineering immediately, and work with more useful diagnostics. Explorer, canvas, settings, errors, and notifications also receive a broad usability and accessibility update.",

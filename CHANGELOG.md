@@ -9,6 +9,17 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.2.0] - 2026-07-26
+
+### Added
+- Aggiunti tag gestiti dall’utente per i commit locali, descrizioni, limiti configurabili della cronologia, protezione dei commit taggati, filtro dei commit automatici, anteprima della retention e persistenza .ersp compatibile.
+
+### Changed
+- Consolidati alias CSS legacy e stili hardcoded attorno ai design token canonici, con un audit strict riproducibile e un inventario aggiornato del debito dei token.
+
+### Fixed
+- Corretto il livello dell’onboarding mobile: Project Explorer non copre più il tour guidato e non intercetta le sue azioni nei viewport stretti.
+
 ## [7.1.0] - 2026-07-25
 
 ### Added

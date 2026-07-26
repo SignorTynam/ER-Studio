@@ -1588,6 +1588,21 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_2: {
+        headline: "Historik projekti që e kontrollon, në një hapësirë pune më koherente",
+        summary: "buildER 7.2 shton etiketa të menaxhuara nga përdoruesi dhe ruajtje të konfigurueshme për historikun lokal të projektit. Gjithashtu unifikon sistemin e tokenëve CSS dhe i mban kontrollet e udhëzuesit të përdorshme mbi panelet në celular.",
+        hero: { eyebrow: "Versionim dhe cilësi e ndërfaqes", title: "buildER 7.2.0", subtitle: "Organizo etapat e rëndësishme të projektit, kontrollo sa historik ruhet dhe puno në një ndërfaqe responsive më koherente." },
+        highlights: {
+          code: { title: "Historiku i versioneve nën kontrollin tënd", description: "Krijo, riemërto, ndrysho dhe fshi etiketa të commit-eve; konfiguro ruajtjen dhe zgjidh nëse commit-et automatike shfaqen pa dobësuar sigurinë e rikthimit.", tag: "Versionim" },
+          layout: { title: "Një sistem më i qartë tokenësh dizajni", description: "Sipërfaqet e përbashkëta përdorin tokenë CSS kanonikë të kontrolluar nga një audit i riprodhueshëm, duke pakësuar aliaset e vjetra dhe duke ruajtur koherencën pamore.", tag: "Sistem dizajni" },
+          experience: { title: "Udhëzuesi në celular mbetet i përdorshëm", description: "Turi i udhëzuar qëndron mbi Project Explorer në ekranet e ngushta, me veprime të dukshme, të klikueshme dhe pa tejmbushje horizontale.", tag: "Responsive" },
+        },
+        updates: {
+          "0": "U shtuan etiketa të menaxhuara nga përdoruesi për commit-et lokale, përshkrime, kufij të konfigurueshëm të historikut, mbrojtje për commit-et me etiketa, filtër për commit-et automatike, parashikim të ruajtjes dhe persistencë të përputhshme .ersp.",
+          "1": "U konsoliduan aliaset e vjetra CSS dhe stilet hardcoded rreth tokenëve kanonikë të dizajnit, me audit strict të riprodhueshëm dhe inventar të përditësuar të borxhit të tokenëve.",
+          "2": "U korrigjua shtresa e udhëzuesit në celular, që Project Explorer të mos mbulojë më turin e udhëzuar ose të kapë veprimet e tij në viewport-e të ngushta.",
+        },
+      },
       v7_1: {
         headline: "Rrjedhë më e shpejtë SQL, hapësirë më e rregullt dhe sinjalizime më të qarta",
         summary: "buildER 7.1 i bën skedarët SQL pjesë të plotë të hapësirës së punës: krijo një databazë në Playground nga DDL-ja aktuale, nis menjëherë Reverse Engineering dhe përdor diagnostikë më të dobishme. Explorer, kanavaca, cilësimet, gabimet dhe njoftimet marrin gjithashtu përmirësime të gjera në përdorshmëri dhe aksesueshmëri.",
