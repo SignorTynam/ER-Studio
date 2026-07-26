@@ -67,16 +67,31 @@ export function prepareReleaseAutomatically(root = process.cwd()): string {
   return prepareRelease(result.requiredBump, root);
 }
 
-function runNpm(script: string, root: string): void {
-  execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["run", script], { cwd: root, stdio: "inherit" });
+export function getNpmInvocation(
+  args: readonly string[],
+  platform = process.platform,
+  commandShell = process.env.ComSpec,
+): { command: string; args: string[] } {
+  if (platform === "win32") {
+    return {
+      command: commandShell || "cmd.exe",
+      args: ["/d", "/s", "/c", "npm.cmd", ...args],
+    };
+  }
+  return { command: "npm", args: [...args] };
+}
+
+function runNpm(args: readonly string[], root: string): void {
+  const invocation = getNpmInvocation(args);
+  execFileSync(invocation.command, invocation.args, { cwd: root, stdio: "inherit" });
 }
 
 export function finalizeRelease(options: { commit: boolean }, root = process.cwd()): void {
   const branch = assertGitRepository(root, false);
-  runNpm("release:check", root);
-  runNpm("changelog:check", root);
-  execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", ["test"], { cwd: root, stdio: "inherit" });
-  runNpm("build", root);
+  runNpm(["run", "release:check"], root);
+  runNpm(["run", "changelog:check"], root);
+  runNpm(["test"], root);
+  runNpm(["run", "build"], root);
   const version = readPackageVersion(root);
   const notesPath = resolve(root, "release-notes.md");
   writeFileSync(notesPath, generateReleaseNotes(version), "utf8");
