@@ -11,6 +11,7 @@ import {
   parseProjectFile,
   PROJECT_FILE_KIND,
   ProjectFileError,
+  sanitizeProjectVersioningState,
   serializeProjectFile,
   type ProjectFileWorkspaceState,
 } from "../src/utils/projectFile.ts";
@@ -584,7 +585,7 @@ test("versioning malformato viene sanitizzato senza impedire il caricamento", ()
   assert.equal(parsed.state.versioning.commits[0]?.snapshot.codePanelOpen, false);
   assert.deepEqual(parsed.state.versioning.tags, []);
   assert.deepEqual(parsed.state.versioning.settings, {
-    maxCommits: 200,
+    maxCommits: 1,
     keepTaggedCommits: true,
     includeAutomaticCommits: true,
   });
@@ -646,6 +647,105 @@ test("versioning viene mantenuto dopo serialize e parse", () => {
     keepTaggedCommits: false,
     includeAutomaticCommits: true,
   });
+});
+
+test("sanitization .ersp normalizza tag utente e impostazioni senza confonderli con i marker interni", () => {
+  const snapshot = createFullProjectSnapshot("Tag sanitization");
+  const commit = {
+    id: "commit-valid",
+    parentId: null,
+    message: "Valid",
+    createdAt: "2026-06-26T12:15:00.000Z",
+    snapshot,
+    checksum: "checksum-valid",
+    stats: {
+      entityCount: 0,
+      relationshipCount: 0,
+      attributeCount: 0,
+      edgeCount: 0,
+    },
+    automatic: true,
+    tags: ["auto-backup", "auto-restore"],
+  };
+  const sanitized = sanitizeProjectVersioningState({
+    version: 1,
+    enabled: true,
+    headCommitId: "commit-valid",
+    commits: [commit],
+    tags: [
+      { id: " tag-one ", name: "  Release  ", commitId: "commit-valid", description: "  ready  ", color: " #08f " },
+      { id: "tag-two", name: "release", commitId: "commit-valid" },
+      { id: "tag-three", name: "auto-backup", commitId: "commit-valid" },
+      { id: "tag-four", name: "Orphan", commitId: "missing" },
+      { id: "tag-one", name: "Duplicate id", commitId: "commit-valid" },
+    ],
+    settings: {
+      maxCommits: 50_000,
+      keepTaggedCommits: true,
+      includeAutomaticCommits: false,
+      futureRetentionMode: "balanced",
+    },
+  });
+
+  assert.deepEqual(sanitized.commits[0]?.tags, ["auto-backup", "auto-restore"]);
+  assert.deepEqual(sanitized.tags, [{
+    id: "tag-one",
+    name: "Release",
+    commitId: "commit-valid",
+    createdAt: "2026-06-26T12:15:00.000Z",
+    description: "ready",
+    color: "#08f",
+  }]);
+  assert.equal(sanitized.settings.maxCommits, 1_000);
+  assert.equal(
+    (sanitized.settings as typeof sanitized.settings & { futureRetentionMode?: string }).futureRetentionMode,
+    "balanced",
+  );
+});
+
+test("serialize e parse .ersp mantengono tag utente, colore e marker automatici separati", () => {
+  const snapshot = createFullProjectSnapshot("Tag roundtrip");
+  const parsed = parseProjectFile(serializeProjectFile({
+    ...createSerializableProject("Tag roundtrip"),
+    versioning: {
+      ...createEmptyProjectVersioningState(),
+      headCommitId: "commit-tagged",
+      commits: [{
+        id: "commit-tagged",
+        parentId: null,
+        message: "Tagged",
+        createdAt: "2026-06-26T12:15:00.000Z",
+        snapshot,
+        checksum: "checksum-tagged",
+        stats: {
+          entityCount: 0,
+          relationshipCount: 0,
+          attributeCount: 0,
+          edgeCount: 0,
+        },
+        automatic: true,
+        tags: ["auto-restore"],
+      }],
+      tags: [{
+        id: "tag-release",
+        name: "Release",
+        commitId: "commit-tagged",
+        createdAt: "2026-06-26T12:16:00.000Z",
+        description: "Ready",
+        color: "#08f",
+      }],
+    },
+  }));
+
+  assert.deepEqual(parsed.state.versioning.commits[0]?.tags, ["auto-restore"]);
+  assert.deepEqual(parsed.state.versioning.tags, [{
+    id: "tag-release",
+    name: "Release",
+    commitId: "commit-tagged",
+    createdAt: "2026-06-26T12:16:00.000Z",
+    description: "Ready",
+    color: "#08f",
+  }]);
 });
 
 test("serialize e parse mantengono snapshot completo dentro versioning", () => {
