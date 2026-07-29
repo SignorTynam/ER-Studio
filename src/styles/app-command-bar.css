@@ -6,7 +6,7 @@
   grid-template-areas: "left brand actions";
   overflow: visible;
   position: relative;
-  z-index: 1000;
+  z-index: var(--z-app-topbar);
   isolation: isolate;
 }
 

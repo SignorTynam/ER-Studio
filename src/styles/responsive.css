@@ -66,7 +66,7 @@
 
   .project-activity-panel {
     position: relative;
-    z-index: 60;
+    z-index: var(--z-workspace-drawer);
     grid-column: 1;
     width: var(--size-activity-rail);
     min-width: var(--size-activity-rail);
@@ -84,12 +84,21 @@
     box-shadow: var(--elevation-popover);
   }
 
-  .project-activity-panel:not(.project-activity-panel--collapsed)::after {
-    content: "";
+  /* Sotto i 900px il pannello diventa un drawer modale sopra l'editor: copre
+     la toolbar del canvas, quindi lo scrim deve poterlo chiudere. Prima era
+     uno pseudo-elemento ::after — sembrava modale ma inghiottiva i click
+     senza chiudere nulla, lasciando gli strumenti irraggiungibili. */
+  .project-activity-scrim {
+    display: block;
     position: fixed;
-    z-index: -1;
+    z-index: var(--z-workspace-drawer-scrim);
     inset: var(--size-header) 0 var(--size-statusbar) var(--size-activity-rail);
+    border: 0;
+    padding: 0;
     background: rgba(7, 11, 9, 0.28);
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   .workspace-region-has-onboarding .workspace-overlay-region {

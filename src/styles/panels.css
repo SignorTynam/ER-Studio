@@ -3049,7 +3049,7 @@ summary:focus-visible,
 
 .designer-context-toolbar {
   position: absolute;
-  z-index: 40;
+  z-index: var(--z-canvas-toolbar);
   top: 64px;
   left: 14px;
   display: grid;
@@ -4269,7 +4269,7 @@ textarea {
   .designer-context-toolbar,
   .designer-translation-toolbar,
   .designer-logical-toolbar {
-    z-index: 40;
+    z-index: var(--z-canvas-toolbar);
     bottom: max(8px, env(safe-area-inset-bottom));
   }
 
@@ -4534,7 +4534,7 @@ textarea {
   .designer-logical-toolbar {
     top: auto;
     bottom: max(8px, env(safe-area-inset-bottom));
-    z-index: 40;
+    z-index: var(--z-canvas-toolbar);
   }
 
   .canvas-viewport-hud,

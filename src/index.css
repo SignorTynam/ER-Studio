@@ -7747,10 +7747,22 @@ textarea:focus-visible,
   color: var(--ui-text-strong);
 }
 
+/* Dock della guida onboarding — regola canonica unica.
+
+   Ancorato SOLO in alto: dichiarare insieme top e bottom stirava il dock
+   sull'intera colonna dell'editor e, essendo il dock piu alto della card,
+   creava una fascia trasparente che intercettava i click sul canvas.
+   L'altezza deve restare quella del contenuto; lo scroll interno e gia
+   gestito da `.onboarding-guide` (max-height + overflow: auto).
+
+   La larghezza massima e 360px a ogni breakpoint. Prima veniva imposta da
+   un `max-width` in editor-refactor.css che annullava due dichiarazioni a
+   420px: allargare il dock lo porta sopra il drawer Explorer e ne
+   intercetta i controlli sui viewport stretti. */
 .workspace-onboarding-dock {
   position: absolute;
-  right: var(--ui-space-3);
-  bottom: var(--ui-space-3);
+  top: var(--space-3);
+  right: var(--space-3);
   width: min(360px, calc(100% - 24px));
   pointer-events: none;
 }
@@ -8513,10 +8525,6 @@ textarea:focus-visible,
   .workspace-main.diagram-with-code.code-open .diagram-code-column {
     max-height: min(34vh, 320px);
   }
-
-  .workspace-onboarding-dock {
-    width: min(420px, calc(100% - 24px));
-  }
 }
 
 @media (max-width: 860px) {
@@ -8524,18 +8532,10 @@ textarea:focus-visible,
     padding: 6px;
   }
 
-  .workspace-toast-center,
-  .workspace-onboarding-dock {
-    right: 12px;
-    width: min(calc(100% - 24px), 420px);
-  }
-
   .workspace-toast-center {
+    right: 12px;
     top: 12px;
-  }
-
-  .workspace-onboarding-dock {
-    bottom: 12px;
+    width: min(calc(100% - 24px), 420px);
   }
 
   .canvas-overlay-stack {
