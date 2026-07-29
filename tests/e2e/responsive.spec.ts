@@ -150,6 +150,23 @@ test("ER editor controls stay reachable across the required viewport matrix", as
       `scroll orizzontale a ${viewport.name}: ${overflow.scrollWidth} > ${overflow.clientWidth}`,
     ).toBeLessThanOrEqual(overflow.clientWidth + 1);
 
+    // Una toolbar che scorre senza dirlo sembra troncata: i comandi oltre il
+    // bordo diventano invisibili. Se scorre, deve esporre l'affordance.
+    const toolbarScroll = await page.evaluate(() => {
+      const nav = document.querySelector<HTMLElement>(".designer-context-toolbar");
+      if (!nav) return null;
+      return {
+        overflows: nav.scrollWidth - nav.clientWidth > 1,
+        hasAffordance: nav.hasAttribute("data-scroll-start") || nav.hasAttribute("data-scroll-end"),
+      };
+    });
+    if (toolbarScroll?.overflows) {
+      expect(
+        toolbarScroll.hasAffordance,
+        `a ${viewport.name} la toolbar scorre ma non lo segnala in alcun modo`,
+      ).toBe(true);
+    }
+
     const probes = await probeControls(page, ER_EDITOR_CONTROL_GROUPS);
 
     // Se un gruppo sparisce del tutto il probe diventa vacuo: meglio

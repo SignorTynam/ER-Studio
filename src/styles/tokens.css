@@ -67,6 +67,17 @@
   --size-canvas-minimap-height: 160px;
   --size-canvas-minimap-width-compact: 168px;
   --size-canvas-minimap-height-compact: 128px;
+  /* ------------------------------------------------------------------
+     Pila inferiore del canvas in modalita compatta (<= 899px), dove la
+     toolbar contestuale diventa orizzontale e occupa tutta la larghezza.
+     Dal basso verso l'alto: toolbar, HUD dello zoom, minimap.
+
+     I due valori sotto sono l'unica fonte: l'HUD si ancora al primo, la
+     minimap si impila sopra l'HUD sommandoli. Prima erano offset scelti
+     in modo indipendente su breakpoint diversi (899 per toolbar e HUD,
+     860 per la minimap), e la minimap finiva sotto la toolbar. */
+  --size-canvas-compact-hud-bottom: 148px;
+  --size-canvas-compact-hud-height: 59px;
   --stroke-canvas-minimap-viewport: 2px;
   --size-sidebar-min: 220px;
   --size-sidebar-default: 288px;

@@ -84,6 +84,12 @@ export const ER_EDITOR_CONTROL_GROUPS: ControlGroup[] = [
   { name: "activity rail", selector: ".project-activity-button" },
   { name: "file tabs", selector: ".project-file-tab" },
   { name: "view switcher", selector: ".editor-view-switcher button" },
-  { name: "ER toolbar", selector: '[aria-label="ER toolbar"] button' },
+  // Selettore per classe e non per aria-label: l'etichetta e localizzata e
+  // cambia con la lingua dell'interfaccia.
+  { name: "ER toolbar", selector: ".designer-context-toolbar button" },
   { name: "viewport HUD", selector: ".canvas-viewport-hud button" },
+  // La minimap vive in un layer suo, con offset propri: restava fuori dal
+  // probe e il suo pulsante finiva sotto la toolbar senza che nessuno se ne
+  // accorgesse.
+  { name: "minimap toggle", selector: ".canvas-minimap-toggle" },
 ];

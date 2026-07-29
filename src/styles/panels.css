@@ -4273,13 +4273,41 @@ textarea {
     bottom: max(8px, env(safe-area-inset-bottom));
   }
 
+  /* Affordance di scorrimento: sui viewport stretti i comandi non ci stanno
+     tutti e la toolbar scorre in orizzontale. Senza segnale sul bordo
+     sembrava semplicemente troncata e gli ultimi strumenti risultavano
+     invisibili. La sfumatura compare solo dal lato in cui resta contenuto
+     (attributi impostati da `useScrollOverflow`), quindi sparisce da sola
+     quando tutto ci sta. */
+  .designer-context-toolbar[data-scroll-start],
+  .designer-context-toolbar[data-scroll-end] {
+    --toolbar-fade: 28px;
+    --toolbar-fade-start: 0px;
+    --toolbar-fade-end: 0px;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--toolbar-fade-start),
+      #000 calc(100% - var(--toolbar-fade-end)),
+      transparent 100%
+    );
+  }
+
+  .designer-context-toolbar[data-scroll-start] {
+    --toolbar-fade-start: var(--toolbar-fade);
+  }
+
+  .designer-context-toolbar[data-scroll-end] {
+    --toolbar-fade-end: var(--toolbar-fade);
+  }
+
   .canvas-viewport-hud,
   .app-shell-view-er .canvas-viewport-hud,
   .app-shell-view-translation .canvas-viewport-hud,
   .app-shell-view-logical .canvas-viewport-hud {
     z-index: 20;
     right: 8px !important;
-    bottom: calc(148px + env(safe-area-inset-bottom)) !important;
+    bottom: calc(var(--size-canvas-compact-hud-bottom) + env(safe-area-inset-bottom)) !important;
     left: auto !important;
   }
 

@@ -25,8 +25,10 @@ const MINIMAP_WORLD_PADDING_RATIO = 0.08;
 const MINIMAP_WORLD_PADDING_MIN = 80;
 const MINIMAP_KEYBOARD_PAN_RATIO = 0.12;
 const CANVAS_MINIMAP_COMPACT_QUERY = "(max-width: 860px)";
-// The floating minimap cannot sit clear of the (variably-anchored) zoom HUD below the
-// compact breakpoint, so at/under it the minimap stays collapsed to a single toggle.
+// An expanded minimap leaves too little canvas on a narrow viewport, so at/under the
+// compact breakpoint it stays collapsed to a single toggle. This is a space decision,
+// not a collision workaround: the compact bottom stack in `canvas-navigation.css` keeps
+// the minimap clear of the zoom HUD and the horizontal toolbar at every width.
 const CANVAS_MINIMAP_FORCE_COLLAPSE_QUERY = CANVAS_MINIMAP_COMPACT_QUERY;
 
 export const DEFAULT_CANVAS_MINIMAP_VISIBILITY_KEY = "builder:canvas:minimap-visible";
@@ -168,8 +170,10 @@ export function CanvasMinimap(props: CanvasMinimapProps) {
     return () => observer.disconnect();
   }, [props.visible]);
 
-  // Below 640px the floating minimap cannot sit clear of the zoom HUD, so it stays
-  // collapsed (a single toggle) regardless of the stored preference.
+  // At and below the compact breakpoint the expanded minimap would take too much
+  // of a narrow canvas, so it stays collapsed (a single toggle) regardless of the
+  // stored preference. The toggle itself is kept clear of the horizontal toolbar
+  // and the zoom HUD by the compact stack in `canvas-navigation.css`.
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const query = window.matchMedia(CANVAS_MINIMAP_FORCE_COLLAPSE_QUERY);

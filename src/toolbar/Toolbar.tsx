@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
+import { useScrollOverflow } from "../hooks/useScrollOverflow";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -555,9 +556,20 @@ export function Toolbar(props: ToolbarProps) {
   const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
+  /* Sotto i 900px la toolbar diventa orizzontale e puo scorrere: senza una
+     sfumatura ai bordi i comandi oltre il margine sembrano semplicemente non
+     esistere. */
+  const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLElement>();
+
   return (
     <>
-      <nav className="designer-context-toolbar designer-er-toolbar" aria-label={t("toolbar.commands.aria")}>
+      <nav
+        ref={toolbarRef}
+        className="designer-context-toolbar designer-er-toolbar"
+        aria-label={t("toolbar.commands.aria")}
+        data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
+        data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
+      >
         {renderCommands("navigate", visibleNavigateCommands)}
         {visibleCreateCommands.length > 0 ? (
           <>
