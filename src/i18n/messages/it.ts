@@ -2111,7 +2111,7 @@ export const it = {
     },
     examples: {
       initialSchema: "Schema iniziale",
-      addedEntities: "Aggiunte entitÃ  Studente e Corso",
+      addedEntities: "Aggiunte entità Studente e Corso",
       refinedLayout: "Rifinito layout finale",
       updatedLogical: "Aggiornato modello logico",
     },
@@ -2156,7 +2156,7 @@ export const it = {
       },
       itemKinds: {
         generic: "Elemento modificato",
-        entity: "EntitÃ ",
+        entity: "Entità",
         relationship: "Relazione",
         attribute: "Attributo",
         edge: "Edge",
