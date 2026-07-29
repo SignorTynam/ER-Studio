@@ -7,7 +7,15 @@ import { Tooltip } from "../ui";
 /** Stessa soglia del blocco drawer in `src/styles/responsive.css`. */
 const MODAL_DRAWER_QUERY = "(max-width: 900px)";
 
-export type ProjectActivityId = "file" | "code" | "reverse" | "errors" | "version" | "sql-explorer" | "export";
+export type ProjectActivityId =
+  | "file"
+  | "properties"
+  | "code"
+  | "reverse"
+  | "errors"
+  | "version"
+  | "sql-explorer"
+  | "export";
 
 export interface ProjectActivityItem {
   id: ProjectActivityId;

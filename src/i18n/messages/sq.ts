@@ -1894,6 +1894,14 @@ export const sq: DeepPartialMessages = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identiteti",
+      name: "Emri",
+      type: "Lloji",
+      nameRequired: "Emri nuk mund të jetë bosh.",
+      weakEntity: "Entitet i dobët",
+      selectSingleHint: "Përzgjidh një element të vetëm për të ndryshuar vetitë e tij.",
+    },
     heading: {
       entity: {
         title: "Entitet",

@@ -757,6 +757,80 @@ button.project-explorer-empty__cta:focus-visible {
   border-radius: var(--radius-control);
 }
 
+/* ------------------------------------------------------------------
+   Inspector della selezione (pannello "Proprieta" del rail).
+   Header, stato vuoto e metriche arrivano dai pannelli workspace
+   condivisi: qui vivono solo il campo di identita e le righe di sola
+   lettura. */
+.selection-inspector__body {
+  min-height: 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+.selection-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.selection-inspector__section-title {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.selection-inspector__input {
+  width: 100%;
+  min-width: 0;
+  height: var(--size-input);
+  padding: 0 var(--space-2);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-md);
+}
+
+.selection-inspector__input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--studio-focus-ring);
+}
+
+.selection-inspector__input[readonly] {
+  background: var(--color-bg-disabled);
+  color: var(--color-text-secondary);
+}
+
+/* Riga di sola lettura: etichetta a sinistra, valore a destra. */
+.selection-inspector__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1-5) 0;
+  border-top: var(--border-width-default) solid var(--color-border-subtle);
+  font-size: var(--font-size-md);
+}
+
+.selection-inspector__row-label {
+  color: var(--color-text-muted);
+}
+
+.selection-inspector__row-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .project-explorer-empty__secondary {
   border-color: transparent !important;
   background: transparent !important;

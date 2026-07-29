@@ -1892,6 +1892,14 @@ export const it = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identità",
+      name: "Nome",
+      type: "Tipo",
+      nameRequired: "Il nome non può essere vuoto.",
+      weakEntity: "Entità debole",
+      selectSingleHint: "Seleziona un solo elemento per modificarne le proprietà.",
+    },
     heading: {
       entity: {
         title: "Entita",

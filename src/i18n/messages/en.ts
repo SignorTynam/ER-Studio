@@ -1894,6 +1894,14 @@ export const en: DeepPartialMessages = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identity",
+      name: "Name",
+      type: "Type",
+      nameRequired: "The name cannot be empty.",
+      weakEntity: "Weak entity",
+      selectSingleHint: "Select a single element to edit its properties.",
+    },
     heading: {
       entity: {
         title: "Entity",

@@ -22,6 +22,7 @@ import {
 } from "./components/project/ProjectActivityPanel";
 import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { SelectionInspectorPanel } from "./components/inspector/SelectionInspectorPanel";
 import { MoveToDialog } from "./components/project/MoveToDialog";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
@@ -7799,6 +7800,7 @@ export default function App() {
   const errorsActivityPresentation = getValidationActivityPresentation(visibleActivityIssues);
   const activityItems: ProjectActivityItem[] = [
     { id: "file", label: t("appHeader.menus.file"), icon: "openProject", shortcut: "Ctrl+Shift+E" },
+    { id: "properties", label: t("inspector.panel.propertiesPanel"), icon: "list" },
     { id: "code", label: t("appHeader.menus.code"), icon: "code", shortcut: "Ctrl+`" },
     { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
     { id: "errors", label: t("appHeader.menus.errors"), ...errorsActivityPresentation, shortcut: "Ctrl+Shift+M" },
@@ -7844,7 +7846,18 @@ export default function App() {
     }
   }
   const activityPanelContent =
-    activeActivityPanel === "file" ? (
+    activeActivityPanel === "properties" ? (
+      <SelectionInspectorPanel
+        selection={selection}
+        selectionItemCount={selectionItemCount}
+        selectedNode={selectedNode}
+        selectedEdge={selectedEdge}
+        editable={mode === "edit"}
+        onRenameNode={handleRenameNode}
+        onClose={handleToggleActivityPanelOpen}
+        closeLabel={t("workspaceActivity.closePanel")}
+      />
+    ) : activeActivityPanel === "file" ? (
       <div className="project-activity-file">
         <ProjectExplorer
           embedded
