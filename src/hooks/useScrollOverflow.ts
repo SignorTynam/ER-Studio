@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface ScrollOverflow {
-  /** C'e contenuto oltre il bordo iniziale (sinistro in LTR). */
+  /** C'e contenuto oltre il bordo iniziale orizzontale (sinistro in LTR). */
   atStart: boolean;
-  /** C'e contenuto oltre il bordo finale (destro in LTR). */
+  /** C'e contenuto oltre il bordo finale orizzontale (destro in LTR). */
   atEnd: boolean;
+  /** C'e contenuto sopra il bordo superiore. */
+  atTop: boolean;
+  /** C'e contenuto sotto il bordo inferiore. */
+  atBottom: boolean;
 }
 
 /**
@@ -25,18 +29,36 @@ export function useScrollOverflow<T extends HTMLElement>(): [
   ScrollOverflow,
 ] {
   const ref = useRef<T>(null);
-  const [overflow, setOverflow] = useState<ScrollOverflow>({ atStart: false, atEnd: false });
+  const [overflow, setOverflow] = useState<ScrollOverflow>({
+    atStart: false,
+    atEnd: false,
+    atTop: false,
+    atBottom: false,
+  });
 
   const update = useCallback(() => {
     const element = ref.current;
     if (!element) return;
 
-    const maxScroll = element.scrollWidth - element.clientWidth;
     // Sotto il pixel le differenze sono arrotondamenti di layout, non contenuto.
     const scrollLeft = Math.abs(element.scrollLeft);
+    const maxScrollLeft = element.scrollWidth - element.clientWidth;
+    const scrollTop = element.scrollTop;
+    const maxScrollTop = element.scrollHeight - element.clientHeight;
+
     setOverflow((current) => {
-      const next = { atStart: scrollLeft > 1, atEnd: maxScroll - scrollLeft > 1 };
-      return current.atStart === next.atStart && current.atEnd === next.atEnd ? current : next;
+      const next: ScrollOverflow = {
+        atStart: scrollLeft > 1,
+        atEnd: maxScrollLeft - scrollLeft > 1,
+        atTop: scrollTop > 1,
+        atBottom: maxScrollTop - scrollTop > 1,
+      };
+      return current.atStart === next.atStart &&
+        current.atEnd === next.atEnd &&
+        current.atTop === next.atTop &&
+        current.atBottom === next.atBottom
+        ? current
+        : next;
     });
   }, []);
 

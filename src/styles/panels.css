@@ -3047,6 +3047,35 @@ summary:focus-visible,
   white-space: nowrap;
 }
 
+/* Affordance di scorrimento verticale (toolbar in colonna, >= 900px). Con una
+   selezione attiva i comandi contestuali eccedono quasi sempre l'altezza
+   disponibile; la sfumatura compare solo dal lato in cui resta contenuto.
+   L'equivalente orizzontale per la toolbar compatta e piu sotto, nel blocco
+   @media (max-width: 899px). */
+@media (min-width: 900px) {
+  .designer-context-toolbar[data-scroll-top],
+  .designer-context-toolbar[data-scroll-bottom] {
+    --toolbar-fade: 24px;
+    --toolbar-fade-top: 0px;
+    --toolbar-fade-bottom: 0px;
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--toolbar-fade-top),
+      #000 calc(100% - var(--toolbar-fade-bottom)),
+      transparent 100%
+    );
+  }
+
+  .designer-context-toolbar[data-scroll-top] {
+    --toolbar-fade-top: var(--toolbar-fade);
+  }
+
+  .designer-context-toolbar[data-scroll-bottom] {
+    --toolbar-fade-bottom: var(--toolbar-fade);
+  }
+}
+
 .designer-context-toolbar {
   position: absolute;
   z-index: var(--z-canvas-toolbar);
