@@ -2002,6 +2002,10 @@ export const sq: DeepPartialMessages = {
     attribute: {
       settings: "Cilësimet e atributit",
       name: "Emri i atributit",
+      listTitle: "Atributet",
+      listEmpty: "Asnjë atribut i lidhur me këtë element.",
+      identifierBadge: "Identifikues",
+      multivaluedBadge: "Shumëvlerësh",
       cardinality: "Kardinalitet",
       noCardinality: "Pa kardinalitet",
       status: "Gjendja e atributit",

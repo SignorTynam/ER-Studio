@@ -7848,12 +7848,18 @@ export default function App() {
   const activityPanelContent =
     activeActivityPanel === "properties" ? (
       <SelectionInspectorPanel
-        selection={selection}
+        diagram={history.present}
         selectionItemCount={selectionItemCount}
         selectedNode={selectedNode}
         selectedEdge={selectedEdge}
         editable={mode === "edit"}
         onRenameNode={handleRenameNode}
+        onSelectNode={(nodeId) => setSelection({ nodeIds: [nodeId], edgeIds: [] })}
+        onAddAttribute={
+          selectedNode?.type === "entity" || selectedNode?.type === "relationship"
+            ? handleCreateAttributeFromSelection
+            : undefined
+        }
         onClose={handleToggleActivityPanelOpen}
         closeLabel={t("workspaceActivity.closePanel")}
       />

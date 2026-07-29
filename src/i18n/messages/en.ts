@@ -2000,6 +2000,10 @@ export const en: DeepPartialMessages = {
       externalIdentifiersManagedOnHost: "External identifiers that depend on this relationship are managed from the host entity panel.",
     },
     attribute: {
+      listTitle: "Attributes",
+      listEmpty: "No attribute is linked to this element.",
+      identifierBadge: "Identifier",
+      multivaluedBadge: "Multivalued",
       settings: "Attribute settings",
       name: "Attribute name",
       cardinality: "Cardinality",

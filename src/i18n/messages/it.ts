@@ -1998,6 +1998,10 @@ export const it = {
       externalIdentifiersManagedOnHost: "Gli identificatori esterni che dipendono da questa associazione si gestiscono dal pannello dell'entita host.",
     },
     attribute: {
+      listTitle: "Attributi",
+      listEmpty: "Nessun attributo collegato a questo elemento.",
+      identifierBadge: "Identificatore",
+      multivaluedBadge: "Multivalore",
       settings: "Impostazioni attributo",
       name: "Nome attributo",
       cardinality: "Cardinalita",
