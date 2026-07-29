@@ -14,7 +14,7 @@ async function bootItalianProject(page: Page) {
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
   await confirmNewProjectDialog(page);
-  await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "buildER" })).toBeVisible();
 }
 
 async function createExplorerFile(page: Page, menuLabel: string, name: string) {

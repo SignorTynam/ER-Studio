@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  CSSProperties,
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { BottomStatusBar } from "./components/BottomStatusBar";
@@ -444,6 +449,8 @@ interface SqlReverseWorkflowState {
 }
 
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
+/** Bersaglio dello skip link e id del landmark `main` del workspace. */
+const WORKSPACE_MAIN_ID = "workspace-main";
 const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 3200);
 
 function normalizeMessagePart(value: string): string {
@@ -8137,8 +8144,29 @@ export default function App() {
     );
   }
 
+  /**
+   * Sposta il focus sul landmark `main` senza lasciare l'hash nell'URL: in una
+   * SPA il fragment resterebbe in cronologia e cambierebbe il link condiviso.
+   */
+  function handleSkipToContent(event: ReactMouseEvent<HTMLAnchorElement>) {
+    const target = document.getElementById(WORKSPACE_MAIN_ID);
+    if (!target) {
+      return;
+    }
+
+    event.preventDefault();
+    target.focus();
+    target.scrollIntoView({ block: "nearest" });
+  }
+
   return (
     <div className={appShellClassName}>
+        {/* Primo elemento focalizzabile della pagina: senza, da tastiera
+            servivano oltre quaranta Tab per arrivare alla superficie di
+            lavoro, attraversando header, rail, Explorer e tab dei file. */}
+        <a className="skip-link" href={`#${WORKSPACE_MAIN_ID}`} onClick={handleSkipToContent}>
+          {t("workspaceChrome.skipToContent")}
+        </a>
         <AppHeader
           appTitle={APP_TITLE}
           appVersion={APP_VERSION}
@@ -8273,7 +8301,16 @@ export default function App() {
                 : undefined}
             />
           ) : null}
-          <div className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
+          {/* Unico landmark `main` del workspace. Prima lo dichiaravano le
+              singole superfici (welcome, empty, editor di testo), quindi con
+              uno schema aperto — canvas ER, traduzione, logica — non ce n'era
+              nessuno e tutta la pagina restava fuori da un main. */}
+          <main
+            id={WORKSPACE_MAIN_ID}
+            tabIndex={-1}
+            aria-label={t("workspaceChrome.mainContentAria")}
+            className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}
+          >
             {importedDatabaseActive && activeImportedDatabaseSessionId ? (
               <ImportedDatabaseWorkspace
                 key={activeImportedDatabaseSessionId}
@@ -8353,6 +8390,17 @@ export default function App() {
                       : structuredWorkspaceShellStyle
                 }
               >
+          {/* Le altre superfici hanno gia un titolo visibile (welcome, empty
+              editor, Playground, database); il canvas no, quindi resterebbe
+              l'unica pagina senza intestazione. Qui e riservato agli screen
+              reader: la stessa informazione e gia visibile in breadcrumb e
+              view switcher. */}
+          <h1 className="visually-hidden">
+            {t("workspaceChrome.diagramHeading", {
+              name: activeProjectFile?.name ?? projectExplorer.project.name,
+              view: t(`workspaceChrome.views.${diagramView === "er" ? "conceptual" : diagramView}`),
+            })}
+          </h1>
           {diagramView === "er" ? (
             <div className="designer-workspace">
               <div className="designer-canvas-region">
@@ -8525,7 +8573,7 @@ export default function App() {
           )}
               </div>
             )}
-          </div>
+          </main>
         </div>
           </>
         ) : (

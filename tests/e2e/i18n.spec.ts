@@ -29,8 +29,8 @@ test("switches app chrome and command menu across Italian, English, and Albanian
   await expect(page.locator(".workspace-welcome-page")).toBeVisible();
   await page.getByRole("main", { name: "Apri o crea un progetto" }).getByRole("button", { name: /Crea nuovo progetto/ }).click();
   await confirmNewProjectDialog(page);
-  await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
-  await page.getByRole("main", { name: "buildER" }).getByRole("button", { name: "Nuovo schema" }).click();
+  await expect(page.getByRole("region", { name: "buildER" })).toBeVisible();
+  await page.getByRole("region", { name: "buildER" }).getByRole("button", { name: "Nuovo schema" }).click();
   await expect(page.locator(".action-modal")).toBeVisible();
   await page.getByRole("dialog", { name: "Nuovo schema" }).getByRole("button", { name: "Salva" }).click();
   await expect(page.locator(".designer-canvas-region")).toBeVisible();

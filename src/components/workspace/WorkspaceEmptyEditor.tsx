@@ -12,7 +12,7 @@ export function WorkspaceEmptyEditor({ onOpenWelcome, onNewSchema, onNewSql }: W
   const { t } = useI18n();
 
   return (
-    <main className="workspace-empty-editor" aria-label={t("workspaceEmpty.title")}>
+    <section className="workspace-empty-editor" aria-label={t("workspaceEmpty.title")}>
       <section className="workspace-empty-editor__panel">
         <WorkspaceBrandLogo className="workspace-empty-editor__logo" />
         <h1>{t("workspaceEmpty.title")}</h1>
@@ -44,6 +44,6 @@ export function WorkspaceEmptyEditor({ onOpenWelcome, onNewSchema, onNewSql }: W
           </Button>
         </div>
       </section>
-    </main>
+    </section>
   );
 }

@@ -14,7 +14,7 @@ export function WorkspaceTextEditor({ file, editable, onChange }: WorkspaceTextE
   const language = file.kind === "sql" ? "SQL" : t("workspaceChrome.fileTypes.text");
 
   return (
-    <main
+    <section
       className={file.kind === "sql" ? "workspace-text-editor workspace-text-editor--sql" : "workspace-text-editor"}
       aria-label={t(
         file.kind === "sql" ? "workspaceChrome.sqlEditorAria" : "workspaceChrome.textEditorAria",
@@ -48,7 +48,7 @@ export function WorkspaceTextEditor({ file, editable, onChange }: WorkspaceTextE
         <span>{t("workspaceChrome.lineCount", { count: lineCount })}</span>
         <span>{editable ? t("workspaceChrome.editable") : t("workspaceChrome.readOnly")}</span>
       </footer>
-    </main>
+    </section>
   );
 }
 
