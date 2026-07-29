@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { confirmNewProjectDialog } from "./utils/newProject";
+import { dismissDrawerByScrim, ensureDrawerOpen, seedProjectWithSchema } from "./utils/erSchemaProject";
+import {
+  describeProbe,
+  probeControls,
+  ER_EDITOR_CONTROL_GROUPS,
+} from "./utils/reachability";
 
 /**
  * Fase D2: verifica responsive assertiva (niente snapshot pixel, che sarebbero
@@ -16,6 +22,19 @@ const VIEWPORTS = [
   { name: "narrow-860", width: 860, height: 760 },
   { name: "small-660", width: 660, height: 720 },
   { name: "mobile-640", width: 640, height: 720 },
+];
+
+/**
+ * Matrice obbligatoria di `docs/agents/RESPONSIVE_UI.md`. I VIEWPORTS qui
+ * sopra attraversano i confini di breakpoint e restano; questa invece e la
+ * lista di classi di dispositivo su cui l'editor va esercitato davvero.
+ */
+const REQUIRED_VIEWPORTS = [
+  { name: "desktop-1440x900", width: 1440, height: 900 },
+  { name: "compact-desktop-1024x768", width: 1024, height: 768 },
+  { name: "tablet-portrait-768x1024", width: 768, height: 1024 },
+  { name: "mobile-390x844", width: 390, height: 844 },
+  { name: "narrow-mobile-360x800", width: 360, height: 800 },
 ];
 
 async function bootWithProject(page: Page) {
@@ -85,6 +104,100 @@ for (const viewport of VIEWPORTS) {
     await expect(page.locator(".app-command-search")).toBeVisible();
   });
 }
+
+/** Soglia oltre la quale il pannello workspace e una colonna, non un drawer. */
+const MODAL_DRAWER_MAX_WIDTH = 900;
+
+/**
+ * Il buco che questa suite aveva: si fermava alla Welcome page, quindi non
+ * esercitava mai la vera superficie di lavoro (canvas, toolbar contestuale,
+ * HUD del viewport, view switcher) e misurava solo bounding box. Una toolbar
+ * interamente coperta da un overlay passava senza fiatare.
+ *
+ * Qui l'editor viene aperto su uno schema e ogni controllo primario viene
+ * interrogato con `elementFromPoint`: l'asserzione e "chi riceve davvero il
+ * click".
+ *
+ * Il probe parte con l'Explorer APERTO, che e lo stato in cui l'utente atterra,
+ * e la regola si sdoppia sul breakpoint:
+ *
+ * - sopra i 900px il pannello e una colonna affiancata: non deve coprire
+ *   niente, tutti i controlli restano raggiungibili;
+ * - sotto i 900px e un drawer modale: puo coprire l'editor, ma solo con lo
+ *   scrim o col proprio contenuto, e un singolo click sullo scrim deve
+ *   restituire ogni controllo.
+ *
+ * E la seconda branca a fare da rete: senza scrim cliccabile i controlli
+ * risultano coperti da un pannello muto e non c'e modo di recuperarli.
+ */
+test("ER editor controls stay reachable across the required viewport matrix", async ({ page }, testInfo) => {
+  // Un solo seed per tutta la matrice: aprire progetto e schema a ogni
+  // viewport moltiplicherebbe i boot dell'app (ritardati di proposito sotto
+  // Playwright) e il carico in parallelo farebbe scadere altre suite.
+  test.slow();
+  await seedProjectWithSchema(page);
+
+  for (const viewport of REQUIRED_VIEWPORTS) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await ensureDrawerOpen(page);
+
+    const screenshot = await page.screenshot({ fullPage: false });
+    await testInfo.attach(`er-editor-${viewport.name}`, { body: screenshot, contentType: "image/png" });
+
+    const overflow = await horizontalOverflow(page);
+    expect(
+      overflow.scrollWidth,
+      `scroll orizzontale a ${viewport.name}: ${overflow.scrollWidth} > ${overflow.clientWidth}`,
+    ).toBeLessThanOrEqual(overflow.clientWidth + 1);
+
+    const probes = await probeControls(page, ER_EDITOR_CONTROL_GROUPS);
+
+    // Se un gruppo sparisce del tutto il probe diventa vacuo: meglio
+    // accorgersene che vedere un test verde su zero controlli.
+    const seenGroups = [...new Set(probes.map((probe) => probe.group))].sort();
+    expect(seenGroups, `gruppi di controlli assenti a ${viewport.name}`).toEqual(
+      ER_EDITOR_CONTROL_GROUPS.map((group) => group.name).sort(),
+    );
+
+    if (viewport.width > MODAL_DRAWER_MAX_WIDTH) {
+      const unreachable = probes.filter((probe) => !probe.reachable || probe.outsideViewport);
+      expect(
+        unreachable,
+        `col pannello aperto a ${viewport.name} non deve essere coperto nulla: ${unreachable
+          .map(describeProbe)
+          .join(" | ")}`,
+      ).toEqual([]);
+      continue;
+    }
+
+    // Sotto soglia: cio che copre puo essere solo il drawer o il suo scrim.
+    const blockedByStranger = probes.filter(
+      (probe) =>
+        !probe.reachable &&
+        !/project-activity-scrim|project-activity-content|project-explorer|project-activity-panel/.test(
+          probe.blockedBy,
+        ),
+    );
+    expect(
+      blockedByStranger,
+      `a ${viewport.name} qualcosa che non e il drawer copre dei controlli: ${blockedByStranger
+        .map(describeProbe)
+        .join(" | ")}`,
+    ).toEqual([]);
+
+    // E soprattutto: deve esistere una via d'uscita a un solo tocco.
+    await dismissDrawerByScrim(page);
+
+    const afterDismiss = await probeControls(page, ER_EDITOR_CONTROL_GROUPS);
+    const stillUnreachable = afterDismiss.filter((probe) => !probe.reachable || probe.outsideViewport);
+    expect(
+      stillUnreachable,
+      `controlli non raggiungibili a ${viewport.name} dopo aver chiuso il drawer: ${stillUnreachable
+        .map(describeProbe)
+        .join(" | ")}`,
+    ).toEqual([]);
+  }
+});
 
 test("explorer stays usable and collapsible at 860px", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 860, height: 760 });

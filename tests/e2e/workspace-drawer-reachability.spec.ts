@@ -1,93 +1,21 @@
 import { expect, test, type Page } from "@playwright/test";
 import { confirmNewProjectDialog } from "./utils/newProject";
+import { ensureDrawerOpen, seedProjectWithSchema } from "./utils/erSchemaProject";
+import { describeProbe, probeControls, type ControlProbe } from "./utils/reachability";
 
 /**
- * Regressione di raggiungibilita, non di layout.
+ * Regressioni del drawer modale e del dock onboarding.
  *
- * Le suite responsive esistenti verificano che nulla sfondi il viewport, ma
- * misurano solo bounding box: un controllo puo stare dentro lo schermo, essere
- * visibile e non ricevere comunque nessun click perche un overlay gli sta
- * sopra. E esattamente quello che succedeva sotto i 900px, dove il drawer
- * dell'Explorer copriva l'intera toolbar del canvas e il suo scrim (uno
- * pseudo-elemento ::after) inghiottiva i click senza chiudere nulla.
- *
- * Questi test usano quindi `elementFromPoint` sul centro di ogni pulsante:
- * l'asserzione e "chi riceve davvero il click", non "dove sta il rettangolo".
+ * La copertura responsive generale vive in `responsive.spec.ts`; qui restano i
+ * due difetti specifici di stacking: lo scrim che inghiottiva i click senza
+ * chiudere nulla, e il dock onboarding stirato a tutta colonna.
  */
 
 const TABLET_PORTRAIT = { width: 768, height: 1024 };
 
-interface ToolbarHit {
-  label: string;
-  reachable: boolean;
-  blockedBy: string;
-}
-
-/**
- * Il seed avviene sempre a larghezza desktop — creare progetto e schema non e
- * cio che stiamo verificando — e solo dopo si scende al viewport sotto esame,
- * con un reload che rimette in pari lo stato dipendente dal breakpoint.
- */
-async function seedProjectWithSchema(page: Page, viewport: { width: number; height: number }): Promise<void> {
-  // `addInitScript` rigira a ogni navigazione: senza guardia il reload che
-  // segue il cambio viewport azzererebbe il progetto appena creato.
-  await page.addInitScript(() => {
-    if (window.sessionStorage.getItem("e2e-seeded") === "1") return;
-    window.localStorage.clear();
-    window.localStorage.setItem("chen-er-diagram-studio:locale", "en");
-    // La guida onboarding ha un test dedicato piu sotto: qui deve stare
-    // fuori strada.
-    window.localStorage.setItem("chen-er-diagram-studio:onboarding-v1:done", "1");
-    window.sessionStorage.setItem("e2e-seeded", "1");
-  });
-
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  const createProject = page.locator(".no-project-welcome-page .workspace-welcome-action-card--primary");
-  await expect(createProject).toBeVisible({ timeout: 20_000 });
-  await createProject.click();
-  await confirmNewProjectDialog(page);
-
-  await page.getByRole("button", { name: "Create schema", exact: true }).click();
-  const nameInput = page.locator(".project-explorer-item__rename");
-  await expect(nameInput).toBeVisible();
-  await nameInput.fill("Schema");
-  await nameInput.press("Enter");
-  await expect(page.locator('[aria-label="ER toolbar"]')).toBeVisible();
-
-  await page.setViewportSize(viewport);
-  await page.reload();
-  // Il boot dell'app e ritardato di proposito in Playwright
-  // (VITE_APP_BOOT_DELAY_MS), quindi dopo un reload serve piu del timeout
-  // di default.
-  await expect(page.locator('[aria-label="ER toolbar"]')).toBeVisible({ timeout: 20_000 });
-}
-
-/** Il drawer sotto soglia parte chiuso se la sessione lo ricorda cosi. */
-async function ensureDrawerOpen(page: Page): Promise<void> {
-  if ((await page.locator(".project-activity-content").count()) === 0) {
-    await page.locator(".project-activity-button").first().click();
-  }
-  await expect(page.locator(".project-activity-content")).toBeVisible();
-}
-
 /** Chi intercetta davvero il click al centro di ogni strumento del canvas. */
-async function probeToolbar(page: Page): Promise<ToolbarHit[]> {
-  return page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll<HTMLElement>('[aria-label="ER toolbar"] button'));
-    return buttons.map((button) => {
-      const bounds = button.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        Math.round(bounds.x + bounds.width / 2),
-        Math.round(bounds.y + bounds.height / 2),
-      );
-      return {
-        label: button.getAttribute("aria-label") ?? "",
-        reachable: hit != null && button.contains(hit),
-        blockedBy: hit instanceof HTMLElement ? hit.className : "",
-      };
-    });
-  });
+async function probeToolbar(page: Page): Promise<ControlProbe[]> {
+  return probeControls(page, [{ name: "ER toolbar", selector: '[aria-label="ER toolbar"] button' }]);
 }
 
 test("the modal drawer scrim gives the canvas tools back in one tap", async ({ page }) => {
@@ -113,13 +41,14 @@ test("the modal drawer scrim gives the canvas tools back in one tap", async ({ p
   const unreachable = reachable.filter((hit) => !hit.reachable);
   expect(
     unreachable,
-    `strumenti non raggiungibili dopo la chiusura del drawer: ${unreachable
-      .map((hit) => `${hit.label} (coperto da ${hit.blockedBy})`)
-      .join(", ")}`,
+    `strumenti non raggiungibili dopo la chiusura del drawer: ${unreachable.map(describeProbe).join(", ")}`,
   ).toEqual([]);
 });
 
 test("Escape closes the drawer only while it is modal", async ({ page }) => {
+  // Attraversa la soglia con due reload, e ogni boot e ritardato di proposito
+  // sotto Playwright: col timeout di default non ci sta sotto carico.
+  test.slow();
   await seedProjectWithSchema(page, TABLET_PORTRAIT);
   await ensureDrawerOpen(page);
 
