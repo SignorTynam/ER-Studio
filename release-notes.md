@@ -1,23 +1,23 @@
-# buildER v7.2.0
+# buildER v7.3.0
 
-_2026-07-26_
+_2026-07-30_
 
-buildER 7.2 aggiunge tag gestiti dall’utente e retention configurabile per la cronologia locale del progetto. Inoltre consolida il sistema dei token CSS e mantiene accessibili i controlli dell’onboarding sopra i pannelli mobile.
+buildER 7.3 introduce il pannello Proprietà per la selezione corrente, migliora i controlli responsive del canvas e sostituisce i dialoghi nativi del browser con le superfici tradotte dell’app.
 
 ## Highlights
 
-- **La cronologia sotto il tuo controllo** — Crea, rinomina, modifica ed elimina tag sui commit; configura la retention e scegli se mostrare i commit automatici senza indebolire le garanzie del ripristino.
-- **Un sistema di design token più chiaro** — Le superfici condivise usano ora token CSS canonici controllati da un audit riproducibile, riducendo alias legacy e rendendo coerenti le decisioni visuali.
-- **Onboarding mobile sempre raggiungibile** — Il tour guidato rimane sopra il Project Explorer aperto negli schermi stretti, con azioni visibili, cliccabili e senza overflow orizzontale.
+- **Proprietà nel contesto** — Rinomina l’elemento selezionato e consulta attributi e identificatori interni direttamente dal workspace.
+- **Controlli responsive** — Drawer, toolbar, minimappa e notifiche toast restano raggiungibili e leggibili sugli schermi compatti.
+- **Interazioni coerenti** — Dialoghi dell’app, landmark, metadati della lingua e traduzioni corrette migliorano l’uso da tastiera e multilingue.
 
 ## Added
 
-- Aggiunti tag gestiti dall’utente per i commit locali, descrizioni, limiti configurabili della cronologia, protezione dei commit taggati, filtro dei commit automatici, anteprima della retention e persistenza .ersp compatibile.
+- Aggiunge il pannello Proprietà per entità e relazioni selezionate, con rinomina inline, stati degli attributi e dettagli degli identificatori interni.
 
 ## Changed
 
-- Consolidati alias CSS legacy e stili hardcoded attorno ai design token canonici, con un audit strict riproducibile e un inventario aggiornato del debito dei token.
+- Mantiene visibili gli strumenti di creazione quando è selezionato un nodo e rende evidente lo scorrimento delle toolbar in overflow.
 
 ## Fixed
 
-- Corretto il livello dell’onboarding mobile: Project Explorer non copre più il tour guidato e non intercetta le sue azioni nei viewport stretti.
+- Corregge controlli del canvas bloccati, collisioni della minimappa compatta, dialoghi nativi, mojibake, landmark e contenuti toast compressi o fuori schermo.

@@ -1591,6 +1591,21 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_3: {
+        headline: "Një canvas më i shpejtë, veti më të qarta dhe kontrolle gjithmonë të arritshme",
+        summary: "buildER 7.3 prezanton panelin Vetitë për përzgjedhjen aktuale, përmirëson kontrollet responsive të canvas-it dhe zëvendëson dialogët e shfletuesit me sipërfaqet e përkthyera të aplikacionit.",
+        hero: { eyebrow: "Qartësi në hapësirën e punës", title: "buildER 7.3.0", subtitle: "Shqyrto detajet e modelit në kontekst dhe përdor çdo veprim të canvas-it në çdo madhësi ekrani." },
+        highlights: {
+          code: { title: "Vetitë në kontekst", description: "Riemërto elementin e përzgjedhur dhe shqyrto atributet dhe identifikuesit e brendshëm drejtpërdrejt nga hapësira e punës.", tag: "Inspektori" },
+          layout: { title: "Kontrolle responsive", description: "Paneli anësor, shiritat e veglave, miniharta dhe njoftimet toast mbeten të arritshme dhe të qarta në ekranet kompakte.", tag: "Responsive" },
+          experience: { title: "Ndërveprime të njëtrajtshme", description: "Dialogët e aplikacionit, landmark-et, metadata e gjuhës dhe përkthimet e korrigjuara përmirësojnë përdorimin me tastierë dhe në disa gjuhë.", tag: "Aksesueshmëri" },
+        },
+        updates: {
+          "0": "Shton panelin Vetitë për entitetet dhe marrëdhëniet e përzgjedhura, me riemërtim të drejtpërdrejtë, gjendjet e atributeve dhe detajet e identifikuesve të brendshëm.",
+          "1": "I mban të dukshme veglat e krijimit kur përzgjidhet një nyjë dhe e bën të qartë lëvizjen në shiritat e veglave që tejkalojnë hapësirën.",
+          "2": "Korrigjon kontrollet e bllokuara të canvas-it, mbivendosjet e minihartës kompakte, dialogët e shfletuesit, mojibake-un, landmark-et dhe përmbajtjen toast të ngjeshur ose jashtë ekranit.",
+        },
+      },
       v7_2: {
         headline: "Historik projekti që e kontrollon, në një hapësirë pune më koherente",
         summary: "buildER 7.2 shton etiketa të menaxhuara nga përdoruesi dhe ruajtje të konfigurueshme për historikun lokal të projektit. Gjithashtu unifikon sistemin e tokenëve CSS dhe i mban kontrollet e udhëzuesit të përdorshme mbi panelet në celular.",

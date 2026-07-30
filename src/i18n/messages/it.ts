@@ -1589,6 +1589,21 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_3: {
+        headline: "Un canvas più rapido, proprietà più chiare e controlli sempre raggiungibili",
+        summary: "buildER 7.3 introduce il pannello Proprietà per la selezione corrente, migliora i controlli responsive del canvas e sostituisce i dialoghi nativi del browser con le superfici tradotte dell’app.",
+        hero: { eyebrow: "Chiarezza nel workspace", title: "buildER 7.3.0", subtitle: "Esamina i dettagli del modello nel loro contesto e accedi a ogni azione del canvas su qualsiasi viewport." },
+        highlights: {
+          code: { title: "Proprietà nel contesto", description: "Rinomina l’elemento selezionato e consulta attributi e identificatori interni direttamente dal workspace.", tag: "Inspector" },
+          layout: { title: "Controlli responsive", description: "Drawer, toolbar, minimappa e notifiche toast restano raggiungibili e leggibili sugli schermi compatti.", tag: "Responsive" },
+          experience: { title: "Interazioni coerenti", description: "Dialoghi dell’app, landmark, metadati della lingua e traduzioni corrette migliorano l’uso da tastiera e multilingue.", tag: "Accessibilità" },
+        },
+        updates: {
+          "0": "Aggiunge il pannello Proprietà per entità e relazioni selezionate, con rinomina inline, stati degli attributi e dettagli degli identificatori interni.",
+          "1": "Mantiene visibili gli strumenti di creazione quando è selezionato un nodo e rende evidente lo scorrimento delle toolbar in overflow.",
+          "2": "Corregge controlli del canvas bloccati, collisioni della minimappa compatta, dialoghi nativi, mojibake, landmark e contenuti toast compressi o fuori schermo.",
+        },
+      },
       v7_2: {
         headline: "Una cronologia di progetto su misura, in un workspace più coerente",
         summary: "buildER 7.2 aggiunge tag gestiti dall’utente e retention configurabile per la cronologia locale del progetto. Inoltre consolida il sistema dei token CSS e mantiene accessibili i controlli dell’onboarding sopra i pannelli mobile.",

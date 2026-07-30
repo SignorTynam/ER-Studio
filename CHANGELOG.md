@@ -9,6 +9,17 @@ Il formato segue le linee guida di Keep a Changelog e la versione del progetto s
 Nessuna modifica non rilasciata.
 
 <!-- builder:generated-releases:start -->
+## [7.3.0] - 2026-07-30
+
+### Added
+- Aggiunge il pannello Proprietà per entità e relazioni selezionate, con rinomina inline, stati degli attributi e dettagli degli identificatori interni.
+
+### Changed
+- Mantiene visibili gli strumenti di creazione quando è selezionato un nodo e rende evidente lo scorrimento delle toolbar in overflow.
+
+### Fixed
+- Corregge controlli del canvas bloccati, collisioni della minimappa compatta, dialoghi nativi, mojibake, landmark e contenuti toast compressi o fuori schermo.
+
 ## [7.2.0] - 2026-07-26
 
 ### Added
