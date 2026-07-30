@@ -3160,17 +3160,10 @@ summary:focus-visible {
   padding: 14px;
 }
 
-.workspace-toast-center {
-  position: fixed;
-  right: 0;
-  bottom: 22px;
-  left: 0;
-  z-index: 12;
-  display: flex;
-  justify-content: center;
-  padding: 0 14px;
-  pointer-events: none;
-}
+/* `.workspace-toast-center` era il contenitore della pila quando i toast
+   stavano centrati in basso. Oggi il componente rende
+   `.workspace-toast-viewport`, ancorato in alto a destra: nessun elemento
+   porta piu questa classe. */
 
 .workspace-toast-stack {
   display: flex;
@@ -3179,37 +3172,17 @@ summary:focus-visible {
   gap: 10px;
 }
 
-.workspace-toast {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--studio-line);
-  border-radius: 0;
-  box-shadow: 0 18px 34px rgba(35, 44, 40, 0.14);
-  backdrop-filter: blur(14px);
-  pointer-events: auto;
-  animation: workspace-toast-enter 180ms ease-out;
-}
+/* Il look del toast vive in un blocco solo, piu sotto
+   (`.workspace-toast-viewport .workspace-toast`). Qui c'era la versione flex
+   con il proprio bordo, ombra e padding: la conversione a grid l'ha resa
+   quasi tutta morta, tranne le proprieta di allineamento che sopravvivevano
+   e rompevano la griglia. */
 
 .workspace-toast-body {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 8px;
-}
-
-.workspace-toast-badge {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  padding: 0.24rem 0.56rem;
-  border-radius: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .workspace-toast-body p {
@@ -3241,38 +3214,10 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
-.workspace-toast-warning {
-  border-color: rgba(182, 127, 67, 0.28);
-  background: linear-gradient(180deg, rgba(255, 249, 240, 0.94) 0%, rgba(247, 236, 216, 0.96) 100%);
-  color: #6e4a23;
-}
-
-.workspace-toast-warning .workspace-toast-badge {
-  background: rgba(182, 127, 67, 0.14);
-  color: var(--diagram-warning);
-}
-
-.workspace-toast-success {
-  border-color: rgba(60, 133, 89, 0.3);
-  background: linear-gradient(180deg, rgba(244, 255, 248, 0.96) 0%, rgba(228, 248, 236, 0.98) 100%);
-  color: #2d6644;
-}
-
-.workspace-toast-success .workspace-toast-badge {
-  background: rgba(60, 133, 89, 0.14);
-  color: #2f6f49;
-}
-
-.workspace-toast-error {
-  border-color: rgba(178, 77, 52, 0.3);
-  background: linear-gradient(180deg, rgba(255, 247, 243, 0.96) 0%, rgba(249, 233, 225, 0.98) 100%);
-  color: #7d3928;
-}
-
-.workspace-toast-error .workspace-toast-badge {
-  background: rgba(178, 77, 52, 0.12);
-  color: var(--diagram-error);
-}
+/* I toni per classe (`.workspace-toast-warning|-success|-error`) e il badge
+   appartenevano a un markup precedente: il componente rende `tone-<tono>` e
+   un'icona, non un badge. Le regole vive stanno in fondo al file, sotto
+   `.workspace-toast-viewport .workspace-toast.tone-*`. */
 
 @keyframes workspace-toast-enter {
   from {
@@ -5341,15 +5286,8 @@ textarea.diagram-notes-editor::placeholder {
 }
 
 @media (max-width: 720px) {
-.workspace-toast-center {
-    bottom: 14px;
-    padding: 0 8px;
-  }
-
-  .workspace-toast {
-    border-radius: 0;
-    padding: 11px 12px;
-  }
+  /* `.workspace-toast-center` non esiste piu; il padding del toast ora vive
+     nella testata e nel corpo, non sul riquadro. */
 
   .workspace-toast-body p {
     font-size: 0.92rem;
@@ -7711,35 +7649,12 @@ textarea:focus-visible,
   pointer-events: none;
 }
 
-.workspace-toast-center {
-  position: absolute;
-  top: var(--ui-space-3);
-  right: var(--ui-space-3);
-  bottom: auto;
-  left: auto;
-  width: min(420px, calc(100% - 24px));
-  padding: 0;
-  pointer-events: none;
-}
 
 .workspace-toast-stack {
   width: 100%;
 }
 
-.workspace-toast {
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 0;
-  background: rgba(250, 249, 244, 0.94);
-  box-shadow: var(--ui-shadow-md);
-}
 
-.workspace-toast-badge {
-  min-height: 22px;
-  padding: 0.12rem 0.5rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.03em;
-  text-transform: none;
-}
 
 .workspace-toast-body p {
   font-size: 0.88rem;
@@ -8532,11 +8447,6 @@ textarea:focus-visible,
     padding: 6px;
   }
 
-  .workspace-toast-center {
-    right: 12px;
-    top: 12px;
-    width: min(calc(100% - 24px), 420px);
-  }
 
   .canvas-overlay-stack {
     top: 12px;
@@ -9350,16 +9260,7 @@ body {
   background: rgba(255, 255, 255, 0.92);
 }
 
-.workspace-toast {
-  border-radius: 0;
-  border-color: rgba(27, 43, 65, 0.12);
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 26px rgba(17, 31, 49, 0.1);
-}
 
-.workspace-toast-badge {
-  border-radius: 0;
-}
 
 /* Responsive */
 @media (max-width: 1460px) {
@@ -9776,24 +9677,12 @@ body {
   min-height: 220px;
 }
 
-.workspace-toast-center {
-  top: 12px;
-  left: 50%;
-  right: auto;
-  bottom: auto;
-  width: min(360px, calc(100% - 40px));
-  transform: translateX(-50%);
-}
 
 .workspace-toast-stack {
   display: flex;
   align-items: center;
 }
 
-.workspace-toast {
-  width: 100%;
-  box-shadow: 0 8px 18px rgba(17, 31, 49, 0.12);
-}
 
 @media (max-width: 1460px) {
 .app-header {
@@ -11294,10 +11183,15 @@ summary:focus-visible,
   }
 }
 
+/* `bottom` limita l'altezza disponibile alla pila. Senza, con quattro toast e
+   messaggi di validazione lunghi l'ultimo finiva sotto il bordo dello schermo:
+   il contenitore e `fixed`, quindi la pagina non poteva scorrere fin li e la
+   sua X restava irraggiungibile. */
 .workspace-toast-viewport {
   position: fixed;
   top: 86px;
   right: 18px;
+  bottom: var(--space-3);
   z-index: var(--z-workspace-toast);
   width: min(380px, calc(100vw - 36px));
   pointer-events: none;
@@ -11306,20 +11200,39 @@ summary:focus-visible,
 .workspace-toast-viewport .workspace-toast-stack {
   display: flex;
   width: 100%;
+  max-height: 100%;
   flex-direction: column;
   gap: 10px;
   align-items: stretch;
+  /* Taglia l'eccedenza invece di lasciarla uscire dallo schermo. La pila
+     resta click-through per scelta (regola dedicata piu avanti), quindi non
+     si conta sullo scorrimento: con il limite di quattro toast del componente
+     l'eccedenza residua e di pochi pixel sul countdown dell'ultimo, mentre
+     testo, azione e chiusura restano raggiungibili. */
+  overflow-y: auto;
 }
 
+/* Regola unica del toast: prima le proprieta vivevano in quattro blocchi
+   `.workspace-toast` sovrapposti piu questo, e ognuno ne sovrascriveva un
+   pezzo del precedente.
+
+   `grid-template-columns` e obbligatorio, non decorativo: il toast era nato
+   flex e la conversione a grid ha lasciato indietro `justify-content:
+   space-between`. Su una griglia a colonna implicita quel valore fa collassare
+   la traccia sul contenuto, quindi testata, corpo e countdown restavano
+   schiacciati in ~205px dentro un toast largo 372, con un terzo del riquadro
+   vuoto a destra e il testo mandato a capo senza motivo. */
 .workspace-toast-viewport .workspace-toast {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--panel-border, var(--studio-border));
   border-left-width: 4px;
   border-radius: 0;
-  background: var(--panel-surface, #ffffff);
-  box-shadow: 0 14px 28px rgba(17, 31, 49, 0.14);
+  background: var(--panel-surface, var(--color-bg-elevated));
+  box-shadow: var(--elevation-popover);
   color: var(--panel-text, var(--studio-ink));
   pointer-events: auto;
   animation: workspace-toast-enter 160ms ease-out;
@@ -11458,36 +11371,39 @@ summary:focus-visible,
   }
 }
 
+/* Toni dai token semantici invece che da rgba/hex cablati: il bordo sinistro
+   spesso e l'icona sono l'unico segnale cromatico del toast, e prima erano
+   tinte scelte a mano che non seguivano la palette. */
 .workspace-toast-viewport .workspace-toast.tone-success {
-  border-color: rgba(47, 115, 83, 0.5);
+  border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-success .workspace-toast-icon {
-  color: #2f7353;
+  color: var(--color-success);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-warning {
-  border-color: rgba(169, 111, 22, 0.58);
+  border-color: color-mix(in srgb, var(--color-warning) 58%, transparent);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-warning .workspace-toast-icon {
-  color: var(--studio-warning);
+  color: var(--color-warning);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-error {
-  border-color: rgba(182, 66, 54, 0.58);
+  border-color: color-mix(in srgb, var(--color-danger) 58%, transparent);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-error .workspace-toast-icon {
-  color: var(--studio-danger);
+  color: var(--color-danger);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-info {
-  border-color: rgba(59, 99, 123, 0.48);
+  border-color: color-mix(in srgb, var(--color-info) 48%, transparent);
 }
 
 .workspace-toast-viewport .workspace-toast.tone-info .workspace-toast-icon {
-  color: #3b637b;
+  color: var(--color-info);
 }
 
 @media (max-width: 760px) {
