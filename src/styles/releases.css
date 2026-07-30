@@ -64,6 +64,7 @@
 .release-center-backdrop { z-index: 1130; padding: 20px; background: rgba(17, 23, 20, 0.58); backdrop-filter: blur(4px); }
 
 .release-announcement {
+  position: relative;
   display: grid;
   width: min(820px, calc(100vw - 40px));
   max-height: min(88vh, 780px);
@@ -77,7 +78,16 @@
   animation: release-enter 180ms ease-out;
 }
 
-.release-announcement--minor { width: min(680px, calc(100vw - 40px)); }
+.release-announcement > .ui-modal__head {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .release-announcement--major { border-top: 4px solid var(--studio-accent); }
 .release-announcement__hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; }
 .release-announcement__hero h2 { margin: 8px 0; font-size: clamp(1.45rem, 3vw, 2.6rem); line-height: 1.05; }
