@@ -180,7 +180,7 @@ export const sq: DeepPartialMessages = {
     openPanel: "Hap panelin e workspace",
     closePanel: "Mbyll panelin e workspace",
     commandMenu: "Paleta e komandave",
-    keyboardShortcuts: "Shkurtoret e tastierÃ«s",
+    keyboardShortcuts: "Shkurtoret e tastierës",
     file: {
       actionsAria: "Veprime file projekti",
     },
@@ -202,20 +202,23 @@ export const sq: DeepPartialMessages = {
     },
   },
   workspaceChrome: {
-    noProject: "AsnjÃ« projekt",
+    noProject: "Asnjë projekt",
     untitledProject: "Projekt pa titull",
-    commandSearch: "KÃ«rko komanda, skedarÃ« dhe veprime",
-    commandSearchAria: "Hap paletÃ«n e komandave",
-    commandSearchTooltip: "Hap paletÃ«n e komandave (Ctrl+K)",
-    moreActions: "MÃ« shumÃ« veprime",
+    commandSearch: "Kërko komanda, skedarë dhe veprime",
+    commandSearchAria: "Hap paletën e komandave",
+    commandSearchTooltip: "Hap paletën e komandave (Ctrl+K)",
+    moreActions: "Më shumë veprime",
     newFile: "Skedar i ri",
-    moreFileTypes: "MÃ« shumÃ« lloje skedarÃ«sh",
+    moreFileTypes: "Më shumë lloje skedarësh",
     contextMenuAria: "Menuja e kontekstit e Explorer",
     breadcrumbAria: "Rruga e skedarit aktiv",
+    skipToContent: "Kalo te hapësira e punës",
+    mainContentAria: "Hapësira e punës",
+    diagramHeading: "{{name}} — pamja {{view}}",
     reveal: "Shfaq",
-    revealInExplorer: "Shfaq nÃ« Explorer",
-    viewSwitcherAria: "Pamja e skemÃ«s",
-    textEditorAria: "Redaktuesi pÃ«r {{name}}",
+    revealInExplorer: "Shfaq në Explorer",
+    viewSwitcherAria: "Pamja e skemës",
+    textEditorAria: "Redaktuesi për {{name}}",
     sqlEditorAria: "Redaktuesi SQL për {{name}}",
     sqlPlaceholder: "Shkruaj ose ngjit SQL...",
     sqlActions: {
@@ -236,8 +239,8 @@ export const sq: DeepPartialMessages = {
       one: "{{count}} rresht",
       other: "{{count}} rreshta",
     },
-    editable: "I redaktueshÃ«m",
-    readOnly: "VetÃ«m lexim",
+    editable: "I redaktueshëm",
+    readOnly: "Vetëm lexim",
     saveState: {
       saved: "U ruajt",
       saving: "Duke ruajtur...",
@@ -245,7 +248,7 @@ export const sq: DeepPartialMessages = {
       error: "Gabim ruajtjeje",
     },
     fileTypes: {
-      schema: "SkemÃ« ER",
+      schema: "Skemë ER",
       sql: "SQL",
       text: "Tekst",
       folder: "Dosje",
@@ -253,18 +256,18 @@ export const sq: DeepPartialMessages = {
     },
     views: {
       conceptual: "Konceptuale",
-      translation: "PÃ«rkthim",
+      translation: "Përkthim",
       logical: "Logjike",
     },
     tabs: {
-      scrollLeft: "LÃ«viz skedat majtas",
-      scrollRight: "LÃ«viz skedat djathtas",
+      scrollLeft: "Lëviz skedat majtas",
+      scrollRight: "Lëviz skedat djathtas",
       openTabs: "Skedat e hapura",
       close: "Mbyll",
-      closeOthers: "Mbyll tÃ« tjerat",
+      closeOthers: "Mbyll të tjerat",
       closeRight: "Mbyll djathtas",
-      closeAll: "Mbyll tÃ« gjitha",
-      copyPath: "Kopjo rrugÃ«n",
+      closeAll: "Mbyll të gjitha",
+      copyPath: "Kopjo rrugën",
     },
   },
   sourceControl: {
@@ -1588,6 +1591,21 @@ export const sq: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_3: {
+        headline: "Një canvas më i shpejtë, veti më të qarta dhe kontrolle gjithmonë të arritshme",
+        summary: "buildER 7.3 prezanton panelin Vetitë për përzgjedhjen aktuale, përmirëson kontrollet responsive të canvas-it dhe zëvendëson dialogët e shfletuesit me sipërfaqet e përkthyera të aplikacionit.",
+        hero: { eyebrow: "Qartësi në hapësirën e punës", title: "buildER 7.3.0", subtitle: "Shqyrto detajet e modelit në kontekst dhe përdor çdo veprim të canvas-it në çdo madhësi ekrani." },
+        highlights: {
+          code: { title: "Vetitë në kontekst", description: "Riemërto elementin e përzgjedhur dhe shqyrto atributet dhe identifikuesit e brendshëm drejtpërdrejt nga hapësira e punës.", tag: "Inspektori" },
+          layout: { title: "Kontrolle responsive", description: "Paneli anësor, shiritat e veglave, miniharta dhe njoftimet toast mbeten të arritshme dhe të qarta në ekranet kompakte.", tag: "Responsive" },
+          experience: { title: "Ndërveprime të njëtrajtshme", description: "Dialogët e aplikacionit, landmark-et, metadata e gjuhës dhe përkthimet e korrigjuara përmirësojnë përdorimin me tastierë dhe në disa gjuhë.", tag: "Aksesueshmëri" },
+        },
+        updates: {
+          "0": "Shton panelin Vetitë për entitetet dhe marrëdhëniet e përzgjedhura, me riemërtim të drejtpërdrejtë, gjendjet e atributeve dhe detajet e identifikuesve të brendshëm.",
+          "1": "I mban të dukshme veglat e krijimit kur përzgjidhet një nyjë dhe e bën të qartë lëvizjen në shiritat e veglave që tejkalojnë hapësirën.",
+          "2": "Korrigjon kontrollet e bllokuara të canvas-it, mbivendosjet e minihartës kompakte, dialogët e shfletuesit, mojibake-un, landmark-et dhe përmbajtjen toast të ngjeshur ose jashtë ekranit.",
+        },
+      },
       v7_2: {
         headline: "Historik projekti që e kontrollon, në një hapësirë pune më koherente",
         summary: "buildER 7.2 shton etiketa të menaxhuara nga përdoruesi dhe ruajtje të konfigurueshme për historikun lokal të projektit. Gjithashtu unifikon sistemin e tokenëve CSS dhe i mban kontrollet e udhëzuesit të përdorshme mbi panelet në celular.",
@@ -1879,6 +1897,14 @@ export const sq: DeepPartialMessages = {
       confirm: "Vazhdo",
       cancel: "Anulo",
     },
+    resetTranslation: {
+      title: "Pastro ristrukturimin",
+      confirm: "Pastro",
+    },
+    discardNotes: {
+      title: "Shënime të paruajtura",
+      confirm: "Mbyll pa ruajtur",
+    },
     prompt: {
       defaultConfirm: "Ruaj",
       defaultCancel: "Anulo",
@@ -1891,6 +1917,14 @@ export const sq: DeepPartialMessages = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identiteti",
+      name: "Emri",
+      type: "Lloji",
+      nameRequired: "Emri nuk mund të jetë bosh.",
+      weakEntity: "Entitet i dobët",
+      selectSingleHint: "Përzgjidh një element të vetëm për të ndryshuar vetitë e tij.",
+    },
     heading: {
       entity: {
         title: "Entitet",
@@ -1991,6 +2025,10 @@ export const sq: DeepPartialMessages = {
     attribute: {
       settings: "Cilësimet e atributit",
       name: "Emri i atributit",
+      listTitle: "Atributet",
+      listEmpty: "Asnjë atribut i lidhur me këtë element.",
+      identifierBadge: "Identifikues",
+      multivaluedBadge: "Shumëvlerësh",
       cardinality: "Kardinalitet",
       noCardinality: "Pa kardinalitet",
       status: "Gjendja e atributit",

@@ -67,6 +67,17 @@
   --size-canvas-minimap-height: 160px;
   --size-canvas-minimap-width-compact: 168px;
   --size-canvas-minimap-height-compact: 128px;
+  /* ------------------------------------------------------------------
+     Pila inferiore del canvas in modalita compatta (<= 899px), dove la
+     toolbar contestuale diventa orizzontale e occupa tutta la larghezza.
+     Dal basso verso l'alto: toolbar, HUD dello zoom, minimap.
+
+     I due valori sotto sono l'unica fonte: l'HUD si ancora al primo, la
+     minimap si impila sopra l'HUD sommandoli. Prima erano offset scelti
+     in modo indipendente su breakpoint diversi (899 per toolbar e HUD,
+     860 per la minimap), e la minimap finiva sotto la toolbar. */
+  --size-canvas-compact-hud-bottom: 148px;
+  --size-canvas-compact-hud-height: 59px;
   --stroke-canvas-minimap-viewport: 2px;
   --size-sidebar-min: 220px;
   --size-sidebar-default: 288px;
@@ -236,20 +247,43 @@
   --diagram-version-layout: var(--diagram-version-modified);
   --diagram-version-removed: #c44536;
 
-  /* Canvas overlay stacking — coherent local scale, all below app modals (z 1200). */
-  /* Scala z-index DENTRO il canvas (stacking context locale, Fase G3). */
+  /* ------------------------------------------------------------------
+     Scala z-index. Due livelli distinti, da non mescolare.
+
+     1) DENTRO il canvas (stacking context locale, Fase G3). */
   --z-canvas-overlay-info: 10;
   --z-canvas-overlay-controls: 20;
-  /* Scala z-index degli overlay a LIVELLO FINESTRA (position: fixed, fuori dallo stacking
-     context del canvas), dal basso verso l'alto — Fase L5:
-       40  backdrop modali minori (non ancora tokenizzato)
-       61  onboarding guide      <- --z-workspace-onboarding
-       72  toast di workspace     <- --z-workspace-toast
-       73  popover diagnostico    <- --z-editor-diagnostic-popover
-      120  backdrop modali        (non ancora tokenizzato)
-     Nota: toast e popover condividono lo stesso angolo (top/right), quindi il popover
-     copre i toast quando sono entrambi visibili. */
+
+  /* 2) A LIVELLO SHELL: layer che competono fra componenti diversi.
+     Questa e la scala autorevole — dal basso verso l'alto. Un nuovo
+     overlay che deve convivere con questi sceglie un token, non un
+     numero. I valori sono quelli gia in uso prima della tokenizzazione,
+     quindi l'ordine di pittura non cambia.
+
+       40  toolbar contestuale del canvas  <- --z-canvas-toolbar
+       59  scrim del drawer workspace      <- --z-workspace-drawer-scrim
+       60  drawer workspace (rail+pannello)<- --z-workspace-drawer
+       61  guida onboarding                <- --z-workspace-onboarding
+       72  toast di workspace              <- --z-workspace-toast
+       73  popover diagnostico             <- --z-editor-diagnostic-popover
+     1000  topbar applicativa              <- --z-app-topbar
+
+     Invariante: sotto i 900px il drawer e modale, quindi drawer e scrim
+     stanno SOPRA --z-canvas-toolbar. La toolbar del canvas resta percio
+     coperta e visibilmente attenuata mentre il drawer e aperto: e lo
+     scrim, cliccabile, a riportare gli strumenti a un tap di distanza.
+
+     Non ancora tokenizzati (backdrop modali a 120/1200, menu contestuali
+     a 10020/12000): vivono in stacking context separati e non competono
+     con questa scala. Vanno migrati in un intervento dedicato.
+
+     Nota: toast e popover condividono lo stesso angolo (top/right),
+     quindi il popover copre i toast quando sono entrambi visibili. */
+  --z-canvas-toolbar: 40;
+  --z-workspace-drawer-scrim: 59;
+  --z-workspace-drawer: 60;
   --z-workspace-onboarding: 61;
   --z-workspace-toast: 72;
   --z-editor-diagnostic-popover: 73;
+  --z-app-topbar: 1000;
 }

@@ -203,6 +203,34 @@ Evidence used before deletion:
 Including the redundant root declarations and unused aliases, the edited CSS
 files contain 1,754 fewer physical lines than the starting SHA.
 
+## Shell z-index scale
+
+Added after the baseline above, while fixing the overlay-stacking defects on
+the workspace drawer and the onboarding dock.
+
+The repository declares 86 `z-index` values across 38 distinct numbers. Only
+the layers that actually compete **between different components** are now
+tokenized in `src/styles/tokens.css`, in ascending order:
+
+| Token | Value | Layer |
+| --- | ---: | --- |
+| `--z-canvas-toolbar` | 40 | canvas contextual toolbar |
+| `--z-workspace-drawer-scrim` | 59 | workspace drawer scrim |
+| `--z-workspace-drawer` | 60 | workspace drawer (rail + panel) |
+| `--z-workspace-onboarding` | 61 | onboarding guide |
+| `--z-workspace-toast` | 72 | workspace toasts |
+| `--z-editor-diagnostic-popover` | 73 | diagnostic popover |
+| `--z-app-topbar` | 1000 | application topbar |
+
+Every value is the one already in use, so paint order is unchanged. A unit
+test asserts the ordering, so a future edit cannot silently invert two layers.
+
+Deliberately still literal: values that live inside a component's own stacking
+context and never compete outside it (`sql-playground.css` 1-3, sticky table
+headers, local overlays), plus modal backdrops (120, 1200) and context menus
+(10020, 12000), which sit in separate stacking contexts. Migrating those is a
+dedicated change: it needs its own cascade and runtime evidence.
+
 ## Intentional residuals
 
 ### RESIDUO INTENZIONALE

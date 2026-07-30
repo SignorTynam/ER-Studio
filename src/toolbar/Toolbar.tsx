@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
+import { useScrollOverflow } from "../hooks/useScrollOverflow";
 import type {
   AttributeNode,
   DiagramDocument,
@@ -273,7 +274,6 @@ export function Toolbar(props: ToolbarProps) {
         group.supertypeId === props.selectedNode?.id ||
         group.subtypeIds.includes(props.selectedNode?.id ?? ""),
     );
-  const hasNoSelection = props.selectionItemCount === 0;
   const hasSingleNodeSelection =
     props.selectionItemCount === 1 &&
     props.selection.nodeIds.length === 1 &&
@@ -290,28 +290,29 @@ export function Toolbar(props: ToolbarProps) {
   ];
 
   const createCommands: ToolbarCommand[] = [
-    ...(hasNoSelection
-      ? [
-          {
-            key: "primary-entity",
-            label: t("toolbar.commands.entity.label"),
-            icon: <StudioIcon name="entity" />,
-            onClick: () => props.onToolChange("entity"),
-            disabled: !canEdit,
-            active: props.activeTool === "entity",
-            ariaLabel: t("toolbar.commands.entity.aria"),
-          } satisfies ToolbarCommand,
-          {
-            key: "primary-relation",
-            label: t("toolbar.commands.relationship.label"),
-            icon: <StudioIcon name="relationship" />,
-            onClick: () => props.onToolChange("relationship"),
-            disabled: !canEdit,
-            active: props.activeTool === "relationship",
-            ariaLabel: t("toolbar.commands.relationship.aria"),
-          } satisfies ToolbarCommand,
-        ]
-      : []),
+    /* Entita e Relazione sono strumenti, non azioni sulla selezione: restano
+       sempre disponibili come Seleziona e Pan. Prima sparivano appena si
+       selezionava un nodo, quindi per posare un secondo elemento bisognava
+       prima deselezionare cliccando sul vuoto — l'attrito piu costoso nel
+       disegno di uno schema. */
+    {
+      key: "primary-entity",
+      label: t("toolbar.commands.entity.label"),
+      icon: <StudioIcon name="entity" />,
+      onClick: () => props.onToolChange("entity"),
+      disabled: !canEdit,
+      active: props.activeTool === "entity",
+      ariaLabel: t("toolbar.commands.entity.aria"),
+    } satisfies ToolbarCommand,
+    {
+      key: "primary-relation",
+      label: t("toolbar.commands.relationship.label"),
+      icon: <StudioIcon name="relationship" />,
+      onClick: () => props.onToolChange("relationship"),
+      disabled: !canEdit,
+      active: props.activeTool === "relationship",
+      ariaLabel: t("toolbar.commands.relationship.aria"),
+    } satisfies ToolbarCommand,
     ...(canCreateAttributeForSelection
       ? [
           {
@@ -555,9 +556,23 @@ export function Toolbar(props: ToolbarProps) {
   const renderCommands = (groupKey: string, commands: ToolbarCommand[]) =>
     commands.map((command) => <CommandButton key={`${groupKey}-${command.key}`} command={command} />);
 
+  /* La toolbar scorre in verticale sul desktop e in orizzontale sotto i 900px,
+     e con una selezione attiva i comandi contestuali la fanno quasi sempre
+     eccedere. Senza una sfumatura ai bordi i comandi oltre il margine sembrano
+     semplicemente non esistere. */
+  const [toolbarRef, toolbarOverflow] = useScrollOverflow<HTMLElement>();
+
   return (
     <>
-      <nav className="designer-context-toolbar designer-er-toolbar" aria-label={t("toolbar.commands.aria")}>
+      <nav
+        ref={toolbarRef}
+        className="designer-context-toolbar designer-er-toolbar"
+        aria-label={t("toolbar.commands.aria")}
+        data-scroll-start={toolbarOverflow.atStart ? "" : undefined}
+        data-scroll-end={toolbarOverflow.atEnd ? "" : undefined}
+        data-scroll-top={toolbarOverflow.atTop ? "" : undefined}
+        data-scroll-bottom={toolbarOverflow.atBottom ? "" : undefined}
+      >
         {renderCommands("navigate", visibleNavigateCommands)}
         {visibleCreateCommands.length > 0 ? (
           <>

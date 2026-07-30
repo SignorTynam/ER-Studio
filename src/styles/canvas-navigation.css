@@ -117,12 +117,22 @@
   box-shadow: var(--elevation-popover);
 }
 
-@media (max-width: 860px) {
+/* Sotto i 900px la toolbar contestuale si sposta in basso a tutta larghezza e
+   l'HUD dello zoom le si impila sopra. La minimap deve salire sopra entrambi:
+   con il vecchio offset finiva dietro la toolbar e il suo pulsante di
+   apertura diventava incliccabile. Il breakpoint e quello della shell (899),
+   non 860, altrimenti fra le due soglie la minimap resta sopra l'HUD. */
+@media (max-width: 899px) {
   .canvas-minimap-layer {
     right: var(--space-2);
-    bottom: calc(var(--space-2) + var(--size-button) + var(--space-2));
+    bottom: calc(
+      var(--size-canvas-compact-hud-bottom) + var(--size-canvas-compact-hud-height) + var(--space-2) +
+        env(safe-area-inset-bottom)
+    );
   }
+}
 
+@media (max-width: 860px) {
   .canvas-minimap {
     width: var(--size-canvas-minimap-width-compact);
     height: var(--size-canvas-minimap-height-compact);

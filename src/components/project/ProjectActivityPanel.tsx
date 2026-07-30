@@ -1,8 +1,21 @@
+import { useCallback, useEffect, useRef } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { StudioIcon, type StudioIconName } from "../icons/StudioIcon";
 import { Tooltip } from "../ui";
 
-export type ProjectActivityId = "file" | "code" | "reverse" | "errors" | "version" | "sql-explorer" | "export";
+/** Stessa soglia del blocco drawer in `src/styles/responsive.css`. */
+const MODAL_DRAWER_QUERY = "(max-width: 900px)";
+
+export type ProjectActivityId =
+  | "file"
+  | "properties"
+  | "code"
+  | "reverse"
+  | "errors"
+  | "version"
+  | "sql-explorer"
+  | "export";
 
 export interface ProjectActivityItem {
   id: ProjectActivityId;
@@ -36,12 +49,65 @@ function formatActivityBadge(count: number): string {
 }
 
 export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
+  const isModalDrawer = useMediaQuery(MODAL_DRAWER_QUERY);
+  const scrimVisible = props.open && isModalDrawer;
+
+  /* `onToggleOpen` inverte lo stato che ha catturato al momento del render.
+     Un listener registrato una volta lo congelerebbe: Esc finirebbe per
+     RIAPRIRE un drawer gia aperto invece di chiuderlo. Teniamo quindi
+     l'ultima versione in un ref e ricaviamo una chiusura idempotente —
+     scrim e Esc devono solo chiudere, mai riaprire. */
+  const latestRef = useRef({ open: props.open, onToggleOpen: props.onToggleOpen });
+  useEffect(() => {
+    latestRef.current = { open: props.open, onToggleOpen: props.onToggleOpen };
+  });
+
+  const dismissDrawer = useCallback(() => {
+    const { open, onToggleOpen } = latestRef.current;
+    if (open) {
+      onToggleOpen();
+    }
+  }, []);
+
+  /* Esc chiude il drawer solo quando e davvero modale. Nessuno
+     stopPropagation: altri handler di Esc (canvas, modali) devono continuare
+     a ricevere l'evento. Se sopra c'e un dialogo modale, e quello a dover
+     rispondere per primo, quindi qui non facciamo nulla. */
+  useEffect(() => {
+    if (!scrimVisible) {
+      return undefined;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"][aria-modal="true"], .ui-modal-backdrop')) {
+        return;
+      }
+      dismissDrawer();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [dismissDrawer, scrimVisible]);
+
   return (
-    <aside
-      className={props.open ? "project-activity-panel" : "project-activity-panel project-activity-panel--collapsed"}
-      style={{ "--project-explorer-width": `${props.width}px` } as CSSProperties}
-      aria-label={props.title}
-    >
+    <>
+      {scrimVisible ? (
+        <button
+          type="button"
+          className="project-activity-scrim"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={dismissDrawer}
+        />
+      ) : null}
+      <aside
+        className={props.open ? "project-activity-panel" : "project-activity-panel project-activity-panel--collapsed"}
+        style={{ "--project-explorer-width": `${props.width}px` } as CSSProperties}
+        aria-label={props.title}
+      >
       <nav className="project-activity-rail" aria-label={props.title}>
         {props.items.map((item) => (
           <Tooltip
@@ -110,6 +176,7 @@ export function ProjectActivityPanel(props: ProjectActivityPanelProps) {
           }}
         />
       ) : null}
-    </aside>
+      </aside>
+    </>
   );
 }

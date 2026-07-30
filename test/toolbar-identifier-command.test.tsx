@@ -323,6 +323,40 @@ test("connector mixed identifier command is hidden when cardinality is not one-o
   assert.doesNotMatch(markup, /\sdisabled(=| |>)/);
 });
 
+test("creation tools stay in the toolbar while a node is selected", () => {
+  const selectedEntity = entity();
+  const diagram: DiagramDocument = { nodes: [selectedEntity], edges: [] };
+
+  const withoutSelection = renderToolbar(diagram, { nodeIds: [], edgeIds: [] });
+  const withSelection = renderToolbar(
+    diagram,
+    { nodeIds: [selectedEntity.id], edgeIds: [] },
+    selectedEntity,
+  );
+
+  // Entita e Relazione sono strumenti, non azioni sulla selezione: sparivano
+  // appena si selezionava un nodo, quindi per posare un secondo elemento
+  // bisognava prima deselezionare cliccando sul vuoto.
+  for (const markup of [withoutSelection, withSelection]) {
+    assert.match(markup, /aria-label="Entity tool"/);
+    assert.match(markup, /aria-label="Relationship tool"/);
+  }
+
+  // I comandi contestuali restano legati alla selezione.
+  assert.doesNotMatch(withoutSelection, /aria-label="Add an attribute to the selection"/);
+  assert.match(withSelection, /aria-label="Add an attribute to the selection"/);
+});
+
+test("creation tools disappear in read-only mode, where they cannot apply", () => {
+  const selectedEntity = entity();
+  const diagram: DiagramDocument = { nodes: [selectedEntity], edges: [] };
+
+  const readOnly = renderToolbar(diagram, { nodeIds: [], edgeIds: [] }, undefined, "readonly");
+
+  assert.doesNotMatch(readOnly, /aria-label="Entity tool"/);
+  assert.doesNotMatch(readOnly, /aria-label="Relationship tool"/);
+});
+
 test("toolbar command visibility helper filters disabled commands", () => {
   const visible = getVisibleToolbarCommands([
     { key: "enabled", label: "Enabled", icon: "E", onClick: () => undefined },

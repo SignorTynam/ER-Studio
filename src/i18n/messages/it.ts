@@ -210,6 +210,9 @@ export const it = {
     moreFileTypes: "Altri tipi di file",
     contextMenuAria: "Menu contestuale Explorer",
     breadcrumbAria: "Percorso file attivo",
+    skipToContent: "Vai all'area di lavoro",
+    mainContentAria: "Area di lavoro",
+    diagramHeading: "{{name}} — vista {{view}}",
     reveal: "Mostra",
     revealInExplorer: "Mostra in Explorer",
     viewSwitcherAria: "Vista dello schema",
@@ -1586,6 +1589,21 @@ export const it = {
       fix: "Fix",
     },
     entries: {
+      v7_3: {
+        headline: "Un canvas più rapido, proprietà più chiare e controlli sempre raggiungibili",
+        summary: "buildER 7.3 introduce il pannello Proprietà per la selezione corrente, migliora i controlli responsive del canvas e sostituisce i dialoghi nativi del browser con le superfici tradotte dell’app.",
+        hero: { eyebrow: "Chiarezza nel workspace", title: "buildER 7.3.0", subtitle: "Esamina i dettagli del modello nel loro contesto e accedi a ogni azione del canvas su qualsiasi viewport." },
+        highlights: {
+          code: { title: "Proprietà nel contesto", description: "Rinomina l’elemento selezionato e consulta attributi e identificatori interni direttamente dal workspace.", tag: "Inspector" },
+          layout: { title: "Controlli responsive", description: "Drawer, toolbar, minimappa e notifiche toast restano raggiungibili e leggibili sugli schermi compatti.", tag: "Responsive" },
+          experience: { title: "Interazioni coerenti", description: "Dialoghi dell’app, landmark, metadati della lingua e traduzioni corrette migliorano l’uso da tastiera e multilingue.", tag: "Accessibilità" },
+        },
+        updates: {
+          "0": "Aggiunge il pannello Proprietà per entità e relazioni selezionate, con rinomina inline, stati degli attributi e dettagli degli identificatori interni.",
+          "1": "Mantiene visibili gli strumenti di creazione quando è selezionato un nodo e rende evidente lo scorrimento delle toolbar in overflow.",
+          "2": "Corregge controlli del canvas bloccati, collisioni della minimappa compatta, dialoghi nativi, mojibake, landmark e contenuti toast compressi o fuori schermo.",
+        },
+      },
       v7_2: {
         headline: "Una cronologia di progetto su misura, in un workspace più coerente",
         summary: "buildER 7.2 aggiunge tag gestiti dall’utente e retention configurabile per la cronologia locale del progetto. Inoltre consolida il sistema dei token CSS e mantiene accessibili i controlli dell’onboarding sopra i pannelli mobile.",
@@ -1877,6 +1895,14 @@ export const it = {
       confirm: "Continua",
       cancel: "Annulla",
     },
+    resetTranslation: {
+      title: "Azzera la ristrutturazione",
+      confirm: "Azzera",
+    },
+    discardNotes: {
+      title: "Note non salvate",
+      confirm: "Chiudi senza salvare",
+    },
     prompt: {
       defaultConfirm: "Salva",
       defaultCancel: "Annulla",
@@ -1889,6 +1915,14 @@ export const it = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identità",
+      name: "Nome",
+      type: "Tipo",
+      nameRequired: "Il nome non può essere vuoto.",
+      weakEntity: "Entità debole",
+      selectSingleHint: "Seleziona un solo elemento per modificarne le proprietà.",
+    },
     heading: {
       entity: {
         title: "Entita",
@@ -1987,6 +2021,10 @@ export const it = {
       externalIdentifiersManagedOnHost: "Gli identificatori esterni che dipendono da questa associazione si gestiscono dal pannello dell'entita host.",
     },
     attribute: {
+      listTitle: "Attributi",
+      listEmpty: "Nessun attributo collegato a questo elemento.",
+      identifierBadge: "Identificatore",
+      multivaluedBadge: "Multivalore",
       settings: "Impostazioni attributo",
       name: "Nome attributo",
       cardinality: "Cardinalita",
@@ -2108,7 +2146,7 @@ export const it = {
     },
     examples: {
       initialSchema: "Schema iniziale",
-      addedEntities: "Aggiunte entitÃ  Studente e Corso",
+      addedEntities: "Aggiunte entità Studente e Corso",
       refinedLayout: "Rifinito layout finale",
       updatedLogical: "Aggiornato modello logico",
     },
@@ -2153,7 +2191,7 @@ export const it = {
       },
       itemKinds: {
         generic: "Elemento modificato",
-        entity: "EntitÃ ",
+        entity: "Entità",
         relationship: "Relazione",
         attribute: "Attributo",
         edge: "Edge",

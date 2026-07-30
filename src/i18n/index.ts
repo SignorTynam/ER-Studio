@@ -174,7 +174,24 @@ function writeStoredLocale(locale: Locale) {
   }
 }
 
+/**
+ * Allinea `<html lang>` alla lingua dell'interfaccia.
+ *
+ * `index.html` dichiara `lang="en"` staticamente: senza questa sincronia gli
+ * screen reader leggono italiano e albanese con voce e regole di pronuncia
+ * inglesi. Vive qui, nello store della lingua, e non in un effetto React,
+ * cosi l'attributo e gia corretto al primo paint invece che dopo il mount.
+ */
+function syncDocumentLocale(locale: Locale) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.lang = locale;
+}
+
 let currentLocale: Locale = resolveInitialLocale();
+syncDocumentLocale(currentLocale);
 const listeners = new Set<() => void>();
 
 export function subscribeToLocale(listener: () => void): () => void {
@@ -195,6 +212,7 @@ export function setCurrentLocale(locale: Locale) {
 
   currentLocale = locale;
   writeStoredLocale(locale);
+  syncDocumentLocale(locale);
   listeners.forEach((listener) => listener());
 }
 

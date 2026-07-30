@@ -212,6 +212,9 @@ export const en: DeepPartialMessages = {
     moreFileTypes: "More file types",
     contextMenuAria: "Explorer context menu",
     breadcrumbAria: "Active file path",
+    skipToContent: "Skip to the workspace",
+    mainContentAria: "Workspace",
+    diagramHeading: "{{name}} — {{view}} view",
     reveal: "Reveal",
     revealInExplorer: "Reveal in Explorer",
     viewSwitcherAria: "Schema view",
@@ -1588,6 +1591,21 @@ export const en: DeepPartialMessages = {
       fix: "Fix",
     },
     entries: {
+      v7_3: {
+        headline: "A faster canvas, clearer properties, and controls that stay within reach",
+        summary: "buildER 7.3 introduces a Properties panel for the current selection, improves responsive canvas controls, and replaces native browser dialogs with the app’s translated surfaces.",
+        hero: { eyebrow: "Workspace clarity", title: "buildER 7.3.0", subtitle: "Inspect model details in context and keep every canvas action accessible across viewports." },
+        highlights: {
+          code: { title: "Properties in context", description: "Rename the selected element and review its attributes and internal identifiers directly from the workspace.", tag: "Inspector" },
+          layout: { title: "Responsive controls", description: "Drawers, toolbars, the minimap, and toast messages remain reachable and clear on compact screens.", tag: "Responsive" },
+          experience: { title: "Consistent interactions", description: "App dialogs, landmarks, language metadata, and repaired translations improve keyboard and multilingual use.", tag: "Accessibility" },
+        },
+        updates: {
+          "0": "Adds a Properties panel for selected entities and relationships, with inline renaming, attribute states, and internal identifier details.",
+          "1": "Keeps creation tools visible while a node is selected and adds clear scroll affordances to overflowing toolbars.",
+          "2": "Fixes blocked canvas controls, compact minimap collisions, native dialogs, mojibake, landmarks, and cramped or off-screen toast content.",
+        },
+      },
       v7_2: {
         headline: "Project history you can shape, with a more consistent workspace",
         summary: "buildER 7.2 adds user-managed commit tags and configurable retention for local project history. It also consolidates the CSS token system and keeps onboarding controls accessible above mobile workspace panels.",
@@ -1879,6 +1897,14 @@ export const en: DeepPartialMessages = {
       confirm: "Continue",
       cancel: "Cancel",
     },
+    resetTranslation: {
+      title: "Clear restructuring",
+      confirm: "Clear",
+    },
+    discardNotes: {
+      title: "Unsaved notes",
+      confirm: "Close without saving",
+    },
     prompt: {
       defaultConfirm: "Save",
       defaultCancel: "Cancel",
@@ -1891,6 +1917,14 @@ export const en: DeepPartialMessages = {
     },
   },
   inspector: {
+    identity: {
+      title: "Identity",
+      name: "Name",
+      type: "Type",
+      nameRequired: "The name cannot be empty.",
+      weakEntity: "Weak entity",
+      selectSingleHint: "Select a single element to edit its properties.",
+    },
     heading: {
       entity: {
         title: "Entity",
@@ -1989,6 +2023,10 @@ export const en: DeepPartialMessages = {
       externalIdentifiersManagedOnHost: "External identifiers that depend on this relationship are managed from the host entity panel.",
     },
     attribute: {
+      listTitle: "Attributes",
+      listEmpty: "No attribute is linked to this element.",
+      identifierBadge: "Identifier",
+      multivaluedBadge: "Multivalued",
       settings: "Attribute settings",
       name: "Attribute name",
       cardinality: "Cardinality",

@@ -64,7 +64,7 @@ export function WorkspaceWelcomePage({
   const tips = [t("workspaceWelcome.tipExplorer"), t("workspaceWelcome.tipReverse"), t("workspaceWelcome.tipVersioning")];
 
   return (
-    <main className="workspace-welcome-page" aria-label={t("workspaceWelcome.title")}>
+    <section className="workspace-welcome-page" aria-label={t("workspaceWelcome.title")}>
       <section className="workspace-welcome-page__content">
         <div className="workspace-welcome-hero">
           <WorkspaceBrandLogo />
@@ -133,6 +133,6 @@ export function WorkspaceWelcomePage({
           </section>
         </div>
       </section>
-    </main>
+    </section>
   );
 }

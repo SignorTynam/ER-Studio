@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  CSSProperties,
+  ChangeEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { DiagramCanvas } from "./canvas/DiagramCanvas";
 import { AppHeader } from "./components/AppHeader";
 import { BottomStatusBar } from "./components/BottomStatusBar";
@@ -17,6 +22,7 @@ import {
 } from "./components/project/ProjectActivityPanel";
 import { ProjectActivityPanelHeader } from "./components/project/ProjectActivityPanelHeader";
 import { ProjectExplorer } from "./components/project/ProjectExplorer";
+import { SelectionInspectorPanel } from "./components/inspector/SelectionInspectorPanel";
 import { MoveToDialog } from "./components/project/MoveToDialog";
 import { ProjectFileTabs } from "./components/project/ProjectFileTabs";
 import { SqlReversePanel } from "./components/reverse/SqlReversePanel";
@@ -444,6 +450,8 @@ interface SqlReverseWorkflowState {
 }
 
 const ONBOARDING_STORAGE_KEY = "chen-er-diagram-studio:onboarding-v1:done";
+/** Bersaglio dello skip link e id del landmark `main` del workspace. */
+const WORKSPACE_MAIN_ID = "workspace-main";
 const APP_BOOT_DELAY_MS = clampValue(Number.parseInt(import.meta.env.VITE_APP_BOOT_DELAY_MS ?? "900", 10) || 900, 700, 3200);
 
 function normalizeMessagePart(value: string): string {
@@ -1896,6 +1904,21 @@ export default function App() {
 
   function markProjectExplorerSaved(state: ProjectExplorerState) {
     lastSavedProjectExplorerRef.current = JSON.stringify(state);
+  }
+
+  /**
+   * Azzeramento della ristrutturazione: scarta lavoro applicato, quindi passa
+   * dal dialogo dell'app e non da `window.confirm`, che ignora tema, focus
+   * trap e traduzioni della shell.
+   */
+  function confirmResetTranslationWork(): Promise<boolean> {
+    return requestConfirmDialog({
+      title: t("dialogs.resetTranslation.title"),
+      message: t("workspace.confirmResetTranslationWork"),
+      confirmLabel: t("dialogs.resetTranslation.confirm"),
+      cancelLabel: t("dialogs.unsavedChanges.cancel"),
+      danger: true,
+    });
   }
 
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
@@ -4515,7 +4538,7 @@ export default function App() {
     setLogicalStage("translation");
   }
 
-  function handleResetLogicalTranslation() {
+  async function handleResetLogicalTranslation() {
     const logicalAccess = canOpenLogicalView(translationHistory.present);
     if (!logicalAccess.allowed) {
       setDiagramView("translation");
@@ -4527,7 +4550,7 @@ export default function App() {
       logicalHistory.present.translation.decisions.length > 0 ||
       logicalHistory.present.model.tables.length > 0 ||
       logicalHistory.present.model.foreignKeys.length > 0;
-    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
+    if (hasAppliedWork && !(await confirmResetTranslationWork())) {
       return;
     }
 
@@ -4609,7 +4632,7 @@ export default function App() {
     setStatus(t("workspace.logicalSchemaActive"));
   }
 
-  function handleResetTranslation() {
+  async function handleResetTranslation() {
     if (!translationAccess.allowed) {
       setStatusWarning(translationAccess.reason ?? t("workspace.fixBlockingErErrorsFirst"));
       return;
@@ -4619,7 +4642,7 @@ export default function App() {
       translationHistory.present.translation.decisions.length > 0 ||
       translationHistory.present.translation.mappings.length > 0 ||
       translationHistory.present.translation.conflicts.length > 0;
-    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
+    if (hasAppliedWork && !(await confirmResetTranslationWork())) {
       return;
     }
 
@@ -6561,11 +6584,11 @@ export default function App() {
   async function handleRenameSelectionQuick() {
     if (selectedNode) {
       const nextLabel = await requestPromptDialog({
-        title: "Rinomina elemento",
-        label: "Nuovo nome elemento",
+        title: t("dialogs.prompt.renameElementTitle"),
+        label: t("dialogs.prompt.renameElementLabel"),
         initialValue: selectedNode.label,
         required: true,
-        requiredMessage: "Il nome elemento non puo essere vuoto.",
+        requiredMessage: t("dialogs.prompt.renameElementRequired"),
       });
       if (nextLabel == null) {
         return;
@@ -7792,6 +7815,7 @@ export default function App() {
   const errorsActivityPresentation = getValidationActivityPresentation(visibleActivityIssues);
   const activityItems: ProjectActivityItem[] = [
     { id: "file", label: t("appHeader.menus.file"), icon: "openProject", shortcut: "Ctrl+Shift+E" },
+    { id: "properties", label: t("inspector.panel.propertiesPanel"), icon: "list" },
     { id: "code", label: t("appHeader.menus.code"), icon: "code", shortcut: "Ctrl+`" },
     { id: "reverse", label: t("appHeader.menus.reverse"), icon: "databaseReverse" },
     { id: "errors", label: t("appHeader.menus.errors"), ...errorsActivityPresentation, shortcut: "Ctrl+Shift+M" },
@@ -7837,7 +7861,24 @@ export default function App() {
     }
   }
   const activityPanelContent =
-    activeActivityPanel === "file" ? (
+    activeActivityPanel === "properties" ? (
+      <SelectionInspectorPanel
+        diagram={history.present}
+        selectionItemCount={selectionItemCount}
+        selectedNode={selectedNode}
+        selectedEdge={selectedEdge}
+        editable={mode === "edit"}
+        onRenameNode={handleRenameNode}
+        onSelectNode={(nodeId) => setSelection({ nodeIds: [nodeId], edgeIds: [] })}
+        onAddAttribute={
+          selectedNode?.type === "entity" || selectedNode?.type === "relationship"
+            ? handleCreateAttributeFromSelection
+            : undefined
+        }
+        onClose={handleToggleActivityPanelOpen}
+        closeLabel={t("workspaceActivity.closePanel")}
+      />
+    ) : activeActivityPanel === "file" ? (
       <div className="project-activity-file">
         <ProjectExplorer
           embedded
@@ -8137,8 +8178,29 @@ export default function App() {
     );
   }
 
+  /**
+   * Sposta il focus sul landmark `main` senza lasciare l'hash nell'URL: in una
+   * SPA il fragment resterebbe in cronologia e cambierebbe il link condiviso.
+   */
+  function handleSkipToContent(event: ReactMouseEvent<HTMLAnchorElement>) {
+    const target = document.getElementById(WORKSPACE_MAIN_ID);
+    if (!target) {
+      return;
+    }
+
+    event.preventDefault();
+    target.focus();
+    target.scrollIntoView({ block: "nearest" });
+  }
+
   return (
     <div className={appShellClassName}>
+        {/* Primo elemento focalizzabile della pagina: senza, da tastiera
+            servivano oltre quaranta Tab per arrivare alla superficie di
+            lavoro, attraversando header, rail, Explorer e tab dei file. */}
+        <a className="skip-link" href={`#${WORKSPACE_MAIN_ID}`} onClick={handleSkipToContent}>
+          {t("workspaceChrome.skipToContent")}
+        </a>
         <AppHeader
           appTitle={APP_TITLE}
           appVersion={APP_VERSION}
@@ -8273,7 +8335,16 @@ export default function App() {
                 : undefined}
             />
           ) : null}
-          <div className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}>
+          {/* Unico landmark `main` del workspace. Prima lo dichiaravano le
+              singole superfici (welcome, empty, editor di testo), quindi con
+              uno schema aperto — canvas ER, traduzione, logica — non ce n'era
+              nessuno e tutta la pagina restava fuori da un main. */}
+          <main
+            id={WORKSPACE_MAIN_ID}
+            tabIndex={-1}
+            aria-label={t("workspaceChrome.mainContentAria")}
+            className={sqlPlaygroundActive || importedDatabaseActive ? "project-main-content project-main-content--sql-playground" : "project-main-content"}
+          >
             {importedDatabaseActive && activeImportedDatabaseSessionId ? (
               <ImportedDatabaseWorkspace
                 key={activeImportedDatabaseSessionId}
@@ -8353,6 +8424,17 @@ export default function App() {
                       : structuredWorkspaceShellStyle
                 }
               >
+          {/* Le altre superfici hanno gia un titolo visibile (welcome, empty
+              editor, Playground, database); il canvas no, quindi resterebbe
+              l'unica pagina senza intestazione. Qui e riservato agli screen
+              reader: la stessa informazione e gia visibile in breadcrumb e
+              view switcher. */}
+          <h1 className="visually-hidden">
+            {t("workspaceChrome.diagramHeading", {
+              name: activeProjectFile?.name ?? projectExplorer.project.name,
+              view: t(`workspaceChrome.views.${diagramView === "er" ? "conceptual" : diagramView}`),
+            })}
+          </h1>
           {diagramView === "er" ? (
             <div className="designer-workspace">
               <div className="designer-canvas-region">
@@ -8507,6 +8589,15 @@ export default function App() {
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onApplyBulkFix={handleApplyBulkLogicalFix}
               onResetTranslation={handleResetLogicalTranslation}
+              onRequestRename={(label, currentValue) =>
+                requestPromptDialog({
+                  title: label,
+                  label,
+                  initialValue: currentValue,
+                  required: true,
+                  requiredMessage: t("dialogs.prompt.required"),
+                })
+              }
               onDone={handleLogicalDone}
               onOpenDesign={handleOpenErStage}
               onExportProject={handleSaveProject}
@@ -8525,7 +8616,7 @@ export default function App() {
           )}
               </div>
             )}
-          </div>
+          </main>
         </div>
           </>
         ) : (
@@ -8668,6 +8759,15 @@ export default function App() {
         editable={mode === "edit"}
         onSave={handleNotesChange}
         onClose={() => setNotesPanelOpen(false)}
+        onConfirmDiscard={() =>
+          requestConfirmDialog({
+            title: t("dialogs.discardNotes.title"),
+            message: t("notesPanel.unsavedConfirm"),
+            confirmLabel: t("dialogs.discardNotes.confirm"),
+            cancelLabel: t("dialogs.unsavedChanges.cancel"),
+            danger: true,
+          })
+        }
       />
 
       {commandMenuOpen ? (

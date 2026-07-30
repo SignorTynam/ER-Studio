@@ -16,7 +16,7 @@ async function createProject(page: Page) {
     .getByRole("button", { name: /Crea nuovo progetto/ })
     .click();
   await confirmNewProjectDialog(page);
-  await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "buildER" })).toBeVisible();
 }
 
 async function createExplorerFile(page: Page, menuLabel: string, name: string) {
@@ -89,7 +89,7 @@ test("cerca file reali, li apre con Enter ed esegue un comando reale", async ({ 
   await expect(page.getByRole("option", { name: /Mostra Welcome/ })).toBeVisible();
   await search.press("Enter");
   await expect(palette).toBeHidden();
-  await expect(page.getByRole("main", { name: "buildER" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "buildER" })).toBeVisible();
 });
 
 test("supporta Ctrl+K, salta i disabilitati e ripristina il focus alla chiusura", async ({ page }) => {

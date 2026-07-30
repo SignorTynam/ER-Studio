@@ -757,6 +757,154 @@ button.project-explorer-empty__cta:focus-visible {
   border-radius: var(--radius-control);
 }
 
+/* ------------------------------------------------------------------
+   Inspector della selezione (pannello "Proprieta" del rail).
+   Header, stato vuoto e metriche arrivano dai pannelli workspace
+   condivisi: qui vivono solo il campo di identita e le righe di sola
+   lettura. */
+.selection-inspector__body {
+  min-height: 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+.selection-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.selection-inspector__section-title {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.selection-inspector__input {
+  width: 100%;
+  min-width: 0;
+  height: var(--size-input);
+  padding: 0 var(--space-2);
+  border: var(--border-width-default) solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-md);
+}
+
+.selection-inspector__input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--studio-focus-ring);
+}
+
+.selection-inspector__input[readonly] {
+  background: var(--color-bg-disabled);
+  color: var(--color-text-secondary);
+}
+
+/* Riga di sola lettura: etichetta a sinistra, valore a destra. */
+.selection-inspector__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1-5) 0;
+  border-top: var(--border-width-default) solid var(--color-border-subtle);
+  font-size: var(--font-size-md);
+}
+
+.selection-inspector__row-label {
+  color: var(--color-text-muted);
+}
+
+.selection-inspector__row-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le sezioni dopo la prima si separano con un filo, non con un titolo grosso. */
+.selection-inspector__body > .selection-inspector__section + .selection-inspector__section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: var(--border-width-default) solid var(--color-border-subtle);
+}
+
+.selection-inspector__hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.selection-inspector__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+/* Riga cliccabile: porta la selezione del canvas sull'attributo. */
+.selection-inspector__list-row {
+  display: flex;
+  width: 100%;
+  min-height: var(--size-tree-row);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-inspector__list-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.selection-inspector__list-row:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--studio-focus-ring);
+}
+
+.selection-inspector__identifier {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--size-tree-row);
+  padding: var(--space-1) var(--space-2);
+}
+
+.selection-inspector__list-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-inspector__list-badges {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .project-explorer-empty__secondary {
   border-color: transparent !important;
   background: transparent !important;

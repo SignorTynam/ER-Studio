@@ -48,6 +48,10 @@ function canvasTransform(page: Page) {
 }
 
 test("minimap renders 20+ nodes, pans by pointer and keyboard, and persists its toggle", async ({ page }) => {
+  // Costruisce 20+ nodi, trascina, usa la tastiera, ricarica e passa dal menu
+  // comandi: gia da solo sfiora i 27s sui 30 di default, e sotto carico li
+  // supera. Il limite e il tempo, non un difetto del prodotto.
+  test.slow();
   await page.setViewportSize({ width: 1280, height: 820 });
   await createDiagram(page);
 
@@ -136,28 +140,36 @@ test("minimap highlights the selected node", async ({ page }) => {
   await expect(minimap.locator(".canvas-minimap__node--selected")).toHaveCount(1);
 });
 
-// G3 — the minimap and the zoom HUD must never overlap. Below 860px the minimap is
-// forced collapsed (a single toggle) so it stays clear of the variably-anchored HUD.
-for (const width of [1280, 860, 640]) {
-  test(`zoom HUD and minimap never overlap at ${width}px`, async ({ page }) => {
+// G3 — the minimap must never overlap the other bottom-anchored canvas overlays.
+//
+// The zoom HUD was the only one checked here, and only at widths that happened to
+// sidestep the defect: at 880px the expanded minimap sat on top of the HUD, and at
+// or below 899px the horizontal toolbar covered the collapsed minimap toggle
+// entirely. 880 covers the band between the minimap's own compact breakpoint (860)
+// and the shell's (899); 768 covers the toolbar collision.
+for (const width of [1280, 899, 880, 860, 768, 640]) {
+  test(`bottom canvas overlays never collide at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 820 });
     await createDiagram(page, width > 860 ? 3 : 0);
 
     await expect(page.locator(".canvas-viewport-hud")).toBeVisible();
     await expect(page.locator(".canvas-minimap-layer")).toBeVisible();
 
-    const overlap = await page.evaluate(() => {
+    const collisions = await page.evaluate(() => {
       const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
-      const hud = rect(".canvas-viewport-hud");
+      const intersects = (a: DOMRect | null, b: DOMRect | null) =>
+        a != null &&
+        b != null &&
+        !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+
       const minimap = rect(".canvas-minimap-layer");
-      if (!hud || !minimap) return false;
-      return !(
-        minimap.right <= hud.left ||
-        hud.right <= minimap.left ||
-        minimap.bottom <= hud.top ||
-        hud.bottom <= minimap.top
-      );
+      return {
+        withHud: intersects(minimap, rect(".canvas-viewport-hud")),
+        withToolbar: intersects(minimap, rect(".designer-context-toolbar")),
+      };
     });
-    expect(overlap).toBe(false);
+
+    expect(collisions.withHud, "la minimap si sovrappone all'HUD dello zoom").toBe(false);
+    expect(collisions.withToolbar, "la minimap si sovrappone alla toolbar del canvas").toBe(false);
   });
 }

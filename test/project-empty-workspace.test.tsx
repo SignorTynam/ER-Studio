@@ -144,7 +144,72 @@ test("workspace mounts a compact status bar and responsive drawer rules", () => 
   assert.match(responsiveCss, /position: absolute/);
   assert.match(responsiveCss, /min-width: var\(--size-activity-rail\)/);
   assert.match(responsiveCss, /max-width: var\(--size-activity-rail\)/);
-  assert.match(responsiveCss, /project-activity-panel:not\(\.project-activity-panel--collapsed\)::after/);
+  assert.match(responsiveCss, /\.project-activity-scrim \{/);
+});
+
+test("the modal drawer scrim is a real dismissible element, not a pseudo-element", () => {
+  const panelSource = readFileSync(
+    new URL("../src/components/project/ProjectActivityPanel.tsx", import.meta.url),
+    "utf8",
+  );
+  const responsiveCss = readFileSync(new URL("../src/styles/responsive.css", import.meta.url), "utf8");
+
+  // Regressione: uno scrim ::after copriva la toolbar del canvas e ne
+  // inghiottiva i click senza chiudere il drawer, lasciando gli strumenti
+  // irraggiungibili sotto i 900px.
+  assert.doesNotMatch(responsiveCss, /project-activity-panel--collapsed\)::after/);
+  assert.match(panelSource, /className="project-activity-scrim"/);
+  assert.match(panelSource, /useMediaQuery\(MODAL_DRAWER_QUERY\)/);
+  assert.match(panelSource, /const MODAL_DRAWER_QUERY = "\(max-width: 900px\)"/);
+  // Esc chiude il drawer solo quando e modale e solo se nessun dialogo
+  // modale ha la precedenza.
+  assert.match(panelSource, /event\.key !== "Escape"/);
+  assert.match(panelSource, /aria-modal="true"/);
+
+  // Scrim ed Esc devono CHIUDERE, non invertire: `onToggleOpen` inverte lo
+  // stato catturato al render, quindi un listener registrato una volta
+  // riaprirebbe un drawer gia aperto. Entrambi passano da `dismissDrawer`,
+  // che legge lo stato corrente da un ref ed e idempotente.
+  assert.match(panelSource, /onClick=\{dismissDrawer\}/);
+  assert.match(panelSource, /dismissDrawer\(\);/);
+  assert.match(panelSource, /const \{ open, onToggleOpen \} = latestRef\.current;/);
+  assert.doesNotMatch(panelSource, /onClick=\{onToggleOpen\}/);
+});
+
+test("the shell z-index scale is tokenized and ordered", () => {
+  const tokensCss = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+  const responsiveCss = readFileSync(new URL("../src/styles/responsive.css", import.meta.url), "utf8");
+  const panelsCss = readFileSync(new URL("../src/styles/panels.css", import.meta.url), "utf8");
+  const commandBarCss = readFileSync(new URL("../src/styles/app-command-bar.css", import.meta.url), "utf8");
+
+  const layers = [
+    "--z-canvas-toolbar",
+    "--z-workspace-drawer-scrim",
+    "--z-workspace-drawer",
+    "--z-workspace-onboarding",
+    "--z-workspace-toast",
+    "--z-editor-diagnostic-popover",
+    "--z-app-topbar",
+  ];
+
+  const values = layers.map((name) => {
+    const match = tokensCss.match(new RegExp(`${name}:\\s*(\\d+);`));
+    assert.ok(match, `token ${name} non dichiarato in tokens.css`);
+    return Number(match[1]);
+  });
+
+  for (let index = 1; index < values.length; index += 1) {
+    assert.ok(
+      values[index] > values[index - 1],
+      `${layers[index]} (${values[index]}) deve stare sopra ${layers[index - 1]} (${values[index - 1]})`,
+    );
+  }
+
+  // I layer che competevano nel difetto originale non usano piu numeri nudi.
+  assert.match(responsiveCss, /z-index: var\(--z-workspace-drawer\)/);
+  assert.match(responsiveCss, /z-index: var\(--z-workspace-drawer-scrim\)/);
+  assert.match(panelsCss, /z-index: var\(--z-canvas-toolbar\)/);
+  assert.match(commandBarCss, /z-index: var\(--z-app-topbar\)/);
 });
 
 test("application dialogs trap focus and restore it to the trigger", () => {

@@ -57,7 +57,7 @@ test("commit tags, automatic filtering, and retention are managed from Source Co
   await expect(panel.getByRole("button", { name: "Release 1" })).toBeVisible();
 
   await activityRail.getByRole("button", { name: "File", exact: true }).click();
-  await page.getByRole("main", { name: "buildER" }).getByRole("button", { name: /New note/ }).click();
+  await page.getByRole("region", { name: "buildER" }).getByRole("button", { name: /New note/ }).click();
   await page.getByRole("dialog", { name: "New file" }).getByRole("button", { name: "Save" }).click();
   await activityRail.getByRole("button", { name: "Version", exact: true }).click();
   await commitFromPanel(page, "Add project notes");
