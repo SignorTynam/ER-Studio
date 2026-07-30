@@ -1882,6 +1882,14 @@ export const en: DeepPartialMessages = {
       confirm: "Continue",
       cancel: "Cancel",
     },
+    resetTranslation: {
+      title: "Clear restructuring",
+      confirm: "Clear",
+    },
+    discardNotes: {
+      title: "Unsaved notes",
+      confirm: "Close without saving",
+    },
     prompt: {
       defaultConfirm: "Save",
       defaultCancel: "Cancel",

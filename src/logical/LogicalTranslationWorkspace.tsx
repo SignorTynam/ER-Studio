@@ -70,6 +70,8 @@ interface LogicalTranslationWorkspaceProps {
   onApplyChoice: (item: LogicalTranslationItem, choice: LogicalTranslationChoice) => void;
   onApplyBulkFix: (step: LogicalBulkStep, options?: { choiceIdsByTargetKey?: Record<string, string> }) => void;
   onResetTranslation: () => void;
+  /** Prompt di rinomina dell'app: sostituisce `window.prompt`. */
+  onRequestRename: (label: string, currentValue: string) => Promise<string | null>;
   onDone: () => void;
   onOpenDesign: () => void;
   onExportProject: () => void;
@@ -265,8 +267,20 @@ export function findTranslationRenameTarget(
   return columnArtifact ? findColumnRenameTarget(workspace, columnArtifact.id) : null;
 }
 
-function renameWithPrompt(label: string, currentValue: string, onRename: (nextValue: string) => void): void {
-  const nextValue = window.prompt(label, currentValue)?.trim();
+/**
+ * Rinomina tabelle e colonne passando dal prompt dell'app.
+ *
+ * Prima usava `window.prompt`, che ignora tema, focus trap e traduzioni della
+ * shell — e su alcuni browser puo essere soppresso del tutto, lasciando la
+ * rinomina silenziosamente inerte.
+ */
+async function renameWithPrompt(
+  requestRename: (label: string, currentValue: string) => Promise<string | null>,
+  label: string,
+  currentValue: string,
+  onRename: (nextValue: string) => void,
+): Promise<void> {
+  const nextValue = (await requestRename(label, currentValue))?.trim();
   if (nextValue && nextValue !== currentValue) {
     onRename(nextValue);
   }
@@ -484,14 +498,21 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
     }
 
     if (translationRenameTarget.kind === "column") {
-      renameWithPrompt(t("logical.designer.renameColumn"), translationRenameTarget.currentName, (nextName) =>
-        props.onRenameColumn(translationRenameTarget.tableId, translationRenameTarget.columnId, nextName),
+      void renameWithPrompt(
+        props.onRequestRename,
+        t("logical.designer.renameColumn"),
+        translationRenameTarget.currentName,
+        (nextName) =>
+          props.onRenameColumn(translationRenameTarget.tableId, translationRenameTarget.columnId, nextName),
       );
       return;
     }
 
-    renameWithPrompt(t("logical.designer.renameTable"), translationRenameTarget.currentName, (nextName) =>
-      props.onRenameTable(translationRenameTarget.tableId, nextName),
+    void renameWithPrompt(
+      props.onRequestRename,
+      t("logical.designer.renameTable"),
+      translationRenameTarget.currentName,
+      (nextName) => props.onRenameTable(translationRenameTarget.tableId, nextName),
     );
   }
 
@@ -665,12 +686,19 @@ export function LogicalTranslationWorkspace(props: LogicalTranslationWorkspacePr
               icon={<StudioIcon name="rename" />}
               onClick={() =>
                 selectedColumnContext
-                  ? renameWithPrompt(t("logical.designer.renameColumn"), selectedColumnContext.column.name, (nextName) =>
-                      props.onRenameColumn(selectedColumnContext.tableId, selectedColumnContext.column.id, nextName),
+                  ? void renameWithPrompt(
+                      props.onRequestRename,
+                      t("logical.designer.renameColumn"),
+                      selectedColumnContext.column.name,
+                      (nextName) =>
+                        props.onRenameColumn(selectedColumnContext.tableId, selectedColumnContext.column.id, nextName),
                     )
                   : selectedTable
-                    ? renameWithPrompt(t("logical.designer.renameTable"), selectedTable.name, (nextName) =>
-                        props.onRenameTable(selectedTable.id, nextName),
+                    ? void renameWithPrompt(
+                        props.onRequestRename,
+                        t("logical.designer.renameTable"),
+                        selectedTable.name,
+                        (nextName) => props.onRenameTable(selectedTable.id, nextName),
                       )
                     : undefined
               }

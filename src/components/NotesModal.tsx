@@ -10,6 +10,12 @@ interface NotesModalProps {
   editable?: boolean;
   onSave: (value: string) => void;
   onClose: () => void;
+  /**
+   * Conferma la chiusura con modifiche non salvate. Arriva da App perche i
+   * dialoghi dell'app vivono la, e senza questa il componente ricadrebbe su
+   * `window.confirm`, che ignora tema e focus trap della shell.
+   */
+  onConfirmDiscard: () => Promise<boolean>;
 }
 
 const ALLOWED_NOTES_TAGS = new Set(["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li"]);
@@ -122,8 +128,8 @@ export function NotesModal(props: NotesModalProps) {
     return sanitizeNotesHtml(editorRef.current?.innerHTML ?? "");
   }
 
-  function requestClose() {
-    if (!dirty || window.confirm(t("notesPanel.unsavedConfirm"))) {
+  async function requestClose() {
+    if (!dirty || (await props.onConfirmDiscard())) {
       props.onClose();
     }
   }

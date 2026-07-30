@@ -1906,6 +1906,21 @@ export default function App() {
     lastSavedProjectExplorerRef.current = JSON.stringify(state);
   }
 
+  /**
+   * Azzeramento della ristrutturazione: scarta lavoro applicato, quindi passa
+   * dal dialogo dell'app e non da `window.confirm`, che ignora tema, focus
+   * trap e traduzioni della shell.
+   */
+  function confirmResetTranslationWork(): Promise<boolean> {
+    return requestConfirmDialog({
+      title: t("dialogs.resetTranslation.title"),
+      message: t("workspace.confirmResetTranslationWork"),
+      confirmLabel: t("dialogs.resetTranslation.confirm"),
+      cancelLabel: t("dialogs.unsavedChanges.cancel"),
+      danger: true,
+    });
+  }
+
   async function confirmDiscardChanges(actionLabel: string): Promise<boolean> {
     if (!hasUnsavedChangesRef.current) {
       return true;
@@ -4523,7 +4538,7 @@ export default function App() {
     setLogicalStage("translation");
   }
 
-  function handleResetLogicalTranslation() {
+  async function handleResetLogicalTranslation() {
     const logicalAccess = canOpenLogicalView(translationHistory.present);
     if (!logicalAccess.allowed) {
       setDiagramView("translation");
@@ -4535,7 +4550,7 @@ export default function App() {
       logicalHistory.present.translation.decisions.length > 0 ||
       logicalHistory.present.model.tables.length > 0 ||
       logicalHistory.present.model.foreignKeys.length > 0;
-    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
+    if (hasAppliedWork && !(await confirmResetTranslationWork())) {
       return;
     }
 
@@ -4617,7 +4632,7 @@ export default function App() {
     setStatus(t("workspace.logicalSchemaActive"));
   }
 
-  function handleResetTranslation() {
+  async function handleResetTranslation() {
     if (!translationAccess.allowed) {
       setStatusWarning(translationAccess.reason ?? t("workspace.fixBlockingErErrorsFirst"));
       return;
@@ -4627,7 +4642,7 @@ export default function App() {
       translationHistory.present.translation.decisions.length > 0 ||
       translationHistory.present.translation.mappings.length > 0 ||
       translationHistory.present.translation.conflicts.length > 0;
-    if (hasAppliedWork && !window.confirm(t("workspace.confirmResetTranslationWork"))) {
+    if (hasAppliedWork && !(await confirmResetTranslationWork())) {
       return;
     }
 
@@ -6569,11 +6584,11 @@ export default function App() {
   async function handleRenameSelectionQuick() {
     if (selectedNode) {
       const nextLabel = await requestPromptDialog({
-        title: "Rinomina elemento",
-        label: "Nuovo nome elemento",
+        title: t("dialogs.prompt.renameElementTitle"),
+        label: t("dialogs.prompt.renameElementLabel"),
         initialValue: selectedNode.label,
         required: true,
-        requiredMessage: "Il nome elemento non puo essere vuoto.",
+        requiredMessage: t("dialogs.prompt.renameElementRequired"),
       });
       if (nextLabel == null) {
         return;
@@ -8574,6 +8589,15 @@ export default function App() {
               onApplyChoice={handleApplyLogicalTranslationChoice}
               onApplyBulkFix={handleApplyBulkLogicalFix}
               onResetTranslation={handleResetLogicalTranslation}
+              onRequestRename={(label, currentValue) =>
+                requestPromptDialog({
+                  title: label,
+                  label,
+                  initialValue: currentValue,
+                  required: true,
+                  requiredMessage: t("dialogs.prompt.required"),
+                })
+              }
               onDone={handleLogicalDone}
               onOpenDesign={handleOpenErStage}
               onExportProject={handleSaveProject}
@@ -8735,6 +8759,15 @@ export default function App() {
         editable={mode === "edit"}
         onSave={handleNotesChange}
         onClose={() => setNotesPanelOpen(false)}
+        onConfirmDiscard={() =>
+          requestConfirmDialog({
+            title: t("dialogs.discardNotes.title"),
+            message: t("notesPanel.unsavedConfirm"),
+            confirmLabel: t("dialogs.discardNotes.confirm"),
+            cancelLabel: t("dialogs.unsavedChanges.cancel"),
+            danger: true,
+          })
+        }
       />
 
       {commandMenuOpen ? (

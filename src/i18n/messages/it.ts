@@ -1880,6 +1880,14 @@ export const it = {
       confirm: "Continua",
       cancel: "Annulla",
     },
+    resetTranslation: {
+      title: "Azzera la ristrutturazione",
+      confirm: "Azzera",
+    },
+    discardNotes: {
+      title: "Note non salvate",
+      confirm: "Chiudi senza salvare",
+    },
     prompt: {
       defaultConfirm: "Salva",
       defaultCancel: "Annulla",

@@ -160,6 +160,8 @@ export function VersionCompareWorkspaceInstance({
               onApplyChoice={() => undefined}
               onApplyBulkFix={() => undefined}
               onResetTranslation={() => undefined}
+              // Confronto versioni: sola lettura, nessuna rinomina possibile.
+              onRequestRename={() => Promise.resolve(null)}
               onDone={() => undefined}
               onOpenDesign={() => undefined}
               onExportProject={() => undefined}

@@ -1882,6 +1882,14 @@ export const sq: DeepPartialMessages = {
       confirm: "Vazhdo",
       cancel: "Anulo",
     },
+    resetTranslation: {
+      title: "Pastro ristrukturimin",
+      confirm: "Pastro",
+    },
+    discardNotes: {
+      title: "Shënime të paruajtura",
+      confirm: "Mbyll pa ruajtur",
+    },
     prompt: {
       defaultConfirm: "Ruaj",
       defaultCancel: "Anulo",
